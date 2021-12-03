@@ -75,6 +75,8 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 		reached = true
 
 		s.yield()
+
+		require.FailNow(t, "should not reach this")
 	})
 
 	<-c.blocking
