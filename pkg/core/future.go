@@ -5,10 +5,14 @@ type Future interface {
 	Get() (interface{}, error)
 }
 
-var _ Future = &futureImpl{}
-
 type futureImpl struct {
 	c chan interface{}
+}
+
+func NewFuture() Future {
+	return &futureImpl{
+		c: make(chan interface{}, 1),
+	}
 }
 
 func (f *futureImpl) Set(v interface{}) {

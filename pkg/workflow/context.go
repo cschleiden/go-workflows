@@ -16,3 +16,7 @@ type contextImpl struct {
 func (c *contextImpl) IsReplaying() bool {
 	return false // TODO
 }
+
+func (c *contextImpl) RegisterResult() {
+	panic("not implemented")
+}

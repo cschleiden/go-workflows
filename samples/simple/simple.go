@@ -1,4 +1,4 @@
-package simple
+package main
 
 import (
 	"context"
@@ -39,7 +39,7 @@ func RunWorker(mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context) error {
+func Workflow1(ctx workflow.Context, t interface{}) error {
 	fmt.Println("Entering Workflow1")
 	fmt.Println("\tIsReplaying:", ctx.IsReplaying())
 

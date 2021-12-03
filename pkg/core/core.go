@@ -5,7 +5,3 @@ type Promise interface {
 }
 
 type WorkflowInstanceID string
-
-type Workflow interface{}
-
-type Activity interface{}
