@@ -25,7 +25,7 @@ func Test_Coroutine_MarkedAsDone(t *testing.T) {
 
 	<-c.blocking
 
-	require.True(t, c.done.Load().(bool))
+	require.True(t, c.finished.Load().(bool))
 }
 
 func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
@@ -41,7 +41,7 @@ func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 	<-c.blocking
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.done.Load().(bool))
+	require.False(t, c.finished.Load().(bool))
 }
 
 func Test_Coroutine_Continue(t *testing.T) {
@@ -55,12 +55,12 @@ func Test_Coroutine_Continue(t *testing.T) {
 	<-c.blocking
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.done.Load().(bool))
+	require.False(t, c.finished.Load().(bool))
 
 	c.cont()
 
 	require.False(t, c.blocked.Load().(bool))
-	require.True(t, c.done.Load().(bool))
+	require.True(t, c.finished.Load().(bool))
 }
 
 func Test_Coroutine_ContinueAndBlock(t *testing.T) {
@@ -82,11 +82,11 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	<-c.blocking
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.done.Load().(bool))
+	require.False(t, c.finished.Load().(bool))
 
 	c.cont()
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.done.Load().(bool))
+	require.False(t, c.finished.Load().(bool))
 	require.True(t, reached)
 }

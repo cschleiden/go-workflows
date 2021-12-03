@@ -16,12 +16,12 @@ func newCoroutine(ctx context.Context, fn func(ctx context.Context)) *coState {
 	}
 
 	s.blocked.Store(false)
-	s.done.Store(false)
+	s.finished.Store(false)
 
 	ctx = withCoState(ctx, s)
 
 	go func() {
-		defer s.finished() // Ensure we always mark the coroutine as finished
+		defer s.finish() // Ensure we always mark the coroutine as finished
 		defer func() {
 			// TODO: panic handling
 		}()
@@ -33,14 +33,14 @@ func newCoroutine(ctx context.Context, fn func(ctx context.Context)) *coState {
 }
 
 type coState struct {
-	blocking chan bool
-	unblock  chan bool
-	blocked  atomic.Value
-	done     atomic.Value
+	blocking chan bool    // coroutine is going to be blocked
+	unblock  chan bool    // channel to unblock block coroutine
+	blocked  atomic.Value // coroutine is currently blocked
+	finished atomic.Value // coroutine finished executing
 }
 
-func (s *coState) finished() {
-	s.done.Store(true)
+func (s *coState) finish() {
+	s.finished.Store(true)
 	s.blocking <- true
 }
 
