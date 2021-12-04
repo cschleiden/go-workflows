@@ -43,29 +43,29 @@ func Workflow1(ctx workflow.Context, t interface{}) error {
 	fmt.Println("Entering Workflow1")
 	fmt.Println("\tIsReplaying:", ctx.IsReplaying())
 
-	a1, err := workflow.ExecuteActivity(ctx, Activity1)
-	if err != nil {
-		panic("error executing activity 1")
-	}
+	// a1, err := workflow.ExecuteActivity(ctx, Activity1)
+	// if err != nil {
+	// 	panic("error executing activity 1")
+	// }
 
-	r1, err := a1.Get()
-	if err != nil {
-		panic("error getting activity 1 result")
-	}
-	fmt.Println("R1 result:", r1)
+	// r1, err := a1.Get()
+	// if err != nil {
+	// 	panic("error getting activity 1 result")
+	// }
+	// fmt.Println("R1 result:", r1)
 
-	a2, err := workflow.ExecuteActivity(ctx, Activity2)
-	if err != nil {
-		panic("error executing activity 1")
-	}
+	// a2, err := workflow.ExecuteActivity(ctx, Activity2)
+	// if err != nil {
+	// 	panic("error executing activity 1")
+	// }
 
-	r2, err := a2.Get()
-	if err != nil {
-		panic("error getting activity 1 result")
-	}
-	fmt.Println("R2 result:", r2)
+	// r2, err := a2.Get()
+	// if err != nil {
+	// 	panic("error getting activity 1 result")
+	// }
+	// fmt.Println("R2 result:", r2)
 
-	fmt.Println("Leaving Workflow1")
+	// fmt.Println("Leaving Workflow1")
 
 	return nil
 }
