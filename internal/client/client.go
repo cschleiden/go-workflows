@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 
-	"github.com/cschleiden/go-dt/internal/core"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
 )
@@ -24,7 +23,7 @@ func NewTaskHubClient(backend backend.Backend) TaskHubClient {
 
 func (c *taskHubClient) StartWorkflow(_ context.Context, wf workflow.Workflow) error {
 	// TODO: Send right parameters
-	c.backend.CreateWorkflowInstance(core.WorkflowInstanceID("test"), wf)
+	// c.backend.CreateWorkflowInstance(core.WorkflowInstanceID("test"), wf)
 
 	return nil
 }

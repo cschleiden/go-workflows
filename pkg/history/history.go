@@ -1,4 +1,4 @@
-package core
+package history
 
 type HistoryEventType uint
 
@@ -16,6 +16,11 @@ const (
 	HistoryEventTypeActivityCompleted
 )
 
-type HistoryEntry struct {
+type HistoryEvent struct {
 	Type HistoryEventType
+
+	EventID int64
+
+	// Attributes are event type specific attributes
+	Attributes interface{}
 }
