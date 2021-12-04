@@ -3,8 +3,9 @@ package client
 import (
 	"context"
 
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-dt/internal/backend"
+	"github.com/cschleiden/go-dt/internal/core"
+	"github.com/cschleiden/go-dt/internal/workflow"
 )
 
 type TaskHubClient interface {
@@ -22,7 +23,8 @@ func NewTaskHubClient(backend backend.Backend) TaskHubClient {
 }
 
 func (c *taskHubClient) StartWorkflow(_ context.Context, wf workflow.Workflow) error {
-	// TODO: Dispatch workflow
+	// TODO: Send right parameters
+	c.backend.CreateWorkflowInstance(core.WorkflowInstanceID("test"), wf)
 
-	panic("not implemented") // TODO: Implement
+	return nil
 }
