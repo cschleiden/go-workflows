@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cschleiden/go-dt/internal/client"
+	"github.com/cschleiden/go-dt/internal/worker"
+	workflow "github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
-	"github.com/cschleiden/go-dt/pkg/client"
-	"github.com/cschleiden/go-dt/pkg/worker"
-	"github.com/cschleiden/go-dt/pkg/workflow"
 )
 
 func main() {

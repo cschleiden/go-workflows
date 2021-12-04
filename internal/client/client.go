@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 
-	"github.com/cschleiden/go-dt/internal/backend"
 	"github.com/cschleiden/go-dt/internal/core"
 	"github.com/cschleiden/go-dt/internal/workflow"
+	"github.com/cschleiden/go-dt/pkg/backend"
 )
 
 type TaskHubClient interface {

@@ -1,8 +1,8 @@
 package backend
 
 import (
-	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-dt/internal/core"
+	"github.com/cschleiden/go-dt/internal/workflow"
 )
 
 type WorkItem struct {
