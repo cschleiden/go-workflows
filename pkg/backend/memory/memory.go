@@ -8,6 +8,7 @@ import (
 
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/core"
+	"github.com/cschleiden/go-dt/pkg/core/tasks"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
 
@@ -23,7 +24,11 @@ type memoryBackend struct {
 
 	mu sync.Mutex
 
-	workflowQueue Queue
+	// workflows not yet picked up
+	workflows chan *tasks.WorkflowTask
+
+	lockedWorkflows map[string]*tasks.WorkflowTask
+
 	activityQueue Queue
 }
 
@@ -32,7 +37,10 @@ func NewMemoryBackend() backend.Backend {
 		instanceStore: make(map[string]map[string]workflowState),
 		mu:            sync.Mutex{},
 
-		workflowQueue: NewQueue(),
+		// Queue of unlocked workflow instances
+		workflows:       make(chan *tasks.WorkflowTask, 100),
+		lockedWorkflows: make(map[string]*tasks.WorkflowTask),
+
 		activityQueue: NewQueue(),
 	}
 }
@@ -61,11 +69,28 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 
 	// Add to queue
 	// TODO: Check if this already exists
-	mb.workflowQueue.Push(m)
+	mb.workflows <- &tasks.WorkflowTask{}
 
 	return nil
 }
 
-func (mb *memoryBackend) SendWorkflowInstanceMessage(_ context.Context, _ core.TaskMessage) error {
-	panic("not implemented") // TODO: Implement
+func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*tasks.WorkflowTask, error) {
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	case t := <-mb.workflows:
+		mb.lockedWorkflows[t.WorkflowInstance.GetInstanceID()] = t
+		return t, nil
+	}
+}
+
+func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.WorkflowTask) error {
+	_, ok := mb.lockedWorkflows[t.WorkflowInstance.GetExecutionID()]
+	if !ok {
+		panic("could not unlock workflow instance")
+	}
+
+	delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
+
+	mb.workflows <- &t
 }

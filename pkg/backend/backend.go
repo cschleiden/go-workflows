@@ -4,14 +4,15 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-dt/pkg/core"
+	"github.com/cschleiden/go-dt/pkg/core/tasks"
 )
 
 type Backend interface {
 	CreateWorkflowInstance(context.Context, core.TaskMessage) error
 
-	SendWorkflowInstanceMessage(context.Context, core.TaskMessage) error
+	GetWorkflowTask(context.Context) (*tasks.WorkflowTask, error)
 
-	// GetWorkflowTask() (WorkItem, error)
+	CompleteWorkflowTask(context.Context, tasks.WorkflowTask) error
 
 	// GetActivityTask() (WorkItem, error)
 }
