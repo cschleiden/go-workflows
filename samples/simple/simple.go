@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -17,13 +18,19 @@ func main() {
 	// Run worker
 	go RunWorker(mb)
 
-	// Start workflow via client
-	client := client.NewTaskHubClient(mb)
-	if err := client.StartWorkflow(context.Background(), Workflow1); err != nil {
+	ctx := context.Background()
+
+	// Start workflow via c
+	c := client.NewTaskHubClient(mb)
+
+	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+		InstanceID: uuid.NewString(),
+	}, Workflow1, "Hello world")
+	if err != nil {
 		panic("could not start workflow")
 	}
 
-	// TODO: Wait until workflow is done or program is canceled
+	fmt.Println("Started workflow", wf.GetInstanceID())
 }
 
 func RunWorker(mb backend.Backend) {
@@ -39,7 +46,7 @@ func RunWorker(mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, t interface{}) error {
+func Workflow1(ctx workflow.Context, msg string) error {
 	fmt.Println("Entering Workflow1")
 	fmt.Println("\tIsReplaying:", ctx.IsReplaying())
 
