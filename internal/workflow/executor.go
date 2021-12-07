@@ -34,6 +34,9 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowT
 
 	// TODO: Process commands
 
+	if e.workflow != nil {
+		e.workflow.Close()
+	}
 	return nil
 }
 
