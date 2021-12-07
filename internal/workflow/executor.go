@@ -22,9 +22,11 @@ type executor struct {
 }
 
 func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) error {
+	wfCtx := NewWorkflowContext()
+
 	// Replay history
 	for _, event := range task.History {
-		e.executeEvent(ctx, event)
+		e.executeEvent(ctx, wfCtx, event)
 
 		event.Played = true
 	}
@@ -64,11 +66,11 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowT
 	return nil
 }
 
-func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent) error {
+func (e *executor) executeEvent(ctx context.Context, wfCtx Context, event history.HistoryEvent) error {
 	switch event.EventType {
 	case history.HistoryEventType_WorkflowExecutionStarted:
 		a := event.Attributes.(*history.ExecutionStartedAttributes)
-		e.executeWorkflow(a)
+		e.executeWorkflow(wfCtx, a)
 	default:
 		panic("unknown event type")
 	}
@@ -76,8 +78,9 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 	return nil
 }
 
-func (e *executor) executeWorkflow(attributes *history.ExecutionStartedAttributes) {
-
+func (e *executor) executeWorkflow(wfCtx Context, attributes *history.ExecutionStartedAttributes) {
+	// coState := newCoroutine(ctx, func(ctx context.Context) {
+	// })
 }
 
 // func (e *executorImpl) ExecuteWorkflow(ctx context.Context, wf Workflow) {

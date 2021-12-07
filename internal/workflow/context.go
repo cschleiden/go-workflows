@@ -6,7 +6,7 @@ type Context interface {
 	RegisterResult()
 }
 
-func NewContext() Context {
+func NewWorkflowContext() Context {
 	return &contextImpl{}
 }
 
