@@ -1,4 +1,4 @@
-package workflow
+package sync
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 func Test_Coroutine_CanAccessState(t *testing.T) {
 	ctx := context.Background()
 	c := newState()
-	c.run(ctx, func(ctx context.Context) {
+	c.Run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 		require.NotNil(t, s)
 	})
@@ -21,7 +21,7 @@ func Test_Coroutine_CanAccessState(t *testing.T) {
 func Test_Coroutine_MarkedAsDone(t *testing.T) {
 	ctx := context.Background()
 	c := newState()
-	c.run(ctx, func(ctx context.Context) {
+	c.Run(ctx, func(ctx context.Context) {
 
 	})
 
@@ -33,7 +33,7 @@ func Test_Coroutine_MarkedAsDone(t *testing.T) {
 func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 	ctx := context.Background()
 	c := newState()
-	c.run(ctx, func(ctx context.Context) {
+	c.Run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -50,7 +50,7 @@ func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 func Test_Coroutine_Continue(t *testing.T) {
 	ctx := context.Background()
 	c := newState()
-	c.run(ctx, func(ctx context.Context) {
+	c.Run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -61,7 +61,7 @@ func Test_Coroutine_Continue(t *testing.T) {
 	require.True(t, c.blocked.Load().(bool))
 	require.False(t, c.Finished())
 
-	c.cont()
+	c.Continue()
 
 	require.False(t, c.blocked.Load().(bool))
 	require.True(t, c.Finished())
@@ -72,7 +72,7 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 
 	ctx := context.Background()
 	c := newState()
-	c.run(ctx, func(ctx context.Context) {
+	c.Run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -89,7 +89,7 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	require.True(t, c.blocked.Load().(bool))
 	require.False(t, c.Finished())
 
-	c.cont()
+	c.Continue()
 
 	require.True(t, c.blocked.Load().(bool))
 	require.False(t, c.Finished())

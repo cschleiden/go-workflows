@@ -1,6 +1,10 @@
 package workflow
 
-import "context"
+import (
+	"context"
+
+	"github.com/cschleiden/go-dt/internal/sync"
+)
 
 type Workflow interface{}
 
@@ -8,16 +12,16 @@ type workflowFn func(Context) error // TODO: args
 
 type workflow struct {
 	context *contextImpl
-	cs      *coState
+	cr      sync.Coroutine
 	fn      workflowFn
 }
 
 func NewWorkflow(workflowFn workflowFn) *workflow {
-	cs := newState()
+	c := sync.NewCoroutine()
 
 	return &workflow{
-		context: newWorkflowContext(cs),
-		cs:      cs,
+		context: newWorkflowContext(c),
+		cr:      c,
 		fn:      workflowFn,
 	}
 }
@@ -27,21 +31,21 @@ func (w *workflow) Context() *contextImpl {
 }
 
 func (w *workflow) Execute(ctx context.Context) error {
-	w.cs.run(ctx, func(ctx context.Context) {
+	w.cr.Run(ctx, func(ctx context.Context) {
 		w.fn(w.context)
 	})
 
-	w.cs.UntilBlocked()
+	w.cr.WaitUntilBlocked()
 
 	return nil
 }
 
 func (w *workflow) Continue(ctx context.Context) error {
-	w.cs.cont()
+	w.cr.Continue()
 
 	return nil
 }
 
 func (w *workflow) Complete() bool {
-	return w.cs.finished.Load().(bool)
+	return w.cr.Finished()
 }

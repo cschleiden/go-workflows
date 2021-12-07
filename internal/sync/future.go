@@ -1,4 +1,4 @@
-package workflow
+package sync
 
 import (
 	"sync/atomic"
@@ -12,18 +12,18 @@ type Future interface {
 	Get() (interface{}, error)
 }
 
-type futureImpl struct {
-	cs *coState
-	c  chan interface{}
-	v  atomic.Value
-}
-
-func newFuture(cs *coState) Future {
+func NewFuture(cr Coroutine) Future {
 	return &futureImpl{
-		cs: cs,
+		cr: cr,
 		c:  make(chan interface{}, 1),
 		v:  atomic.Value{},
 	}
+}
+
+type futureImpl struct {
+	cr Coroutine
+	c  chan interface{}
+	v  atomic.Value
 }
 
 func (f *futureImpl) Set(v interface{}) {
@@ -42,6 +42,6 @@ func (f *futureImpl) Get() (interface{}, error) {
 			return v, nil
 		}
 
-		f.cs.Yield()
+		f.cr.Yield()
 	}
 }

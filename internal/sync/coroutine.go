@@ -1,4 +1,4 @@
-package workflow
+package sync
 
 import (
 	"context"
@@ -16,6 +16,21 @@ type coState struct {
 	finished atomic.Value // coroutine finished executing
 }
 
+type Coroutine interface {
+	// Run starts the coroutine, must only be called once
+	Run(ctx context.Context, fn func(ctx context.Context))
+	WaitUntilBlocked()
+	Continue()
+
+	Blocked() bool
+	Yield()
+	Finished() bool
+}
+
+func NewCoroutine() Coroutine {
+	return newState()
+}
+
 func newState() *coState {
 	return &coState{
 		blocking: make(chan bool, 1),
@@ -23,7 +38,7 @@ func newState() *coState {
 	}
 }
 
-func (s *coState) run(ctx context.Context, fn func(ctx context.Context)) {
+func (s *coState) Run(ctx context.Context, fn func(ctx context.Context)) {
 	ctx = withCoState(ctx, s)
 
 	go func() {
@@ -41,12 +56,17 @@ func (s *coState) finish() {
 	s.blocking <- true
 }
 
-func (s *coState) UntilBlocked() {
+func (s *coState) WaitUntilBlocked() {
 	<-s.blocking
 }
 
 func (s *coState) Finished() bool {
 	v, ok := s.finished.Load().(bool)
+	return ok && v
+}
+
+func (s *coState) Blocked() bool {
+	v, ok := s.blocked.Load().(bool)
 	return ok && v
 }
 
@@ -59,7 +79,7 @@ func (s *coState) Yield() {
 	s.blocked.Store(false)
 }
 
-func (s *coState) cont() {
+func (s *coState) Continue() {
 	s.unblock <- true
 
 	// TODO: Add some timeout
