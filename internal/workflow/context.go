@@ -1,27 +1,27 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-dt/internal/commands"
+	"github.com/cschleiden/go-dt/internal/command"
 )
 
 type Context interface {
+	// Are we currently replaying?
 	Replaying() bool
 
-	RegisterResult()
-
+	// ExecuteActivity schedules the given activity to be executed
 	ExecuteActivity(name string) (Future, error) // TODO: inputs
 }
 
 func newWorkflowContext() *contextImpl {
 	return &contextImpl{
-		commands:    []commands.Command{},
+		commands:    []command.Command{},
 		id:          0,
 		openFutures: map[int]Future{},
 	}
 }
 
 type contextImpl struct {
-	commands []commands.Command
+	commands []command.Command
 
 	id          int
 	openFutures map[int]Future
@@ -33,15 +33,11 @@ func (c *contextImpl) Replaying() bool {
 	return false // TODO
 }
 
-func (c *contextImpl) RegisterResult() {
-	panic("not implemented")
-}
-
 func (c *contextImpl) ExecuteActivity(name string) (Future, error) {
 	id := c.id
 	c.id++
 
-	command := commands.NewScheduleActivityTaskCommand(id, name, "", "")
+	command := command.NewScheduleActivityTaskCommand(id, name, "", "")
 	c.commands = append(c.commands, command)
 
 	f := newFuture(c.cs)

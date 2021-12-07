@@ -44,6 +44,8 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 
 	case history.HistoryEventType_ActivityScheduled:
 
+	case history.HistoryEventType_ActivityFailed:
+
 	case history.HistoryEventType_ActivityCompleted:
 		a := event.Attributes.(*history.ActivityCompletedAttributes)
 		e.handleActivityCompleted(ctx, a)
