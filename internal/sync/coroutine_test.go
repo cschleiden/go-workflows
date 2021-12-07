@@ -95,3 +95,20 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	require.False(t, c.Finished())
 	require.True(t, reached)
 }
+
+func Test_Exit(t *testing.T) {
+	ctx := context.Background()
+	c := NewCoroutine()
+	c.Run(ctx, func(ctx context.Context) {
+		s := getCoState(ctx)
+
+		s.Yield()
+
+		require.FailNow(t, "should not reach this")
+	})
+
+	c.WaitUntilBlocked()
+	c.Exit()
+
+	require.True(t, c.Finished())
+}

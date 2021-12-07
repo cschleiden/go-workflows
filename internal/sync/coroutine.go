@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"runtime"
 	"sync/atomic"
 )
 
@@ -9,11 +10,14 @@ type key int
 
 var coroutinesCtxKey key
 
+type unblockFn func() bool
+
 type coState struct {
-	blocking chan bool    // coroutine is going to be blocked
-	unblock  chan bool    // channel to unblock block coroutine
-	blocked  atomic.Value // coroutine is currently blocked
-	finished atomic.Value // coroutine finished executing
+	blocking   chan bool    // coroutine is going to be blocked
+	unblock    chan bool    // channel to unblock block coroutine
+	blocked    atomic.Value // coroutine is currently blocked
+	finished   atomic.Value // coroutine finished executing
+	shouldExit atomic.Value
 }
 
 type Coroutine interface {
@@ -21,6 +25,9 @@ type Coroutine interface {
 	Run(ctx context.Context, fn func(ctx context.Context))
 	WaitUntilBlocked()
 	Continue()
+
+	// Exit prevents a _blocked_ Coroutine from continuing
+	Exit()
 
 	Blocked() bool
 	Yield()
@@ -74,7 +81,12 @@ func (s *coState) Yield() {
 	s.blocked.Store(true)
 	s.blocking <- true
 
+	// Instead of just listening for a channel, receive a function and execute it. This
+	// allows cancellation by executing code in the context of this
 	<-s.unblock
+	if s.shouldExit.Load() != nil {
+		runtime.Goexit()
+	}
 
 	s.blocked.Store(false)
 }
@@ -87,7 +99,13 @@ func (s *coState) Continue() {
 	// Run until blocked (which is also true when finished)
 	select {
 	case <-s.blocking:
+
 	}
+}
+
+func (s *coState) Exit() {
+	s.shouldExit.Store(true)
+	s.Continue()
 }
 
 func withCoState(ctx context.Context, s *coState) context.Context {
