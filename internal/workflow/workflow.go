@@ -46,6 +46,11 @@ func (w *workflow) Continue(ctx context.Context) error {
 	return nil
 }
 
-func (w *workflow) Complete() bool {
+func (w *workflow) Completed() bool {
 	return w.cr.Finished()
+}
+
+func (w *workflow) Close() {
+	// End coroutine execution to prevent goroutine leaks
+	w.cr.Exit()
 }

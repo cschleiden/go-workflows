@@ -15,18 +15,18 @@ type Context interface {
 
 func newWorkflowContext(cr sync.Coroutine) *contextImpl {
 	return &contextImpl{
-		commands:    []command.Command{},
-		id:          0,
-		openFutures: map[int]sync.Future{},
-		cr:          cr,
+		commands:       []command.Command{},
+		eventID:        0,
+		pendingFutures: map[int]sync.Future{},
+		cr:             cr,
 	}
 }
 
 type contextImpl struct {
 	commands []command.Command
 
-	id          int
-	openFutures map[int]sync.Future
+	eventID        int
+	pendingFutures map[int]sync.Future
 
 	cr sync.Coroutine
 }
@@ -36,14 +36,18 @@ func (c *contextImpl) Replaying() bool {
 }
 
 func (c *contextImpl) ExecuteActivity(name string) (sync.Future, error) {
-	id := c.id
-	c.id++
+	eventID := c.eventID
+	c.eventID++
 
-	command := command.NewScheduleActivityTaskCommand(id, name, "", "")
+	command := command.NewScheduleActivityTaskCommand(eventID, name, "", "")
 	c.commands = append(c.commands, command)
 
 	f := sync.NewFuture(c.cr)
-	c.openFutures[id] = f
+	c.pendingFutures[eventID] = f
 
 	return f, nil
+}
+
+func (c *contextImpl) AddCommand(cmd command.Command) {
+	c.commands = append(c.commands, cmd)
 }

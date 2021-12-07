@@ -25,7 +25,10 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	r.RegisterWorkflow("w1", Workflow1)
 
-	e := NewExecutor(r)
+	e := &executor{
+		registry: r,
+		workflow: NewWorkflow(Workflow1),
+	}
 
 	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -42,11 +45,9 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		},
 	})
 
-	if workflowHits != 1 {
-		t.Fail()
-	}
-
-	// TODO: Assert completeness
+	require.Equal(t, 1, workflowHits)
+	require.True(t, e.workflow.Completed())
+	require.Len(t, e.workflow.context.commands, 1)
 }
 
 func Test_ReplayWorkflowWithActivity(t *testing.T) {
@@ -178,7 +179,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	require.Equal(t, command.Command{
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
-		Attr: command.ScheduleActivityTaskAttr{
+		Attr: command.ScheduleActivityTaskCommandAttr{
 			Name:    "a1",
 			Version: "",
 			Input:   "",

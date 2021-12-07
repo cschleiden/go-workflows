@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 
+	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/pkg/core/tasks"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
@@ -31,12 +32,16 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowT
 	}
 
 	// Check if workflow finished
+	if e.workflow.Completed() {
+		e.workflowCompleted()
+	}
 
 	// TODO: Process commands
 
 	if e.workflow != nil {
 		e.workflow.Close()
 	}
+
 	return nil
 }
 
@@ -44,7 +49,7 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 	switch event.EventType {
 	case history.HistoryEventType_WorkflowExecutionStarted:
 		a := event.Attributes.(*history.ExecutionStartedAttributes)
-		e.executeWorkflow(ctx, a)
+		e.handleWorkflowExecutionStarted(ctx, a)
 
 	case history.HistoryEventType_ActivityScheduled:
 		e.handleActivityScheduled(ctx)
@@ -62,9 +67,11 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 	return nil
 }
 
-func (e *executor) executeWorkflow(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
+func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
+	// TODO: Move this to registry
 	wf := e.registry.getWorkflow(attributes.Name)
 	wfFn := wf.(func(Context) error)
+
 	e.workflow = NewWorkflow(wfFn)
 
 	e.workflow.Execute(ctx) // TODO: handle error
@@ -74,7 +81,7 @@ func (e *executor) handleActivityScheduled(_ context.Context) {
 }
 
 func (e *executor) handleActivityCompleted(ctx context.Context, attributes *history.ActivityCompletedAttributes) {
-	f, ok := e.workflow.Context().openFutures[attributes.ScheduleID] // TODO: not quite the right id
+	f, ok := e.workflow.Context().pendingFutures[attributes.ScheduleID] // TODO: not quite the right id
 	if !ok {
 		panic("no future!")
 	}
@@ -82,4 +89,13 @@ func (e *executor) handleActivityCompleted(ctx context.Context, attributes *hist
 	f.Set(attributes.Result) // TODO: Deserialize
 
 	e.workflow.Continue(ctx)
+}
+
+func (e *executor) workflowCompleted() {
+	wfCtx := e.workflow.Context()
+
+	wfCtx.eventID++
+	eventId := wfCtx.eventID
+
+	wfCtx.AddCommand(command.NewCompleteWorkflowCommand(eventId))
 }
