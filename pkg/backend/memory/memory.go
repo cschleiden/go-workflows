@@ -69,7 +69,10 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 
 	// Add to queue
 	// TODO: Check if this already exists
-	mb.workflows <- &tasks.WorkflowTask{}
+	mb.workflows <- &tasks.WorkflowTask{
+		WorkflowInstance: m.WorkflowInstance,
+		History:          []history.HistoryEvent{m.HistoryEvent},
+	}
 
 	return nil
 }
@@ -93,4 +96,6 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflo
 	delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
 
 	mb.workflows <- &t
+
+	return nil
 }

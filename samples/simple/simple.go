@@ -3,24 +3,25 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
-	"github.com/cschleiden/go-dt/internal/worker"
-	workflow "github.com/cschleiden/go-dt/internal/workflow"
+	"github.com/cschleiden/go-dt/internal/workflow" // TODO: Remove
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
+	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/google/uuid"
 )
 
 func main() {
+	ctx := context.Background()
+
 	mb := memory.NewMemoryBackend()
 
 	// Run worker
-	go RunWorker(mb)
+	go RunWorker(ctx, mb)
 
-	ctx := context.Background()
-
-	// Start workflow via c
+	// Start workflow via client
 	c := client.NewTaskHubClient(mb)
 
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
@@ -31,9 +32,12 @@ func main() {
 	}
 
 	fmt.Println("Started workflow", wf.GetInstanceID())
+
+	c2 := make(chan os.Signal, 1)
+	<-c2
 }
 
-func RunWorker(mb backend.Backend) {
+func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.NewWorker(mb)
 
 	w.RegisterWorkflow("wf1", Workflow1)
@@ -41,14 +45,14 @@ func RunWorker(mb backend.Backend) {
 	w.RegisterActivity("a1", Activity1)
 	w.RegisterActivity("a2", Activity2)
 
-	if err := w.Start(); err != nil {
+	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
 	fmt.Println("Entering Workflow1")
-	fmt.Println("\tIsReplaying:", ctx.IsReplaying())
+	fmt.Println("\tIsReplaying:", ctx.Replaying())
 
 	// a1, err := workflow.ExecuteActivity(ctx, Activity1)
 	// if err != nil {

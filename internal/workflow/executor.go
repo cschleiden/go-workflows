@@ -1,9 +1,83 @@
 package workflow
 
-type Executor interface {
+import (
+	"context"
+
+	"github.com/cschleiden/go-dt/pkg/core/tasks"
+	"github.com/cschleiden/go-dt/pkg/history"
+)
+
+type WorkflowExecutor interface {
+	ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) error
 }
 
-type executorImpl struct {
+func NewExecutor(registry *Registry) WorkflowExecutor {
+	return &executor{
+		registry: registry,
+	}
+}
+
+type executor struct {
+	registry *Registry
+}
+
+func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) error {
+	// Replay history
+	for _, event := range task.History {
+		e.executeEvent(ctx, event)
+
+		event.Played = true
+	}
+
+	// Check if workflow is completed
+
+	// ----
+
+	// name := "TODO!"
+
+	// wf := e.registry.getWorkflow(name)
+
+	// wfCtx := workflow.Context
+
+	// coState := newCoroutine(ctx, func(ctx context.Context) {
+	// 	// Get inputs
+
+	// 	// Execute workflow
+	// 	wfFn, ok := wf.(func(ctx workflow.Context, args ...[]interface{}))
+	// 	if !ok {
+	// 		panic("workflow is not a function")
+	// 	}
+
+	// 	wfFn(wfCtx)
+	// })
+
+	// <-coState.blocking
+
+	// if coState.finished.Load().(bool) {
+	// 	// Workflow execution done, end?
+	// }
+
+	// // 1. Replay history
+	// // 2. Start new coroutine
+	// // 3. Wait for completion
+
+	return nil
+}
+
+func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent) error {
+	switch event.EventType {
+	case history.HistoryEventType_WorkflowExecutionStarted:
+		a := event.Attributes.(*history.ExecutionStartedAttributes)
+		e.executeWorkflow(a)
+	default:
+		panic("unknown event type")
+	}
+
+	return nil
+}
+
+func (e *executor) executeWorkflow(attributes *history.ExecutionStartedAttributes) {
+
 }
 
 // func (e *executorImpl) ExecuteWorkflow(ctx context.Context, wf Workflow) {

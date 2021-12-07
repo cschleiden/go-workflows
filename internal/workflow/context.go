@@ -1,7 +1,7 @@
 package workflow
 
 type Context interface {
-	IsReplaying() bool
+	Replaying() bool
 
 	RegisterResult()
 }
@@ -13,7 +13,7 @@ func NewContext() Context {
 type contextImpl struct {
 }
 
-func (c *contextImpl) IsReplaying() bool {
+func (c *contextImpl) Replaying() bool {
 	return false // TODO
 }
 

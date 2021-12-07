@@ -5,9 +5,8 @@ type HistoryEventType uint
 const (
 	HistoryEventTypeNone HistoryEventType = iota
 
-	// TODO: Needed?
-	// HistoryEventType_WorkflowStarted
-	// HistoryEventType_WorkflowFinished
+	HistoryEventType_OrchestratorStarted
+	HistoryEventType_OrchestratorFinished
 
 	HistoryEventType_WorkflowExecutionStarted
 	HistoryEventType_WorkflowExecutionFinished
@@ -22,17 +21,19 @@ const (
 )
 
 type HistoryEvent struct {
-	Type HistoryEventType
+	EventType HistoryEventType
 
 	EventID int64
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
+
+	Played bool
 }
 
 func NewHistoryEvent(eventType HistoryEventType, eventID int64, attributes interface{}) HistoryEvent {
 	return HistoryEvent{
-		Type:       eventType,
+		EventType:  eventType,
 		EventID:    eventID,
 		Attributes: attributes,
 	}
