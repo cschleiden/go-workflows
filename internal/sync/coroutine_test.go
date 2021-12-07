@@ -112,3 +112,16 @@ func Test_Exit(t *testing.T) {
 
 	require.True(t, c.Finished())
 }
+
+func Test_ExitIfAlreadyFinished(t *testing.T) {
+	ctx := context.Background()
+	c := NewCoroutine()
+	c.Run(ctx, func(ctx context.Context) {
+		// Complete immedeiately
+	})
+
+	c.WaitUntilBlocked()
+	c.Exit()
+
+	require.True(t, c.Finished())
+}

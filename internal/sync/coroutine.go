@@ -104,6 +104,10 @@ func (s *coState) Continue() {
 }
 
 func (s *coState) Exit() {
+	if s.Finished() {
+		return
+	}
+
 	s.shouldExit.Store(true)
 	s.Continue()
 }
