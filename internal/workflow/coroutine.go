@@ -10,14 +10,7 @@ type key int
 var coroutinesCtxKey key
 
 func newCoroutine(ctx context.Context, fn func(ctx context.Context)) *coState {
-	s := &coState{
-		blocking: make(chan bool, 1),
-		unblock:  make(chan bool),
-	}
-
-	s.blocked.Store(false)
-	s.finished.Store(false)
-
+	s := newState()
 	ctx = withCoState(ctx, s)
 
 	go func() {
@@ -37,6 +30,13 @@ type coState struct {
 	unblock  chan bool    // channel to unblock block coroutine
 	blocked  atomic.Value // coroutine is currently blocked
 	finished atomic.Value // coroutine finished executing
+}
+
+func newState() *coState {
+	return &coState{
+		blocking: make(chan bool, 1),
+		unblock:  make(chan bool),
+	}
 }
 
 func (s *coState) finish() {

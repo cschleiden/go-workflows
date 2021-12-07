@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"context"
 	"sync/atomic"
 )
 
@@ -10,18 +9,20 @@ type Future interface {
 	Set(v interface{})
 
 	// Get returns the value if set, blocks otherwise
-	Get(ctx context.Context) (interface{}, error)
+	Get() (interface{}, error)
 }
 
 type futureImpl struct {
-	c chan interface{}
-	v atomic.Value
+	cs *coState
+	c  chan interface{}
+	v  atomic.Value
 }
 
-func newFuture() Future {
+func newFuture(cs *coState) Future {
 	return &futureImpl{
-		c: make(chan interface{}, 1),
-		v: atomic.Value{},
+		cs: cs,
+		c:  make(chan interface{}, 1),
+		v:  atomic.Value{},
 	}
 }
 
@@ -34,14 +35,13 @@ func (f *futureImpl) Set(v interface{}) {
 	f.c <- v
 }
 
-func (f *futureImpl) Get(ctx context.Context) (interface{}, error) {
+func (f *futureImpl) Get() (interface{}, error) {
 	for {
 		v := f.v.Load()
 		if v != nil {
 			return v, nil
 		}
 
-		s := getCoState(ctx)
-		s.yield()
+		f.cs.yield()
 	}
 }

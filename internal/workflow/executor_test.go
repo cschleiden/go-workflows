@@ -13,9 +13,16 @@ import (
 func Test_ExecuteWorkflow(t *testing.T) {
 	r := NewRegistry()
 
+	var workflowEntered int
+
+	Workflow1 := func(ctx Context) error {
+		fmt.Println("Entering Workflow1")
+		workflowEntered++
+
+		return nil
+	}
+
 	r.RegisterWorkflow("w1", Workflow1)
-	r.RegisterActivity("a1", Activity1)
-	r.RegisterActivity("a2", Activity2)
 
 	e := NewExecutor(r)
 
@@ -26,54 +33,94 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "",
+					Name:    "w1",
 					Version: "",
 					Inputs:  [][]byte{},
 				},
 			),
 		},
 	})
+
+	if workflowEntered != 1 {
+		t.Fail()
+	}
+
+	// TODO: Assert completeness
 }
 
-func Workflow1(ctx Context) error {
-	fmt.Println("Entering Workflow1")
-	// fmt.Println("\tIsReplaying:", ctx.IsReplaying())
+func Test_ExecuteWorkflowWithActivity(t *testing.T) {
+	r := NewRegistry()
 
-	// a1, err := workflow.ExecuteActivity(ctx, Activity1)
-	// if err != nil {
-	// 	panic("error executing activity 1")
-	// }
+	var workflowHit int
 
-	// r1, err := a1.Get()
-	// if err != nil {
-	// 	panic("error getting activity 1 result")
-	// }
-	// fmt.Println("R1 result:", r1)
+	Workflow1 := func(ctx Context) error {
+		fmt.Println("Entering Workflow1")
+		workflowHit++
+		// fmt.Println("\tIsReplaying:", ctx.IsReplaying())
 
-	// a2, err := workflow.ExecuteActivity(ctx, Activity2)
-	// if err != nil {
-	// 	panic("error executing activity 1")
-	// }
+		f1, err := ctx.ExecuteActivity("a1")
+		if err != nil {
+			panic("error executing activity 1")
+		}
 
-	// r2, err := a2.Get()
-	// if err != nil {
-	// 	panic("error getting activity 1 result")
-	// }
-	// fmt.Println("R2 result:", r2)
+		r1, err := f1.Get()
+		if err != nil {
+			panic("error getting activity 1 result")
+		}
+		fmt.Println("R1 result:", r1)
 
-	fmt.Println("Leaving Workflow1")
+		fmt.Println("Leaving Workflow1")
 
-	return nil
-}
+		workflowHit++
 
-func Activity1(ctx Context) (int, error) {
-	fmt.Println("Entering Activity1")
+		return nil
+	}
+	Activity1 := func(ctx Context) (int, error) {
+		fmt.Println("Entering Activity1")
 
-	return 42, nil
-}
+		return 42, nil
+	}
 
-func Activity2(ctx Context) (string, error) {
-	fmt.Println("Entering Activity2")
+	r.RegisterWorkflow("w1", Workflow1)
+	r.RegisterActivity("a1", Activity1)
 
-	return "hello", nil
+	e := NewExecutor(r)
+
+	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
+		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		History: []history.HistoryEvent{
+			history.NewHistoryEvent(
+				history.HistoryEventType_WorkflowExecutionStarted,
+				-1,
+				&history.ExecutionStartedAttributes{
+					Name:    "w1",
+					Version: "",
+					Inputs:  [][]byte{},
+				},
+			),
+			history.NewHistoryEvent(
+				history.HistoryEventType_ActivityScheduled,
+				-1,
+				&history.ActivityScheduledAttributes{
+					Name:    "a1",
+					Version: "",
+					Inputs:  [][]byte{},
+				},
+			),
+			history.NewHistoryEvent(
+				history.HistoryEventType_ActivityCompleted,
+				-1,
+				&history.ActivityCompletedAttributes{
+					ScheduleID: 0,
+					Result:     "world",
+				},
+			),
+		},
+	})
+
+	if workflowHit != 2 {
+		t.Fail()
+	}
+
+	// TODO: Assert completeness
 }
