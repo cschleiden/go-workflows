@@ -42,6 +42,6 @@ func (f *futureImpl) Get() (interface{}, error) {
 			return v, nil
 		}
 
-		f.cs.yield()
+		f.cs.Yield()
 	}
 }

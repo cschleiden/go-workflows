@@ -9,22 +9,6 @@ type key int
 
 var coroutinesCtxKey key
 
-func newCoroutine(ctx context.Context, fn func(ctx context.Context)) *coState {
-	s := newState()
-	ctx = withCoState(ctx, s)
-
-	go func() {
-		defer s.finish() // Ensure we always mark the coroutine as finished
-		defer func() {
-			// TODO: panic handling
-		}()
-
-		fn(ctx)
-	}()
-
-	return s
-}
-
 type coState struct {
 	blocking chan bool    // coroutine is going to be blocked
 	unblock  chan bool    // channel to unblock block coroutine
@@ -39,12 +23,34 @@ func newState() *coState {
 	}
 }
 
+func (s *coState) run(ctx context.Context, fn func(ctx context.Context)) {
+	ctx = withCoState(ctx, s)
+
+	go func() {
+		defer s.finish() // Ensure we always mark the coroutine as finished
+		defer func() {
+			// TODO: panic handling
+		}()
+
+		fn(ctx)
+	}()
+}
+
 func (s *coState) finish() {
 	s.finished.Store(true)
 	s.blocking <- true
 }
 
-func (s *coState) yield() {
+func (s *coState) UntilBlocked() {
+	<-s.blocking
+}
+
+func (s *coState) Finished() bool {
+	v, ok := s.finished.Load().(bool)
+	return ok && v
+}
+
+func (s *coState) Yield() {
 	s.blocked.Store(true)
 	s.blocking <- true
 

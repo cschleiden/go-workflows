@@ -12,11 +12,12 @@ type Context interface {
 	ExecuteActivity(name string) (Future, error) // TODO: inputs
 }
 
-func newWorkflowContext() *contextImpl {
+func newWorkflowContext(cs *coState) *contextImpl {
 	return &contextImpl{
 		commands:    []command.Command{},
 		id:          0,
 		openFutures: map[int]Future{},
+		cs:          cs,
 	}
 }
 

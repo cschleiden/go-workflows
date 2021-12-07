@@ -9,7 +9,8 @@ import (
 
 func Test_Coroutine_CanAccessState(t *testing.T) {
 	ctx := context.Background()
-	c := newCoroutine(ctx, func(ctx context.Context) {
+	c := newState()
+	c.run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 		require.NotNil(t, s)
 	})
@@ -19,21 +20,23 @@ func Test_Coroutine_CanAccessState(t *testing.T) {
 
 func Test_Coroutine_MarkedAsDone(t *testing.T) {
 	ctx := context.Background()
-	c := newCoroutine(ctx, func(ctx context.Context) {
+	c := newState()
+	c.run(ctx, func(ctx context.Context) {
 
 	})
 
 	<-c.blocking
 
-	require.True(t, c.finished.Load().(bool))
+	require.True(t, c.Finished())
 }
 
 func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 	ctx := context.Background()
-	c := newCoroutine(ctx, func(ctx context.Context) {
+	c := newState()
+	c.run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 
-		s.yield()
+		s.Yield()
 
 		require.FailNow(t, "should not reach this")
 	})
@@ -41,40 +44,42 @@ func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 	<-c.blocking
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.finished.Load().(bool))
+	require.False(t, c.Finished())
 }
 
 func Test_Coroutine_Continue(t *testing.T) {
 	ctx := context.Background()
-	c := newCoroutine(ctx, func(ctx context.Context) {
+	c := newState()
+	c.run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 
-		s.yield()
+		s.Yield()
 	})
 
 	<-c.blocking
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.finished.Load().(bool))
+	require.False(t, c.Finished())
 
 	c.cont()
 
 	require.False(t, c.blocked.Load().(bool))
-	require.True(t, c.finished.Load().(bool))
+	require.True(t, c.Finished())
 }
 
 func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	reached := false
 
 	ctx := context.Background()
-	c := newCoroutine(ctx, func(ctx context.Context) {
+	c := newState()
+	c.run(ctx, func(ctx context.Context) {
 		s := getCoState(ctx)
 
-		s.yield()
+		s.Yield()
 
 		reached = true
 
-		s.yield()
+		s.Yield()
 
 		require.FailNow(t, "should not reach this")
 	})
@@ -82,11 +87,11 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	<-c.blocking
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.finished.Load().(bool))
+	require.False(t, c.Finished())
 
 	c.cont()
 
 	require.True(t, c.blocked.Load().(bool))
-	require.False(t, c.finished.Load().(bool))
+	require.False(t, c.Finished())
 	require.True(t, reached)
 }

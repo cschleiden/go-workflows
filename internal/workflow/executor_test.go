@@ -152,10 +152,9 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	r.RegisterWorkflow("w1", Workflow1)
 	r.RegisterActivity("a1", Activity1)
 
-	wfCtx := newWorkflowContext()
 	e := &executor{
-		registry:  r,
-		wfContext: wfCtx,
+		registry: r,
+		workflow: NewWorkflow(Workflow1),
 	}
 
 	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
@@ -175,7 +174,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	require.Equal(t, 1, workflowHits)
 
-	require.Len(t, wfCtx.commands, 1)
+	require.Len(t, e.workflow.context.commands, 1)
 	require.Equal(t, command.Command{
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
@@ -184,5 +183,5 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			Version: "",
 			Input:   "",
 		},
-	}, wfCtx.commands[0])
+	}, e.workflow.context.commands[0])
 }

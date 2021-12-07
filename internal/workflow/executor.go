@@ -12,14 +12,13 @@ type WorkflowExecutor interface {
 }
 
 type executor struct {
-	registry  *Registry
-	wfContext *contextImpl
+	registry *Registry
+	workflow *workflow
 }
 
 func NewExecutor(registry *Registry) WorkflowExecutor {
 	return &executor{
-		registry:  registry,
-		wfContext: newWorkflowContext(),
+		registry: registry,
 	}
 }
 
@@ -30,6 +29,8 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowT
 
 		event.Played = true
 	}
+
+	// Check if workflow finished
 
 	// TODO: Process commands
 
@@ -43,6 +44,7 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 		e.executeWorkflow(ctx, a)
 
 	case history.HistoryEventType_ActivityScheduled:
+		e.handleActivityScheduled(ctx)
 
 	case history.HistoryEventType_ActivityFailed:
 
@@ -60,49 +62,21 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 func (e *executor) executeWorkflow(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
 	wf := e.registry.getWorkflow(attributes.Name)
 	wfFn := wf.(func(Context) error)
+	e.workflow = NewWorkflow(wfFn)
 
-	cs := newCoroutine(ctx, func(ctx context.Context) {
-		cs := getCoState(ctx)
+	e.workflow.Execute(ctx) // TODO: handle error
+}
 
-		e.wfContext.cs = cs
-
-		wfFn(e.wfContext)
-	})
-
-	// TODO: Is that how we should wait?
-	<-cs.blocking
+func (e *executor) handleActivityScheduled(_ context.Context) {
 }
 
 func (e *executor) handleActivityCompleted(ctx context.Context, attributes *history.ActivityCompletedAttributes) {
-	f, ok := e.wfContext.openFutures[attributes.ScheduleID] // TODO: not quite the right id
+	f, ok := e.workflow.Context().openFutures[attributes.ScheduleID] // TODO: not quite the right id
 	if !ok {
 		panic("no future!")
 	}
 
 	f.Set(attributes.Result) // TODO: Deserialize
 
-	e.wfContext.cs.cont()
+	e.workflow.Continue(ctx)
 }
-
-// func (e *executorImpl) ExecuteWorkflow(ctx context.Context, wf Workflow) {
-// 	wfCtx := NewContext()
-
-// 	// TODO: validate
-// 	t := reflect.TypeOf(wf)
-// 	if t.Kind() != reflect.Func {
-// 		panic("workflow needs to be a function")
-// 	}
-
-// 	wfv := reflect.ValueOf(wf)
-// 	wfv.Call([]reflect.Value{reflect.ValueOf(wfCtx)})
-// }
-
-// func ExecuteActivity(ctx Context, activity Activity) (core.Future, error) {
-// 	// TODO: Get name of activity
-// 	// TODO: Lookup activity result
-// 	// TODO: Provide result if given
-// 	// TODO: Schedule activity task otherwise
-
-// 	f := core.NewFuture()
-// 	return f, nil
-// }
