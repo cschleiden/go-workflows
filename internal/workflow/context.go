@@ -29,10 +29,16 @@ type contextImpl struct {
 	pendingFutures map[int]sync.Future
 
 	cr sync.Coroutine
+
+	replaying bool
 }
 
 func (c *contextImpl) Replaying() bool {
-	return false // TODO
+	return c.replaying
+}
+
+func (c *contextImpl) SetReplaying(replaying bool) {
+	c.replaying = replaying
 }
 
 func (c *contextImpl) ExecuteActivity(name string) (sync.Future, error) {

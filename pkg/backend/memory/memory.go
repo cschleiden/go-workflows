@@ -103,9 +103,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflo
 		panic("could not unlock workflow instance")
 	}
 
-	// Check if completed
-
-	// else: Schedule commands
+	workflowComplete := false
 	scheduledActivity := false
 
 	for _, c := range commands {
@@ -128,13 +126,19 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflo
 
 			scheduledActivity = true
 
+		case command.CommandType_CompleteWorkflow:
+			// _ := c.Attr.(command.CompleteWorkflowCommandAttr)
+			workflowComplete = true
+
 		default:
 			// panic("unsupported command")
 		}
 	}
 
 	// Return to queue
-	if !scheduledActivity {
+	if workflowComplete {
+		delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
+	} else if !scheduledActivity {
 		// Unlock workflow instance
 		delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
 		mb.workflows <- &t

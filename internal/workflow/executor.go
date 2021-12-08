@@ -37,10 +37,8 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.Workflow)
 		e.workflowCompleted()
 	}
 
-	// commands :=
-	// TODO: Process commands
-
 	if e.workflow != nil {
+		// End workflow when running to prevent leaking goroutines
 		e.workflow.Close()
 	}
 

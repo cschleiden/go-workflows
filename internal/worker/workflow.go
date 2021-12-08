@@ -75,10 +75,10 @@ func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	done := make(chan struct{})
+
 	var task *tasks.Workflow
 	var err error
-
-	done := make(chan struct{})
 
 	go func() {
 		task, err = ww.backend.GetWorkflowTask(ctx)
@@ -88,6 +88,7 @@ func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	select {
 	case <-ctx.Done():
 		return nil, context.Canceled
+
 	case <-done:
 		return task, err
 	}
