@@ -5,7 +5,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/history"
 )
 
-type ActivityTask struct {
+type Activity struct {
 	WorkflowInstance core.WorkflowInstance
 
 	ID string

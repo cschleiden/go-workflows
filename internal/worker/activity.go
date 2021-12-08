@@ -19,7 +19,7 @@ type ActivityWorker interface {
 type activityWorker struct {
 	backend backend.Backend
 
-	activityTaskQueue    chan tasks.ActivityTask
+	activityTaskQueue    chan tasks.Activity
 	activityTaskExecutor activity.Executor
 }
 
@@ -27,7 +27,7 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry) Act
 	return &activityWorker{
 		backend: backend,
 
-		activityTaskQueue:    make(chan tasks.ActivityTask),
+		activityTaskQueue:    make(chan tasks.Activity),
 		activityTaskExecutor: activity.NewExecutor(registry),
 	}
 }
@@ -62,7 +62,7 @@ func (ww *activityWorker) runDispatcher(ctx context.Context) {
 	}
 }
 
-func (ww *activityWorker) handleTask(ctx context.Context, task tasks.ActivityTask) {
+func (ww *activityWorker) handleTask(ctx context.Context, task tasks.Activity) {
 	result, _ := ww.activityTaskExecutor.ExecuteActivity(ctx, task) // TODO: Handle error
 
 	res, err := converter.DefaultConverter.To(result)
@@ -81,7 +81,7 @@ func (ww *activityWorker) handleTask(ctx context.Context, task tasks.ActivityTas
 	ww.backend.CompleteActivityTask(ctx, task, event)
 }
 
-func (ww *activityWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.ActivityTask, error) {
+func (ww *activityWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.Activity, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
@@ -89,7 +89,7 @@ func (ww *activityWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var task *tasks.ActivityTask
+	var task *tasks.Activity
 	var err error
 
 	done := make(chan struct{})

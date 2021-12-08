@@ -10,7 +10,7 @@ import (
 )
 
 type WorkflowExecutor interface {
-	ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) ([]command.Command, error)
+	ExecuteWorkflowTask(ctx context.Context, task tasks.Workflow) ([]command.Command, error)
 }
 
 type executor struct {
@@ -24,7 +24,7 @@ func NewExecutor(registry *Registry) WorkflowExecutor {
 	}
 }
 
-func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) ([]command.Command, error) {
+func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.Workflow) ([]command.Command, error) {
 	// Replay history
 	for _, event := range task.History {
 		e.executeEvent(ctx, event)

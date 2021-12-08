@@ -18,7 +18,7 @@ type WorkflowWorker interface {
 type workflowWorker struct {
 	backend backend.Backend
 
-	workflowTaskQueue    chan tasks.WorkflowTask
+	workflowTaskQueue    chan tasks.Workflow
 	workflowTaskExecutor workflow.WorkflowExecutor
 }
 
@@ -27,7 +27,7 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) Wor
 		backend: backend,
 
 		workflowTaskExecutor: workflow.NewExecutor(registry),
-		workflowTaskQueue:    make(chan tasks.WorkflowTask),
+		workflowTaskQueue:    make(chan tasks.Workflow),
 	}
 }
 
@@ -61,13 +61,13 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 	}
 }
 
-func (ww *workflowWorker) handleTask(ctx context.Context, task tasks.WorkflowTask) {
+func (ww *workflowWorker) handleTask(ctx context.Context, task tasks.Workflow) {
 	commands, _ := ww.workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
 
 	ww.backend.CompleteWorkflowTask(ctx, task, commands)
 }
 
-func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.WorkflowTask, error) {
+func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.Workflow, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
@@ -75,7 +75,7 @@ func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var task *tasks.WorkflowTask
+	var task *tasks.Workflow
 	var err error
 
 	done := make(chan struct{})

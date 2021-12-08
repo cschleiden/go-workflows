@@ -5,7 +5,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/history"
 )
 
-type WorkflowTask struct {
+type Workflow struct {
 	WorkflowInstance core.WorkflowInstance
 
 	History []history.HistoryEvent

@@ -28,13 +28,13 @@ type memoryBackend struct {
 	mu sync.Mutex
 
 	// workflows not yet picked up
-	workflows chan *tasks.WorkflowTask
+	workflows chan *tasks.Workflow
 
-	lockedWorkflows map[string]*tasks.WorkflowTask
+	lockedWorkflows map[string]*tasks.Workflow
 
-	activities chan *tasks.ActivityTask
+	activities chan *tasks.Activity
 
-	lockedActivities map[string]*tasks.ActivityTask
+	lockedActivities map[string]*tasks.Activity
 }
 
 func NewMemoryBackend() backend.Backend {
@@ -43,11 +43,11 @@ func NewMemoryBackend() backend.Backend {
 		mu:            sync.Mutex{},
 
 		// Queue of unlocked workflow instances
-		workflows:       make(chan *tasks.WorkflowTask, 100),
-		lockedWorkflows: make(map[string]*tasks.WorkflowTask),
+		workflows:       make(chan *tasks.Workflow, 100),
+		lockedWorkflows: make(map[string]*tasks.Workflow),
 
-		activities:       make(chan *tasks.ActivityTask, 100),
-		lockedActivities: make(map[string]*tasks.ActivityTask),
+		activities:       make(chan *tasks.Activity, 100),
+		lockedActivities: make(map[string]*tasks.Activity),
 	}
 }
 
@@ -75,7 +75,7 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 
 	// Add to queue
 	// TODO: Check if this already exists
-	mb.workflows <- &tasks.WorkflowTask{
+	mb.workflows <- &tasks.Workflow{
 		WorkflowInstance: m.WorkflowInstance,
 		History:          []history.HistoryEvent{m.HistoryEvent},
 	}
@@ -83,7 +83,7 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	return nil
 }
 
-func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*tasks.WorkflowTask, error) {
+func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*tasks.Workflow, error) {
 	select {
 	case <-ctx.Done():
 		return nil, nil
@@ -94,7 +94,7 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*tasks.WorkflowTa
 	}
 }
 
-func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.WorkflowTask, commands []command.Command) error {
+func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflow, commands []command.Command) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
@@ -112,7 +112,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflo
 		switch c.Type {
 		case command.CommandType_ScheduleActivityTask:
 			a := c.Attr.(command.ScheduleActivityTaskCommandAttr)
-			mb.activities <- &tasks.ActivityTask{
+			mb.activities <- &tasks.Activity{
 				WorkflowInstance: t.WorkflowInstance,
 				ID:               uuid.NewString(),
 				Event: history.NewHistoryEvent(
@@ -143,7 +143,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflo
 	return nil
 }
 
-func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*tasks.ActivityTask, error) {
+func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*tasks.Activity, error) {
 	select {
 	case <-ctx.Done():
 		return nil, nil
@@ -154,7 +154,7 @@ func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*tasks.ActivityTa
 	}
 }
 
-func (mb *memoryBackend) CompleteActivityTask(_ context.Context, t tasks.ActivityTask, event history.HistoryEvent) error {
+func (mb *memoryBackend) CompleteActivityTask(_ context.Context, t tasks.Activity, event history.HistoryEvent) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 

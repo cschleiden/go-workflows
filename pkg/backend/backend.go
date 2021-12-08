@@ -12,11 +12,11 @@ import (
 type Backend interface {
 	CreateWorkflowInstance(context.Context, core.TaskMessage) error
 
-	GetWorkflowTask(context.Context) (*tasks.WorkflowTask, error)
+	GetWorkflowTask(context.Context) (*tasks.Workflow, error)
 
-	CompleteWorkflowTask(context.Context, tasks.WorkflowTask, []command.Command) error
+	CompleteWorkflowTask(context.Context, tasks.Workflow, []command.Command) error
 
-	GetActivityTask(context.Context) (*tasks.ActivityTask, error)
+	GetActivityTask(context.Context) (*tasks.Activity, error)
 
-	CompleteActivityTask(context.Context, tasks.ActivityTask, history.HistoryEvent) error
+	CompleteActivityTask(context.Context, tasks.Activity, history.HistoryEvent) error
 }

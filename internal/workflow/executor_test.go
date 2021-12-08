@@ -30,7 +30,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
+	e.ExecuteWorkflowTask(context.Background(), tasks.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -86,7 +86,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
+	e.ExecuteWorkflowTask(context.Background(), tasks.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -159,7 +159,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
+	e.ExecuteWorkflowTask(context.Background(), tasks.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(

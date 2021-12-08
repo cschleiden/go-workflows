@@ -17,7 +17,7 @@ func NewExecutor(r *workflow.Registry) Executor {
 		r: r,
 	}
 }
-func (e *Executor) ExecuteActivity(ctx context.Context, task tasks.ActivityTask) (interface{}, error) {
+func (e *Executor) ExecuteActivity(ctx context.Context, task tasks.Activity) (interface{}, error) {
 	a := task.Event.Attributes.(history.ActivityScheduledAttributes)
 
 	activity := e.r.GetActivity(a.Name)
