@@ -6,13 +6,13 @@ import (
 
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/core/tasks"
+	"github.com/cschleiden/go-dt/pkg/core/task"
 )
 
 type WorkflowWorker interface {
 	Start(context.Context) error
 
-	// Poll(ctx context.Context, timeout time.Duration) (*tasks.WorkflowTask, error)
+	// Poll(ctx context.Context, timeout time.Duration) (*task.WorkflowTask, error)
 }
 
 type workflowWorker struct {
@@ -20,7 +20,7 @@ type workflowWorker struct {
 
 	registry *workflow.Registry
 
-	workflowTaskQueue chan tasks.Workflow
+	workflowTaskQueue chan task.Workflow
 }
 
 func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) WorkflowWorker {
@@ -28,7 +28,7 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) Wor
 		backend: backend,
 
 		registry:          registry,
-		workflowTaskQueue: make(chan tasks.Workflow),
+		workflowTaskQueue: make(chan task.Workflow),
 	}
 }
 
@@ -62,14 +62,14 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 	}
 }
 
-func (ww *workflowWorker) handleTask(ctx context.Context, task tasks.Workflow) {
+func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	workflowTaskExecutor := workflow.NewExecutor(ww.registry)
 	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
 
 	ww.backend.CompleteWorkflowTask(ctx, task, commands)
 }
 
-func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.Workflow, error) {
+func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*task.Workflow, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
@@ -79,7 +79,7 @@ func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 
 	done := make(chan struct{})
 
-	var task *tasks.Workflow
+	var task *task.Workflow
 	var err error
 
 	go func() {

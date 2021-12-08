@@ -1,16 +1,12 @@
-package tasks
+package task
 
 import (
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
 
-type Activity struct {
+type Workflow struct {
 	WorkflowInstance core.WorkflowInstance
 
-	ID string
-
-	// SequenceNumber uint64 // TODO: Required?
-
-	Event history.HistoryEvent
+	History []history.HistoryEvent
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/core/tasks"
+	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +30,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	e.ExecuteWorkflowTask(context.Background(), tasks.Workflow{
+	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -86,7 +86,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	e.ExecuteWorkflowTask(context.Background(), tasks.Workflow{
+	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -159,7 +159,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	e.ExecuteWorkflowTask(context.Background(), tasks.Workflow{
+	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(

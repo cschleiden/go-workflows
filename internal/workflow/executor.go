@@ -5,12 +5,12 @@ import (
 
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/pkg/converter"
-	"github.com/cschleiden/go-dt/pkg/core/tasks"
+	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
 
 type WorkflowExecutor interface {
-	ExecuteWorkflowTask(ctx context.Context, task tasks.Workflow) ([]command.Command, error)
+	ExecuteWorkflowTask(ctx context.Context, task task.Workflow) ([]command.Command, error)
 }
 
 type executor struct {
@@ -24,7 +24,7 @@ func NewExecutor(registry *Registry) WorkflowExecutor {
 	}
 }
 
-func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.Workflow) ([]command.Command, error) {
+func (e *executor) ExecuteWorkflowTask(ctx context.Context, task task.Workflow) ([]command.Command, error) {
 	// Replay history
 	for _, event := range task.History {
 		e.executeEvent(ctx, event)
