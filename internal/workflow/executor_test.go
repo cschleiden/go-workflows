@@ -50,7 +50,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	require.Len(t, e.workflow.context.commands, 1)
 }
 
-func Test_ReplayWorkflowWithActivity(t *testing.T) {
+func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	r := NewRegistry()
 
 	var workflowHit int
@@ -81,7 +81,10 @@ func Test_ReplayWorkflowWithActivity(t *testing.T) {
 	r.RegisterWorkflow("w1", Workflow1)
 	r.RegisterActivity("a1", Activity1)
 
-	e := NewExecutor(r)
+	e := &executor{
+		registry: r,
+		workflow: NewWorkflow(Workflow1),
+	}
 
 	e.ExecuteWorkflowTask(context.Background(), tasks.WorkflowTask{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -115,11 +118,9 @@ func Test_ReplayWorkflowWithActivity(t *testing.T) {
 		},
 	})
 
-	if workflowHit != 2 {
-		t.Fail()
-	}
-
-	// TODO: Assert completeness
+	require.Equal(t, 2, workflowHit)
+	require.True(t, e.workflow.Completed())
+	require.Len(t, e.workflow.context.commands, 1)
 }
 
 func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {

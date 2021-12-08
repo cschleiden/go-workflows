@@ -42,7 +42,7 @@ func (c *taskHubClient) CreateWorkflowInstance(ctx context.Context, options Work
 		history.HistoryEventType_WorkflowExecutionStarted,
 		-1,
 		&history.ExecutionStartedAttributes{
-			Name:   "workflow name TODO",
+			Name:   "wf1",
 			Inputs: inputs,
 		})
 

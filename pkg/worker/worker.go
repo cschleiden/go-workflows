@@ -34,6 +34,7 @@ type worker struct {
 	registry *workflow.Registry
 
 	workflowWorker internal.WorkflowWorker
+	activityWorker internal.ActivityWorker
 
 	workflows  map[string]interface{}
 	activities map[string]interface{}
@@ -46,6 +47,8 @@ func NewWorker(backend backend.Backend) Worker {
 		backend: backend,
 
 		workflowWorker: internal.NewWorkflowWorker(backend, registry),
+		activityWorker: internal.NewActivityWorker(backend, registry),
+
 		registry:       registry,
 
 		workflows:  map[string]interface{}{},

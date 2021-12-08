@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/tasks"
@@ -19,6 +20,7 @@ type workflowState struct {
 	Created time.Time
 }
 
+// Simple in-memory backend for development
 type memoryBackend struct {
 	instanceStore map[string]map[string]workflowState
 
@@ -29,7 +31,9 @@ type memoryBackend struct {
 
 	lockedWorkflows map[string]*tasks.WorkflowTask
 
-	activityQueue Queue
+	activities chan *tasks.ActivityTask
+
+	lockedActivities map[string]*tasks.ActivityTask
 }
 
 func NewMemoryBackend() backend.Backend {
@@ -41,7 +45,8 @@ func NewMemoryBackend() backend.Backend {
 		workflows:       make(chan *tasks.WorkflowTask, 100),
 		lockedWorkflows: make(map[string]*tasks.WorkflowTask),
 
-		activityQueue: NewQueue(),
+		activities:       make(chan *tasks.ActivityTask, 100),
+		lockedActivities: make(map[string]*tasks.ActivityTask),
 	}
 }
 
@@ -81,21 +86,52 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*tasks.WorkflowTa
 	select {
 	case <-ctx.Done():
 		return nil, nil
+
 	case t := <-mb.workflows:
-		mb.lockedWorkflows[t.WorkflowInstance.GetInstanceID()] = t
+		mb.lockedWorkflows[t.WorkflowInstance.GetExecutionID()] = t
 		return t, nil
 	}
 }
 
-func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.WorkflowTask) error {
+func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.WorkflowTask, commands []command.Command) error {
+	mb.mu.Lock()
+	defer mb.mu.Unlock()
+
 	_, ok := mb.lockedWorkflows[t.WorkflowInstance.GetExecutionID()]
 	if !ok {
 		panic("could not unlock workflow instance")
 	}
 
+	// Unlock workflow instance
 	delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
 
+	// Check if completed
+
+	// else: Schedule commands
+	for _, c := range commands {
+		switch c.Type {
+		case command.CommandType_ScheduleActivityTask:
+
+		}
+	}
+
+	// Return to queue
 	mb.workflows <- &t
 
 	return nil
+}
+
+func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*tasks.ActivityTask, error) {
+	select {
+	case <-ctx.Done():
+		return nil, nil
+
+	case t := <-mb.activities:
+		mb.lockedActivities[t.ID] = t
+		return t, nil
+	}
+}
+
+func (mb *memoryBackend) CompleteActivityTask(context.Context) error {
+	panic("not implemented")
 }

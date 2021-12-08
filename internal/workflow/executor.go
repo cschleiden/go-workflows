@@ -9,7 +9,7 @@ import (
 )
 
 type WorkflowExecutor interface {
-	ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) error
+	ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) ([]command.Command, error)
 }
 
 type executor struct {
@@ -23,7 +23,7 @@ func NewExecutor(registry *Registry) WorkflowExecutor {
 	}
 }
 
-func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) error {
+func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowTask) ([]command.Command, error) {
 	// Replay history
 	for _, event := range task.History {
 		e.executeEvent(ctx, event)
@@ -36,13 +36,14 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowT
 		e.workflowCompleted()
 	}
 
+	// commands :=
 	// TODO: Process commands
 
 	if e.workflow != nil {
 		e.workflow.Close()
 	}
 
-	return nil
+	return e.workflow.context.commands, nil
 }
 
 func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent) error {
@@ -83,10 +84,18 @@ func (e *executor) handleActivityScheduled(_ context.Context) {
 func (e *executor) handleActivityCompleted(ctx context.Context, attributes *history.ActivityCompletedAttributes) {
 	f, ok := e.workflow.Context().pendingFutures[attributes.ScheduleID] // TODO: not quite the right id
 	if !ok {
-		panic("no future!")
+		panic("no pending future!")
 	}
 
-	f.Set(attributes.Result) // TODO: Deserialize
+	// Remove pending command
+	for i, c := range e.workflow.Context().commands {
+		if c.ID == attributes.ScheduleID {
+			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			break
+		}
+	}
+
+	f.Set(attributes.Result) // TODO: Deserialize activity result
 
 	e.workflow.Continue(ctx)
 }

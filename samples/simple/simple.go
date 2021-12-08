@@ -50,7 +50,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) error {
+func Workflow1(ctx workflow.Context) error {
 	fmt.Println("Entering Workflow1")
 	fmt.Println("\tIsReplaying:", ctx.Replaying())
 
