@@ -64,7 +64,7 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 func (ww *workflowWorker) handleTask(ctx context.Context, task tasks.WorkflowTask) {
 	commands, _ := ww.workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
 
-	ww.backend.CompleteWorkflowTask(ctx, task)
+	ww.backend.CompleteWorkflowTask(ctx, task, commands)
 }
 
 func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.WorkflowTask, error) {
