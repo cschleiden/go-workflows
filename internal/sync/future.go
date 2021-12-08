@@ -15,24 +15,21 @@ type Future interface {
 func NewFuture(cr Coroutine) Future {
 	return &futureImpl{
 		cr: cr,
-		c:  make(chan interface{}, 1),
 		v:  atomic.Value{},
 	}
 }
 
 type futureImpl struct {
 	cr Coroutine
-	c  chan interface{}
 	v  atomic.Value
 }
 
 func (f *futureImpl) Set(v interface{}) {
-	if f.v.Swap(v) != nil {
-		panic("future value already set")
+	if v != nil {
+		if f.v.Swap(v) != nil {
+			panic("future value already set")
+		}
 	}
-
-	// Unblock blocking Gets
-	f.c <- v
 }
 
 func (f *futureImpl) Get() (interface{}, error) {

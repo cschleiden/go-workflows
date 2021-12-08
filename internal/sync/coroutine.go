@@ -10,8 +10,6 @@ type key int
 
 var coroutinesCtxKey key
 
-type unblockFn func() bool
-
 type coState struct {
 	blocking   chan bool    // coroutine is going to be blocked
 	unblock    chan bool    // channel to unblock block coroutine
