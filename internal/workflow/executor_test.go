@@ -36,7 +36,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				&history.ExecutionStartedAttributes{
+				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  [][]byte{},
@@ -92,7 +92,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				&history.ExecutionStartedAttributes{
+				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  [][]byte{},
@@ -101,7 +101,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityScheduled,
 				1,
-				&history.ActivityScheduledAttributes{
+				history.ActivityScheduledAttributes{
 					Name:    "a1",
 					Version: "",
 					Inputs:  [][]byte{},
@@ -110,9 +110,9 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityCompleted,
 				1,
-				&history.ActivityCompletedAttributes{
+				history.ActivityCompletedAttributes{
 					ScheduleID: 0,
-					Result:     "world",
+					Result:     []byte("world"),
 				},
 			),
 		},
@@ -165,7 +165,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				&history.ExecutionStartedAttributes{
+				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  [][]byte{},

@@ -4,9 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/cschleiden/go-dt/internal/activity"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
+	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core/tasks"
+	"github.com/cschleiden/go-dt/pkg/history"
 )
 
 type ActivityWorker interface {
@@ -16,16 +19,16 @@ type ActivityWorker interface {
 type activityWorker struct {
 	backend backend.Backend
 
-	activityTaskQueue chan tasks.ActivityTask
-	// activityTaskExecutor workflow.ActivityExecutor
+	activityTaskQueue    chan tasks.ActivityTask
+	activityTaskExecutor activity.Executor
 }
 
 func NewActivityWorker(backend backend.Backend, registry *workflow.Registry) ActivityWorker {
 	return &activityWorker{
 		backend: backend,
 
-		activityTaskQueue: make(chan tasks.ActivityTask),
-		// activityTaskExecutor: workflow.NewExecutor(registry),
+		activityTaskQueue:    make(chan tasks.ActivityTask),
+		activityTaskExecutor: activity.NewExecutor(registry),
 	}
 }
 
@@ -60,9 +63,22 @@ func (ww *activityWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *activityWorker) handleTask(ctx context.Context, task tasks.ActivityTask) {
-	// commands, _ := ww.workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
+	result, _ := ww.activityTaskExecutor.ExecuteActivity(ctx, task) // TODO: Handle error
 
-	// ww.backend.CompleteWorkflowTask(ctx, task)
+	res, err := converter.DefaultConverter.To(result)
+	if err != nil {
+		panic(err)
+	}
+
+	event := history.NewHistoryEvent(
+		history.HistoryEventType_ActivityCompleted,
+		task.Event.EventID,
+		history.ActivityCompletedAttributes{
+			ScheduleID: int(task.Event.EventID), // TODO: which should this be?
+			Result:     res,
+		})
+
+	ww.backend.CompleteActivityTask(ctx, task, event)
 }
 
 func (ww *activityWorker) poll(ctx context.Context, timeout time.Duration) (*tasks.ActivityTask, error) {

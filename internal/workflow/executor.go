@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-dt/internal/command"
+	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core/tasks"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
@@ -49,8 +50,8 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task tasks.WorkflowT
 func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent) error {
 	switch event.EventType {
 	case history.HistoryEventType_WorkflowExecutionStarted:
-		a := event.Attributes.(*history.ExecutionStartedAttributes)
-		e.handleWorkflowExecutionStarted(ctx, a)
+		a := event.Attributes.(history.ExecutionStartedAttributes)
+		e.handleWorkflowExecutionStarted(ctx, &a)
 
 	case history.HistoryEventType_ActivityScheduled:
 		e.handleActivityScheduled(ctx)
@@ -58,8 +59,8 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 	case history.HistoryEventType_ActivityFailed:
 
 	case history.HistoryEventType_ActivityCompleted:
-		a := event.Attributes.(*history.ActivityCompletedAttributes)
-		e.handleActivityCompleted(ctx, a)
+		a := event.Attributes.(history.ActivityCompletedAttributes)
+		e.handleActivityCompleted(ctx, &a)
 
 	default:
 		panic("unknown event type")
@@ -70,7 +71,7 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 
 func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
 	// TODO: Move this to registry
-	wf := e.registry.getWorkflow(attributes.Name)
+	wf := e.registry.GetWorkflow(attributes.Name)
 	wfFn := wf.(func(Context) error)
 
 	e.workflow = NewWorkflow(wfFn)
@@ -95,7 +96,9 @@ func (e *executor) handleActivityCompleted(ctx context.Context, attributes *hist
 		}
 	}
 
-	f.Set(attributes.Result) // TODO: Deserialize activity result
+	var r interface{}
+	converter.DefaultConverter.From(attributes.Result, &r) // TODO: handle error
+	f.Set(r)
 
 	e.workflow.Continue(ctx)
 }

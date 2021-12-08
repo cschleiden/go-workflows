@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/tasks"
 	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/google/uuid"
 )
 
 // TODO: This will have to move somewhere else
@@ -51,7 +52,7 @@ func NewMemoryBackend() backend.Backend {
 }
 
 func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.TaskMessage) error {
-	attrs, ok := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+	attrs, ok := m.HistoryEvent.Attributes.(history.ExecutionStartedAttributes)
 	if !ok {
 		return errors.New("invalid workflow instance creation event")
 	}
@@ -102,21 +103,42 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t tasks.Workflo
 		panic("could not unlock workflow instance")
 	}
 
-	// Unlock workflow instance
-	delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
-
 	// Check if completed
 
 	// else: Schedule commands
+	scheduledActivity := false
+
 	for _, c := range commands {
 		switch c.Type {
 		case command.CommandType_ScheduleActivityTask:
+			a := c.Attr.(command.ScheduleActivityTaskCommandAttr)
+			mb.activities <- &tasks.ActivityTask{
+				WorkflowInstance: t.WorkflowInstance,
+				ID:               uuid.NewString(),
+				Event: history.NewHistoryEvent(
+					history.HistoryEventType_ActivityScheduled,
+					int64(c.ID),
+					history.ActivityScheduledAttributes{
+						Name:    a.Name,
+						Version: a.Version,
+						Inputs:  [][]byte{},
+					},
+				),
+			}
 
+			scheduledActivity = true
+
+		default:
+			// panic("unsupported command")
 		}
 	}
 
 	// Return to queue
-	mb.workflows <- &t
+	if !scheduledActivity {
+		// Unlock workflow instance
+		delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
+		mb.workflows <- &t
+	}
 
 	return nil
 }
@@ -132,6 +154,19 @@ func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*tasks.ActivityTa
 	}
 }
 
-func (mb *memoryBackend) CompleteActivityTask(context.Context) error {
-	panic("not implemented")
+func (mb *memoryBackend) CompleteActivityTask(_ context.Context, t tasks.ActivityTask, event history.HistoryEvent) error {
+	mb.mu.Lock()
+	defer mb.mu.Unlock()
+
+	delete(mb.lockedActivities, t.ID)
+
+	// Continue workflow
+	wt := mb.lockedWorkflows[t.WorkflowInstance.GetExecutionID()]
+
+	wt.History = append(wt.History, event)
+
+	delete(mb.lockedWorkflows, t.WorkflowInstance.GetExecutionID())
+	mb.workflows <- wt
+
+	return nil
 }

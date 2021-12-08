@@ -54,41 +54,49 @@ func Workflow1(ctx workflow.Context) error {
 	fmt.Println("Entering Workflow1")
 	fmt.Println("\tIsReplaying:", ctx.Replaying())
 
-	// a1, err := workflow.ExecuteActivity(ctx, Activity1)
-	// if err != nil {
-	// 	panic("error executing activity 1")
-	// }
+	a1, err := ctx.ExecuteActivity("a1")
+	if err != nil {
+		panic("error executing activity 1")
+	}
 
-	// r1, err := a1.Get()
-	// if err != nil {
-	// 	panic("error getting activity 1 result")
-	// }
-	// fmt.Println("R1 result:", r1)
+	r1, err := a1.Get()
+	if err != nil {
+		panic("error getting activity 1 result")
+	}
+	fmt.Println("R1 result:", r1)
 
-	// a2, err := workflow.ExecuteActivity(ctx, Activity2)
-	// if err != nil {
-	// 	panic("error executing activity 1")
-	// }
+	a2, err := ctx.ExecuteActivity("a2")
+	if err != nil {
+		panic("error executing activity 1")
+	}
 
-	// r2, err := a2.Get()
-	// if err != nil {
-	// 	panic("error getting activity 1 result")
-	// }
-	// fmt.Println("R2 result:", r2)
+	r2, err := a2.Get()
+	if err != nil {
+		panic("error getting activity 1 result")
+	}
+	fmt.Println("R2 result:", r2)
 
-	// fmt.Println("Leaving Workflow1")
+	fmt.Println("Leaving Workflow1")
 
 	return nil
 }
 
-func Activity1(ctx workflow.Context) (int, error) {
+func Activity1(ctx context.Context) (interface{}, error) {
 	fmt.Println("Entering Activity1")
+
+	defer func() {
+		fmt.Println("Leaving Activity1")
+	}()
 
 	return 42, nil
 }
 
-func Activity2(ctx workflow.Context) (string, error) {
+func Activity2(ctx context.Context) (interface{}, error) {
 	fmt.Println("Entering Activity2")
+
+	defer func() {
+		fmt.Println("Leaving Activity2")
+	}()
 
 	return "hello", nil
 }

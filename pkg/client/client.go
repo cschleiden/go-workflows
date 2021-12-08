@@ -41,7 +41,7 @@ func (c *taskHubClient) CreateWorkflowInstance(ctx context.Context, options Work
 	startedEvent := history.NewHistoryEvent(
 		history.HistoryEventType_WorkflowExecutionStarted,
 		-1,
-		&history.ExecutionStartedAttributes{
+		history.ExecutionStartedAttributes{
 			Name:   "wf1",
 			Inputs: inputs,
 		})

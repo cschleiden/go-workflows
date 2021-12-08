@@ -31,14 +31,14 @@ func (r *Registry) RegisterActivity(name string, activity Activity) {
 	r.activityMap[name] = activity
 }
 
-func (r *Registry) getWorkflow(name string) Workflow {
+func (r *Registry) GetWorkflow(name string) Workflow {
 	r.Lock()
 	defer r.Unlock()
 
 	return r.workflowMap[name]
 }
 
-func (r *Registry) getActivity(name string) Activity {
+func (r *Registry) GetActivity(name string) Activity {
 	r.Lock()
 	defer r.Unlock()
 

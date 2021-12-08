@@ -6,6 +6,7 @@ import (
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/tasks"
+	"github.com/cschleiden/go-dt/pkg/history"
 )
 
 type Backend interface {
@@ -17,5 +18,5 @@ type Backend interface {
 
 	GetActivityTask(context.Context) (*tasks.ActivityTask, error)
 
-	CompleteActivityTask(context.Context) error
+	CompleteActivityTask(context.Context, tasks.ActivityTask, history.HistoryEvent) error
 }

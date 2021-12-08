@@ -49,7 +49,7 @@ func NewWorker(backend backend.Backend) Worker {
 		workflowWorker: internal.NewWorkflowWorker(backend, registry),
 		activityWorker: internal.NewActivityWorker(backend, registry),
 
-		registry:       registry,
+		registry: registry,
 
 		workflows:  map[string]interface{}{},
 		activities: map[string]interface{}{},
@@ -57,7 +57,10 @@ func NewWorker(backend backend.Backend) Worker {
 }
 
 func (w *worker) Start(ctx context.Context) error {
-	return w.workflowWorker.Start(ctx)
+	w.workflowWorker.Start(ctx)
+	w.activityWorker.Start(ctx)
+
+	return nil
 }
 
 func (w *worker) Stop() error {
