@@ -24,6 +24,14 @@ func main() {
 	// Start workflow via client
 	c := client.NewTaskHubClient(mb)
 
+	startWorkflow(ctx, c)
+	startWorkflow(ctx, c)
+
+	c2 := make(chan os.Signal, 1)
+	<-c2
+}
+
+func startWorkflow(ctx context.Context, c client.TaskHubClient) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world")
@@ -32,9 +40,6 @@ func main() {
 	}
 
 	fmt.Println("Started workflow", wf.GetInstanceID())
-
-	c2 := make(chan os.Signal, 1)
-	<-c2
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {

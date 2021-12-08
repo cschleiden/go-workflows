@@ -18,16 +18,17 @@ type WorkflowWorker interface {
 type workflowWorker struct {
 	backend backend.Backend
 
-	workflowTaskQueue    chan tasks.Workflow
-	workflowTaskExecutor workflow.WorkflowExecutor
+	registry *workflow.Registry
+
+	workflowTaskQueue chan tasks.Workflow
 }
 
 func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) WorkflowWorker {
 	return &workflowWorker{
 		backend: backend,
 
-		workflowTaskExecutor: workflow.NewExecutor(registry),
-		workflowTaskQueue:    make(chan tasks.Workflow),
+		registry:          registry,
+		workflowTaskQueue: make(chan tasks.Workflow),
 	}
 }
 
@@ -62,7 +63,8 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *workflowWorker) handleTask(ctx context.Context, task tasks.Workflow) {
-	commands, _ := ww.workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
+	workflowTaskExecutor := workflow.NewExecutor(ww.registry)
+	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
 
 	ww.backend.CompleteWorkflowTask(ctx, task, commands)
 }
