@@ -112,7 +112,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				1,
 				history.ActivityCompletedAttributes{
 					ScheduleID: 0,
-					Result:     []byte("world"),
+					Result:     []byte("\"world\""),
 				},
 			),
 		},
