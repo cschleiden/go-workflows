@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/pkg/converter"
@@ -70,9 +71,7 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
 	// TODO: Move this to registry
 	wf := e.registry.GetWorkflow(attributes.Name)
-	wfFn := wf.(func(Context) error)
-
-	e.workflow = NewWorkflow(wfFn)
+	e.workflow = NewWorkflow(reflect.ValueOf(wf))
 
 	e.workflow.Execute(ctx) // TODO: handle error
 }

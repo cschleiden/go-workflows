@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/cschleiden/go-dt/internal/command"
@@ -28,7 +29,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	e := &executor{
 		registry: r,
-		workflow: NewWorkflow(Workflow1),
+		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
 	}
 
 	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
@@ -85,7 +86,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	e := &executor{
 		registry: r,
-		workflow: NewWorkflow(Workflow1),
+		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
 	}
 
 	inputs, _ := converter.DefaultConverter.To(42)
@@ -161,7 +162,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	e := &executor{
 		registry: r,
-		workflow: NewWorkflow(Workflow1),
+		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
 	}
 
 	e.ExecuteWorkflowTask(context.Background(), task.Workflow{

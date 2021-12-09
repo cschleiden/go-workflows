@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/sync"
 )
@@ -13,10 +14,10 @@ type workflowFn func(Context) error // TODO: args
 type workflow struct {
 	context *contextImpl
 	cr      sync.Coroutine
-	fn      workflowFn
+	fn      reflect.Value
 }
 
-func NewWorkflow(workflowFn workflowFn) *workflow {
+func NewWorkflow(workflowFn reflect.Value) *workflow {
 	c := sync.NewCoroutine()
 
 	return &workflow{
@@ -32,7 +33,8 @@ func (w *workflow) Context() *contextImpl {
 
 func (w *workflow) Execute(ctx context.Context) error {
 	w.cr.Run(ctx, func(ctx context.Context) {
-		w.fn(w.context)
+		// TODO: Support inputs
+		w.fn.Call([]reflect.Value{reflect.ValueOf(w.context)})
 	})
 
 	w.cr.WaitUntilBlocked()

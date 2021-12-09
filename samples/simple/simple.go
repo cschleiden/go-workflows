@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cschleiden/go-dt/internal/workflow" // TODO: Remove
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
+	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/google/uuid"
 )
 
