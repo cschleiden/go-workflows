@@ -3,6 +3,8 @@ package workflow
 import (
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-dt/pkg/converter"
+	"github.com/pkg/errors"
 )
 
 type Context interface {
@@ -10,7 +12,7 @@ type Context interface {
 	Replaying() bool
 
 	// ExecuteActivity schedules the given activity to be executed
-	ExecuteActivity(name string) (sync.Future, error) // TODO: inputs
+	ExecuteActivity(name string, args ...interface{}) (sync.Future, error) // TODO: inputs
 }
 
 func newWorkflowContext(cr sync.Coroutine) *contextImpl {
@@ -41,11 +43,22 @@ func (c *contextImpl) SetReplaying(replaying bool) {
 	c.replaying = replaying
 }
 
-func (c *contextImpl) ExecuteActivity(name string) (sync.Future, error) {
+func (c *contextImpl) ExecuteActivity(name string, args ...interface{}) (sync.Future, error) {
 	eventID := c.eventID
 	c.eventID++
 
-	command := command.NewScheduleActivityTaskCommand(eventID, name, "", "")
+	inputs := make([][]byte, 0)
+	for _, arg := range args {
+		input, err := converter.DefaultConverter.To(arg)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert activity input")
+		}
+		inputs = append(inputs, input)
+	}
+
+	// TOOO: Validate arguments against activity registration}
+
+	command := command.NewScheduleActivityTaskCommand(eventID, name, "", inputs)
 	c.commands = append(c.commands, command)
 
 	f := sync.NewFuture(c.cr)

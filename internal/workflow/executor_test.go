@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cschleiden/go-dt/internal/command"
+	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
@@ -39,7 +40,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  [][]byte{},
+					Inputs:  []byte{},
 				},
 			),
 		},
@@ -58,7 +59,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	Workflow1 := func(ctx Context) error {
 		workflowHit++
 
-		f1, err := ctx.ExecuteActivity("a1")
+		f1, err := ctx.ExecuteActivity("a1", 42)
 		if err != nil {
 			panic("error executing activity 1")
 		}
@@ -72,10 +73,10 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 		return nil
 	}
-	Activity1 := func(ctx Context) (int, error) {
+	Activity1 := func(ctx Context, r int) (int, error) {
 		fmt.Println("Entering Activity1")
 
-		return 42, nil
+		return r, nil
 	}
 
 	r.RegisterWorkflow("w1", Workflow1)
@@ -86,6 +87,8 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
+	inputs, _ := converter.DefaultConverter.To([]interface{}{42})
+
 	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
@@ -95,21 +98,21 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  [][]byte{},
+					Inputs:  inputs,
 				},
 			),
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityScheduled,
-				1,
+				0,
 				history.ActivityScheduledAttributes{
 					Name:    "a1",
 					Version: "",
-					Inputs:  [][]byte{},
+					Inputs:  inputs,
 				},
 			),
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityCompleted,
-				1,
+				0,
 				history.ActivityCompletedAttributes{
 					Result: []byte("\"world\""),
 				},
@@ -130,7 +133,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	Workflow1 := func(ctx Context) error {
 		workflowHits++
 
-		f1, err := ctx.ExecuteActivity("a1")
+		f1, err := ctx.ExecuteActivity("a1", 42)
 		if err != nil {
 			panic("error executing activity 1")
 		}
@@ -144,10 +147,10 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 		return nil
 	}
-	Activity1 := func(ctx Context) (int, error) {
+	Activity1 := func(ctx Context, r int) (int, error) {
 		fmt.Println("Entering Activity1")
 
-		return 42, nil
+		return r, nil
 	}
 
 	r.RegisterWorkflow("w1", Workflow1)
@@ -167,7 +170,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  [][]byte{},
+					Inputs:  []byte{},
 				},
 			),
 		},
@@ -176,13 +179,15 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	require.Equal(t, 1, workflowHits)
 
 	require.Len(t, e.workflow.context.commands, 1)
+
+	inputs, _ := converter.DefaultConverter.To([]interface{}{42})
 	require.Equal(t, command.Command{
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
 		Attr: command.ScheduleActivityTaskCommandAttr{
 			Name:    "a1",
 			Version: "",
-			Input:   "",
+			Inputs:  inputs,
 		},
 	}, e.workflow.context.commands[0])
 }

@@ -5,6 +5,5 @@ type ActivityScheduledAttributes struct {
 
 	Version string
 
-	// TODO: Revisit if this is the right format
 	Inputs [][]byte
 }

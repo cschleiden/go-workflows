@@ -59,7 +59,7 @@ func Workflow1(ctx workflow.Context) error {
 	fmt.Println("Entering Workflow1")
 	fmt.Println("\tIsReplaying:", ctx.Replaying())
 
-	a1, err := ctx.ExecuteActivity("a1")
+	a1, err := ctx.ExecuteActivity("a1", 35, 12)
 	if err != nil {
 		panic("error executing activity 1")
 	}
@@ -86,22 +86,22 @@ func Workflow1(ctx workflow.Context) error {
 	return nil
 }
 
-func Activity1(ctx context.Context) (interface{}, error) {
+func Activity1(ctx context.Context, a, b int) (int, error) {
 	fmt.Println("Entering Activity1")
 
 	defer func() {
 		fmt.Println("Leaving Activity1")
 	}()
 
-	return 42, nil
+	return a + b, nil
 }
 
-func Activity2(ctx context.Context) (interface{}, error) {
+func Activity2(ctx context.Context) (int, error) {
 	fmt.Println("Entering Activity2")
 
 	defer func() {
 		fmt.Println("Leaving Activity2")
 	}()
 
-	return "hello", nil
+	return 12, nil
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/cschleiden/go-dt/internal/activity"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
@@ -65,16 +64,11 @@ func (ww *activityWorker) runDispatcher(ctx context.Context) {
 func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 	result, _ := ww.activityTaskExecutor.ExecuteActivity(ctx, task) // TODO: Handle error
 
-	res, err := converter.DefaultConverter.To(result)
-	if err != nil {
-		panic(err)
-	}
-
 	event := history.NewHistoryEvent(
 		history.HistoryEventType_ActivityCompleted,
 		task.Event.EventID,
 		history.ActivityCompletedAttributes{
-			Result: res,
+			Result: result,
 		})
 
 	ww.backend.CompleteActivityTask(ctx, task, event)

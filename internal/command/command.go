@@ -19,17 +19,17 @@ type Command struct {
 type ScheduleActivityTaskCommandAttr struct {
 	Name    string
 	Version string
-	Input   string // TODO: Activity inputs
+	Inputs  [][]byte
 }
 
-func NewScheduleActivityTaskCommand(id int, name, version, input string) Command {
+func NewScheduleActivityTaskCommand(id int, name, version string, inputs [][]byte) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleActivityTask,
 		Attr: ScheduleActivityTaskCommandAttr{
 			Name:    name,
 			Version: version,
-			Input:   input,
+			Inputs:  inputs,
 		},
 	}
 }

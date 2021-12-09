@@ -60,17 +60,11 @@ func (c *taskHubClient) CreateWorkflowInstance(ctx context.Context, options Work
 	return wfi, nil
 }
 
-func encodeArgs(c converter.Converter, args ...interface{}) ([][]byte, error) {
-	eas := make([][]byte, len(args))
-
-	for _, a := range args {
-		ea, err := c.To(a)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not encode arg")
-		}
-
-		eas = append(eas, ea)
+func encodeArgs(c converter.Converter, args ...interface{}) ([]byte, error) {
+	ea, err := c.To(args)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not encode arg")
 	}
 
-	return eas, nil
+	return ea, nil
 }

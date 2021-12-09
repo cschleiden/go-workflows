@@ -80,7 +80,7 @@ func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attribute
 func (e *executor) handleActivityScheduled(_ context.Context) {
 }
 
-func (e *executor) handleActivityCompleted(ctx context.Context, event history.HistoryEvent, attributes *history.ActivityCompletedAttributes) {
+func (e *executor) handleActivityCompleted(ctx context.Context, event history.HistoryEvent, a *history.ActivityCompletedAttributes) {
 	f, ok := e.workflow.Context().pendingFutures[event.EventID] // TODO: not quite the right id
 	if !ok {
 		panic("no pending future!")
@@ -94,8 +94,12 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 		}
 	}
 
-	var r interface{}
-	converter.DefaultConverter.From(attributes.Result, &r) // TODO: handle error
+	// TODO: Convert result to correct type from activity
+	var r int
+	err := converter.DefaultConverter.From(a.Result, &r) // TODO: handle error
+	if err != nil {
+		panic(err)
+	}
 	f.Set(r)
 
 	e.workflow.Continue(ctx)
@@ -104,8 +108,8 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 func (e *executor) workflowCompleted() {
 	wfCtx := e.workflow.Context()
 
-	wfCtx.eventID++
 	eventId := wfCtx.eventID
+	wfCtx.eventID++
 
 	wfCtx.AddCommand(command.NewCompleteWorkflowCommand(eventId))
 }

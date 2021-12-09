@@ -119,7 +119,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 					history.ActivityScheduledAttributes{
 						Name:    a.Name,
 						Version: a.Version,
-						Inputs:  [][]byte{},
+						Inputs:  a.Inputs,
 					},
 				),
 			}
