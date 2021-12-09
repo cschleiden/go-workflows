@@ -23,7 +23,7 @@ const (
 type HistoryEvent struct {
 	EventType HistoryEventType
 
-	EventID int64
+	EventID int
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
@@ -31,7 +31,7 @@ type HistoryEvent struct {
 	Played bool
 }
 
-func NewHistoryEvent(eventType HistoryEventType, eventID int64, attributes interface{}) HistoryEvent {
+func NewHistoryEvent(eventType HistoryEventType, eventID int, attributes interface{}) HistoryEvent {
 	return HistoryEvent{
 		EventType:  eventType,
 		EventID:    eventID,

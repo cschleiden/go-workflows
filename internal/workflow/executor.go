@@ -58,7 +58,7 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 
 	case history.HistoryEventType_ActivityCompleted:
 		a := event.Attributes.(history.ActivityCompletedAttributes)
-		e.handleActivityCompleted(ctx, &a)
+		e.handleActivityCompleted(ctx, event, &a)
 
 	default:
 		panic("unknown event type")
@@ -80,15 +80,15 @@ func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attribute
 func (e *executor) handleActivityScheduled(_ context.Context) {
 }
 
-func (e *executor) handleActivityCompleted(ctx context.Context, attributes *history.ActivityCompletedAttributes) {
-	f, ok := e.workflow.Context().pendingFutures[attributes.ScheduleID] // TODO: not quite the right id
+func (e *executor) handleActivityCompleted(ctx context.Context, event history.HistoryEvent, attributes *history.ActivityCompletedAttributes) {
+	f, ok := e.workflow.Context().pendingFutures[event.EventID] // TODO: not quite the right id
 	if !ok {
 		panic("no pending future!")
 	}
 
 	// Remove pending command
 	for i, c := range e.workflow.Context().commands {
-		if c.ID == attributes.ScheduleID {
+		if c.ID == event.EventID {
 			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
 			break
 		}

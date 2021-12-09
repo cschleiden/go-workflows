@@ -115,7 +115,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 				ID:               uuid.NewString(),
 				Event: history.NewHistoryEvent(
 					history.HistoryEventType_ActivityScheduled,
-					int64(c.ID),
+					c.ID,
 					history.ActivityScheduledAttributes{
 						Name:    a.Name,
 						Version: a.Version,

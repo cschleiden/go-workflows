@@ -74,8 +74,7 @@ func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 		history.HistoryEventType_ActivityCompleted,
 		task.Event.EventID,
 		history.ActivityCompletedAttributes{
-			ScheduleID: int(task.Event.EventID), // TODO: which should this be?
-			Result:     res,
+			Result: res,
 		})
 
 	ww.backend.CompleteActivityTask(ctx, task, event)
