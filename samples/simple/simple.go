@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
@@ -39,7 +39,7 @@ func startWorkflow(ctx context.Context, c client.TaskHubClient) {
 		panic("could not start workflow")
 	}
 
-	fmt.Println("Started workflow", wf.GetInstanceID())
+	log.Println("Started workflow", wf.GetInstanceID())
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
@@ -55,9 +55,14 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context) error {
-	fmt.Println("Entering Workflow1")
-	fmt.Println("\tIsReplaying:", ctx.Replaying())
+func Workflow1(ctx workflow.Context, msg string) error {
+	log.Println("Entering Workflow1")
+	log.Println("\tWorkflow instance input:", msg)
+	log.Println("\tIsReplaying:", ctx.Replaying())
+
+	defer func() {
+		log.Println("Leaving Workflow1")
+	}()
 
 	a1, err := ctx.ExecuteActivity("a1", 35, 12)
 	if err != nil {
@@ -69,7 +74,7 @@ func Workflow1(ctx workflow.Context) error {
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	fmt.Println("R1 result:", r1)
+	log.Println("R1 result:", r1)
 
 	a2, err := ctx.ExecuteActivity("a2")
 	if err != nil {
@@ -80,28 +85,26 @@ func Workflow1(ctx workflow.Context) error {
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	fmt.Println("R2 result:", r2)
-
-	fmt.Println("Leaving Workflow1")
+	log.Println("R2 result:", r2)
 
 	return nil
 }
 
 func Activity1(ctx context.Context, a, b int) (int, error) {
-	fmt.Println("Entering Activity1")
+	log.Println("Entering Activity1")
 
 	defer func() {
-		fmt.Println("Leaving Activity1")
+		log.Println("Leaving Activity1")
 	}()
 
 	return a + b, nil
 }
 
 func Activity2(ctx context.Context) (int, error) {
-	fmt.Println("Entering Activity2")
+	log.Println("Entering Activity2")
 
 	defer func() {
-		fmt.Println("Leaving Activity2")
+		log.Println("Leaving Activity2")
 	}()
 
 	return 12, nil

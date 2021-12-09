@@ -41,7 +41,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  []byte{},
+					Inputs:  [][]byte{},
 				},
 			),
 		},
@@ -101,7 +101,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  inputs,
+					Inputs:  [][]byte{inputs},
 				},
 			),
 			history.NewHistoryEvent(
@@ -174,7 +174,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  []byte{},
+					Inputs:  [][]byte{},
 				},
 			),
 		},

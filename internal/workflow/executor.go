@@ -73,7 +73,7 @@ func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attribute
 	wf := e.registry.GetWorkflow(attributes.Name)
 	e.workflow = NewWorkflow(reflect.ValueOf(wf))
 
-	e.workflow.Execute(ctx) // TODO: handle error
+	e.workflow.Execute(ctx, attributes.Inputs) // TODO: handle error
 }
 
 func (e *executor) handleActivityScheduled(_ context.Context) {

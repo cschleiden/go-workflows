@@ -5,7 +5,7 @@ type ExecutionStartedAttributes struct {
 
 	Version string
 
-	Inputs []byte
+	Inputs [][]byte
 
 	// Scheduled time.Time // TODO: Timers
 }
