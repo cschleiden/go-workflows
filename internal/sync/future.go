@@ -1,42 +1,32 @@
 package sync
 
-import (
-	"sync/atomic"
-)
-
 type Future interface {
 	// Set stores the value and unblocks any waiting consumers
-	Set(v interface{})
+	Set(getter func(v interface{}) error)
 
 	// Get returns the value if set, blocks otherwise
-	Get() (interface{}, error)
+	Get(v interface{}) error
 }
 
 func NewFuture(cr Coroutine) Future {
 	return &futureImpl{
 		cr: cr,
-		v:  atomic.Value{},
 	}
 }
 
 type futureImpl struct {
 	cr Coroutine
-	v  atomic.Value
+	fn func(v interface{}) error
 }
 
-func (f *futureImpl) Set(v interface{}) {
-	if v != nil {
-		if f.v.Swap(v) != nil {
-			panic("future value already set")
-		}
-	}
+func (f *futureImpl) Set(getter func(v interface{}) error) {
+	f.fn = getter
 }
 
-func (f *futureImpl) Get() (interface{}, error) {
+func (f *futureImpl) Get(v interface{}) error {
 	for {
-		v := f.v.Load()
-		if v != nil {
-			return v, nil
+		if f.fn != nil {
+			return f.fn(v)
 		}
 
 		f.cr.Yield()

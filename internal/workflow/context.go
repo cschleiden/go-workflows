@@ -12,7 +12,7 @@ type Context interface {
 	Replaying() bool
 
 	// ExecuteActivity schedules the given activity to be executed
-	ExecuteActivity(name string, args ...interface{}) (sync.Future, error) // TODO: inputs
+	ExecuteActivity(name string, args ...interface{}) (sync.Future, error)
 }
 
 func newWorkflowContext(cr sync.Coroutine) *contextImpl {

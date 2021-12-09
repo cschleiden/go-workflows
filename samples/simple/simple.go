@@ -64,7 +64,8 @@ func Workflow1(ctx workflow.Context) error {
 		panic("error executing activity 1")
 	}
 
-	r1, err := a1.Get()
+	var r1, r2 int
+	err = a1.Get(&r1)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
@@ -75,7 +76,7 @@ func Workflow1(ctx workflow.Context) error {
 		panic("error executing activity 1")
 	}
 
-	r2, err := a2.Get()
+	err = a2.Get(&r2)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}

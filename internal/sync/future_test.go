@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,8 @@ func Test_Yields(t *testing.T) {
 	f := NewFuture(c)
 
 	c.Run(context.Background(), func(_ context.Context) {
-		f.Get()
+		var v int
+		f.Get(&v)
 	})
 
 	c.WaitUntilBlocked()
@@ -30,15 +32,19 @@ func Test_SetUnblocks(t *testing.T) {
 	var v int
 
 	c.Run(context.Background(), func(_ context.Context) {
-		i, _ := f.Get()
-		v = i.(int)
+		f.Get(&v)
 	})
 	c.WaitUntilBlocked()
 
 	require.False(t, c.Finished())
 	require.True(t, c.Blocked())
 
-	f.Set(42)
+	f.Set(func(v interface{}) error {
+		r := reflect.ValueOf(v)
+		r.Elem().Set(reflect.ValueOf(42))
+
+		return nil
+	})
 
 	c.Continue()
 

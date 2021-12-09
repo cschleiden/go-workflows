@@ -81,7 +81,7 @@ func (e *executor) handleActivityScheduled(_ context.Context) {
 }
 
 func (e *executor) handleActivityCompleted(ctx context.Context, event history.HistoryEvent, a *history.ActivityCompletedAttributes) {
-	f, ok := e.workflow.Context().pendingFutures[event.EventID] // TODO: not quite the right id
+	f, ok := e.workflow.Context().pendingFutures[event.EventID]
 	if !ok {
 		panic("no pending future!")
 	}
@@ -94,14 +94,9 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 		}
 	}
 
-	// TODO: Convert result to correct type from activity
-	var r int
-	err := converter.DefaultConverter.From(a.Result, &r) // TODO: handle error
-	if err != nil {
-		panic(err)
-	}
-	f.Set(r)
-
+	f.Set(func(v interface{}) error {
+		return converter.DefaultConverter.From(a.Result, v)
+	})
 	e.workflow.Continue(ctx)
 }
 
