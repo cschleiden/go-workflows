@@ -64,7 +64,8 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			panic("error executing activity 1")
 		}
 
-		_, err = f1.Get()
+		var r int
+		err = f1.Get(&r)
 		if err != nil {
 			panic("error getting activity 1 result")
 		}
@@ -87,7 +88,8 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		workflow: NewWorkflow(Workflow1),
 	}
 
-	inputs, _ := converter.DefaultConverter.To([]interface{}{42})
+	inputs, _ := converter.DefaultConverter.To(42)
+	result, _ := converter.DefaultConverter.To(42)
 
 	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -107,14 +109,14 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.ActivityScheduledAttributes{
 					Name:    "a1",
 					Version: "",
-					Inputs:  inputs,
+					Inputs:  [][]byte{inputs},
 				},
 			),
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityCompleted,
 				0,
 				history.ActivityCompletedAttributes{
-					Result: []byte("\"world\""),
+					Result: result,
 				},
 			),
 		},
@@ -138,7 +140,8 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			panic("error executing activity 1")
 		}
 
-		_, err = f1.Get()
+		var r int
+		err = f1.Get(&r)
 		if err != nil {
 			panic("error getting activity 1 result")
 		}
@@ -180,14 +183,14 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	require.Len(t, e.workflow.context.commands, 1)
 
-	inputs, _ := converter.DefaultConverter.To([]interface{}{42})
+	inputs, _ := converter.DefaultConverter.To(42)
 	require.Equal(t, command.Command{
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
 		Attr: command.ScheduleActivityTaskCommandAttr{
 			Name:    "a1",
 			Version: "",
-			Inputs:  inputs,
+			Inputs:  [][]byte{inputs},
 		},
 	}, e.workflow.context.commands[0])
 }
