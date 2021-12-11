@@ -11,24 +11,45 @@ import (
 )
 
 type WorkflowExecutor interface {
-	ExecuteWorkflowTask(ctx context.Context, task task.Workflow) ([]command.Command, error)
+	ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error)
 }
 
 type executor struct {
 	registry *Registry
+	task     *task.Workflow
 	workflow *workflow
 }
 
-func NewExecutor(registry *Registry) WorkflowExecutor {
+func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
+	// TODO: Is taking this from the first message the best approach? Should we move
+	// this into the task itself? Will this be an issue once we get to sub/child workflows
+	// ?
+	attributes, ok := task.History[0].Attributes.(history.ExecutionStartedAttributes)
+	if !ok {
+		panic("workflow task did not contain execution started as first message")
+	}
+
+	// TODO: Move this to registry
+	// TODO: Support version
+	wfFn := registry.GetWorkflow(attributes.Name)
+	workflow := NewWorkflow(reflect.ValueOf(wfFn))
+
 	return &executor{
 		registry: registry,
+		task:     task,
+		workflow: workflow,
 	}
 }
 
-func (e *executor) ExecuteWorkflowTask(ctx context.Context, task task.Workflow) ([]command.Command, error) {
+func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error) {
 	// Replay history
-	for _, event := range task.History {
-		e.executeEvent(ctx, event)
+	for i := range e.task.History {
+		event := &e.task.History[i]
+
+		// TODO: Move the context to be owned by the executor?
+		e.workflow.context.SetReplaying(event.Played)
+
+		e.executeEvent(ctx, *event)
 
 		event.Played = true
 	}
@@ -39,7 +60,7 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context, task task.Workflow) 
 	}
 
 	if e.workflow != nil {
-		// End workflow when running to prevent leaking goroutines
+		// End workflow if running to prevent leaking goroutines
 		e.workflow.Close()
 	}
 
@@ -69,10 +90,6 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 }
 
 func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
-	// TODO: Move this to registry
-	wf := e.registry.GetWorkflow(attributes.Name)
-	e.workflow = NewWorkflow(reflect.ValueOf(wf))
-
 	e.workflow.Execute(ctx, attributes.Inputs) // TODO: handle error
 }
 

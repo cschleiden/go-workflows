@@ -100,8 +100,10 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 
 	_, ok := mb.lockedWorkflows[t.WorkflowInstance.GetExecutionID()]
 	if !ok {
-		panic("could not unlock workflow instance")
+		panic("could not find locked workflow instance")
 	}
+
+	mb.lockedWorkflows[t.WorkflowInstance.GetExecutionID()] = &t
 
 	workflowComplete := false
 	scheduledActivity := false

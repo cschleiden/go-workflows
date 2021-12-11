@@ -76,6 +76,8 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	}
 	log.Println("R1 result:", r1)
 
+	log.Println("\tIsReplaying:", ctx.Replaying())
+
 	a2, err := ctx.ExecuteActivity("a2")
 	if err != nil {
 		panic("error executing activity 1")

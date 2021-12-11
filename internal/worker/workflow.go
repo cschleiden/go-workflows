@@ -63,8 +63,8 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
-	workflowTaskExecutor := workflow.NewExecutor(ww.registry)
-	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx, task) // TODO: Handle error
+	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
+	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx) // TODO: Handle error
 
 	ww.backend.CompleteWorkflowTask(ctx, task, commands)
 }

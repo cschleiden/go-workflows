@@ -27,12 +27,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	r.RegisterWorkflow("w1", Workflow1)
 
-	e := &executor{
-		registry: r,
-		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
-	}
-
-	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
+	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -45,7 +40,15 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				},
 			),
 		},
-	})
+	}
+
+	e := &executor{
+		registry: r,
+		task:     task,
+		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
+	}
+
+	e.ExecuteWorkflowTask(context.Background())
 
 	require.Equal(t, 1, workflowHits)
 	require.True(t, e.workflow.Completed())
@@ -84,15 +87,10 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	r.RegisterWorkflow("w1", Workflow1)
 	r.RegisterActivity("a1", Activity1)
 
-	e := &executor{
-		registry: r,
-		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
-	}
-
 	inputs, _ := converter.DefaultConverter.To(42)
 	result, _ := converter.DefaultConverter.To(42)
 
-	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
+	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -121,7 +119,15 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				},
 			),
 		},
-	})
+	}
+
+	e := &executor{
+		registry: r,
+		task:     task,
+		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
+	}
+
+	e.ExecuteWorkflowTask(context.Background())
 
 	require.Equal(t, 2, workflowHit)
 	require.True(t, e.workflow.Completed())
@@ -160,12 +166,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	r.RegisterWorkflow("w1", Workflow1)
 	r.RegisterActivity("a1", Activity1)
 
-	e := &executor{
-		registry: r,
-		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
-	}
-
-	e.ExecuteWorkflowTask(context.Background(), task.Workflow{
+	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.HistoryEvent{
 			history.NewHistoryEvent(
@@ -178,7 +179,15 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				},
 			),
 		},
-	})
+	}
+
+	e := &executor{
+		registry: r,
+		task:     task,
+		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
+	}
+
+	e.ExecuteWorkflowTask(context.Background())
 
 	require.Equal(t, 1, workflowHits)
 
