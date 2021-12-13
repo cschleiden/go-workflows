@@ -1,4 +1,5 @@
 {
+  "go.testFlags": ["-race"],
   "peacock.color": "#007fff",
   "workbench.colorCustomizations": {
     "sash.hoverBorder": "#3399ff",
