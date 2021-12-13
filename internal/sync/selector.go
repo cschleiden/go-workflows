@@ -27,9 +27,12 @@ func (s *selector) AddFuture(f Future, handler func(f Future)) {
 func (s *selector) Select(ctx context.Context) {
 	for {
 		// Is any case ready?
-		for _, c := range s.cases {
+		for i, c := range s.cases {
 			if c.Ready() {
 				c.Handle()
+				// Remove successful case
+				s.cases = append(s.cases[:i], s.cases[i+1:]...)
+				return
 			}
 		}
 
@@ -40,7 +43,6 @@ func (s *selector) Select(ctx context.Context) {
 
 type selectorCase interface {
 	Ready() bool
-	// TODO: Reconsider error handling
 	Handle()
 }
 

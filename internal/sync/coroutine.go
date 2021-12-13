@@ -90,6 +90,10 @@ func (s *coState) Yield() {
 }
 
 func (s *coState) Continue() {
+	if s.Finished() {
+		return
+	}
+
 	s.unblock <- true
 
 	// TODO: Add some timeout

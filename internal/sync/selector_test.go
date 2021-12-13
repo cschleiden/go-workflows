@@ -9,33 +9,105 @@ import (
 )
 
 func Test_FutureSelector_SelectWaits(t *testing.T) {
-	s := NewSelector()
-
 	ctx := context.Background()
 	cs := newState()
 	ctx = withCoState(ctx, cs)
 
 	f := NewFuture(cs)
 
-	fn := func() {
-		f.Set(func(v interface{}) error {
-			x := reflect.ValueOf(v)
-			x.Elem().Set(reflect.ValueOf(42))
+	reachedEnd := false
 
-			return nil
+	cs.Run(ctx, func(ctx context.Context) {
+		s := NewSelector()
+
+		s.AddFuture(f, func(f Future) {
+			var r int
+			err := f.Get(&r)
+			require.Nil(t, err)
+
+			require.Equal(t, 42, r)
 		})
-	}
 
-	s.AddFuture(f, func(f Future) {
-		var r int
-		err := f.Get(&r)
-		require.Nil(t, err)
+		// Wait for result
+		s.Select(ctx)
 
-		require.Equal(t, 42, r)
+		reachedEnd = true
 	})
 
-	// Wait for result
-	s.Select(ctx)
+	cs.WaitUntilBlocked()
 
-	fn()
+	require.False(t, reachedEnd)
+
+	f.Set(func(v interface{}) error {
+		x := reflect.ValueOf(v)
+		x.Elem().Set(reflect.ValueOf(42))
+
+		return nil
+	})
+
+	cs.Continue()
+
+	require.True(t, reachedEnd)
+}
+
+func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
+	ctx := context.Background()
+	cs := newState()
+	ctx = withCoState(ctx, cs)
+
+	f := NewFuture(cs)
+	f2 := NewFuture(cs)
+
+	reachedEnd := false
+	order := make([]int, 0)
+
+	cs.Run(ctx, func(ctx context.Context) {
+		s := NewSelector()
+
+		s.AddFuture(f, func(f Future) {
+			var r int
+			err := f.Get(&r)
+			require.Nil(t, err)
+			require.Equal(t, 42, r)
+			order = append(order, 42)
+		})
+
+		s.AddFuture(f2, func(f Future) {
+			var r int
+			err := f.Get(&r)
+			require.Nil(t, err)
+			require.Equal(t, 23, r)
+			order = append(order, 23)
+		})
+
+		// Wait for result
+		s.Select(ctx)
+		s.Select(ctx)
+
+		reachedEnd = true
+	})
+
+	cs.WaitUntilBlocked()
+
+	require.False(t, reachedEnd)
+
+	f.Set(func(v interface{}) error {
+		x := reflect.ValueOf(v)
+		x.Elem().Set(reflect.ValueOf(42))
+
+		return nil
+	})
+
+	f2.Set(func(v interface{}) error {
+		x := reflect.ValueOf(v)
+		x.Elem().Set(reflect.ValueOf(23))
+
+		return nil
+	})
+
+	cs.Continue()
+
+	require.True(t, cs.Finished())
+	require.True(t, reachedEnd)
+	require.Equal(t, []int{42, 23}, order)
 }
