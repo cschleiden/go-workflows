@@ -32,3 +32,7 @@ func (f *futureImpl) Get(v interface{}) error {
 		f.cr.Yield()
 	}
 }
+
+func (f *futureImpl) Ready() bool {
+	return f.fn != nil
+}
