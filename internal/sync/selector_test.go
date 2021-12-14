@@ -18,7 +18,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 	reachedEnd := false
 
 	cs.Run(ctx, func(ctx context.Context) {
-		s := NewSelector()
+		s := NewSelector(cs)
 
 		s.AddFuture(f, func(f Future) {
 			var r int
@@ -29,7 +29,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 		})
 
 		// Wait for result
-		s.Select(ctx)
+		s.Select()
 
 		reachedEnd = true
 	})
@@ -62,7 +62,7 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	order := make([]int, 0)
 
 	cs.Run(ctx, func(ctx context.Context) {
-		s := NewSelector()
+		s := NewSelector(cs)
 
 		s.AddFuture(f, func(f Future) {
 			var r int
@@ -81,8 +81,8 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 		})
 
 		// Wait for result
-		s.Select(ctx)
-		s.Select(ctx)
+		s.Select()
+		s.Select()
 
 		reachedEnd = true
 	})
@@ -110,4 +110,37 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	require.True(t, cs.Finished())
 	require.True(t, reachedEnd)
 	require.Equal(t, []int{42, 23}, order)
+}
+
+func Test_FutureSelector_Default(t *testing.T) {
+	ctx := context.Background()
+	cs := newState()
+	ctx = withCoState(ctx, cs)
+
+	f := NewFuture(cs)
+
+	defaultHandled := false
+	reachedEnd := false
+
+	cs.Run(ctx, func(ctx context.Context) {
+		s := NewSelector(cs)
+
+		s.AddFuture(f, func(_ Future) {
+			require.Fail(t, "should not be called")
+		})
+
+		s.AddDefault(func() {
+			defaultHandled = true
+		})
+
+		// Wait for result
+		s.Select()
+
+		reachedEnd = true
+	})
+
+	cs.WaitUntilBlocked()
+
+	require.True(t, reachedEnd)
+	require.True(t, defaultHandled)
 }

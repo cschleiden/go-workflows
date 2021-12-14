@@ -1,19 +1,22 @@
 package sync
 
-import "context"
-
 type Selector interface {
 	AddFuture(f Future, handler func(f Future))
-	Select(ctx context.Context)
+
+	AddDefault(handler func())
+
+	Select()
 }
 
-func NewSelector() Selector {
+func NewSelector(cr Coroutine) Selector {
 	return &selector{
+		cr:    cr,
 		cases: make([]selectorCase, 0),
 	}
 }
 
 type selector struct {
+	cr    Coroutine
 	cases []selectorCase
 }
 
@@ -24,20 +27,26 @@ func (s *selector) AddFuture(f Future, handler func(f Future)) {
 	})
 }
 
-func (s *selector) Select(ctx context.Context) {
+func (s *selector) AddDefault(handler func()) {
+	s.cases = append(s.cases, &defaultCase{
+		fn: handler,
+	})
+}
+
+func (s *selector) Select() {
 	for {
 		// Is any case ready?
 		for i, c := range s.cases {
 			if c.Ready() {
 				c.Handle()
-				// Remove successful case
+				// Remove handled case
 				s.cases = append(s.cases[:i], s.cases[i+1:]...)
 				return
 			}
 		}
 
 		// else, yield and wait for result
-		getCoState(ctx).Yield()
+		s.cr.Yield()
 	}
 }
 
@@ -59,4 +68,16 @@ func (fc *futureCase) Ready() bool {
 
 func (fc *futureCase) Handle() {
 	fc.fn(fc.f)
+}
+
+type defaultCase struct {
+	fn func()
+}
+
+func (dc *defaultCase) Ready() bool {
+	return true
+}
+
+func (dc *defaultCase) Handle() {
+	dc.fn()
 }
