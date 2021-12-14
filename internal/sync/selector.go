@@ -18,6 +18,8 @@ func NewSelector(cr Coroutine) Selector {
 type selector struct {
 	cr    Coroutine
 	cases []selectorCase
+
+	defaultFunc func()
 }
 
 func (s *selector) AddFuture(f Future, handler func(f Future)) {
@@ -28,9 +30,7 @@ func (s *selector) AddFuture(f Future, handler func(f Future)) {
 }
 
 func (s *selector) AddDefault(handler func()) {
-	s.cases = append(s.cases, &defaultCase{
-		fn: handler,
-	})
+	s.defaultFunc = handler
 }
 
 func (s *selector) Select() {
@@ -43,6 +43,11 @@ func (s *selector) Select() {
 				s.cases = append(s.cases[:i], s.cases[i+1:]...)
 				return
 			}
+		}
+
+		if s.defaultFunc != nil {
+			s.defaultFunc()
+			return
 		}
 
 		// else, yield and wait for result
@@ -68,16 +73,4 @@ func (fc *futureCase) Ready() bool {
 
 func (fc *futureCase) Handle() {
 	fc.fn(fc.f)
-}
-
-type defaultCase struct {
-	fn func()
-}
-
-func (dc *defaultCase) Ready() bool {
-	return true
-}
-
-func (dc *defaultCase) Handle() {
-	dc.fn()
 }
