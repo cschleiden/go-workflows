@@ -13,6 +13,9 @@ type Context interface {
 
 	// ExecuteActivity schedules the given activity to be executed
 	ExecuteActivity(name string, args ...interface{}) (sync.Future, error)
+
+	// NewSelector creates a new deterministic selector
+	NewSelector() sync.Selector
 }
 
 func newWorkflowContext(cr sync.Coroutine) *contextImpl {
@@ -56,7 +59,7 @@ func (c *contextImpl) ExecuteActivity(name string, args ...interface{}) (sync.Fu
 		inputs = append(inputs, input)
 	}
 
-	// TOOO: Validate arguments against activity registration}
+	// TOOO: Validate arguments against activity registration
 
 	command := command.NewScheduleActivityTaskCommand(eventID, name, "", inputs)
 	c.commands = append(c.commands, command)
@@ -65,6 +68,10 @@ func (c *contextImpl) ExecuteActivity(name string, args ...interface{}) (sync.Fu
 	c.pendingFutures[eventID] = f
 
 	return f, nil
+}
+
+func (c *contextImpl) NewSelector() sync.Selector {
+	return sync.NewSelector(c.cr)
 }
 
 func (c *contextImpl) AddCommand(cmd command.Command) {
