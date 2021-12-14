@@ -10,6 +10,13 @@
       "request": "launch",
       "mode": "debug",
       "program": "${workspaceFolder}/samples/simple/simple.go"
+    },
+    {
+      "name": "Launch concurrent sample",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/samples/concurrent/concurrent.go"
     }
   ]
 }
