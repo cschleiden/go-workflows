@@ -8,6 +8,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
+	"github.com/cschleiden/go-dt/pkg/sync"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/google/uuid"
@@ -63,15 +64,39 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		log.Println("Leaving Workflow1")
 	}()
 
-	// a1, err := ctx.ExecuteActivity("a1", 35, 12)
-	// if err != nil {
-	// 	panic("error executing activity 1")
-	// }
+	a1, err := ctx.ExecuteActivity("a1", 35, 12)
+	if err != nil {
+		panic("error executing activity 1")
+	}
 
-	// a2, err := ctx.ExecuteActivity("a2")
-	// if err != nil {
-	// 	panic("error executing activity 1")
-	// }
+	a2, err := ctx.ExecuteActivity("a2")
+	if err != nil {
+		panic("error executing activity 1")
+	}
+
+	s := ctx.NewSelector()
+
+	s.AddFuture(a2, func(f2 sync.Future) {
+		var r int
+		if err := f2.Get(&r); err != nil {
+			panic(err)
+		}
+
+		log.Println("A2 result", r)
+	})
+
+	s.AddFuture(a1, func(f1 sync.Future) {
+		var r int
+		if err := f1.Get(&r); err != nil {
+			panic(err)
+		}
+
+		log.Println("A1 result", r)
+	})
+
+	log.Println("Selecting...")
+	s.Select()
+	log.Println("Selected")
 
 	return nil
 }
