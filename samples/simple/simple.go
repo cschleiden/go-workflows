@@ -25,7 +25,7 @@ func main() {
 	c := client.NewTaskHubClient(mb)
 
 	startWorkflow(ctx, c)
-	startWorkflow(ctx, c)
+	// startWorkflow(ctx, c)
 
 	c2 := make(chan os.Signal, 1)
 	<-c2

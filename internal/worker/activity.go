@@ -71,7 +71,7 @@ func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 			Result: result,
 		})
 
-	ww.backend.CompleteActivityTask(ctx, task, event)
+	ww.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event)
 }
 
 func (ww *activityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {

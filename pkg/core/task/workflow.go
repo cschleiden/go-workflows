@@ -7,6 +7,6 @@ import (
 
 type Workflow struct {
 	WorkflowInstance core.WorkflowInstance
-
-	History []history.HistoryEvent
+	History          []history.HistoryEvent
+	NewEvents        []history.HistoryEvent
 }

@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/core/task"
+	"github.com/cschleiden/go-dt/pkg/history"
 )
 
 type WorkflowWorker interface {
@@ -66,7 +68,49 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
 	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx) // TODO: Handle error
 
-	ww.backend.CompleteWorkflowTask(ctx, task, commands)
+	newEvents := make([]history.HistoryEvent, 0)
+
+	for _, c := range commands {
+		switch c.Type {
+		case command.CommandType_ScheduleActivityTask:
+			a := c.Attr.(command.ScheduleActivityTaskCommandAttr)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.HistoryEventType_ActivityScheduled,
+				c.ID,
+				history.ActivityScheduledAttributes{
+					Name:    a.Name,
+					Version: a.Version,
+					Inputs:  a.Inputs,
+				},
+			))
+
+			// mb.activities <- &task.Activity{
+			// 	WorkflowInstance: wfi,
+			// 	ID:               uuid.NewString(),
+			// 	Event: history.NewHistoryEvent(
+			// 		history.HistoryEventType_ActivityScheduled,
+			// 		c.ID,
+			// 		history.ActivityScheduledAttributes{
+			// 			Name:    a.Name,
+			// 			Version: a.Version,
+			// 			Inputs:  a.Inputs,
+			// 		},
+			// 	),
+			// }
+
+			// scheduledActivity = true
+
+		case command.CommandType_CompleteWorkflow:
+			// _ := c.Attr.(command.CompleteWorkflowCommandAttr)
+			// workflowComplete = true
+
+		default:
+			// panic("unsupported command")
+		}
+	}
+
+	ww.backend.CompleteWorkflowTask(ctx, task, newEvents)
 }
 
 func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*task.Workflow, error) {

@@ -43,8 +43,12 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 
 func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error) {
 	// Replay history
-	for i := range e.task.History {
-		event := &e.task.History[i]
+	history := make([]history.HistoryEvent, len(e.task.History)+len(e.task.NewEvents))
+	copy(history, e.task.History)
+	copy(history[len(e.task.History):], e.task.NewEvents)
+
+	for i := range history {
+		event := &history[i]
 
 		// TODO: Move the context to be owned by the executor?
 		e.workflow.context.SetReplaying(event.Played)
