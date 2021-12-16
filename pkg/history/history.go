@@ -27,8 +27,6 @@ type HistoryEvent struct {
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
-
-	Played bool
 }
 
 func NewHistoryEvent(eventType HistoryEventType, eventID int, attributes interface{}) HistoryEvent {

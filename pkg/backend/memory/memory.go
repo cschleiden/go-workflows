@@ -120,7 +120,6 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 		} else {
 			// Event handled, add to history
 			instance.History = append(instance.History, event)
-			event.Played = true // TOOD: Have the caller determine this?
 		}
 	}
 	instance.NewEvents = instance.NewEvents[:i]
