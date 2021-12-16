@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// TODO: This will have to move somewhere else
 type workflowState struct {
 	Instance core.WorkflowInstance
 
