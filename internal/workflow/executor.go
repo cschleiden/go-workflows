@@ -24,14 +24,25 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 	// TODO: Is taking this from the first message the best approach? Should we move
 	// this into the task itself? Will this be an issue once we get to sub/child workflows
 	// ?
-	attributes, ok := task.History[0].Attributes.(history.ExecutionStartedAttributes)
-	if !ok {
-		panic("workflow task did not contain execution started as first message")
+	var name string
+
+	if len(task.History) == 0 {
+		attributes, ok := task.NewEvents[0].Attributes.(history.ExecutionStartedAttributes)
+		if !ok {
+			panic("workflow task did not contain execution started as first message")
+		}
+		name = attributes.Name
+	} else {
+		attributes, ok := task.History[0].Attributes.(history.ExecutionStartedAttributes)
+		if !ok {
+			panic("workflow task did not contain execution started as first message")
+		}
+		name = attributes.Name
 	}
 
 	// TODO: Move this to registry
 	// TODO: Support version
-	wfFn := registry.GetWorkflow(attributes.Name)
+	wfFn := registry.GetWorkflow(name)
 	workflow := NewWorkflow(reflect.ValueOf(wfFn))
 
 	return &executor{
@@ -43,24 +54,21 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 
 func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error) {
 	// Replay history
-	history := make([]history.HistoryEvent, len(e.task.History)+len(e.task.NewEvents))
-	copy(history, e.task.History)
-	copy(history[len(e.task.History):], e.task.NewEvents)
+	// TODO: Move the context to be owned by the executor?
+	e.workflow.context.SetReplaying(true)
+	for _, event := range e.task.History {
+		e.executeEvent(ctx, event)
+	}
 
-	for i := range history {
-		event := &history[i]
-
-		// TODO: Move the context to be owned by the executor?
-		e.workflow.context.SetReplaying(event.Played)
-
-		e.executeEvent(ctx, *event)
-
-		event.Played = true
+	// Play new events
+	e.workflow.context.SetReplaying(false)
+	for _, event := range e.task.NewEvents {
+		e.executeEvent(ctx, event)
 	}
 
 	// Check if workflow finished
 	if e.workflow.Completed() {
-		e.workflowCompleted()
+		e.workflowCompleted(e.workflow.result)
 	}
 
 	if e.workflow != nil {
@@ -77,8 +85,11 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 		a := event.Attributes.(history.ExecutionStartedAttributes)
 		e.handleWorkflowExecutionStarted(ctx, &a)
 
+	case history.HistoryEventType_WorkflowExecutionFinished:
+
 	case history.HistoryEventType_ActivityScheduled:
-		e.handleActivityScheduled(ctx)
+		a := event.Attributes.(history.ActivityScheduledAttributes)
+		e.handleActivityScheduled(ctx, event, &a)
 
 	case history.HistoryEventType_ActivityFailed:
 
@@ -97,7 +108,20 @@ func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attribute
 	e.workflow.Execute(ctx, attributes.Inputs) // TODO: handle error
 }
 
-func (e *executor) handleActivityScheduled(_ context.Context) {
+func (e *executor) handleActivityScheduled(_ context.Context, event history.HistoryEvent, attributes *history.ActivityScheduledAttributes) {
+	for i, c := range e.workflow.Context().commands {
+		if c.ID == event.EventID {
+			// Ensure the same activity is scheduled again
+			ca := c.Attr.(command.ScheduleActivityTaskCommandAttr)
+			if attributes.Name != ca.Name {
+				panic("Previous workflow execution scheduled different type of activity") // TODO: Return to caller?
+			}
+
+			// Remove pending command
+			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			break
+		}
+	}
 }
 
 func (e *executor) handleActivityCompleted(ctx context.Context, event history.HistoryEvent, a *history.ActivityCompletedAttributes) {
@@ -120,11 +144,11 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 	e.workflow.Continue(ctx)
 }
 
-func (e *executor) workflowCompleted() {
+func (e *executor) workflowCompleted(result []byte) {
 	wfCtx := e.workflow.Context()
 
 	eventId := wfCtx.eventID
 	wfCtx.eventID++
 
-	wfCtx.AddCommand(command.NewCompleteWorkflowCommand(eventId))
+	wfCtx.AddCommand(command.NewCompleteWorkflowCommand(eventId, result))
 }

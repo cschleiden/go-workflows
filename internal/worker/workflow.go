@@ -102,8 +102,15 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			// scheduledActivity = true
 
 		case command.CommandType_CompleteWorkflow:
-			// _ := c.Attr.(command.CompleteWorkflowCommandAttr)
-			// workflowComplete = true
+			a := c.Attr.(command.CompleteWorkflowCommandAttr)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.HistoryEventType_WorkflowExecutionFinished,
+				c.ID,
+				history.ExecutionCompletedAttributes{
+					Result: a.Result,
+				},
+			))
 
 		default:
 			// panic("unsupported command")

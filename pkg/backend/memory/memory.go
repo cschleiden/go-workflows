@@ -26,9 +26,10 @@ type workflowState struct {
 
 // Simple in-memory backend for development
 type memoryBackend struct {
-	mu              sync.Mutex
-	instances       map[string]*workflowState
-	lockedWorkflows map[string]bool
+	mu               sync.Mutex
+	instances        map[string]*workflowState
+	lockedWorkflows  map[string]bool
+	pendingWorkflows map[string]bool
 
 	// pending workflow tasks not yet picked up
 	workflows chan *task.Workflow
@@ -39,9 +40,11 @@ type memoryBackend struct {
 
 func NewMemoryBackend() backend.Backend {
 	return &memoryBackend{
-		mu:              sync.Mutex{},
-		instances:       make(map[string]*workflowState),
-		lockedWorkflows: make(map[string]bool),
+		mu:        sync.Mutex{},
+		instances: make(map[string]*workflowState),
+
+		lockedWorkflows:  make(map[string]bool),
+		pendingWorkflows: make(map[string]bool),
 
 		// Queue of pending workflow instances
 		workflows:  make(chan *task.Workflow, 100),
@@ -64,18 +67,14 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 
 	state := workflowState{
 		Instance:  m.WorkflowInstance,
-		History:   []history.HistoryEvent{m.HistoryEvent},
-		NewEvents: []history.HistoryEvent{},
+		History:   []history.HistoryEvent{},
+		NewEvents: []history.HistoryEvent{m.HistoryEvent},
 		Created:   time.Now().UTC(),
 	}
 
 	mb.instances[m.WorkflowInstance.GetInstanceID()] = &state
 
-	// Add to queue
-	mb.workflows <- &task.Workflow{
-		WorkflowInstance: state.Instance,
-		History:          state.History,
-	}
+	mb.queueWorkflowTask(m.WorkflowInstance)
 
 	return nil
 }
@@ -90,6 +89,7 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		defer mb.mu.Unlock()
 
 		mb.lockedWorkflows[t.WorkflowInstance.GetInstanceID()] = true
+		delete(mb.pendingWorkflows, t.WorkflowInstance.GetInstanceID())
 
 		return t, nil
 	}
@@ -104,9 +104,6 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 	if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
 		return errors.New("could not find locked workflow instance")
 	}
-
-	// Unlock instance
-	delete(mb.lockedWorkflows, wfi.GetInstanceID())
 
 	instance := mb.instances[wfi.GetInstanceID()]
 
@@ -127,8 +124,11 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 			event.Played = true // TOOD: Have the caller determine this?
 		}
 	}
+	instance.NewEvents = instance.NewEvents[:i]
 
 	// Queue activities
+	workflowCompleted := false
+
 	for _, event := range newEvents {
 		switch event.EventType {
 		case history.HistoryEventType_ActivityScheduled:
@@ -137,15 +137,22 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 				ID:               uuid.NewString(),
 				Event:            event,
 			}
+		case history.HistoryEventType_WorkflowExecutionFinished:
+			workflowCompleted = true
 		}
 
 		instance.History = append(instance.History, event)
 	}
 
-	// New events from this checkpoint or added while this was locked
-	hasNewEvents := len(instance.NewEvents) > 0
-	if hasNewEvents {
-		mb.addWorkflowTask(wfi)
+	// Unlock instance
+	delete(mb.lockedWorkflows, wfi.GetInstanceID())
+
+	if !workflowCompleted {
+		// New events from this checkpoint or added while this was locked
+		hasNewEvents := len(instance.NewEvents) > 0
+		if hasNewEvents {
+			mb.queueWorkflowTask(wfi)
+		}
 	}
 
 	return nil
@@ -174,17 +181,24 @@ func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.Workfl
 
 	// Workflow is not currently locked, mark as ready to be picked up
 	if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
-		mb.addWorkflowTask(wfi)
+		mb.queueWorkflowTask(wfi)
 	}
 
 	return nil
 }
 
-func (mb *memoryBackend) addWorkflowTask(wfi core.WorkflowInstance) {
+func (mb *memoryBackend) queueWorkflowTask(wfi core.WorkflowInstance) {
 	instance, ok := mb.instances[wfi.GetInstanceID()]
 	if !ok {
 		panic("could not find workflow instance")
 	}
+
+	// Prevent multiple tasks for the same workflow
+	if mb.pendingWorkflows[wfi.GetInstanceID()] {
+		return
+	}
+
+	mb.pendingWorkflows[wfi.GetInstanceID()] = true
 
 	// TODO: Only include messages which should be visible right now
 

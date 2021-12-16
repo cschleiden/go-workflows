@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
@@ -55,7 +56,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) error {
+func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", ctx.Replaying())
@@ -74,6 +75,8 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		panic("error executing activity 1")
 	}
 
+	results := 0
+
 	s := ctx.NewSelector()
 
 	s.AddFuture(a2, func(f2 sync.Future) {
@@ -83,6 +86,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		}
 
 		log.Println("A2 result", r)
+		results++
 	})
 
 	s.AddFuture(a1, func(f1 sync.Future) {
@@ -92,13 +96,19 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		}
 
 		log.Println("A1 result", r)
+
+		results++
 	})
 
-	log.Println("Selecting...")
-	s.Select()
-	log.Println("Selected")
+	for results < 2 {
+		log.Println("Selecting...")
+		log.Println("\tIsReplaying:", ctx.Replaying())
+		s.Select()
+		log.Println("Selected")
+		log.Println("\tIsReplaying:", ctx.Replaying())
+	}
 
-	return nil
+	return "result", nil
 }
 
 func Activity1(ctx context.Context, a, b int) (int, error) {
@@ -113,6 +123,8 @@ func Activity1(ctx context.Context, a, b int) (int, error) {
 
 func Activity2(ctx context.Context) (int, error) {
 	log.Println("Entering Activity2")
+
+	time.Sleep(5 * time.Second)
 
 	defer func() {
 		log.Println("Leaving Activity2")

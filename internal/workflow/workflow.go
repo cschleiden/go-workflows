@@ -15,6 +15,8 @@ type workflow struct {
 	context *contextImpl
 	cr      sync.Coroutine
 	fn      reflect.Value
+	result  []byte
+	err     error
 }
 
 func NewWorkflow(workflowFn reflect.Value) *workflow {
@@ -41,7 +43,37 @@ func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
 
 		args[0] = reflect.ValueOf(w.context)
 
-		w.fn.Call(args)
+		r := w.fn.Call(args)
+
+		if len(r) < 1 || len(r) > 2 {
+			//return errors.New("workflow has to return either (error) or (result, error)") // TODO: error handling
+			panic("workflow has to return either (error) or (result, error)")
+		}
+
+		var result []byte
+
+		if len(r) > 1 {
+			var err error
+			result, err = converter.DefaultConverter.To(r[0].Interface())
+			if err != nil {
+				// return nil, errors.Wrap(err, "could not convert activity result")
+				// TODO: return error from workflow
+			}
+		}
+
+		errResult := r[len(r)-1]
+		if errResult.IsNil() {
+			w.result = result
+			return
+		}
+
+		errInterface, ok := errResult.Interface().(error)
+		if !ok {
+			// return nil, fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult)
+			// TODO: Handle workflow infrastructure error
+		}
+
+		w.err = errInterface
 	})
 
 	w.cr.WaitUntilBlocked()

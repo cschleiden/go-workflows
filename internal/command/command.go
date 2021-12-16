@@ -35,12 +35,15 @@ func NewScheduleActivityTaskCommand(id int, name, version string, inputs [][]byt
 }
 
 type CompleteWorkflowCommandAttr struct {
+	Result []byte
 }
 
-func NewCompleteWorkflowCommand(id int) Command {
+func NewCompleteWorkflowCommand(id int, result []byte) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_CompleteWorkflow,
-		Attr: CompleteWorkflowCommandAttr{},
+		Attr: CompleteWorkflowCommandAttr{
+			Result: result,
+		},
 	}
 }
