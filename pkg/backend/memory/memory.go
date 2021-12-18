@@ -198,12 +198,17 @@ func (mb *memoryBackend) queueWorkflowTask(wfi core.WorkflowInstance) {
 
 	mb.pendingWorkflows[wfi.GetInstanceID()] = true
 
-	// TODO: Only include messages which should be visible right now
+	newEvents := make([]history.HistoryEvent, 0)
+	for _, event := range instance.NewEvents {
+		if event.VisibleAt == nil || event.VisibleAt.After(time.Now().UTC()) {
+			newEvents = append(newEvents, event)
+		}
+	}
 
 	// Add task to queue
 	mb.workflows <- &task.Workflow{
 		WorkflowInstance: wfi,
 		History:          instance.History,
-		NewEvents:        instance.NewEvents,
+		NewEvents:        newEvents,
 	}
 }

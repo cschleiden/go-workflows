@@ -1,10 +1,13 @@
 package command
 
+import "time"
+
 type CommandType int
 
 const (
 	CommandType_None CommandType = iota
 	CommandType_ScheduleActivityTask
+	CommandType_ScheduleTimer
 	CommandType_CompleteWorkflow
 )
 
@@ -30,6 +33,20 @@ func NewScheduleActivityTaskCommand(id int, name, version string, inputs [][]byt
 			Name:    name,
 			Version: version,
 			Inputs:  inputs,
+		},
+	}
+}
+
+type ScheduleTimerCommandAttr struct {
+	At time.Time
+}
+
+func NewScheduleTimerCommand(id int, at time.Time) Command {
+	return Command{
+		ID:   id,
+		Type: CommandType_ScheduleTimer,
+		Attr: ScheduleTimerCommandAttr{
+			At: at,
 		},
 	}
 }

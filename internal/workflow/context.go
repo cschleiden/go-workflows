@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"time"
+
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/cschleiden/go-dt/pkg/converter"
@@ -14,6 +16,8 @@ type Context interface {
 	// ExecuteActivity schedules the given activity to be executed
 	ExecuteActivity(name string, args ...interface{}) (sync.Future, error)
 
+	ScheduleTimer(delay time.Duration) (sync.Future, error)
+
 	// NewSelector creates a new deterministic selector
 	NewSelector() sync.Selector
 }
@@ -26,6 +30,8 @@ func newWorkflowContext(cr sync.Coroutine) *contextImpl {
 		cr:             cr,
 	}
 }
+
+var _ Context = &contextImpl{}
 
 type contextImpl struct {
 	commands []command.Command
@@ -68,6 +74,19 @@ func (c *contextImpl) ExecuteActivity(name string, args ...interface{}) (sync.Fu
 	c.pendingFutures[eventID] = f
 
 	return f, nil
+}
+
+func (c *contextImpl) ScheduleTimer(delay time.Duration) (sync.Future, error) {
+	eventID := c.eventID
+	c.eventID++
+
+	command := command.NewScheduleTimerCommand(eventID, time.Now().UTC().Add(delay))
+	c.commands = append(c.commands, command)
+
+	t := sync.NewFuture(c.cr)
+	c.pendingFutures[eventID] = t
+
+	return t, nil
 }
 
 func (c *contextImpl) NewSelector() sync.Selector {

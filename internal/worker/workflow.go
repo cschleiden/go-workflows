@@ -85,21 +85,19 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				},
 			))
 
-			// mb.activities <- &task.Activity{
-			// 	WorkflowInstance: wfi,
-			// 	ID:               uuid.NewString(),
-			// 	Event: history.NewHistoryEvent(
-			// 		history.HistoryEventType_ActivityScheduled,
-			// 		c.ID,
-			// 		history.ActivityScheduledAttributes{
-			// 			Name:    a.Name,
-			// 			Version: a.Version,
-			// 			Inputs:  a.Inputs,
-			// 		},
-			// 	),
-			// }
+		case command.CommandType_ScheduleTimer:
+			a := c.Attr.(command.ScheduleTimerCommandAttr)
 
-			// scheduledActivity = true
+			timerEvent := history.NewHistoryEvent(
+				history.HistoryEventType_TimerScheduled,
+				c.ID,
+				history.TimerScheduledAttributes{
+					At: a.At,
+				},
+			)
+			timerEvent.VisibleAt = &a.At
+
+			newEvents = append(newEvents, timerEvent)
 
 		case command.CommandType_CompleteWorkflow:
 			a := c.Attr.(command.CompleteWorkflowCommandAttr)

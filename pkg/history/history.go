@@ -1,5 +1,7 @@
 package history
 
+import "time"
+
 type HistoryEventType uint
 
 const (
@@ -17,7 +19,8 @@ const (
 	HistoryEventType_ActivityCompleted
 	HistoryEventType_ActivityFailed
 
-	// TODO: Add other types
+	HistoryEventType_TimerScheduled
+	HistoryEventType_TimerFired
 )
 
 type HistoryEvent struct {
@@ -27,6 +30,8 @@ type HistoryEvent struct {
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
+
+	VisibleAt *time.Time
 }
 
 func NewHistoryEvent(eventType HistoryEventType, eventID int, attributes interface{}) HistoryEvent {

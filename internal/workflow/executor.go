@@ -97,6 +97,14 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 		a := event.Attributes.(history.ActivityCompletedAttributes)
 		e.handleActivityCompleted(ctx, event, &a)
 
+	case history.HistoryEventType_TimerScheduled:
+		a := event.Attributes.(history.TimerScheduledAttributes)
+		e.handleTimerScheduled(ctx, event, &a)
+
+	case history.HistoryEventType_TimerFired:
+		a := event.Attributes.(history.TimerFiredAttributes)
+		e.handleTimerFired(ctx, event, &a)
+
 	default:
 		panic("unknown event type")
 	}
@@ -140,6 +148,39 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 
 	f.Set(func(v interface{}) error {
 		return converter.DefaultConverter.From(a.Result, v)
+	})
+	e.workflow.Continue(ctx)
+}
+
+func (e *executor) handleTimerScheduled(_ context.Context, event history.HistoryEvent, attributes *history.TimerScheduledAttributes) {
+	for i, c := range e.workflow.Context().commands {
+		if c.ID == event.EventID {
+			// Remove pending command
+			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			break
+		}
+	}
+}
+
+func (e *executor) handleTimerFired(ctx context.Context, event history.HistoryEvent, attributes *history.TimerFiredAttributes) {
+	f, ok := e.workflow.Context().pendingFutures[event.EventID]
+	if !ok {
+		panic("no pending future!")
+	}
+
+	// Remove pending command
+	for i, c := range e.workflow.Context().commands {
+		if c.ID == event.EventID {
+			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			break
+		}
+	}
+
+	f.Set(func(v interface{}) error {
+		r := reflect.ValueOf(v)
+		r.Elem().Set(reflect.ValueOf(true)) // TODO: Set different value for timer future?
+
+		return nil
 	})
 	e.workflow.Continue(ctx)
 }
