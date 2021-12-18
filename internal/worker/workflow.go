@@ -95,9 +95,17 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 					At: a.At,
 				},
 			)
-			timerEvent.VisibleAt = &a.At
-
 			newEvents = append(newEvents, timerEvent)
+
+			timerFiredEvent := history.NewHistoryEvent(
+				history.HistoryEventType_TimerFired,
+				c.ID,
+				history.TimerFiredAttributes{
+					At: a.At,
+				},
+			)
+			timerFiredEvent.VisibleAt = &a.At
+			newEvents = append(newEvents, timerFiredEvent)
 
 		case command.CommandType_CompleteWorkflow:
 			a := c.Attr.(command.CompleteWorkflowCommandAttr)

@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"log"
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/command"
@@ -80,6 +81,8 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, 
 }
 
 func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent) error {
+	log.Println("Handling:", event.EventType)
+
 	switch event.EventType {
 	case history.HistoryEventType_WorkflowExecutionStarted:
 		a := event.Attributes.(history.ExecutionStartedAttributes)

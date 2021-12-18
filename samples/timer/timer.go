@@ -78,12 +78,14 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	s.AddFuture(t, func(f sync.Future) {
 		log.Println("Timer fired")
+		log.Println("\tIsReplaying:", ctx.Replaying())
 	})
 
 	s.AddFuture(a1, func(f sync.Future) {
 		var r int
 		f.Get(&r)
-		log.Println("Result fired", r)
+		log.Println("Result:", r)
+		log.Println("\tIsReplaying:", ctx.Replaying())
 	})
 
 	s.Select()
@@ -94,6 +96,8 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 func Activity1(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering Activity1")
+
+	time.Sleep(6 * time.Second)
 
 	defer func() {
 		log.Println("Leaving Activity1")

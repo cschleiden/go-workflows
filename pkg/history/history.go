@@ -1,6 +1,11 @@
 package history
 
-import "time"
+import (
+	"strconv"
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type HistoryEventType uint
 
@@ -24,6 +29,8 @@ const (
 )
 
 type HistoryEvent struct {
+	ID string
+
 	EventType HistoryEventType
 
 	EventID int
@@ -34,8 +41,13 @@ type HistoryEvent struct {
 	VisibleAt *time.Time
 }
 
+func (e *HistoryEvent) String() string {
+	return strconv.Itoa(int(e.EventType))
+}
+
 func NewHistoryEvent(eventType HistoryEventType, eventID int, attributes interface{}) HistoryEvent {
 	return HistoryEvent{
+		ID:         uuid.NewString(),
 		EventType:  eventType,
 		EventID:    eventID,
 		Attributes: attributes,
