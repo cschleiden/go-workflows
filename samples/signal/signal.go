@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
-	"github.com/cschleiden/go-dt/pkg/sync"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/google/uuid"
@@ -41,6 +41,11 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	}
 
 	log.Println("Started workflow", wf.GetInstanceID())
+
+	time.Sleep(2 * time.Second)
+	c.SignalWorkflow(ctx, wf, "test", 42)
+
+	log.Println("Signaled workflow", wf.GetInstanceID())
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
@@ -49,6 +54,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w.RegisterWorkflow("wf1", Workflow1)
 
 	w.RegisterActivity("a1", Activity1)
+	w.RegisterActivity("a2", Activity2)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
@@ -64,31 +70,21 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1, err := ctx.ExecuteActivity("a1", 35, 12)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-
-	t, err := ctx.ScheduleTimer(5 * time.Second)
-	if err != nil {
-		panic("could not schedule timer")
-	}
+	c := ctx.SignalChannel("test")
 
 	s := ctx.NewSelector()
 
-	s.AddFuture(t, func(f sync.Future) {
-		log.Println("Timer fired")
-		log.Println("\tIsReplaying:", ctx.Replaying())
+	s.AddChannelReceive(c, func(c sync.Channel) {
+		panic("not implemented")
+		// var r int
+		// _, err := c.Receive(&r)
+		// if err != nil {
+		// 	panic(err)
+		// }
+
+		// log.Println("Received signal:", r)
 	})
 
-	s.AddFuture(a1, func(f sync.Future) {
-		var r int
-		f.Get(&r)
-		log.Println("Result:", r)
-		log.Println("\tIsReplaying:", ctx.Replaying())
-	})
-
-	s.Select()
 	s.Select()
 
 	return "result", nil
@@ -97,11 +93,21 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 func Activity1(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering Activity1")
 
-	time.Sleep(6 * time.Second)
-
 	defer func() {
 		log.Println("Leaving Activity1")
 	}()
 
 	return a + b, nil
+}
+
+func Activity2(ctx context.Context) (int, error) {
+	log.Println("Entering Activity2")
+
+	time.Sleep(5 * time.Second)
+
+	defer func() {
+		log.Println("Leaving Activity2")
+	}()
+
+	return 12, nil
 }

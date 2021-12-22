@@ -82,7 +82,7 @@ func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
 }
 
 func (w *workflow) Continue(ctx context.Context) error {
-	w.cr.Continue()
+	w.cr.Execute()
 
 	return nil
 }

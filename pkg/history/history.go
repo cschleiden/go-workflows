@@ -26,6 +26,8 @@ const (
 
 	HistoryEventType_TimerScheduled
 	HistoryEventType_TimerFired
+
+	HistoryEventType_SignalReceived
 )
 
 type HistoryEvent struct {

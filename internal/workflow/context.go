@@ -20,6 +20,8 @@ type Context interface {
 
 	// NewSelector creates a new deterministic selector
 	NewSelector() sync.Selector
+
+	SignalChannel(name string) sync.Channel
 }
 
 func newWorkflowContext(cr sync.Coroutine) *contextImpl {
@@ -95,4 +97,9 @@ func (c *contextImpl) NewSelector() sync.Selector {
 
 func (c *contextImpl) AddCommand(cmd command.Command) {
 	c.commands = append(c.commands, cmd)
+}
+
+func (c *contextImpl) SignalChannel(name string) sync.Channel {
+	// return sync.NewChannel(c.cr)
+	panic("not implemented")
 }

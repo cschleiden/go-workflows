@@ -8,9 +8,13 @@ import (
 	"github.com/cschleiden/go-dt/pkg/history"
 )
 
+//go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
 	CreateWorkflowInstance(context.Context, core.TaskMessage) error
+
+	// SignalWorkflow signals a running workflow instance
+	SignalWorkflow(context.Context, core.WorkflowInstance, history.HistoryEvent) error
 
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 	GetWorkflowTask(context.Context) (*task.Workflow, error)

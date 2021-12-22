@@ -88,6 +88,22 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	return nil
 }
 
+func (mb *memoryBackend) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, event history.HistoryEvent) error {
+	mb.mu.Lock()
+	defer mb.mu.Unlock()
+
+	instance, ok := mb.instances[wfi.GetInstanceID()]
+	if !ok {
+		return errors.New("workflow instance does not exist")
+	}
+
+	instance.NewEvents = append(instance.NewEvents, event)
+
+	mb.queueWorkflowTask(wfi)
+
+	return nil
+}
+
 func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
 	select {
 	case <-ctx.Done():

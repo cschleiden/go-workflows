@@ -15,24 +15,24 @@ import (
 type WorkflowInstanceOptions struct {
 	InstanceID string
 }
-type TaskHubClient interface {
+
+type Client interface {
 	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error)
+
+	SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, args ...interface{}) error
 }
 
-type taskHubClient struct {
+type client struct {
 	backend backend.Backend
 }
 
-func NewTaskHubClient(backend backend.Backend) TaskHubClient {
-	return &taskHubClient{
+func NewClient(backend backend.Backend) Client {
+	return &client{
 		backend: backend,
 	}
 }
 
-func (c *taskHubClient) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error) {
-	instanceID := options.InstanceID
-	executionID := uuid.NewString()
-
+func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error) {
 	inputs, err := encodeArgs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert arguments")
@@ -46,6 +46,8 @@ func (c *taskHubClient) CreateWorkflowInstance(ctx context.Context, options Work
 			Inputs: inputs,
 		})
 
+	instanceID := options.InstanceID
+	executionID := uuid.NewString()
 	wfi := core.NewWorkflowInstance(instanceID, executionID)
 
 	startMessage := &core.TaskMessage{
@@ -58,6 +60,24 @@ func (c *taskHubClient) CreateWorkflowInstance(ctx context.Context, options Work
 	}
 
 	return wfi, nil
+}
+
+func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, args ...interface{}) error {
+	inputs, err := encodeArgs(converter.DefaultConverter, args...)
+	if err != nil {
+		return errors.Wrap(err, "could not convert arguments")
+	}
+
+	event := history.NewHistoryEvent(
+		history.HistoryEventType_SignalReceived,
+		-1,
+		history.SignalReceivedAttributes{
+			Name: name,
+			Args: inputs,
+		},
+	)
+
+	return c.backend.SignalWorkflow(ctx, wfi, event)
 }
 
 func encodeArgs(c converter.Converter, args ...interface{}) ([][]byte, error) {

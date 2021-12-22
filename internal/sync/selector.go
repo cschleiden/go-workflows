@@ -3,6 +3,8 @@ package sync
 type Selector interface {
 	AddFuture(f Future, handler func(f Future))
 
+	AddChannelReceive(c Channel, handler func(c Channel))
+
 	AddDefault(handler func())
 
 	Select()
@@ -25,6 +27,13 @@ type selector struct {
 func (s *selector) AddFuture(f Future, handler func(f Future)) {
 	s.cases = append(s.cases, &futureCase{
 		f:  f.(*futureImpl),
+		fn: handler,
+	})
+}
+
+func (s *selector) AddChannelReceive(c Channel, handler func(c Channel)) {
+	s.cases = append(s.cases, &channelCase{
+		c:  c.(*channel),
 		fn: handler,
 	})
 }
@@ -73,4 +82,17 @@ func (fc *futureCase) Ready() bool {
 
 func (fc *futureCase) Handle() {
 	fc.fn(fc.f)
+}
+
+type channelCase struct {
+	c  *channel
+	fn func(Channel)
+}
+
+func (cc *channelCase) Ready() bool {
+	return false // TODO
+}
+
+func (cc *channelCase) Handle() {
+	cc.fn(cc.c)
 }

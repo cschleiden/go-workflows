@@ -9,47 +9,50 @@ import (
 )
 
 func Test_Yields(t *testing.T) {
-	c := NewCoroutine()
+	f := NewFuture()
 
-	f := NewFuture(c)
-
-	c.Run(context.Background(), func(_ context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		var v int
-		f.Get(&v)
+		f.Get(ctx, &v)
 	})
 
-	c.WaitUntilBlocked()
+	c.Execute()
 
 	require.False(t, c.Finished())
 	require.True(t, c.Blocked())
 }
 
 func Test_SetUnblocks(t *testing.T) {
-	c := NewCoroutine()
-
-	f := NewFuture(c)
+	f := NewFuture()
 
 	var v int
 
-	c.Run(context.Background(), func(_ context.Context) {
-		f.Get(&v)
+	c := NewCoroutine(func(ctx context.Context) {
+		f.Get(ctx, &v)
 	})
-	c.WaitUntilBlocked()
+
+	c.Execute()
 
 	require.False(t, c.Finished())
 	require.True(t, c.Blocked())
 
-	f.Set(func(v interface{}) error {
+	c.Execute()
+
+	require.False(t, c.Progress())
+
+	f.Set(context.Background(), func(v interface{}) error {
 		r := reflect.ValueOf(v)
 		r.Elem().Set(reflect.ValueOf(42))
 
 		return nil
 	})
 
-	c.Continue()
+	c.Execute()
 
 	require.True(t, c.Finished())
 	require.False(t, c.Blocked())
+
+	require.True(t, c.Progress())
 
 	require.Equal(t, 42, v)
 }

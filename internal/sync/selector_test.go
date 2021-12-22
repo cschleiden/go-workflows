@@ -1,146 +1,166 @@
 package sync
 
-import (
-	"context"
-	"reflect"
-	"testing"
+// func Test_FutureSelector_SelectWaits(t *testing.T) {
+// 	ctx := context.Background()
+// 	cs := newState()
+// 	ctx = withCoState(ctx, cs)
 
-	"github.com/stretchr/testify/require"
-)
+// 	f := NewFuture(cs)
 
-func Test_FutureSelector_SelectWaits(t *testing.T) {
-	ctx := context.Background()
-	cs := newState()
-	ctx = withCoState(ctx, cs)
+// 	reachedEnd := false
 
-	f := NewFuture(cs)
+// 	cs.Run(ctx, func(ctx context.Context) {
+// 		s := NewSelector(cs)
 
-	reachedEnd := false
+// 		s.AddFuture(f, func(f Future) {
+// 			var r int
+// 			err := f.Get(&r)
+// 			require.Nil(t, err)
 
-	cs.Run(ctx, func(ctx context.Context) {
-		s := NewSelector(cs)
+// 			require.Equal(t, 42, r)
+// 		})
 
-		s.AddFuture(f, func(f Future) {
-			var r int
-			err := f.Get(&r)
-			require.Nil(t, err)
+// 		// Wait for result
+// 		s.Select()
 
-			require.Equal(t, 42, r)
-		})
+// 		reachedEnd = true
+// 	})
 
-		// Wait for result
-		s.Select()
+// 	cs.WaitUntilBlocked()
 
-		reachedEnd = true
-	})
+// 	require.False(t, reachedEnd)
 
-	cs.WaitUntilBlocked()
+// 	f.Set(func(v interface{}) error {
+// 		x := reflect.ValueOf(v)
+// 		x.Elem().Set(reflect.ValueOf(42))
 
-	require.False(t, reachedEnd)
+// 		return nil
+// 	})
 
-	f.Set(func(v interface{}) error {
-		x := reflect.ValueOf(v)
-		x.Elem().Set(reflect.ValueOf(42))
+// 	cs.Execute()
 
-		return nil
-	})
+// 	require.True(t, reachedEnd)
+// }
 
-	cs.Continue()
+// func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
+// 	ctx := context.Background()
+// 	cs := newState()
+// 	ctx = withCoState(ctx, cs)
 
-	require.True(t, reachedEnd)
-}
+// 	f := NewFuture(cs)
+// 	f2 := NewFuture(cs)
 
-func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
-	ctx := context.Background()
-	cs := newState()
-	ctx = withCoState(ctx, cs)
+// 	reachedEnd := false
+// 	order := make([]int, 0)
 
-	f := NewFuture(cs)
-	f2 := NewFuture(cs)
+// 	cs.Run(ctx, func(ctx context.Context) {
+// 		s := NewSelector(cs)
 
-	reachedEnd := false
-	order := make([]int, 0)
+// 		s.AddFuture(f, func(f Future) {
+// 			var r int
+// 			err := f.Get(&r)
+// 			require.Nil(t, err)
+// 			require.Equal(t, 42, r)
+// 			order = append(order, 42)
+// 		})
 
-	cs.Run(ctx, func(ctx context.Context) {
-		s := NewSelector(cs)
+// 		s.AddFuture(f2, func(f Future) {
+// 			var r int
+// 			err := f.Get(&r)
+// 			require.Nil(t, err)
+// 			require.Equal(t, 23, r)
+// 			order = append(order, 23)
+// 		})
 
-		s.AddFuture(f, func(f Future) {
-			var r int
-			err := f.Get(&r)
-			require.Nil(t, err)
-			require.Equal(t, 42, r)
-			order = append(order, 42)
-		})
+// 		// Wait for result
+// 		s.Select()
+// 		s.Select()
 
-		s.AddFuture(f2, func(f Future) {
-			var r int
-			err := f.Get(&r)
-			require.Nil(t, err)
-			require.Equal(t, 23, r)
-			order = append(order, 23)
-		})
+// 		reachedEnd = true
+// 	})
 
-		// Wait for result
-		s.Select()
-		s.Select()
+// 	cs.WaitUntilBlocked()
 
-		reachedEnd = true
-	})
+// 	require.False(t, reachedEnd)
 
-	cs.WaitUntilBlocked()
+// 	f.Set(func(v interface{}) error {
+// 		x := reflect.ValueOf(v)
+// 		x.Elem().Set(reflect.ValueOf(42))
 
-	require.False(t, reachedEnd)
+// 		return nil
+// 	})
 
-	f.Set(func(v interface{}) error {
-		x := reflect.ValueOf(v)
-		x.Elem().Set(reflect.ValueOf(42))
+// 	f2.Set(func(v interface{}) error {
+// 		x := reflect.ValueOf(v)
+// 		x.Elem().Set(reflect.ValueOf(23))
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	f2.Set(func(v interface{}) error {
-		x := reflect.ValueOf(v)
-		x.Elem().Set(reflect.ValueOf(23))
+// 	cs.Execute()
 
-		return nil
-	})
+// 	require.True(t, cs.Finished())
+// 	require.True(t, reachedEnd)
+// 	require.Equal(t, []int{42, 23}, order)
+// }
 
-	cs.Continue()
+// func Test_FutureSelector_DefaultCase(t *testing.T) {
+// 	ctx := context.Background()
+// 	cs := newState()
+// 	ctx = withCoState(ctx, cs)
 
-	require.True(t, cs.Finished())
-	require.True(t, reachedEnd)
-	require.Equal(t, []int{42, 23}, order)
-}
+// 	f := NewFuture(cs)
 
-func Test_FutureSelector_Default(t *testing.T) {
-	ctx := context.Background()
-	cs := newState()
-	ctx = withCoState(ctx, cs)
+// 	defaultHandled := false
+// 	reachedEnd := false
 
-	f := NewFuture(cs)
+// 	cs.Run(ctx, func(ctx context.Context) {
+// 		s := NewSelector(cs)
 
-	defaultHandled := false
-	reachedEnd := false
+// 		s.AddFuture(f, func(_ Future) {
+// 			require.Fail(t, "should not be called")
+// 		})
 
-	cs.Run(ctx, func(ctx context.Context) {
-		s := NewSelector(cs)
+// 		s.AddDefault(func() {
+// 			defaultHandled = true
+// 		})
 
-		s.AddFuture(f, func(_ Future) {
-			require.Fail(t, "should not be called")
-		})
+// 		// Wait for result
+// 		s.Select()
 
-		s.AddDefault(func() {
-			defaultHandled = true
-		})
+// 		reachedEnd = true
+// 	})
 
-		// Wait for result
-		s.Select()
+// 	cs.WaitUntilBlocked()
 
-		reachedEnd = true
-	})
+// 	require.True(t, reachedEnd)
+// 	require.True(t, defaultHandled)
+// }
 
-	cs.WaitUntilBlocked()
+// func Test_ChannelSelector_Select(t *testing.T) {
+// 	ctx := context.Background()
+// 	cr := NewCoroutine()
 
-	require.True(t, reachedEnd)
-	require.True(t, defaultHandled)
-}
+// 	c := NewChannel()
+
+// 	defaultHandled := false
+// 	reachedEnd := false
+
+// 	cr.Run(ctx, func(ctx context.Context) {
+// 		s := NewSelector(cr)
+
+// 		s.AddChannelReceive(c, func(_ Channel) {
+// 			require.Fail(t, "should not be called")
+// 		})
+
+// 		// Wait for result
+// 		s.Select()
+
+// 		reachedEnd = true
+// 	})
+
+// 	cr.WaitUntilBlocked()
+
+// 	require.True(t, reachedEnd)
+// 	require.True(t, defaultHandled)
+// }

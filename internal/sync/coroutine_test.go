@@ -3,37 +3,31 @@ package sync
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
 func Test_Coroutine_CanAccessState(t *testing.T) {
-	ctx := context.Background()
-	c := newState()
-	c.Run(ctx, func(ctx context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		s := getCoState(ctx)
 		require.NotNil(t, s)
 	})
 
-	<-c.blocking
+	c.Execute()
 }
 
 func Test_Coroutine_MarkedAsDone(t *testing.T) {
-	ctx := context.Background()
-	c := newState()
-	c.Run(ctx, func(ctx context.Context) {
-
+	c := NewCoroutine(func(ctx context.Context) {
 	})
 
-	<-c.blocking
+	c.Execute()
 
 	require.True(t, c.Finished())
 }
 
 func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
-	ctx := context.Background()
-	c := newState()
-	c.Run(ctx, func(ctx context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -41,38 +35,46 @@ func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 		require.FailNow(t, "should not reach this")
 	})
 
-	<-c.blocking
+	c.Execute()
 
-	require.True(t, c.blocked.Load().(bool))
+	require.True(t, c.Blocked())
 	require.False(t, c.Finished())
 }
 
 func Test_Coroutine_Continue(t *testing.T) {
-	ctx := context.Background()
-	c := newState()
-	c.Run(ctx, func(ctx context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		s := getCoState(ctx)
-
 		s.Yield()
 	})
 
-	<-c.blocking
+	c.Execute()
 
-	require.True(t, c.blocked.Load().(bool))
+	require.True(t, c.Blocked())
 	require.False(t, c.Finished())
 
-	c.Continue()
+	c.Execute()
 
-	require.False(t, c.blocked.Load().(bool))
+	require.False(t, c.Blocked())
+	require.True(t, c.Finished())
+}
+
+func Test_Coroutine_Continue_WhenFinished(t *testing.T) {
+	c := NewCoroutine(func(ctx context.Context) {
+	})
+
+	c.Execute()
+
+	require.True(t, c.Finished())
+
+	c.Execute()
+
 	require.True(t, c.Finished())
 }
 
 func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	reached := false
 
-	ctx := context.Background()
-	c := newState()
-	c.Run(ctx, func(ctx context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -84,22 +86,20 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 		require.FailNow(t, "should not reach this")
 	})
 
-	<-c.blocking
+	c.Execute()
 
-	require.True(t, c.blocked.Load().(bool))
+	require.True(t, c.Blocked())
 	require.False(t, c.Finished())
 
-	c.Continue()
+	c.Execute()
 
-	require.True(t, c.blocked.Load().(bool))
+	require.True(t, c.Blocked())
 	require.False(t, c.Finished())
 	require.True(t, reached)
 }
 
 func Test_Exit(t *testing.T) {
-	ctx := context.Background()
-	c := NewCoroutine()
-	c.Run(ctx, func(ctx context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -107,21 +107,31 @@ func Test_Exit(t *testing.T) {
 		require.FailNow(t, "should not reach this")
 	})
 
-	c.WaitUntilBlocked()
 	c.Exit()
 
 	require.True(t, c.Finished())
 }
 
 func Test_ExitIfAlreadyFinished(t *testing.T) {
-	ctx := context.Background()
-	c := NewCoroutine()
-	c.Run(ctx, func(ctx context.Context) {
+	c := NewCoroutine(func(ctx context.Context) {
 		// Complete immedeiately
 	})
 
-	c.WaitUntilBlocked()
 	c.Exit()
 
 	require.True(t, c.Finished())
+}
+
+func Test_Continue_PanicsWhenDeadlocked(t *testing.T) {
+	c := NewCoroutine(func(ctx context.Context) {
+		getCoState(ctx).Yield()
+
+		time.Sleep(3 * time.Second)
+	})
+
+	c.Execute()
+
+	require.Panics(t, func() {
+		c.Execute()
+	})
 }
