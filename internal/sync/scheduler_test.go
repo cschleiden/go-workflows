@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -36,7 +35,7 @@ func Test_Scheduler(t *testing.T) {
 	require.Equal(t, 0, s.RunningCoroutines())
 }
 
-func Test_OneCoroutineAtATime(t *testing.T) {
+func Test_Scheduler_OneCoroutineAtATime(t *testing.T) {
 	s := NewScheduler()
 
 	active := false
@@ -44,28 +43,22 @@ func Test_OneCoroutineAtATime(t *testing.T) {
 	ctx := context.Background()
 	s.NewCoroutine(ctx, func(ctx context.Context) {
 		for i := 0; i < 5; i++ {
-			log.Println("enter 1")
 			require.False(t, active)
-
 			active = true
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 1)
 			active = false
-
-			log.Println("exit 1")
 			getCoState(ctx).Yield()
 		}
 	})
 
 	s.NewCoroutine(ctx, func(ctx context.Context) {
 		for i := 0; i < 5; i++ {
-			log.Println("enter 2")
 			require.False(t, active)
 
 			active = true
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 1)
 			active = false
 
-			log.Println("exit 2")
 			getCoState(ctx).Yield()
 		}
 	})
@@ -75,4 +68,83 @@ func Test_OneCoroutineAtATime(t *testing.T) {
 	}
 
 	require.Equal(t, 0, s.RunningCoroutines())
+}
+
+func Test_Scheduler_ExecuteUntilBlocked(t *testing.T) {
+	s := NewScheduler()
+
+	hits := 0
+
+	ctx := context.Background()
+	s.NewCoroutine(ctx, func(ctx context.Context) {
+		for i := 0; i < 4; i++ {
+			hits++
+
+			getCoState(ctx).MadeProgress()
+			getCoState(ctx).Yield()
+		}
+
+		getCoState(ctx).Yield()
+
+		require.Fail(t, "should not be reached")
+	})
+
+	s.Execute(ctx)
+
+	require.Equal(t, 4, hits)
+}
+
+func Test_Scheduler_ExecuteUntilAllBlocked(t *testing.T) {
+	s := NewScheduler()
+
+	hits := 0
+
+	ctx := context.Background()
+	s.NewCoroutine(ctx, func(ctx context.Context) {
+		for i := 0; i < 2; i++ {
+			hits++
+
+			getCoState(ctx).MadeProgress()
+			getCoState(ctx).Yield()
+		}
+	})
+
+	s.NewCoroutine(ctx, func(ctx context.Context) {
+		for i := 0; i < 4; i++ {
+			hits++
+
+			getCoState(ctx).MadeProgress()
+			getCoState(ctx).Yield()
+		}
+
+		getCoState(ctx).Yield()
+		require.Fail(t, "should not be reached")
+	})
+
+	s.Execute(ctx)
+	require.Equal(t, 1, s.RunningCoroutines())
+	require.Equal(t, 6, hits)
+}
+
+func Test_Scheduler_Exit(t *testing.T) {
+	s := NewScheduler()
+
+	hits := 0
+
+	ctx := context.Background()
+	s.NewCoroutine(ctx, func(ctx context.Context) {
+		for {
+			hits++
+			getCoState(ctx).Yield()
+		}
+	})
+
+	s.Execute(ctx)
+
+	s.Exit(ctx)
+
+	s.Execute(ctx)
+	s.Execute(ctx)
+
+	require.Equal(t, 1, hits)
 }

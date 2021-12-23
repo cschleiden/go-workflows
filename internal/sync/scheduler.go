@@ -10,6 +10,8 @@ type Scheduler interface {
 	Execute(ctx context.Context)
 
 	RunningCoroutines() int
+
+	Exit(ctx context.Context)
 }
 
 type scheduler struct {
@@ -40,6 +42,7 @@ func (s *scheduler) Execute(ctx context.Context) {
 				// Coroutine is finished, remove from list
 				s.coroutines[i] = nil
 				s.coroutines = append(s.coroutines[:i], s.coroutines[i+1:]...)
+				i--
 			} else {
 				// Determine if coroutine made any progress or if it stayed blocked
 				allBlocked = allBlocked && !c.Progress()
@@ -50,4 +53,10 @@ func (s *scheduler) Execute(ctx context.Context) {
 
 func (s *scheduler) RunningCoroutines() int {
 	return len(s.coroutines)
+}
+
+func (s *scheduler) Exit(_ context.Context) {
+	for _, c := range s.coroutines {
+		c.Exit()
+	}
 }
