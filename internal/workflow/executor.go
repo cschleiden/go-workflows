@@ -153,7 +153,7 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 		}
 	}
 
-	f.Set(func(v interface{}) error {
+	f.Set(ctx, func(v interface{}) error {
 		return converter.DefaultConverter.From(a.Result, v)
 	})
 	e.workflow.Continue(ctx)
@@ -183,7 +183,7 @@ func (e *executor) handleTimerFired(ctx context.Context, event history.HistoryEv
 		}
 	}
 
-	f.Set(func(v interface{}) error {
+	f.Set(ctx, func(v interface{}) error {
 		r := reflect.ValueOf(v)
 		r.Elem().Set(reflect.ValueOf(true)) // TODO: Set different value for timer future?
 

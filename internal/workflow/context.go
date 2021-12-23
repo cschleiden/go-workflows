@@ -16,6 +16,7 @@ type Context interface {
 	// ExecuteActivity schedules the given activity to be executed
 	ExecuteActivity(name string, args ...interface{}) (sync.Future, error)
 
+	// ScheduleTimer schedules a timer to fire after the given delay
 	ScheduleTimer(delay time.Duration) (sync.Future, error)
 
 	// NewSelector creates a new deterministic selector
@@ -24,12 +25,11 @@ type Context interface {
 	SignalChannel(name string) sync.Channel
 }
 
-func newWorkflowContext(cr sync.Coroutine) *contextImpl {
+func newWorkflowContext() *contextImpl {
 	return &contextImpl{
 		commands:       []command.Command{},
 		eventID:        0,
 		pendingFutures: map[int]sync.Future{},
-		cr:             cr,
 	}
 }
 
@@ -40,8 +40,6 @@ type contextImpl struct {
 
 	eventID        int
 	pendingFutures map[int]sync.Future
-
-	cr sync.Coroutine
 
 	replaying bool
 }
@@ -72,7 +70,7 @@ func (c *contextImpl) ExecuteActivity(name string, args ...interface{}) (sync.Fu
 	command := command.NewScheduleActivityTaskCommand(eventID, name, "", inputs)
 	c.commands = append(c.commands, command)
 
-	f := sync.NewFuture(c.cr)
+	f := sync.NewFuture()
 	c.pendingFutures[eventID] = f
 
 	return f, nil
@@ -85,14 +83,14 @@ func (c *contextImpl) ScheduleTimer(delay time.Duration) (sync.Future, error) {
 	command := command.NewScheduleTimerCommand(eventID, time.Now().UTC().Add(delay))
 	c.commands = append(c.commands, command)
 
-	t := sync.NewFuture(c.cr)
+	t := sync.NewFuture()
 	c.pendingFutures[eventID] = t
 
 	return t, nil
 }
 
 func (c *contextImpl) NewSelector() sync.Selector {
-	return sync.NewSelector(c.cr)
+	return sync.NewSelector()
 }
 
 func (c *contextImpl) AddCommand(cmd command.Command) {

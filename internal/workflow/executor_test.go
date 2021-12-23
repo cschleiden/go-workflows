@@ -69,7 +69,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		}
 
 		var r int
-		err = f1.Get(&r)
+		err = f1.Get(ctx, &r)
 		if err != nil {
 			panic("error getting activity 1 result")
 		}
@@ -139,7 +139,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	var workflowHits int
 
-	Workflow1 := func(ctx Context) error {
+	Workflow1 := func(ctx context.Context) error {
 		workflowHits++
 
 		f1, err := ctx.ExecuteActivity("a1", 42)
@@ -148,7 +148,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		}
 
 		var r int
-		err = f1.Get(&r)
+		err = f1.Get(ctx, &r)
 		if err != nil {
 			panic("error getting activity 1 result")
 		}

@@ -1,37 +1,37 @@
 package sync
 
-type Selector interface {
-	AddFuture(f Future, handler func(f Future))
+import "context"
 
-	AddChannelReceive(c Channel, handler func(c Channel))
+type Selector interface {
+	AddFuture(f Future, handler func(ctx context.Context, f Future))
+
+	AddChannelReceive(c Channel, handler func(ctx context.Context, c Channel))
 
 	AddDefault(handler func())
 
-	Select()
+	Select(ctx context.Context)
 }
 
-func NewSelector(cr Coroutine) Selector {
+func NewSelector() Selector {
 	return &selector{
-		cr:    cr,
 		cases: make([]selectorCase, 0),
 	}
 }
 
 type selector struct {
-	cr    Coroutine
 	cases []selectorCase
 
 	defaultFunc func()
 }
 
-func (s *selector) AddFuture(f Future, handler func(f Future)) {
+func (s *selector) AddFuture(f Future, handler func(ctx context.Context, f Future)) {
 	s.cases = append(s.cases, &futureCase{
 		f:  f.(*futureImpl),
 		fn: handler,
 	})
 }
 
-func (s *selector) AddChannelReceive(c Channel, handler func(c Channel)) {
+func (s *selector) AddChannelReceive(c Channel, handler func(ctx context.Context, c Channel)) {
 	s.cases = append(s.cases, &channelCase{
 		c:  c.(*channel),
 		fn: handler,
@@ -42,12 +42,15 @@ func (s *selector) AddDefault(handler func()) {
 	s.defaultFunc = handler
 }
 
-func (s *selector) Select() {
+func (s *selector) Select(ctx context.Context) {
+	cs := getCoState(ctx)
+
 	for {
 		// Is any case ready?
 		for i, c := range s.cases {
 			if c.Ready() {
-				c.Handle()
+				c.Handle(ctx)
+
 				// Remove handled case
 				s.cases = append(s.cases[:i], s.cases[i+1:]...)
 				return
@@ -60,39 +63,39 @@ func (s *selector) Select() {
 		}
 
 		// else, yield and wait for result
-		s.cr.Yield()
+		cs.Yield()
 	}
 }
 
 type selectorCase interface {
 	Ready() bool
-	Handle()
+	Handle(ctx context.Context)
 }
 
 var _ = selectorCase(&futureCase{})
 
 type futureCase struct {
 	f  *futureImpl
-	fn func(Future)
+	fn func(context.Context, Future)
 }
 
 func (fc *futureCase) Ready() bool {
 	return fc.f.Ready()
 }
 
-func (fc *futureCase) Handle() {
-	fc.fn(fc.f)
+func (fc *futureCase) Handle(ctx context.Context) {
+	fc.fn(ctx, fc.f)
 }
 
 type channelCase struct {
 	c  *channel
-	fn func(Channel)
+	fn func(context.Context, Channel)
 }
 
 func (cc *channelCase) Ready() bool {
 	return false // TODO
 }
 
-func (cc *channelCase) Handle() {
-	cc.fn(cc.c)
+func (cc *channelCase) Handle(ctx context.Context) {
+	cc.fn(ctx, cc.c)
 }

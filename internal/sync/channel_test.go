@@ -57,6 +57,9 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				})
 				crSend.Execute()
 
+				require.False(t, cr.Finished())
+				require.True(t, cr.Blocked())
+
 				cr.Execute()
 
 				require.True(t, cr.Finished())

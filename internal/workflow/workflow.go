@@ -13,19 +13,19 @@ type Workflow interface{}
 
 type workflow struct {
 	context *contextImpl
-	cr      sync.Coroutine
+	s       sync.Scheduler
 	fn      reflect.Value
 	result  []byte
 	err     error
 }
 
 func NewWorkflow(workflowFn reflect.Value) *workflow {
-	c := sync.NewCoroutine()
+	s := sync.NewScheduler()
 
 	return &workflow{
-		context: newWorkflowContext(c),
-		cr:      c,
-		fn:      workflowFn,
+		// context: newWorkflowContext(c), // TODO: context
+		s:  s,
+		fn: workflowFn,
 	}
 }
 
@@ -34,15 +34,14 @@ func (w *workflow) Context() *contextImpl {
 }
 
 func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
-	w.cr.Run(ctx, func(ctx context.Context) {
-		// TODO: Support inputs
-		args, err := inputsToArgs(ctx, w.fn, inputs)
-		if err != nil {
-			panic(err) // TODO: Handle error
-		}
+	args, err := inputsToArgs(ctx, w.fn, inputs)
+	if err != nil {
+		panic(err) // TODO: Handle error
+	}
 
-		args[0] = reflect.ValueOf(w.context)
+	args[0] = reflect.ValueOf(w.context)
 
+	w.s.NewCoroutine(ctx, func(ctx context.Context) {
 		r := w.fn.Call(args)
 
 		if len(r) < 1 || len(r) > 2 {
@@ -76,24 +75,24 @@ func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
 		w.err = errInterface
 	})
 
-	w.cr.WaitUntilBlocked()
+	w.s.Execute(ctx)
 
 	return nil
 }
 
 func (w *workflow) Continue(ctx context.Context) error {
-	w.cr.Execute()
+	w.s.Execute(ctx)
 
 	return nil
 }
 
 func (w *workflow) Completed() bool {
-	return w.cr.Finished()
+	return w.s.RunningCoroutines() == 0
 }
 
-func (w *workflow) Close() {
+func (w *workflow) Close(ctx context.Context) {
 	// End coroutine execution to prevent goroutine leaks
-	w.cr.Exit()
+	w.s.Exit(ctx)
 }
 
 func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs [][]byte) ([]reflect.Value, error) {
