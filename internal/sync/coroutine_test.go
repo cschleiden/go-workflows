@@ -9,7 +9,7 @@ import (
 )
 
 func Test_Coroutine_CanAccessState(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := getCoState(ctx)
 		require.NotNil(t, s)
 	})
@@ -18,7 +18,7 @@ func Test_Coroutine_CanAccessState(t *testing.T) {
 }
 
 func Test_Coroutine_MarkedAsDone(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 	})
 
 	c.Execute()
@@ -27,7 +27,7 @@ func Test_Coroutine_MarkedAsDone(t *testing.T) {
 }
 
 func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -42,7 +42,7 @@ func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 }
 
 func Test_Coroutine_Continue(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := getCoState(ctx)
 		s.Yield()
 	})
@@ -59,7 +59,7 @@ func Test_Coroutine_Continue(t *testing.T) {
 }
 
 func Test_Coroutine_Continue_WhenFinished(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 	})
 
 	c.Execute()
@@ -74,7 +74,7 @@ func Test_Coroutine_Continue_WhenFinished(t *testing.T) {
 func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	reached := false
 
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -99,7 +99,7 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 }
 
 func Test_Exit(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -113,7 +113,7 @@ func Test_Exit(t *testing.T) {
 }
 
 func Test_ExitIfAlreadyFinished(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		// Complete immedeiately
 	})
 
@@ -123,7 +123,7 @@ func Test_ExitIfAlreadyFinished(t *testing.T) {
 }
 
 func Test_Continue_PanicsWhenDeadlocked(t *testing.T) {
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		getCoState(ctx).Yield()
 
 		time.Sleep(3 * time.Second)

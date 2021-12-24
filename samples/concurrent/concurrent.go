@@ -56,32 +56,32 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) (string, error) {
+func Workflow1(ctx context.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", ctx.Replaying())
+	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
 	defer func() {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1, err := ctx.ExecuteActivity("a1", 35, 12)
+	a1, err := workflow.ExecuteActivity(ctx, "a1", 35, 12)
 	if err != nil {
 		panic("error executing activity 1")
 	}
 
-	a2, err := ctx.ExecuteActivity("a2")
+	a2, err := workflow.ExecuteActivity(ctx, "a2")
 	if err != nil {
 		panic("error executing activity 1")
 	}
 
 	results := 0
 
-	s := ctx.NewSelector()
+	s := workflow.NewSelector()
 
-	s.AddFuture(a2, func(f2 sync.Future) {
+	s.AddFuture(a2, func(ctx context.Context, f2 sync.Future) {
 		var r int
-		if err := f2.Get(&r); err != nil {
+		if err := f2.Get(ctx, &r); err != nil {
 			panic(err)
 		}
 
@@ -89,9 +89,9 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		results++
 	})
 
-	s.AddFuture(a1, func(f1 sync.Future) {
+	s.AddFuture(a1, func(ctx context.Context, f1 sync.Future) {
 		var r int
-		if err := f1.Get(&r); err != nil {
+		if err := f1.Get(ctx, &r); err != nil {
 			panic(err)
 		}
 
@@ -102,10 +102,10 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	for results < 2 {
 		log.Println("Selecting...")
-		log.Println("\tIsReplaying:", ctx.Replaying())
-		s.Select()
+		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+		s.Select(ctx)
 		log.Println("Selected")
-		log.Println("\tIsReplaying:", ctx.Replaying())
+		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	}
 
 	return "result", nil

@@ -12,36 +12,30 @@ import (
 type Workflow interface{}
 
 type workflow struct {
-	context *contextImpl
-	s       sync.Scheduler
-	fn      reflect.Value
-	result  []byte
-	err     error
+	s      sync.Scheduler
+	fn     reflect.Value
+	result []byte
+	err    error
 }
 
 func NewWorkflow(workflowFn reflect.Value) *workflow {
 	s := sync.NewScheduler()
 
 	return &workflow{
-		// context: newWorkflowContext(c), // TODO: context
 		s:  s,
 		fn: workflowFn,
 	}
 }
 
-func (w *workflow) Context() *contextImpl {
-	return w.context
-}
-
 func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
-	args, err := inputsToArgs(ctx, w.fn, inputs)
-	if err != nil {
-		panic(err) // TODO: Handle error
-	}
-
-	args[0] = reflect.ValueOf(w.context)
-
 	w.s.NewCoroutine(ctx, func(ctx context.Context) {
+		args, err := inputsToArgs(ctx, w.fn, inputs)
+		if err != nil {
+			panic(err) // TODO: Handle error
+		}
+
+		args[0] = reflect.ValueOf(ctx)
+
 		r := w.fn.Call(args)
 
 		if len(r) < 1 || len(r) > 2 {
@@ -106,7 +100,7 @@ func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs [][]byte
 		argT := activityFnT.In(i)
 
 		// Insert context if requested
-		if i == 0 && (isContext(argT) || isWorkflowContext(argT)) {
+		if i == 0 && (isContext(argT)) {
 			continue
 		}
 
@@ -126,10 +120,5 @@ func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs [][]byte
 
 func isContext(inType reflect.Type) bool {
 	contextElem := reflect.TypeOf((*context.Context)(nil)).Elem()
-	return inType != nil && inType.Implements(contextElem)
-}
-
-func isWorkflowContext(inType reflect.Type) bool {
-	contextElem := reflect.TypeOf((*Context)(nil)).Elem()
 	return inType != nil && inType.Implements(contextElem)
 }

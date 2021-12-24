@@ -15,7 +15,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Send_Blocks",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(func(ctx context.Context) {
+				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
 					c.Send(ctx, 42)
 				})
 
@@ -28,7 +28,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Receive_Blocks",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(func(ctx context.Context) {
+				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
 					var r int
 					c.Receive(ctx, &r)
 				})
@@ -44,7 +44,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			fn: func(t *testing.T, c *channel) {
 				var r int
 
-				cr := NewCoroutine(func(ctx context.Context) {
+				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
 					more := c.Receive(ctx, &r)
 					require.True(t, more)
 				})
@@ -52,7 +52,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 
 				require.True(t, cr.Blocked(), "coroutine should be blocked")
 
-				crSend := NewCoroutine(func(ctx context.Context) {
+				crSend := NewCoroutine(context.Background(), func(ctx context.Context) {
 					c.SendNonblocking(ctx, 42)
 				})
 				crSend.Execute()
@@ -74,7 +74,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "SendNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(func(ctx context.Context) {
+				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
 					r := c.SendNonblocking(ctx, 42)
 
 					require.False(t, r)
@@ -89,7 +89,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "ReceiveNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(func(ctx context.Context) {
+				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
 					r := c.SendNonblocking(ctx, 42)
 
 					require.False(t, r)

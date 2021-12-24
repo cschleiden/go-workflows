@@ -45,9 +45,9 @@ type coState struct {
 	logger logger
 }
 
-func NewCoroutine(fn func(ctx context.Context)) Coroutine {
+func NewCoroutine(ctx context.Context, fn func(ctx context.Context)) Coroutine {
 	s := newState()
-	ctx := withCoState(context.Background(), s) // TODO: Accept context?
+	ctx = withCoState(ctx, s)
 
 	go func() {
 		defer s.finish() // Ensure we always mark the coroutine as finished

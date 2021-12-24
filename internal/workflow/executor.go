@@ -16,9 +16,10 @@ type WorkflowExecutor interface {
 }
 
 type executor struct {
-	registry *Registry
-	task     *task.Workflow
-	workflow *workflow
+	registry      *Registry
+	task          *task.Workflow
+	workflow      *workflow
+	workflowState *workflowState
 }
 
 func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
@@ -47,37 +48,39 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 	workflow := NewWorkflow(reflect.ValueOf(wfFn))
 
 	return &executor{
-		registry: registry,
-		task:     task,
-		workflow: workflow,
+		registry:      registry,
+		task:          task,
+		workflow:      workflow,
+		workflowState: newWorkflowState(),
 	}
 }
 
 func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error) {
+	ctx = withWfState(ctx, e.workflowState)
+
 	// Replay history
-	// TODO: Move the context to be owned by the executor?
-	e.workflow.context.SetReplaying(true)
+	e.workflowState.setReplaying(true)
 	for _, event := range e.task.History {
 		e.executeEvent(ctx, event)
 	}
 
 	// Play new events
-	e.workflow.context.SetReplaying(false)
+	e.workflowState.setReplaying(false)
 	for _, event := range e.task.NewEvents {
 		e.executeEvent(ctx, event)
 	}
 
 	// Check if workflow finished
 	if e.workflow.Completed() {
-		e.workflowCompleted(e.workflow.result)
+		e.workflowCompleted(ctx, e.workflow.result)
 	}
 
 	if e.workflow != nil {
 		// End workflow if running to prevent leaking goroutines
-		e.workflow.Close()
+		e.workflow.Close(ctx)
 	}
 
-	return e.workflow.context.commands, nil
+	return e.workflowState.commands, nil
 }
 
 func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent) error {
@@ -124,7 +127,7 @@ func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attribute
 }
 
 func (e *executor) handleActivityScheduled(_ context.Context, event history.HistoryEvent, attributes *history.ActivityScheduledAttributes) {
-	for i, c := range e.workflow.Context().commands {
+	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Ensure the same activity is scheduled again
 			ca := c.Attr.(command.ScheduleActivityTaskCommandAttr)
@@ -133,22 +136,22 @@ func (e *executor) handleActivityScheduled(_ context.Context, event history.Hist
 			}
 
 			// Remove pending command
-			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
 			break
 		}
 	}
 }
 
 func (e *executor) handleActivityCompleted(ctx context.Context, event history.HistoryEvent, a *history.ActivityCompletedAttributes) {
-	f, ok := e.workflow.Context().pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
 		panic("no pending future!")
 	}
 
 	// Remove pending command
-	for i, c := range e.workflow.Context().commands {
+	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
-			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
 			break
 		}
 	}
@@ -160,25 +163,25 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 }
 
 func (e *executor) handleTimerScheduled(_ context.Context, event history.HistoryEvent, attributes *history.TimerScheduledAttributes) {
-	for i, c := range e.workflow.Context().commands {
+	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Remove pending command
-			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
 			break
 		}
 	}
 }
 
 func (e *executor) handleTimerFired(ctx context.Context, event history.HistoryEvent, attributes *history.TimerFiredAttributes) {
-	f, ok := e.workflow.Context().pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
 		panic("no pending future!")
 	}
 
 	// Remove pending command
-	for i, c := range e.workflow.Context().commands {
+	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
-			e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
 			break
 		}
 	}
@@ -218,11 +221,9 @@ func (e *executor) handleSignalReceived(ctx context.Context, event history.Histo
 	// e.workflow.Continue(ctx)
 }
 
-func (e *executor) workflowCompleted(result []byte) {
-	wfCtx := e.workflow.Context()
+func (e *executor) workflowCompleted(ctx context.Context, result []byte) {
+	eventId := e.workflowState.eventID
+	e.workflowState.eventID++
 
-	eventId := wfCtx.eventID
-	wfCtx.eventID++
-
-	wfCtx.AddCommand(command.NewCompleteWorkflowCommand(eventId, result))
+	e.workflowState.addCommand(command.NewCompleteWorkflowCommand(eventId, result))
 }

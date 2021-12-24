@@ -55,35 +55,35 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) error {
+func Workflow1(ctx context.Context, msg string) error {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", ctx.Replaying())
+	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
 	defer func() {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1, err := ctx.ExecuteActivity("a1", 35, 12)
+	a1, err := workflow.ExecuteActivity(ctx, "a1", 35, 12)
 	if err != nil {
 		panic("error executing activity 1")
 	}
 
 	var r1, r2 int
-	err = a1.Get(&r1)
+	err = a1.Get(ctx, &r1)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
 	log.Println("R1 result:", r1)
 
-	log.Println("\tIsReplaying:", ctx.Replaying())
+	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	a2, err := ctx.ExecuteActivity("a2")
+	a2, err := workflow.ExecuteActivity(ctx, "a2")
 	if err != nil {
 		panic("error executing activity 1")
 	}
 
-	err = a2.Get(&r2)
+	err = a2.Get(ctx, &r2)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}

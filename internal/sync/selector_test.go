@@ -13,7 +13,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 	f := NewFuture()
 	reachedEnd := false
 
-	cr := NewCoroutine(func(ctx context.Context) {
+	cr := NewCoroutine(ctx, func(ctx context.Context) {
 		s := NewSelector()
 
 		s.AddFuture(f, func(ctx context.Context, f Future) {
@@ -52,7 +52,7 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	reachedEnd := false
 	order := make([]int, 0)
 
-	cs := NewCoroutine(func(ctx context.Context) {
+	cs := NewCoroutine(ctx, func(ctx context.Context) {
 		s := NewSelector()
 
 		s.AddFuture(f, func(ctx context.Context, f Future) {
@@ -109,7 +109,7 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 	defaultHandled := false
 	reachedEnd := false
 
-	cs := NewCoroutine(func(ctx context.Context) {
+	cs := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := NewSelector()
 
 		s.AddFuture(f, func(_ context.Context, _ Future) {
@@ -138,7 +138,7 @@ func Test_ChannelSelector_Select(t *testing.T) {
 	defaultHandled := false
 	reachedEnd := false
 
-	cr := NewCoroutine(func(ctx context.Context) {
+	cr := NewCoroutine(context.Background(), func(ctx context.Context) {
 		s := NewSelector()
 
 		s.AddChannelReceive(c, func(_ context.Context, _ Channel) {

@@ -25,7 +25,7 @@ func NewScheduler() Scheduler {
 }
 
 func (s *scheduler) NewCoroutine(ctx context.Context, fn func(context.Context)) {
-	c := NewCoroutine(fn)
+	c := NewCoroutine(ctx, fn)
 	s.coroutines = append(s.coroutines, c)
 }
 

@@ -11,7 +11,7 @@ import (
 func Test_Yields(t *testing.T) {
 	f := NewFuture()
 
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		var v int
 		f.Get(ctx, &v)
 	})
@@ -27,7 +27,7 @@ func Test_SetUnblocks(t *testing.T) {
 
 	var v int
 
-	c := NewCoroutine(func(ctx context.Context) {
+	c := NewCoroutine(context.Background(), func(ctx context.Context) {
 		f.Get(ctx, &v)
 	})
 

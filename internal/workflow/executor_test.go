@@ -19,7 +19,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	var workflowHits int
 
-	Workflow1 := func(ctx Context) error {
+	Workflow1 := func(ctx context.Context) error {
 		workflowHits++
 
 		return nil
@@ -43,16 +43,17 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	}
 
 	e := &executor{
-		registry: r,
-		task:     task,
-		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
+		registry:      r,
+		task:          task,
+		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflowState: newWorkflowState(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
 	require.Equal(t, 1, workflowHits)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflow.context.commands, 1)
+	require.Len(t, e.workflowState.commands, 1)
 }
 
 func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
@@ -60,10 +61,10 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	var workflowHit int
 
-	Workflow1 := func(ctx Context) error {
+	Workflow1 := func(ctx context.Context) error {
 		workflowHit++
 
-		f1, err := ctx.ExecuteActivity("a1", 42)
+		f1, err := ExecuteActivity(ctx, "a1", 42)
 		if err != nil {
 			panic("error executing activity 1")
 		}
@@ -78,7 +79,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 		return nil
 	}
-	Activity1 := func(ctx Context, r int) (int, error) {
+	Activity1 := func(ctx context.Context, r int) (int, error) {
 		fmt.Println("Entering Activity1")
 
 		return r, nil
@@ -122,16 +123,17 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	}
 
 	e := &executor{
-		registry: r,
-		task:     task,
-		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
+		registry:      r,
+		task:          task,
+		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflowState: newWorkflowState(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
 	require.Equal(t, 2, workflowHit)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflow.context.commands, 1)
+	require.Len(t, e.workflowState.commands, 1)
 }
 
 func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
@@ -142,7 +144,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	Workflow1 := func(ctx context.Context) error {
 		workflowHits++
 
-		f1, err := ctx.ExecuteActivity("a1", 42)
+		f1, err := ExecuteActivity(ctx, "a1", 42)
 		if err != nil {
 			panic("error executing activity 1")
 		}
@@ -157,7 +159,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 		return nil
 	}
-	Activity1 := func(ctx Context, r int) (int, error) {
+	Activity1 := func(ctx context.Context, r int) (int, error) {
 		fmt.Println("Entering Activity1")
 
 		return r, nil
@@ -182,16 +184,17 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	}
 
 	e := &executor{
-		registry: r,
-		task:     task,
-		workflow: NewWorkflow(reflect.ValueOf(Workflow1)),
+		registry:      r,
+		task:          task,
+		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflowState: newWorkflowState(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
 	require.Equal(t, 1, workflowHits)
 
-	require.Len(t, e.workflow.context.commands, 1)
+	require.Len(t, e.workflowState.commands, 1)
 
 	inputs, _ := converter.DefaultConverter.To(42)
 	require.Equal(t, command.Command{
@@ -202,5 +205,5 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			Version: "",
 			Inputs:  [][]byte{inputs},
 		},
-	}, e.workflow.context.commands[0])
+	}, e.workflowState.commands[0])
 }

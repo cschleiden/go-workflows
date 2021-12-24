@@ -55,41 +55,41 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) (string, error) {
+func Workflow1(ctx context.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", ctx.Replaying())
+	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
 	defer func() {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1, err := ctx.ExecuteActivity("a1", 35, 12)
+	a1, err := workflow.ExecuteActivity(ctx, "a1", 35, 12)
 	if err != nil {
 		panic("error executing activity 1")
 	}
 
-	t, err := ctx.ScheduleTimer(5 * time.Second)
+	t, err := workflow.ScheduleTimer(ctx, 5*time.Second)
 	if err != nil {
 		panic("could not schedule timer")
 	}
 
-	s := ctx.NewSelector()
+	s := workflow.NewSelector()
 
-	s.AddFuture(t, func(f sync.Future) {
+	s.AddFuture(t, func(ctx context.Context, f sync.Future) {
 		log.Println("Timer fired")
-		log.Println("\tIsReplaying:", ctx.Replaying())
+		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	})
 
-	s.AddFuture(a1, func(f sync.Future) {
+	s.AddFuture(a1, func(ctx context.Context, f sync.Future) {
 		var r int
-		f.Get(&r)
+		f.Get(ctx, &r)
 		log.Println("Result:", r)
-		log.Println("\tIsReplaying:", ctx.Replaying())
+		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	})
 
-	s.Select()
-	s.Select()
+	s.Select(ctx)
+	s.Select(ctx)
 
 	return "result", nil
 }
