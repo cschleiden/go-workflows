@@ -2,9 +2,8 @@ package sync
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"log"
-	"os"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -70,8 +69,8 @@ func newState() *coState {
 	return &coState{
 		blocking: make(chan bool, 1),
 		unblock:  make(chan bool),
-		//logger:   log.New(io.Discard, "[co]", log.LstdFlags),
-		logger: log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.LstdFlags),
+		logger:   log.New(io.Discard, "[co]", log.LstdFlags),
+		//logger: log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
 	}
 }
 

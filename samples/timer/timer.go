@@ -89,7 +89,6 @@ func Workflow1(ctx context.Context, msg string) (string, error) {
 	})
 
 	s.Select(ctx)
-	s.Select(ctx)
 
 	return "result", nil
 }

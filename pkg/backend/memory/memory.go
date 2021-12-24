@@ -3,8 +3,8 @@ package memory
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
-	"os"
 	"sync"
 	"time"
 
@@ -15,7 +15,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type workflowStatus int
+
+const (
+	workflowStatusRunning workflowStatus = iota
+	workflowStatusCompleted
+)
+
 type workflowState struct {
+	status workflowStatus
+
 	Instance core.WorkflowInstance
 
 	History []history.HistoryEvent
@@ -56,8 +65,8 @@ func NewMemoryBackend() backend.Backend {
 		// Queue of pending activity instances
 		activities: make(chan *task.Activity, 100),
 
-		// log: log.New(io.Discard, "mb", log.LstdFlags),
-		log: log.New(os.Stderr, "[mb]\t", log.Lmsgprefix|log.Ltime),
+		log: log.New(io.Discard, "mb", log.LstdFlags),
+		// log: log.New(os.Stderr, "[mb]\t", log.Lmsgprefix|log.Ltime),
 	}
 }
 
@@ -193,6 +202,8 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 		if hasNewEvents {
 			mb.queueWorkflowTask(wfi)
 		}
+	} else {
+		instance.status = workflowStatusCompleted
 	}
 
 	return nil
@@ -217,11 +228,15 @@ func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.Workfl
 		panic("could not find workflow instance")
 	}
 
-	instance.NewEvents = append(instance.NewEvents, event)
+	if instance.status == workflowStatusCompleted {
+		mb.log.Println("Workflow already completed, ignoring activity result")
+	} else {
+		instance.NewEvents = append(instance.NewEvents, event)
 
-	// Workflow is not currently locked, mark as ready to be picked up
-	if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
-		mb.queueWorkflowTask(wfi)
+		// Workflow is not currently locked, mark as ready to be picked up
+		if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
+			mb.queueWorkflowTask(wfi)
+		}
 	}
 
 	return nil
