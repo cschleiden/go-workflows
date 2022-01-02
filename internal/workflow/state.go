@@ -15,6 +15,7 @@ type workflowState struct {
 	eventID        int
 	commands       []command.Command
 	pendingFutures map[int]sync.Future
+	signalChannels map[string]sync.Channel
 	replaying      bool
 }
 
@@ -23,6 +24,7 @@ func newWorkflowState() *workflowState {
 		commands:       []command.Command{},
 		eventID:        0,
 		pendingFutures: map[int]sync.Future{},
+		signalChannels: make(map[string]sync.Channel),
 	}
 }
 
@@ -36,6 +38,15 @@ func withWfState(ctx context.Context, wfState *workflowState) context.Context {
 
 func (wf *workflowState) addCommand(cmd command.Command) {
 	wf.commands = append(wf.commands, cmd)
+}
+
+func (wf *workflowState) getSignalChannel(name string) sync.Channel {
+	cs, ok := wf.signalChannels[name]
+	if !ok {
+		panic("signal channel not found")
+	}
+
+	return cs
 }
 
 func (wf *workflowState) setReplaying(replaying bool) {

@@ -53,9 +53,6 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 
 	w.RegisterWorkflow("wf1", Workflow1)
 
-	w.RegisterActivity("a1", Activity1)
-	w.RegisterActivity("a2", Activity2)
-
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
@@ -70,44 +67,16 @@ func Workflow1(ctx context.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow1")
 	}()
 
-	c := workflow.NewSignalChannel(ctx, "test")
-
 	s := workflow.NewSelector()
 
-	s.AddChannelReceive(c, func(ctx context.Context, c sync.Channel) {
-		panic("not implemented")
-		// var r int
-		// _, err := c.Receive(&r)
-		// if err != nil {
-		// 	panic(err)
-		// }
+	s.AddChannelReceive(workflow.NewSignalChannel(ctx, "test"), func(ctx context.Context, c sync.Channel) {
+		var r int
+		c.Receive(ctx, &r)
 
-		// log.Println("Received signal:", r)
+		log.Println("Received signal:", r)
 	})
 
 	s.Select(ctx)
 
 	return "result", nil
-}
-
-func Activity1(ctx context.Context, a, b int) (int, error) {
-	log.Println("Entering Activity1")
-
-	defer func() {
-		log.Println("Leaving Activity1")
-	}()
-
-	return a + b, nil
-}
-
-func Activity2(ctx context.Context) (int, error) {
-	log.Println("Entering Activity2")
-
-	time.Sleep(5 * time.Second)
-
-	defer func() {
-		log.Println("Leaving Activity2")
-	}()
-
-	return 12, nil
 }

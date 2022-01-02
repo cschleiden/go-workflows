@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 
+	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/history"
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ type WorkflowInstanceOptions struct {
 type Client interface {
 	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error)
 
-	SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, args ...interface{}) error
+	SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, arg interface{}) error
 }
 
 type client struct {
@@ -33,7 +33,7 @@ func NewClient(backend backend.Backend) Client {
 }
 
 func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error) {
-	inputs, err := encodeArgs(converter.DefaultConverter, args...)
+	inputs, err := converter.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert arguments")
 	}
@@ -62,8 +62,8 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
-func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, args ...interface{}) error {
-	inputs, err := encodeArgs(converter.DefaultConverter, args...)
+func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, arg interface{}) error {
+	input, err := converter.DefaultConverter.To(arg)
 	if err != nil {
 		return errors.Wrap(err, "could not convert arguments")
 	}
@@ -73,23 +73,9 @@ func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, 
 		-1,
 		history.SignalReceivedAttributes{
 			Name: name,
-			Args: inputs,
+			Arg:  input,
 		},
 	)
 
 	return c.backend.SignalWorkflow(ctx, wfi, event)
-}
-
-func encodeArgs(c converter.Converter, args ...interface{}) ([][]byte, error) {
-	encodedArgs := make([][]byte, len(args))
-
-	for i, arg := range args {
-		var err error
-		encodedArgs[i], err = c.To(arg)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not encode arg")
-		}
-	}
-
-	return encodedArgs, nil
 }

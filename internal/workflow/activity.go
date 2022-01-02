@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-dt/internal/command"
+	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/sync"
-	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/pkg/errors"
 )
 
@@ -15,13 +15,9 @@ type Activity interface{}
 func ExecuteActivity(ctx context.Context, name string, args ...interface{}) (sync.Future, error) {
 	wfState := getWfState(ctx)
 
-	inputs := make([][]byte, 0)
-	for _, arg := range args {
-		input, err := converter.DefaultConverter.To(arg)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert activity input")
-		}
-		inputs = append(inputs, input)
+	inputs, err := converter.ArgsToInputs(converter.DefaultConverter, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert activity input")
 	}
 
 	// TOOO: Validate arguments against activity registration

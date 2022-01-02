@@ -135,14 +135,17 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 func Test_ChannelSelector_Select(t *testing.T) {
 	c := NewChannel()
 
-	defaultHandled := false
 	reachedEnd := false
 
-	cr := NewCoroutine(context.Background(), func(ctx context.Context) {
+	ctx := context.Background()
+
+	var r int
+
+	cr := NewCoroutine(ctx, func(ctx context.Context) {
 		s := NewSelector()
 
-		s.AddChannelReceive(c, func(_ context.Context, _ Channel) {
-			require.Fail(t, "should not be called")
+		s.AddChannelReceive(c, func(ctx context.Context, c Channel) {
+			c.Receive(ctx, &r)
 		})
 
 		// Wait for result
@@ -153,6 +156,12 @@ func Test_ChannelSelector_Select(t *testing.T) {
 
 	cr.Execute()
 
+	NewCoroutine(ctx, func(ctx context.Context) {
+		c.Send(ctx, 42)
+	}).Execute()
+
+	cr.Execute()
+
 	require.True(t, reachedEnd)
-	require.True(t, defaultHandled)
+	require.Equal(t, 42, r)
 }

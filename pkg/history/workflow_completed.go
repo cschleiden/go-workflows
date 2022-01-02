@@ -1,5 +1,7 @@
 package history
 
+import "github.com/cschleiden/go-dt/internal/payload"
+
 type ExecutionCompletedAttributes struct {
-	Result []byte
+	Result payload.Payload
 }

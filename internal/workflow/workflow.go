@@ -4,8 +4,9 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
-	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/pkg/errors"
 )
 
@@ -14,7 +15,7 @@ type Workflow interface{}
 type workflow struct {
 	s      sync.Scheduler
 	fn     reflect.Value
-	result []byte
+	result payload.Payload
 	err    error
 }
 
@@ -27,7 +28,7 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 	}
 }
 
-func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
+func (w *workflow) Execute(ctx context.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx context.Context) {
 		args, err := inputsToArgs(ctx, w.fn, inputs)
 		if err != nil {
@@ -43,7 +44,7 @@ func (w *workflow) Execute(ctx context.Context, inputs [][]byte) error {
 			panic("workflow has to return either (error) or (result, error)")
 		}
 
-		var result []byte
+		var result payload.Payload
 
 		if len(r) > 1 {
 			var err error
@@ -89,7 +90,7 @@ func (w *workflow) Close(ctx context.Context) {
 	w.s.Exit(ctx)
 }
 
-func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs [][]byte) ([]reflect.Value, error) {
+func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
 	activityFnT := activityFn.Type()
 
 	numArgs := activityFnT.NumIn()

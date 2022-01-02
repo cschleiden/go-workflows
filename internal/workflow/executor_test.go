@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/pkg/converter"
+	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
@@ -36,7 +37,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  [][]byte{},
+					Inputs:  []payload.Payload{},
 				},
 			),
 		},
@@ -100,7 +101,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  [][]byte{inputs},
+					Inputs:  []payload.Payload{inputs},
 				},
 			),
 			history.NewHistoryEvent(
@@ -109,7 +110,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.ActivityScheduledAttributes{
 					Name:    "a1",
 					Version: "",
-					Inputs:  [][]byte{inputs},
+					Inputs:  []payload.Payload{inputs},
 				},
 			),
 			history.NewHistoryEvent(
@@ -177,7 +178,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
-					Inputs:  [][]byte{},
+					Inputs:  []payload.Payload{},
 				},
 			),
 		},
@@ -203,7 +204,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		Attr: command.ScheduleActivityTaskCommandAttr{
 			Name:    "a1",
 			Version: "",
-			Inputs:  [][]byte{inputs},
+			Inputs:  []payload.Payload{inputs},
 		},
 	}, e.workflowState.commands[0])
 }

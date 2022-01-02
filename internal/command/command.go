@@ -1,6 +1,10 @@
 package command
 
-import "time"
+import (
+	"time"
+
+	"github.com/cschleiden/go-dt/internal/payload"
+)
 
 type CommandType int
 
@@ -22,10 +26,10 @@ type Command struct {
 type ScheduleActivityTaskCommandAttr struct {
 	Name    string
 	Version string
-	Inputs  [][]byte
+	Inputs  []payload.Payload
 }
 
-func NewScheduleActivityTaskCommand(id int, name, version string, inputs [][]byte) Command {
+func NewScheduleActivityTaskCommand(id int, name, version string, inputs []payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleActivityTask,
@@ -52,10 +56,10 @@ func NewScheduleTimerCommand(id int, at time.Time) Command {
 }
 
 type CompleteWorkflowCommandAttr struct {
-	Result []byte
+	Result payload.Payload
 }
 
-func NewCompleteWorkflowCommand(id int, result []byte) Command {
+func NewCompleteWorkflowCommand(id int, result payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_CompleteWorkflow,

@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/history"
 	"github.com/google/uuid"
@@ -31,7 +31,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 		backend: b,
 	}
 
-	err := c.SignalWorkflow(ctx, wfi, "test")
+	err := c.SignalWorkflow(ctx, wfi, "test", "signal")
 
 	require.Nil(t, err)
 	b.AssertExpectations(t)
@@ -52,7 +52,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	b.On("SignalWorkflow", ctx, wfi, mock.MatchedBy(func(event history.HistoryEvent) bool {
 		return event.EventType == history.HistoryEventType_SignalReceived &&
 			event.Attributes.(history.SignalReceivedAttributes).Name == "test" &&
-			bytes.Equal(event.Attributes.(history.SignalReceivedAttributes).Args[0], input)
+			bytes.Equal(event.Attributes.(history.SignalReceivedAttributes).Arg, input)
 	})).Return(nil)
 
 	c := &client{

@@ -26,5 +26,12 @@
       "mode": "debug",
       "program": "${workspaceFolder}/samples/timer/timer.go"
     },
+    {
+      "name": "Launch signal sample",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/samples/signal/signal.go"
+    },
   ]
 }

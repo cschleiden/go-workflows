@@ -1,6 +1,8 @@
 package sync
 
-import "context"
+import (
+	"context"
+)
 
 type Selector interface {
 	AddFuture(f Future, handler func(ctx context.Context, f Future))
@@ -32,8 +34,10 @@ func (s *selector) AddFuture(f Future, handler func(ctx context.Context, f Futur
 }
 
 func (s *selector) AddChannelReceive(c Channel, handler func(ctx context.Context, c Channel)) {
+	channel := c.(*channel)
+
 	s.cases = append(s.cases, &channelCase{
-		c:  c.(*channel),
+		c:  channel,
 		fn: handler,
 	})
 }
@@ -93,7 +97,7 @@ type channelCase struct {
 }
 
 func (cc *channelCase) Ready() bool {
-	return false // TODO
+	return cc.c.canReceive()
 }
 
 func (cc *channelCase) Handle(ctx context.Context) {

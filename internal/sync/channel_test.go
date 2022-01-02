@@ -72,6 +72,37 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			},
 		},
 		{
+			name: "Send_BlocksUntilReceive",
+			fn: func(t *testing.T, c *channel) {
+				crSend := NewCoroutine(context.Background(), func(ctx context.Context) {
+					c.Send(ctx, 42)
+				})
+				crSend.Execute()
+
+				require.True(t, crSend.Blocked(), "coroutine should be blocked")
+
+				var r int
+				crReceive := NewCoroutine(context.Background(), func(ctx context.Context) {
+					more := c.Receive(ctx, &r)
+					require.True(t, more)
+				})
+				crReceive.Execute()
+
+				require.False(t, crSend.Finished())
+				require.True(t, crSend.Blocked())
+
+				crSend.Execute()
+
+				require.True(t, crSend.Finished())
+				require.False(t, crSend.Blocked())
+
+				require.True(t, crReceive.Finished())
+				require.False(t, crReceive.Blocked())
+
+				require.Equal(t, 42, r)
+			},
+		},
+		{
 			name: "SendNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
 				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
@@ -132,6 +163,42 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				}
 
 				require.Equal(t, 10, r)
+			},
+		},
+		{
+			name: "BufferedChannel_Send",
+			fn: func(t *testing.T, c *channel) {
+				ctx := context.Background()
+				cs := NewBufferedChannel(1)
+
+				sentValue := false
+
+				cr := NewCoroutine(ctx, func(ctx context.Context) {
+					cs.Send(ctx, 42)
+					sentValue = true
+					cs.Send(ctx, 23)
+				})
+
+				cr.Execute()
+				require.True(t, cr.Blocked()) // Blocking on second send
+				require.True(t, sentValue)
+
+				var r int
+				crReceive := NewCoroutine(ctx, func(ctx context.Context) {
+					for {
+						cs.Receive(ctx, &r)
+						getCoState(ctx).Yield()
+					}
+				})
+
+				crReceive.Execute()
+				require.Equal(t, 42, r)
+
+				cr.Execute()
+				require.True(t, cr.Finished())
+
+				crReceive.Execute()
+				require.Equal(t, 23, r)
 			},
 		},
 	}

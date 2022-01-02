@@ -6,7 +6,8 @@ import (
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/pkg/converter"
+	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
 )
@@ -29,17 +30,17 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 	var name string
 
 	if len(task.History) == 0 {
-		attributes, ok := task.NewEvents[0].Attributes.(history.ExecutionStartedAttributes)
+		a, ok := task.NewEvents[0].Attributes.(history.ExecutionStartedAttributes)
 		if !ok {
 			panic("workflow task did not contain execution started as first message")
 		}
-		name = attributes.Name
+		name = a.Name
 	} else {
-		attributes, ok := task.History[0].Attributes.(history.ExecutionStartedAttributes)
+		a, ok := task.History[0].Attributes.(history.ExecutionStartedAttributes)
 		if !ok {
 			panic("workflow task did not contain execution started as first message")
 		}
-		name = attributes.Name
+		name = a.Name
 	}
 
 	// TODO: Move this to registry
@@ -98,6 +99,7 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 		e.handleActivityScheduled(ctx, event, &a)
 
 	case history.HistoryEventType_ActivityFailed:
+		// Nothing to handle
 
 	case history.HistoryEventType_ActivityCompleted:
 		a := event.Attributes.(history.ActivityCompletedAttributes)
@@ -122,16 +124,16 @@ func (e *executor) executeEvent(ctx context.Context, event history.HistoryEvent)
 	return nil
 }
 
-func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, attributes *history.ExecutionStartedAttributes) {
-	e.workflow.Execute(ctx, attributes.Inputs) // TODO: handle error
+func (e *executor) handleWorkflowExecutionStarted(ctx context.Context, a *history.ExecutionStartedAttributes) {
+	e.workflow.Execute(ctx, a.Inputs) // TODO: handle error
 }
 
-func (e *executor) handleActivityScheduled(_ context.Context, event history.HistoryEvent, attributes *history.ActivityScheduledAttributes) {
+func (e *executor) handleActivityScheduled(_ context.Context, event history.HistoryEvent, a *history.ActivityScheduledAttributes) {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Ensure the same activity is scheduled again
 			ca := c.Attr.(command.ScheduleActivityTaskCommandAttr)
-			if attributes.Name != ca.Name {
+			if a.Name != ca.Name {
 				panic("Previous workflow execution scheduled different type of activity") // TODO: Return to caller?
 			}
 
@@ -162,7 +164,7 @@ func (e *executor) handleActivityCompleted(ctx context.Context, event history.Hi
 	e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleTimerScheduled(_ context.Context, event history.HistoryEvent, attributes *history.TimerScheduledAttributes) {
+func (e *executor) handleTimerScheduled(_ context.Context, event history.HistoryEvent, a *history.TimerScheduledAttributes) {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Remove pending command
@@ -172,7 +174,7 @@ func (e *executor) handleTimerScheduled(_ context.Context, event history.History
 	}
 }
 
-func (e *executor) handleTimerFired(ctx context.Context, event history.HistoryEvent, attributes *history.TimerFiredAttributes) {
+func (e *executor) handleTimerFired(ctx context.Context, event history.HistoryEvent, a *history.TimerFiredAttributes) {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
 		panic("no pending future!")
@@ -195,33 +197,23 @@ func (e *executor) handleTimerFired(ctx context.Context, event history.HistoryEv
 	e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleSignalReceived(ctx context.Context, event history.HistoryEvent, attributes *history.SignalReceivedAttributes) {
+func (e *executor) handleSignalReceived(ctx context.Context, event history.HistoryEvent, a *history.SignalReceivedAttributes) {
+	cs := e.workflowState.getSignalChannel(a.Name)
+
+	cs.Send(ctx, a.Arg)
+
+	// Remove pending command
+	for i, c := range e.workflowState.commands {
+		if c.ID == event.EventID {
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
+			break
+		}
+	}
 
 	e.workflow.Continue(ctx)
-
-	// f, ok := e.workflow.Context().pendingFutures[event.EventID]
-	// if !ok {
-	// 	panic("no pending future!")
-	// }
-
-	// // Remove pending command
-	// for i, c := range e.workflow.Context().commands {
-	// 	if c.ID == event.EventID {
-	// 		e.workflow.context.commands = append(e.workflow.context.commands[:i], e.workflow.context.commands[i+1:]...)
-	// 		break
-	// 	}
-	// }
-
-	// f.Set(func(v interface{}) error {
-	// 	r := reflect.ValueOf(v)
-	// 	r.Elem().Set(reflect.ValueOf(true)) // TODO: Set different value for timer future?
-
-	// 	return nil
-	// })
-	// e.workflow.Continue(ctx)
 }
 
-func (e *executor) workflowCompleted(ctx context.Context, result []byte) {
+func (e *executor) workflowCompleted(ctx context.Context, result payload.Payload) {
 	eventId := e.workflowState.eventID
 	e.workflowState.eventID++
 

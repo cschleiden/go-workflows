@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/workflow"
-	"github.com/cschleiden/go-dt/pkg/converter"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
 	"github.com/pkg/errors"
@@ -21,7 +22,7 @@ func NewExecutor(r *workflow.Registry) Executor {
 		r: r,
 	}
 }
-func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) ([]byte, error) {
+func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) (payload.Payload, error) {
 	a := task.Event.Attributes.(history.ActivityScheduledAttributes)
 
 	activity := e.r.GetActivity(a.Name)
@@ -42,7 +43,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) ([]b
 		return nil, errors.New("activity has to return either (error) or (result, error)")
 	}
 
-	var result []byte
+	var result payload.Payload
 
 	if len(r) > 1 {
 		var err error
@@ -65,7 +66,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) ([]b
 	return result, errInterface
 }
 
-func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs [][]byte) ([]reflect.Value, error) {
+func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
 	args := make([]reflect.Value, 0)
 	activityFnT := activityFn.Type()
 

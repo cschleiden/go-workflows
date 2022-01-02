@@ -3,9 +3,11 @@ package sync
 import (
 	"context"
 	"reflect"
+
+	"github.com/cschleiden/go-dt/internal/converter"
 )
 
-// TODO: Support cancellation?
+// TODO: Support cancellation??
 type Channel interface {
 	Send(ctx context.Context, v interface{})
 
@@ -13,29 +15,33 @@ type Channel interface {
 
 	Receive(ctx context.Context, vptr interface{}) (more bool)
 
-	ReceiveNonblocking(ctx context.Context, vptr interface{}) (ok bool)
+	ReceiveNonblocking(ctx context.Context, vptr interface{}) (more bool)
 
 	Close()
 }
 
 func NewChannel() Channel {
 	return &channel{
-		c: make([]interface{}, 0),
+		c:         make([]interface{}, 0),
+		converter: converter.DefaultConverter,
 	}
 }
 
 func NewBufferedChannel(size int) Channel {
 	return &channel{
-		c:    make([]interface{}, size),
-		size: size,
+		c:         make([]interface{}, 0, size),
+		size:      size,
+		converter: converter.DefaultConverter,
 	}
 }
 
 type channel struct {
 	c         []interface{}
 	receivers []func(interface{})
+	senders   []func() interface{}
 	closed    bool
 	size      int
+	converter converter.Converter
 }
 
 func (c *channel) Close() {
@@ -53,14 +59,31 @@ func (c *channel) Close() {
 }
 
 func (c *channel) Send(ctx context.Context, v interface{}) {
-	cr := getCoState(ctx)
+	addedSender := false
+	sentValue := false
 
 	for {
 		if c.trySend(v) {
 			return
 		}
 
+		if !addedSender {
+			addedSender = true
+
+			cb := func() interface{} {
+				sentValue = true
+				return v
+			}
+
+			c.senders = append(c.senders, cb)
+		}
+
+		cr := getCoState(ctx)
 		cr.Yield()
+
+		if sentValue {
+			return
+		}
 	}
 }
 
@@ -94,9 +117,9 @@ func (c *channel) Receive(ctx context.Context, vptr interface{}) (more bool) {
 			addedListener = true
 		}
 
-		// Yield and wait for value
 		cr.Yield()
 
+		// If we received a value via the callback, return
 		if receivedValue {
 			return !c.closed
 		}
@@ -109,6 +132,10 @@ func (c *channel) ReceiveNonblocking(ctx context.Context, vptr interface{}) (ok 
 
 func (c *channel) hasValue() bool {
 	return len(c.c) > 0
+}
+
+func (c *channel) canReceive() bool {
+	return c.hasValue() || len(c.senders) > 0 || c.closed
 }
 
 func (c *channel) trySend(v interface{}) bool {
@@ -146,9 +173,21 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		v := c.c[0]
 		c.c = c.c[1:]
 
-		// TODO: Assert pointer
-		// TODO: Extract assignment logic
-		reflect.ValueOf(vptr).Elem().Set(reflect.ValueOf(v))
+		converter.AssignValue(c.converter, v, vptr)
+
+		return true
+	}
+
+	if len(c.senders) > 0 {
+		s := c.senders[0]
+		c.senders[0] = nil
+		c.senders = c.senders[1:]
+
+		// TODO: Or pass vtpr here?
+		v := s()
+
+		converter.AssignValue(c.converter, v, vptr)
+
 		return true
 	}
 
@@ -157,4 +196,8 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 
 func (c *channel) hasCapacity() bool {
 	return len(c.c) < c.size
+}
+
+func setValue(v []byte, vtpr interface{}) {
+	converter.DefaultConverter.From(v, vtpr)
 }
