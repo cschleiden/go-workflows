@@ -1,13 +1,13 @@
 package workflow
 
-import "context"
+import "github.com/cschleiden/go-dt/internal/sync"
 
-func Replaying(ctx context.Context) bool {
+func Replaying(ctx sync.Context) bool {
 	wfState := getWfState(ctx)
 	return wfState.replaying
 }
 
-func SetReplaying(ctx context.Context, replaying bool) {
+func SetReplaying(ctx sync.Context, replaying bool) {
 	wfState := getWfState(ctx)
 	wfState.replaying = replaying
 }

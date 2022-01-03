@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"io"
 	"log"
 	"runtime"
@@ -44,7 +43,7 @@ type coState struct {
 	logger logger
 }
 
-func NewCoroutine(ctx context.Context, fn func(ctx context.Context)) Coroutine {
+func NewCoroutine(ctx Context, fn func(ctx Context)) Coroutine {
 	s := newState()
 	ctx = withCoState(ctx, s)
 
@@ -141,15 +140,14 @@ func (s *coState) Execute() {
 	s.unblock <- true
 	s.logger.Println("execute: unblocked")
 
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
+	t := time.NewTimer(time.Second * 2)
+	defer t.Stop()
 
 	// Run until blocked (which is also true when finished)
 	select {
 	case <-s.blocking:
 		s.logger.Println("execute: blocked")
-	case <-ctx.Done():
+	case <-t.C:
 		panic("coroutine timed out")
 	}
 }
@@ -163,11 +161,11 @@ func (s *coState) Exit() {
 	s.Execute()
 }
 
-func withCoState(ctx context.Context, s *coState) context.Context {
-	return context.WithValue(ctx, coroutinesCtxKey, s)
+func withCoState(ctx Context, s *coState) Context {
+	return WithValue(ctx, coroutinesCtxKey, s)
 }
 
-func getCoState(ctx context.Context) *coState {
+func getCoState(ctx Context) *coState {
 	s, ok := ctx.Value(coroutinesCtxKey).(*coState)
 	if !ok {
 		panic("could not find coroutine state")

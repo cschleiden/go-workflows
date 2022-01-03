@@ -9,7 +9,6 @@ import (
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
-	"github.com/cschleiden/go-dt/pkg/sync"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/google/uuid"
@@ -56,7 +55,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx context.Context, msg string) (string, error) {
+func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
@@ -79,7 +78,7 @@ func Workflow1(ctx context.Context, msg string) (string, error) {
 
 	s := workflow.NewSelector()
 
-	s.AddFuture(a2, func(ctx context.Context, f2 sync.Future) {
+	s.AddFuture(a2, func(ctx workflow.Context, f2 workflow.Future) {
 		var r int
 		if err := f2.Get(ctx, &r); err != nil {
 			panic(err)
@@ -89,7 +88,7 @@ func Workflow1(ctx context.Context, msg string) (string, error) {
 		results++
 	})
 
-	s.AddFuture(a1, func(ctx context.Context, f1 sync.Future) {
+	s.AddFuture(a1, func(ctx workflow.Context, f1 workflow.Future) {
 		var r int
 		if err := f1.Get(ctx, &r); err != nil {
 			panic(err)

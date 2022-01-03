@@ -1,8 +1,6 @@
 package workflow
 
 import (
-	"context"
-
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/sync"
 )
@@ -28,12 +26,12 @@ func newWorkflowState() *workflowState {
 	}
 }
 
-func getWfState(ctx context.Context) *workflowState {
+func getWfState(ctx sync.Context) *workflowState {
 	return ctx.Value(workflowCtxKey).(*workflowState)
 }
 
-func withWfState(ctx context.Context, wfState *workflowState) context.Context {
-	return context.WithValue(ctx, workflowCtxKey, wfState)
+func withWfState(ctx sync.Context, wfState *workflowState) sync.Context {
+	return sync.WithValue(ctx, workflowCtxKey, wfState)
 }
 
 func (wf *workflowState) addCommand(cmd command.Command) {

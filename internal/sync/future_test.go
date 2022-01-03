@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 func Test_Yields(t *testing.T) {
 	f := NewFuture()
 
-	c := NewCoroutine(context.Background(), func(ctx context.Context) {
+	c := NewCoroutine(Background(), func(ctx Context) {
 		var v int
 		f.Get(ctx, &v)
 	})
@@ -27,7 +26,7 @@ func Test_SetUnblocks(t *testing.T) {
 
 	var v int
 
-	c := NewCoroutine(context.Background(), func(ctx context.Context) {
+	c := NewCoroutine(Background(), func(ctx Context) {
 		f.Get(ctx, &v)
 	})
 
@@ -40,7 +39,7 @@ func Test_SetUnblocks(t *testing.T) {
 
 	require.False(t, c.Progress())
 
-	f.Set(context.Background(), func(v interface{}) error {
+	f.Set(Background(), func(v interface{}) error {
 		r := reflect.ValueOf(v)
 		r.Elem().Set(reflect.ValueOf(42))
 

@@ -1,13 +1,11 @@
 package sync
 
-import "context"
-
 type Future interface {
 	// Set stores the value and unblocks any waiting consumers
-	Set(ctx context.Context, getter func(v interface{}) error)
+	Set(ctx Context, getter func(v interface{}) error)
 
 	// Get returns the value if set, blocks otherwise
-	Get(ctx context.Context, v interface{}) error
+	Get(ctx Context, v interface{}) error
 }
 
 func NewFuture() Future {
@@ -18,11 +16,11 @@ type futureImpl struct {
 	fn func(v interface{}) error
 }
 
-func (f *futureImpl) Set(ctx context.Context, getter func(v interface{}) error) {
+func (f *futureImpl) Set(ctx Context, getter func(v interface{}) error) {
 	f.fn = getter
 }
 
-func (f *futureImpl) Get(ctx context.Context, v interface{}) error {
+func (f *futureImpl) Get(ctx Context, v interface{}) error {
 	for {
 		cr := getCoState(ctx)
 

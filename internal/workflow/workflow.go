@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/converter"
@@ -28,9 +27,9 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 	}
 }
 
-func (w *workflow) Execute(ctx context.Context, inputs []payload.Payload) error {
-	w.s.NewCoroutine(ctx, func(ctx context.Context) {
-		args, err := inputsToArgs(ctx, w.fn, inputs)
+func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
+	w.s.NewCoroutine(ctx, func(ctx sync.Context) {
+		args, err := inputsToArgs(w.fn, inputs)
 		if err != nil {
 			panic(err) // TODO: Handle error
 		}
@@ -75,7 +74,7 @@ func (w *workflow) Execute(ctx context.Context, inputs []payload.Payload) error 
 	return nil
 }
 
-func (w *workflow) Continue(ctx context.Context) error {
+func (w *workflow) Continue(ctx sync.Context) error {
 	w.s.Execute(ctx)
 
 	return nil
@@ -85,12 +84,12 @@ func (w *workflow) Completed() bool {
 	return w.s.RunningCoroutines() == 0
 }
 
-func (w *workflow) Close(ctx context.Context) {
+func (w *workflow) Close(ctx sync.Context) {
 	// End coroutine execution to prevent goroutine leaks
 	w.s.Exit(ctx)
 }
 
-func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
+func inputsToArgs(activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
 	activityFnT := activityFn.Type()
 
 	numArgs := activityFnT.NumIn()
@@ -120,6 +119,6 @@ func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs []payloa
 }
 
 func isContext(inType reflect.Type) bool {
-	contextElem := reflect.TypeOf((*context.Context)(nil)).Elem()
+	contextElem := reflect.TypeOf((*sync.Context)(nil)).Elem()
 	return inType != nil && inType.Implements(contextElem)
 }

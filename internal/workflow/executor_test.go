@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	var workflowHits int
 
-	Workflow1 := func(ctx context.Context) error {
+	Workflow1 := func(ctx sync.Context) error {
 		workflowHits++
 
 		return nil
@@ -50,6 +51,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		task:          task,
 		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
 		workflowState: newWorkflowState(),
+		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
@@ -64,7 +66,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	var workflowHit int
 
-	Workflow1 := func(ctx context.Context) error {
+	Workflow1 := func(ctx sync.Context) error {
 		workflowHit++
 
 		f1, err := ExecuteActivity(ctx, "a1", 42)
@@ -130,6 +132,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		task:          task,
 		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
 		workflowState: newWorkflowState(),
+		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
@@ -144,7 +147,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	var workflowHits int
 
-	Workflow1 := func(ctx context.Context) error {
+	Workflow1 := func(ctx sync.Context) error {
 		workflowHits++
 
 		f1, err := ExecuteActivity(ctx, "a1", 42)
@@ -191,6 +194,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		task:          task,
 		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
 		workflowState: newWorkflowState(),
+		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
@@ -216,7 +220,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 
 	var workflowHits int
 
-	Workflow1 := func(ctx context.Context) error {
+	Workflow1 := func(ctx sync.Context) error {
 		workflowHits++
 
 		t, err := ScheduleTimer(ctx, time.Millisecond*5)
@@ -257,6 +261,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 		task:          task,
 		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
 		workflowState: newWorkflowState(),
+		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
@@ -273,7 +278,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 
 	var workflowHits int
 
-	Workflow1 := func(ctx context.Context) error {
+	Workflow1 := func(ctx sync.Context) error {
 		workflowHits++
 
 		s := sync.NewSelector()
@@ -287,11 +292,11 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 			panic("error executing activity 1")
 		}
 
-		s.AddFuture(f1, func(ctx context.Context, f sync.Future) {
+		s.AddFuture(f1, func(ctx sync.Context, f sync.Future) {
 			workflowHits++
 		})
 
-		s.AddFuture(t, func(ctx context.Context, t sync.Future) {
+		s.AddFuture(t, func(ctx sync.Context, t sync.Future) {
 			workflowHits++
 		})
 
@@ -330,6 +335,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 		task:          task,
 		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
 		workflowState: newWorkflowState(),
+		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())

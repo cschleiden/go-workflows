@@ -1,8 +1,6 @@
 package workflow
 
 import (
-	"context"
-
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/sync"
@@ -12,7 +10,7 @@ import (
 type Activity interface{}
 
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity(ctx context.Context, name string, args ...interface{}) (sync.Future, error) {
+func ExecuteActivity(ctx sync.Context, name string, args ...interface{}) (sync.Future, error) {
 	wfState := getWfState(ctx)
 
 	inputs, err := converter.ArgsToInputs(converter.DefaultConverter, args...)

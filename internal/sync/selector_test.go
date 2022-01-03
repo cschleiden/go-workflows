@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -9,14 +8,14 @@ import (
 )
 
 func Test_FutureSelector_SelectWaits(t *testing.T) {
-	ctx := context.Background()
+	ctx := Background()
 	f := NewFuture()
 	reachedEnd := false
 
-	cr := NewCoroutine(ctx, func(ctx context.Context) {
+	cr := NewCoroutine(ctx, func(ctx Context) {
 		s := NewSelector()
 
-		s.AddFuture(f, func(ctx context.Context, f Future) {
+		s.AddFuture(f, func(ctx Context, f Future) {
 			var r int
 			err := f.Get(ctx, &r)
 			require.Nil(t, err)
@@ -44,7 +43,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 }
 
 func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
-	ctx := context.Background()
+	ctx := Background()
 
 	f := NewFuture()
 	f2 := NewFuture()
@@ -52,10 +51,10 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	reachedEnd := false
 	order := make([]int, 0)
 
-	cs := NewCoroutine(ctx, func(ctx context.Context) {
+	cs := NewCoroutine(ctx, func(ctx Context) {
 		s := NewSelector()
 
-		s.AddFuture(f, func(ctx context.Context, f Future) {
+		s.AddFuture(f, func(ctx Context, f Future) {
 			var r int
 			err := f.Get(ctx, &r)
 			require.Nil(t, err)
@@ -63,7 +62,7 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 			order = append(order, 42)
 		})
 
-		s.AddFuture(f2, func(ctx context.Context, f Future) {
+		s.AddFuture(f2, func(ctx Context, f Future) {
 			var r int
 			err := f.Get(ctx, &r)
 			require.Nil(t, err)
@@ -109,10 +108,10 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 	defaultHandled := false
 	reachedEnd := false
 
-	cs := NewCoroutine(context.Background(), func(ctx context.Context) {
+	cs := NewCoroutine(Background(), func(ctx Context) {
 		s := NewSelector()
 
-		s.AddFuture(f, func(_ context.Context, _ Future) {
+		s.AddFuture(f, func(_ Context, _ Future) {
 			require.Fail(t, "should not be called")
 		})
 
@@ -137,14 +136,14 @@ func Test_ChannelSelector_Select(t *testing.T) {
 
 	reachedEnd := false
 
-	ctx := context.Background()
+	ctx := Background()
 
 	var r int
 
-	cr := NewCoroutine(ctx, func(ctx context.Context) {
+	cr := NewCoroutine(ctx, func(ctx Context) {
 		s := NewSelector()
 
-		s.AddChannelReceive(c, func(ctx context.Context, c Channel) {
+		s.AddChannelReceive(c, func(ctx Context, c Channel) {
 			c.Receive(ctx, &r)
 		})
 
@@ -156,7 +155,7 @@ func Test_ChannelSelector_Select(t *testing.T) {
 
 	cr.Execute()
 
-	NewCoroutine(ctx, func(ctx context.Context) {
+	NewCoroutine(ctx, func(ctx Context) {
 		c.Send(ctx, 42)
 	}).Execute()
 

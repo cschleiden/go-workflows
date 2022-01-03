@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +14,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Send_Blocks",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) {
 					c.Send(ctx, 42)
 				})
 
@@ -28,7 +27,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Receive_Blocks",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) {
 					var r int
 					c.Receive(ctx, &r)
 				})
@@ -44,7 +43,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			fn: func(t *testing.T, c *channel) {
 				var r int
 
-				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) {
 					more := c.Receive(ctx, &r)
 					require.True(t, more)
 				})
@@ -52,7 +51,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 
 				require.True(t, cr.Blocked(), "coroutine should be blocked")
 
-				crSend := NewCoroutine(context.Background(), func(ctx context.Context) {
+				crSend := NewCoroutine(Background(), func(ctx Context) {
 					c.SendNonblocking(ctx, 42)
 				})
 				crSend.Execute()
@@ -74,7 +73,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Send_BlocksUntilReceive",
 			fn: func(t *testing.T, c *channel) {
-				crSend := NewCoroutine(context.Background(), func(ctx context.Context) {
+				crSend := NewCoroutine(Background(), func(ctx Context) {
 					c.Send(ctx, 42)
 				})
 				crSend.Execute()
@@ -82,7 +81,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				require.True(t, crSend.Blocked(), "coroutine should be blocked")
 
 				var r int
-				crReceive := NewCoroutine(context.Background(), func(ctx context.Context) {
+				crReceive := NewCoroutine(Background(), func(ctx Context) {
 					more := c.Receive(ctx, &r)
 					require.True(t, more)
 				})
@@ -105,7 +104,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "SendNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) {
 					r := c.SendNonblocking(ctx, 42)
 
 					require.False(t, r)
@@ -120,7 +119,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "ReceiveNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(context.Background(), func(ctx context.Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) {
 					r := c.SendNonblocking(ctx, 42)
 
 					require.False(t, r)
@@ -136,13 +135,13 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			name: "MultipleReceivesSends",
 			fn: func(t *testing.T, c *channel) {
 
-				ctx := context.Background()
+				ctx := Background()
 				s := NewScheduler()
 
 				var r int
 
 				for i := 0; i < 10; i++ {
-					s.NewCoroutine(ctx, func(ctx context.Context) {
+					s.NewCoroutine(ctx, func(ctx Context) {
 						var t int
 						c.Receive(ctx, &t)
 						r++
@@ -153,7 +152,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				require.Equal(t, 0, r)
 
 				for i := 0; i < 10; i++ {
-					s.NewCoroutine(ctx, func(ctx context.Context) {
+					s.NewCoroutine(ctx, func(ctx Context) {
 						c.Send(ctx, 42)
 					})
 				}
@@ -168,12 +167,12 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "BufferedChannel_Send",
 			fn: func(t *testing.T, c *channel) {
-				ctx := context.Background()
+				ctx := Background()
 				cs := NewBufferedChannel(1)
 
 				sentValue := false
 
-				cr := NewCoroutine(ctx, func(ctx context.Context) {
+				cr := NewCoroutine(ctx, func(ctx Context) {
 					cs.Send(ctx, 42)
 					sentValue = true
 					cs.Send(ctx, 23)
@@ -184,7 +183,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				require.True(t, sentValue)
 
 				var r int
-				crReceive := NewCoroutine(ctx, func(ctx context.Context) {
+				crReceive := NewCoroutine(ctx, func(ctx Context) {
 					for {
 						cs.Receive(ctx, &r)
 						getCoState(ctx).Yield()

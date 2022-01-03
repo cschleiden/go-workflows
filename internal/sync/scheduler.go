@@ -1,17 +1,15 @@
 package sync
 
-import "context"
-
 type Scheduler interface {
 	// Starts a new co-routine and tracks it in this scheduler
-	NewCoroutine(ctx context.Context, fn func(context.Context))
+	NewCoroutine(ctx Context, fn func(Context))
 
 	// Execute executes all coroutines until they are all blocked
-	Execute(ctx context.Context)
+	Execute(ctx Context)
 
 	RunningCoroutines() int
 
-	Exit(ctx context.Context)
+	Exit(ctx Context)
 }
 
 type scheduler struct {
@@ -24,12 +22,12 @@ func NewScheduler() Scheduler {
 	}
 }
 
-func (s *scheduler) NewCoroutine(ctx context.Context, fn func(context.Context)) {
+func (s *scheduler) NewCoroutine(ctx Context, fn func(Context)) {
 	c := NewCoroutine(ctx, fn)
 	s.coroutines = append(s.coroutines, c)
 }
 
-func (s *scheduler) Execute(ctx context.Context) {
+func (s *scheduler) Execute(ctx Context) {
 	allBlocked := false
 	for !allBlocked {
 		allBlocked = true
@@ -55,7 +53,7 @@ func (s *scheduler) RunningCoroutines() int {
 	return len(s.coroutines)
 }
 
-func (s *scheduler) Exit(_ context.Context) {
+func (s *scheduler) Exit(_ Context) {
 	for _, c := range s.coroutines {
 		c.Exit()
 	}

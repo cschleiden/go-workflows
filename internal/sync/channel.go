@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/converter"
@@ -9,13 +8,13 @@ import (
 
 // TODO: Support cancellation??
 type Channel interface {
-	Send(ctx context.Context, v interface{})
+	Send(ctx Context, v interface{})
 
-	SendNonblocking(ctx context.Context, v interface{}) (ok bool)
+	SendNonblocking(ctx Context, v interface{}) (ok bool)
 
-	Receive(ctx context.Context, vptr interface{}) (more bool)
+	Receive(ctx Context, vptr interface{}) (more bool)
 
-	ReceiveNonblocking(ctx context.Context, vptr interface{}) (more bool)
+	ReceiveNonblocking(ctx Context, vptr interface{}) (more bool)
 
 	Close()
 }
@@ -58,7 +57,7 @@ func (c *channel) Close() {
 	// }
 }
 
-func (c *channel) Send(ctx context.Context, v interface{}) {
+func (c *channel) Send(ctx Context, v interface{}) {
 	addedSender := false
 	sentValue := false
 
@@ -87,11 +86,11 @@ func (c *channel) Send(ctx context.Context, v interface{}) {
 	}
 }
 
-func (c *channel) SendNonblocking(ctx context.Context, v interface{}) bool {
+func (c *channel) SendNonblocking(ctx Context, v interface{}) bool {
 	return c.trySend(v)
 }
 
-func (c *channel) Receive(ctx context.Context, vptr interface{}) (more bool) {
+func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 	cr := getCoState(ctx)
 
 	addedListener := false
@@ -126,7 +125,7 @@ func (c *channel) Receive(ctx context.Context, vptr interface{}) (more bool) {
 	}
 }
 
-func (c *channel) ReceiveNonblocking(ctx context.Context, vptr interface{}) (ok bool) {
+func (c *channel) ReceiveNonblocking(ctx Context, vptr interface{}) (ok bool) {
 	return c.tryReceive(vptr)
 }
 
@@ -196,8 +195,4 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 
 func (c *channel) hasCapacity() bool {
 	return len(c.c) < c.size
-}
-
-func setValue(v []byte, vtpr interface{}) {
-	converter.DefaultConverter.From(v, vtpr)
 }

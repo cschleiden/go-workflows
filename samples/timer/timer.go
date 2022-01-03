@@ -9,7 +9,6 @@ import (
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
-	"github.com/cschleiden/go-dt/pkg/sync"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/google/uuid"
@@ -17,6 +16,7 @@ import (
 
 func main() {
 	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
 
 	mb := memory.NewMemoryBackend()
 
@@ -30,6 +30,8 @@ func main() {
 
 	c2 := make(chan os.Signal, 1)
 	<-c2
+
+	cancel()
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
@@ -55,7 +57,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx context.Context, msg string) (string, error) {
+func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
@@ -76,12 +78,12 @@ func Workflow1(ctx context.Context, msg string) (string, error) {
 
 	s := workflow.NewSelector()
 
-	s.AddFuture(t, func(ctx context.Context, f sync.Future) {
+	s.AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
 		log.Println("Timer fired")
 		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	})
 
-	s.AddFuture(a1, func(ctx context.Context, f sync.Future) {
+	s.AddFuture(a1, func(ctx workflow.Context, f workflow.Future) {
 		var r int
 		f.Get(ctx, &r)
 		log.Println("Result:", r)

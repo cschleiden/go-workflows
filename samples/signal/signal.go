@@ -58,7 +58,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx context.Context, msg string) (string, error) {
+func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
@@ -69,7 +69,7 @@ func Workflow1(ctx context.Context, msg string) (string, error) {
 
 	s := workflow.NewSelector()
 
-	s.AddChannelReceive(workflow.NewSignalChannel(ctx, "test"), func(ctx context.Context, c sync.Channel) {
+	s.AddChannelReceive(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
 		var r int
 		c.Receive(ctx, &r)
 

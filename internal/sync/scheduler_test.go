@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -14,8 +13,8 @@ func Test_Scheduler(t *testing.T) {
 
 	hit := 0
 
-	ctx := context.Background()
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	ctx := Background()
+	s.NewCoroutine(ctx, func(ctx Context) {
 		hit++
 
 		getCoState(ctx).Yield()
@@ -40,8 +39,8 @@ func Test_Scheduler_OneCoroutineAtATime(t *testing.T) {
 
 	active := false
 
-	ctx := context.Background()
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	ctx := Background()
+	s.NewCoroutine(ctx, func(ctx Context) {
 		for i := 0; i < 5; i++ {
 			require.False(t, active)
 			active = true
@@ -51,7 +50,7 @@ func Test_Scheduler_OneCoroutineAtATime(t *testing.T) {
 		}
 	})
 
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	s.NewCoroutine(ctx, func(ctx Context) {
 		for i := 0; i < 5; i++ {
 			require.False(t, active)
 
@@ -75,8 +74,8 @@ func Test_Scheduler_ExecuteUntilBlocked(t *testing.T) {
 
 	hits := 0
 
-	ctx := context.Background()
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	ctx := Background()
+	s.NewCoroutine(ctx, func(ctx Context) {
 		for i := 0; i < 4; i++ {
 			hits++
 
@@ -99,8 +98,8 @@ func Test_Scheduler_ExecuteUntilAllBlocked(t *testing.T) {
 
 	hits := 0
 
-	ctx := context.Background()
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	ctx := Background()
+	s.NewCoroutine(ctx, func(ctx Context) {
 		for i := 0; i < 2; i++ {
 			hits++
 
@@ -109,7 +108,7 @@ func Test_Scheduler_ExecuteUntilAllBlocked(t *testing.T) {
 		}
 	})
 
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	s.NewCoroutine(ctx, func(ctx Context) {
 		for i := 0; i < 4; i++ {
 			hits++
 
@@ -131,8 +130,8 @@ func Test_Scheduler_Exit(t *testing.T) {
 
 	hits := 0
 
-	ctx := context.Background()
-	s.NewCoroutine(ctx, func(ctx context.Context) {
+	ctx := Background()
+	s.NewCoroutine(ctx, func(ctx Context) {
 		for {
 			hits++
 			getCoState(ctx).Yield()

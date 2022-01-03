@@ -1,17 +1,13 @@
 package sync
 
-import (
-	"context"
-)
-
 type Selector interface {
-	AddFuture(f Future, handler func(ctx context.Context, f Future))
+	AddFuture(f Future, handler func(ctx Context, f Future))
 
-	AddChannelReceive(c Channel, handler func(ctx context.Context, c Channel))
+	AddChannelReceive(c Channel, handler func(ctx Context, c Channel))
 
 	AddDefault(handler func())
 
-	Select(ctx context.Context)
+	Select(ctx Context)
 }
 
 func NewSelector() Selector {
@@ -26,14 +22,14 @@ type selector struct {
 	defaultFunc func()
 }
 
-func (s *selector) AddFuture(f Future, handler func(ctx context.Context, f Future)) {
+func (s *selector) AddFuture(f Future, handler func(ctx Context, f Future)) {
 	s.cases = append(s.cases, &futureCase{
 		f:  f.(*futureImpl),
 		fn: handler,
 	})
 }
 
-func (s *selector) AddChannelReceive(c Channel, handler func(ctx context.Context, c Channel)) {
+func (s *selector) AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) {
 	channel := c.(*channel)
 
 	s.cases = append(s.cases, &channelCase{
@@ -46,7 +42,7 @@ func (s *selector) AddDefault(handler func()) {
 	s.defaultFunc = handler
 }
 
-func (s *selector) Select(ctx context.Context) {
+func (s *selector) Select(ctx Context) {
 	cs := getCoState(ctx)
 
 	for {
@@ -73,33 +69,33 @@ func (s *selector) Select(ctx context.Context) {
 
 type selectorCase interface {
 	Ready() bool
-	Handle(ctx context.Context)
+	Handle(ctx Context)
 }
 
 var _ = selectorCase(&futureCase{})
 
 type futureCase struct {
 	f  *futureImpl
-	fn func(context.Context, Future)
+	fn func(Context, Future)
 }
 
 func (fc *futureCase) Ready() bool {
 	return fc.f.Ready()
 }
 
-func (fc *futureCase) Handle(ctx context.Context) {
+func (fc *futureCase) Handle(ctx Context) {
 	fc.fn(ctx, fc.f)
 }
 
 type channelCase struct {
 	c  *channel
-	fn func(context.Context, Channel)
+	fn func(Context, Channel)
 }
 
 func (cc *channelCase) Ready() bool {
 	return cc.c.canReceive()
 }
 
-func (cc *channelCase) Handle(ctx context.Context) {
+func (cc *channelCase) Handle(ctx Context) {
 	cc.fn(ctx, cc.c)
 }

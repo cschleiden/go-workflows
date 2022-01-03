@@ -1,14 +1,13 @@
 package workflow
 
 import (
-	"context"
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/sync"
 )
 
-func ScheduleTimer(ctx context.Context, delay time.Duration) (sync.Future, error) {
+func ScheduleTimer(ctx sync.Context, delay time.Duration) (sync.Future, error) {
 	wfState := getWfState(ctx)
 
 	eventID := wfState.eventID
