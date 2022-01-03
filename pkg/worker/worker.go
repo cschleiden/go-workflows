@@ -24,7 +24,10 @@ type Registry interface {
 type Worker interface {
 	Registry
 
+	// Start starts the worker
 	Start(context.Context) error
+
+	// Stop stops the worker
 	Stop() error
 }
 
