@@ -119,7 +119,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 		default:
-			// panic("unsupported command")
+			panic("unsupported command")
 		}
 	}
 
