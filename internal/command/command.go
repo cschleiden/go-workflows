@@ -10,8 +10,12 @@ type CommandType int
 
 const (
 	CommandType_None CommandType = iota
+
 	CommandType_ScheduleActivityTask
+
 	CommandType_ScheduleTimer
+	CommandType_CancelTimer
+
 	CommandType_CompleteWorkflow
 )
 
@@ -51,6 +55,20 @@ func NewScheduleTimerCommand(id int, at time.Time) Command {
 		Type: CommandType_ScheduleTimer,
 		Attr: ScheduleTimerCommandAttr{
 			At: at,
+		},
+	}
+}
+
+type CancelTimerCommandAttr struct {
+	TimerID int
+}
+
+func NewCancelTimerCommand(id, timerID int) Command {
+	return Command{
+		ID:   id,
+		Type: CommandType_CancelTimer,
+		Attr: CancelTimerCommandAttr{
+			TimerID: timerID,
 		},
 	}
 }

@@ -181,7 +181,8 @@ func (e *executor) handleTimerScheduled(_ sync.Context, event history.HistoryEve
 func (e *executor) handleTimerFired(ctx sync.Context, event history.HistoryEvent, a *history.TimerFiredAttributes) {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		panic("no pending future!")
+		// Timer already cancelled ignore
+		return
 	}
 
 	// Remove pending command

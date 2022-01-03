@@ -13,13 +13,23 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) (sync.Future, error) {
 	eventID := wfState.eventID
 	wfState.eventID++
 
-	command := command.NewScheduleTimerCommand(eventID, time.Now().UTC().Add(delay))
-	wfState.addCommand(command)
+	timerCommand := command.NewScheduleTimerCommand(eventID, time.Now().UTC().Add(delay))
+	wfState.addCommand(timerCommand)
 
 	t := sync.NewFuture()
 	wfState.pendingFutures[eventID] = t
 
-	// TODO: Check if context is cancelable, and if listen to Done channel
+	d := ctx.Done()
+	if d != nil {
+		if c, ok := d.(sync.ChannelInternal); ok {
+			c.AddReceiveCallback(func(v interface{}) {
+				delete(wfState.pendingFutures, eventID)
+				t.Set(ctx, func(v interface{}) error {
+					return sync.Canceled
+				})
+			})
+		}
+	}
 
 	return t, nil
 }

@@ -18,6 +18,7 @@ type Channel interface {
 }
 
 type ChannelInternal interface {
+	AddReceiveCallback(cb func(v interface{}))
 }
 
 func NewChannel() Channel {
@@ -43,6 +44,9 @@ type channel struct {
 	size      int
 	converter converter.Converter
 }
+
+var _ Channel = (*channel)(nil)
+var _ ChannelInternal = (*channel)(nil)
 
 func (c *channel) Close() {
 	c.closed = true
@@ -197,4 +201,8 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 
 func (c *channel) hasCapacity() bool {
 	return len(c.c) < c.size
+}
+
+func (c *channel) AddReceiveCallback(cb func(v interface{})) {
+	c.receivers = append(c.receivers, cb)
 }

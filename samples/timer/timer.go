@@ -72,7 +72,6 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	}
 
 	tctx, cancel := workflow.WithCancel(ctx)
-
 	t, err := workflow.ScheduleTimer(tctx, 5*time.Second)
 	if err != nil {
 		panic("could not schedule timer")
@@ -81,7 +80,12 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	s := workflow.NewSelector()
 
 	s.AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
-		log.Println("Timer fired, IsReplaying:", workflow.Replaying(ctx))
+		err := f.Get(ctx, nil)
+		if err != nil {
+			log.Println("Timer cancelled, IsReplaying:", workflow.Replaying(ctx))
+		} else {
+			log.Println("Timer fired, IsReplaying:", workflow.Replaying(ctx))
+		}
 	})
 
 	s.AddFuture(a1, func(ctx workflow.Context, f workflow.Future) {
@@ -94,6 +98,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	})
 
 	s.Select(ctx)
+	s.Select(ctx)
 
 	return "result", nil
 }
@@ -101,7 +106,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 func Activity1(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering Activity1")
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	defer func() {
 		log.Println("Leaving Activity1")
