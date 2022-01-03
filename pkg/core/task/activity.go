@@ -10,7 +10,5 @@ type Activity struct {
 
 	ID string
 
-	// SequenceNumber uint64 // TODO: Required?
-
 	Event history.HistoryEvent
 }
