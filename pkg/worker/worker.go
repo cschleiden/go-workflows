@@ -26,9 +26,6 @@ type Worker interface {
 
 	// Start starts the worker
 	Start(context.Context) error
-
-	// Stop stops the worker
-	Stop() error
 }
 
 type worker struct {
@@ -63,10 +60,6 @@ func (w *worker) Start(ctx context.Context) error {
 	w.workflowWorker.Start(ctx)
 	w.activityWorker.Start(ctx)
 
-	return nil
-}
-
-func (w *worker) Stop() error {
 	return nil
 }
 
