@@ -22,3 +22,13 @@ func TestAssignValue_Value(t *testing.T) {
 
 	require.Equal(t, 42, r)
 }
+
+func TestAssignValue_Zero(t *testing.T) {
+	r := int(42)
+	AssignValue(DefaultConverter, nil, &r)
+	require.Equal(t, 0, r)
+
+	b := true
+	AssignValue(DefaultConverter, nil, &b)
+	require.False(t, b)
+}

@@ -71,6 +71,38 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			},
 		},
 		{
+			name: "Receive_Closed",
+			fn: func(t *testing.T, c *channel) {
+				r := int(42)
+
+				cr := NewCoroutine(Background(), func(ctx Context) {
+					more := c.Receive(ctx, &r)
+					require.False(t, more)
+				})
+				cr.Execute()
+
+				require.True(t, cr.Blocked(), "coroutine should be blocked")
+
+				crSend := NewCoroutine(Background(), func(ctx Context) {
+					c.Close()
+				})
+				crSend.Execute()
+
+				require.False(t, cr.Finished())
+				require.True(t, cr.Blocked())
+
+				cr.Execute()
+
+				require.True(t, cr.Finished())
+				require.False(t, cr.Blocked())
+
+				require.True(t, crSend.Finished())
+				require.False(t, crSend.Blocked())
+
+				require.Zero(t, r)
+			},
+		},
+		{
 			name: "Send_BlocksUntilReceive",
 			fn: func(t *testing.T, c *channel) {
 				crSend := NewCoroutine(Background(), func(ctx Context) {

@@ -1,8 +1,6 @@
 package sync
 
 import (
-	"reflect"
-
 	"github.com/cschleiden/go-dt/internal/converter"
 )
 
@@ -17,6 +15,9 @@ type Channel interface {
 	ReceiveNonblocking(ctx Context, vptr interface{}) (more bool)
 
 	Close()
+}
+
+type ChannelInternal interface {
 }
 
 func NewChannel() Channel {
@@ -47,14 +48,14 @@ func (c *channel) Close() {
 	c.closed = true
 
 	// TODO: Wake up all blocked sends
-	// TODO: Wake up all blocked receives
-	// for len(c.receivers) > 0 {
-	// 	r := c.receivers[0]
-	// 	c.receivers[0] = nil
-	// 	c.receivers = c.receivers[1:]
 
-	// 	r(nil) // TODO: Send closed
-	// }
+	for len(c.receivers) > 0 {
+		r := c.receivers[0]
+		c.receivers[0] = nil
+		c.receivers = c.receivers[1:]
+
+		r(nil)
+	}
 }
 
 func (c *channel) Send(ctx Context, v interface{}) {
@@ -107,9 +108,7 @@ func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 			cb := func(v interface{}) {
 				receivedValue = true
 
-				// TODO: Assert pointer
-				// TODO: Extract assignment logic
-				reflect.ValueOf(vptr).Elem().Set(reflect.ValueOf(v))
+				converter.AssignValue(c.converter, v, vptr)
 			}
 
 			c.receivers = append(c.receivers, cb)
@@ -165,7 +164,7 @@ func (c *channel) trySend(v interface{}) bool {
 
 func (c *channel) tryReceive(vptr interface{}) bool {
 	if c.closed {
-		panic("channel closed")
+		converter.AssignValue(c.converter, nil, vptr)
 	}
 
 	if c.hasValue() {

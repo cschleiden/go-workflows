@@ -19,5 +19,7 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) (sync.Future, error) {
 	t := sync.NewFuture()
 	wfState.pendingFutures[eventID] = t
 
+	// TODO: Check if context is cancelable, and if listen to Done channel
+
 	return t, nil
 }

@@ -35,6 +35,11 @@ func AssignValue(c Converter, v interface{}, vptr interface{}) {
 		panic("vptr needs to be a pointer")
 	}
 
+	if v == nil {
+		vvptr.Elem().Set(reflect.Zero(vvptr.Elem().Type()))
+		return
+	}
+
 	// Try converting value first
 	if vp, ok := v.(payload.Payload); ok {
 		err := c.From(vp, vptr)
