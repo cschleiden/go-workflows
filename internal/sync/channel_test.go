@@ -240,3 +240,59 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		})
 	}
 }
+
+func Test_Channel_Buffered(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+		fn   func(t *testing.T, c *channel)
+	}{
+		{
+			name: "Send_Blocks",
+			size: 3,
+			fn: func(t *testing.T, c *channel) {
+				ctx := Background()
+
+				c.Send(ctx, 1)
+				c.Send(ctx, 2)
+				c.Send(ctx, 3)
+
+				cr := NewCoroutine(ctx, func(ctx Context) {
+					var r int
+
+					c.Receive(ctx, &r)
+					require.Equal(t, 1, r)
+
+					c.Receive(ctx, &r)
+					require.Equal(t, 2, r)
+
+					getCoState(ctx).Yield()
+
+					c.Receive(ctx, &r)
+					require.Equal(t, 3, r)
+
+					c.Receive(ctx, &r)
+					require.Equal(t, 0, r)
+				})
+
+				cr.Execute()
+
+				require.False(t, cr.Finished())
+				require.True(t, cr.Blocked())
+
+				c.Close()
+
+				cr.Execute()
+
+				require.True(t, cr.Finished())
+				require.False(t, cr.Blocked())
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewBufferedChannel(tt.size)
+			tt.fn(t, c.(*channel))
+		})
+	}
+}

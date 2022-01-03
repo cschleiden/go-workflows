@@ -163,16 +163,19 @@ func (c *channel) trySend(v interface{}) bool {
 }
 
 func (c *channel) tryReceive(vptr interface{}) bool {
-	if c.closed {
-		converter.AssignValue(c.converter, nil, vptr)
-	}
-
+	// If channel is buffered, return value if available
 	if c.hasValue() {
 		v := c.c[0]
 		c.c = c.c[1:]
 
 		converter.AssignValue(c.converter, v, vptr)
+		return true
+	}
 
+	// If channel has been closed and no values in buffer (if buffered) return zero
+	// element
+	if c.closed {
+		converter.AssignValue(c.converter, nil, vptr)
 		return true
 	}
 
