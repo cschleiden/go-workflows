@@ -8,16 +8,16 @@ import (
 	internal "github.com/cschleiden/go-dt/internal/workflow"
 )
 
+func Replaying(ctx context.Context) bool {
+	return internal.Replaying(ctx)
+}
+
 func ExecuteActivity(ctx context.Context, name string, args ...interface{}) (sync.Future, error) {
 	return internal.ExecuteActivity(ctx, name, args...)
 }
 
 func ScheduleTimer(ctx context.Context, delay time.Duration) (sync.Future, error) {
 	return internal.ScheduleTimer(ctx, delay)
-}
-
-func Replaying(ctx context.Context) bool {
-	return internal.Replaying(ctx)
 }
 
 func NewSelector() sync.Selector {
