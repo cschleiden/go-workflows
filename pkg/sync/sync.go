@@ -6,3 +6,4 @@ import (
 
 type Future = internal.Future
 type Selector = internal.Selector
+type Channel = internal.Channel
