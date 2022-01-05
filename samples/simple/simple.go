@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/memory"
+	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	mb := memory.NewMemoryBackend()
+	mb := sqlite.NewSqliteBackend("simple.db")
 
 	// Run worker
 	go RunWorker(ctx, mb)
