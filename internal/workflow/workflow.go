@@ -69,15 +69,11 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 		w.err = errInterface
 	})
 
-	w.s.Execute(ctx)
-
-	return nil
+	return w.s.Execute(ctx)
 }
 
 func (w *workflow) Continue(ctx sync.Context) error {
-	w.s.Execute(ctx)
-
-	return nil
+	return w.s.Execute(ctx)
 }
 
 func (w *workflow) Completed() bool {

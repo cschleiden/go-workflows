@@ -5,7 +5,7 @@ type Scheduler interface {
 	NewCoroutine(ctx Context, fn func(Context))
 
 	// Execute executes all coroutines until they are all blocked
-	Execute(ctx Context)
+	Execute(ctx Context) error
 
 	RunningCoroutines() int
 
@@ -27,7 +27,7 @@ func (s *scheduler) NewCoroutine(ctx Context, fn func(Context)) {
 	s.coroutines = append(s.coroutines, c)
 }
 
-func (s *scheduler) Execute(ctx Context) {
+func (s *scheduler) Execute(ctx Context) error {
 	allBlocked := false
 	for !allBlocked {
 		allBlocked = true
@@ -41,12 +41,19 @@ func (s *scheduler) Execute(ctx Context) {
 				s.coroutines[i] = nil
 				s.coroutines = append(s.coroutines[:i], s.coroutines[i+1:]...)
 				i--
+
+				if err := c.Error(); err != nil {
+					// Coroutine encountered an error, abort execution
+					return err
+				}
 			} else {
 				// Determine if coroutine made any progress or if it stayed blocked
 				allBlocked = allBlocked && !c.Progress()
 			}
 		}
 	}
+
+	return nil
 }
 
 func (s *scheduler) RunningCoroutines() int {

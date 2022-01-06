@@ -147,3 +147,18 @@ func Test_Scheduler_Exit(t *testing.T) {
 
 	require.Equal(t, 1, hits)
 }
+
+func Test_Scheduler_Panic(t *testing.T) {
+	s := NewScheduler()
+
+	ctx := Background()
+	s.NewCoroutine(ctx, func(ctx Context) {
+		panic("something went wrong")
+	})
+
+	err := s.Execute(ctx)
+
+	require.NotNil(t, err)
+	require.Equal(t, "panic: something went wrong", err.Error())
+	require.Equal(t, 0, s.RunningCoroutines())
+}

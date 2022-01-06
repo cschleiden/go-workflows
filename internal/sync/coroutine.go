@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"runtime"
@@ -22,6 +23,8 @@ type Coroutine interface {
 	Blocked() bool
 	Finished() bool
 	Progress() bool
+
+	Error() error
 }
 
 type key int
@@ -38,7 +41,9 @@ type coState struct {
 	blocked    atomic.Value // coroutine is currently blocked
 	finished   atomic.Value // coroutine finished executing
 	shouldExit atomic.Value // coroutine should exit
-	progress   atomic.Value
+	progress   atomic.Value // did the coroutine make progress since last yield?
+
+	err error
 
 	logger logger
 }
@@ -50,9 +55,12 @@ func NewCoroutine(ctx Context, fn func(ctx Context)) Coroutine {
 	go func() {
 		defer s.finish() // Ensure we always mark the coroutine as finished
 		defer func() {
-			// TODO: panic handling
+			if r := recover(); r != nil {
+				s.err = fmt.Errorf("panic: %v", r)
+			}
 		}()
 
+		// yield before the first execution
 		s.yield(false)
 
 		fn(ctx)
@@ -159,6 +167,10 @@ func (s *coState) Exit() {
 
 	s.shouldExit.Store(true)
 	s.Execute()
+}
+
+func (s *coState) Error() error {
+	return s.err
 }
 
 func withCoState(ctx Context, s *coState) Context {

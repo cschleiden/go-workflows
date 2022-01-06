@@ -28,5 +28,5 @@ type Backend interface {
 	GetActivityTask(context.Context) (*task.Activity, error)
 
 	// CompleteActivityTask completes a activity task retrieved using GetActivityTask
-	CompleteActivityTask(context.Context, core.WorkflowInstance, string, history.HistoryEvent) error // TODO: Name TaskID?
+	CompleteActivityTask(context.Context, core.WorkflowInstance, string, history.HistoryEvent) error
 }

@@ -225,7 +225,7 @@ func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.Workfl
 
 	instance, ok := mb.instances[wfi.GetInstanceID()]
 	if !ok {
-		panic("could not find workflow instance")
+		return errors.New("workflow instance does not exist")
 	}
 
 	if instance.status == workflowStatusCompleted {

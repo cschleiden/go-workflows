@@ -4,7 +4,6 @@ import (
 	"github.com/cschleiden/go-dt/internal/converter"
 )
 
-// TODO: Support cancellation??
 type Channel interface {
 	Send(ctx Context, v interface{})
 
