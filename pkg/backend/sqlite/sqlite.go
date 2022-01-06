@@ -356,8 +356,6 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 		return errors.Wrap(err, "could not insert new events for completed activity")
 	}
 
-	// TODO: Do we have to add this event to the history?
-
 	if err := tx.Commit(); err != nil {
 		return err
 	}
