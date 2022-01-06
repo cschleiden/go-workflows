@@ -73,8 +73,18 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	return nil
 }
 
-func (sb *sqliteBackend) SignalWorkflow(_ context.Context, _ core.WorkflowInstance, _ history.HistoryEvent) error {
-	panic("not implemented") // TODO: Implement
+func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.HistoryEvent) error {
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.HistoryEvent{event}); err != nil {
+		return errors.Wrap(err, "could not insert signal event")
+	}
+
+	return tx.Commit()
 }
 
 func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
