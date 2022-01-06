@@ -188,9 +188,7 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		c.senders[0] = nil
 		c.senders = c.senders[1:]
 
-		// TODO: Or pass vtpr here?
 		v := s()
-
 		converter.AssignValue(c.converter, v, vptr)
 
 		return true
