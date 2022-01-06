@@ -33,13 +33,13 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 	var name string
 
 	if len(task.History) == 0 {
-		a, ok := task.NewEvents[0].Attributes.(history.ExecutionStartedAttributes)
+		a, ok := task.NewEvents[0].Attributes.(*history.ExecutionStartedAttributes)
 		if !ok {
 			panic("workflow task did not contain execution started as first message")
 		}
 		name = a.Name
 	} else {
-		a, ok := task.History[0].Attributes.(history.ExecutionStartedAttributes)
+		a, ok := task.History[0].Attributes.(*history.ExecutionStartedAttributes)
 		if !ok {
 			panic("workflow task did not contain execution started as first message")
 		}
@@ -93,33 +93,27 @@ func (e *executor) executeEvent(ctx sync.Context, event history.HistoryEvent) er
 
 	switch event.EventType {
 	case history.HistoryEventType_WorkflowExecutionStarted:
-		a := event.Attributes.(history.ExecutionStartedAttributes)
-		e.handleWorkflowExecutionStarted(ctx, &a)
+		e.handleWorkflowExecutionStarted(ctx, event.Attributes.(*history.ExecutionStartedAttributes))
 
 	case history.HistoryEventType_WorkflowExecutionFinished:
 
 	case history.HistoryEventType_ActivityScheduled:
-		a := event.Attributes.(history.ActivityScheduledAttributes)
-		e.handleActivityScheduled(ctx, event, &a)
+		e.handleActivityScheduled(ctx, event, event.Attributes.(*history.ActivityScheduledAttributes))
 
 	case history.HistoryEventType_ActivityFailed:
 		// Nothing to handle
 
 	case history.HistoryEventType_ActivityCompleted:
-		a := event.Attributes.(history.ActivityCompletedAttributes)
-		e.handleActivityCompleted(ctx, event, &a)
+		e.handleActivityCompleted(ctx, event, event.Attributes.(*history.ActivityCompletedAttributes))
 
 	case history.HistoryEventType_TimerScheduled:
-		a := event.Attributes.(history.TimerScheduledAttributes)
-		e.handleTimerScheduled(ctx, event, &a)
+		e.handleTimerScheduled(ctx, event, event.Attributes.(*history.TimerScheduledAttributes))
 
 	case history.HistoryEventType_TimerFired:
-		a := event.Attributes.(history.TimerFiredAttributes)
-		e.handleTimerFired(ctx, event, &a)
+		e.handleTimerFired(ctx, event, event.Attributes.(*history.TimerFiredAttributes))
 
 	case history.HistoryEventType_SignalReceived:
-		a := event.Attributes.(history.SignalReceivedAttributes)
-		e.handleSignalReceived(ctx, event, &a)
+		e.handleSignalReceived(ctx, event, event.Attributes.(*history.SignalReceivedAttributes))
 
 	default:
 		panic("unknown event type")
@@ -136,7 +130,7 @@ func (e *executor) handleActivityScheduled(_ sync.Context, event history.History
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Ensure the same activity is scheduled again
-			ca := c.Attr.(command.ScheduleActivityTaskCommandAttr)
+			ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 			if a.Name != ca.Name {
 				panic("Previous workflow execution scheduled different type of activity") // TODO: Return to caller?
 			}

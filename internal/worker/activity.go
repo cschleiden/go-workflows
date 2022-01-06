@@ -44,6 +44,7 @@ func (ww *activityWorker) runPoll(ctx context.Context) {
 		task, err := ww.poll(ctx, 30*time.Second)
 		if err != nil {
 			// TODO: log and ignore?
+			panic(err)
 		} else if task != nil {
 			ww.activityTaskQueue <- *task
 		}
@@ -67,11 +68,13 @@ func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 	event := history.NewHistoryEvent(
 		history.HistoryEventType_ActivityCompleted,
 		task.Event.EventID,
-		history.ActivityCompletedAttributes{
+		&history.ActivityCompletedAttributes{
 			Result: result,
 		})
 
-	ww.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event)
+	if err := ww.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
+		panic(err)
+	}
 }
 
 func (ww *activityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {

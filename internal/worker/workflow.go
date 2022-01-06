@@ -47,6 +47,7 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 		task, err := ww.poll(ctx, 30*time.Second)
 		if err != nil {
 			// TODO: log and ignore?
+			panic(err)
 		} else if task != nil {
 			ww.workflowTaskQueue <- *task
 		}
@@ -73,12 +74,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	for _, c := range commands {
 		switch c.Type {
 		case command.CommandType_ScheduleActivityTask:
-			a := c.Attr.(command.ScheduleActivityTaskCommandAttr)
+			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				history.HistoryEventType_ActivityScheduled,
 				c.ID,
-				history.ActivityScheduledAttributes{
+				&history.ActivityScheduledAttributes{
 					Name:    a.Name,
 					Version: a.Version,
 					Inputs:  a.Inputs,
@@ -86,12 +87,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 		case command.CommandType_ScheduleTimer:
-			a := c.Attr.(command.ScheduleTimerCommandAttr)
+			a := c.Attr.(*command.ScheduleTimerCommandAttr)
 
 			timerEvent := history.NewHistoryEvent(
 				history.HistoryEventType_TimerScheduled,
 				c.ID,
-				history.TimerScheduledAttributes{
+				&history.TimerScheduledAttributes{
 					At: a.At,
 				},
 			)
@@ -100,7 +101,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			timerFiredEvent := history.NewHistoryEvent(
 				history.HistoryEventType_TimerFired,
 				c.ID,
-				history.TimerFiredAttributes{
+				&history.TimerFiredAttributes{
 					At: a.At,
 				},
 			)
@@ -108,12 +109,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			newEvents = append(newEvents, timerFiredEvent)
 
 		case command.CommandType_CompleteWorkflow:
-			a := c.Attr.(command.CompleteWorkflowCommandAttr)
+			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionFinished,
 				c.ID,
-				history.ExecutionCompletedAttributes{
+				&history.ExecutionCompletedAttributes{
 					Result: a.Result,
 				},
 			))
@@ -123,7 +124,10 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		}
 	}
 
-	ww.backend.CompleteWorkflowTask(ctx, task, newEvents)
+	// TODO: Handle error
+	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents); err != nil {
+		panic(err)
+	}
 }
 
 func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*task.Workflow, error) {

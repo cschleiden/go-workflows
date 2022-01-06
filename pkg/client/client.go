@@ -41,7 +41,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	startedEvent := history.NewHistoryEvent(
 		history.HistoryEventType_WorkflowExecutionStarted,
 		-1,
-		history.ExecutionStartedAttributes{
+		&history.ExecutionStartedAttributes{
 			Name:   "wf1",
 			Inputs: inputs,
 		})

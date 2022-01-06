@@ -37,7 +37,7 @@ func NewScheduleActivityTaskCommand(id int, name, version string, inputs []paylo
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleActivityTask,
-		Attr: ScheduleActivityTaskCommandAttr{
+		Attr: &ScheduleActivityTaskCommandAttr{
 			Name:    name,
 			Version: version,
 			Inputs:  inputs,
@@ -53,7 +53,7 @@ func NewScheduleTimerCommand(id int, at time.Time) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleTimer,
-		Attr: ScheduleTimerCommandAttr{
+		Attr: &ScheduleTimerCommandAttr{
 			At: at,
 		},
 	}
@@ -67,7 +67,7 @@ func NewCancelTimerCommand(id, timerID int) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_CancelTimer,
-		Attr: CancelTimerCommandAttr{
+		Attr: &CancelTimerCommandAttr{
 			TimerID: timerID,
 		},
 	}
@@ -81,7 +81,7 @@ func NewCompleteWorkflowCommand(id int, result payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_CompleteWorkflow,
-		Attr: CompleteWorkflowCommandAttr{
+		Attr: &CompleteWorkflowCommandAttr{
 			Result: result,
 		},
 	}

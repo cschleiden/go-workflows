@@ -175,7 +175,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(_ context.Context, t task.Workflow
 				Event:            event,
 			}
 		case history.HistoryEventType_TimerScheduled:
-			a := event.Attributes.(history.TimerScheduledAttributes)
+			a := event.Attributes.(*history.TimerScheduledAttributes)
 			// Schedule a timer to put the workflow back into the workflow queue when it fires
 			go func() {
 				delay := a.At.Sub(time.Now().UTC())

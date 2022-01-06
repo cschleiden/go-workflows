@@ -23,7 +23,7 @@ func NewExecutor(r *workflow.Registry) Executor {
 	}
 }
 func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) (payload.Payload, error) {
-	a := task.Event.Attributes.(history.ActivityScheduledAttributes)
+	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 
 	activity := e.r.GetActivity(a.Name)
 

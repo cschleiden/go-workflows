@@ -37,7 +37,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				history.ExecutionStartedAttributes{
+				&history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  []payload.Payload{},
@@ -102,7 +102,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				history.ExecutionStartedAttributes{
+				&history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  []payload.Payload{inputs},
@@ -111,7 +111,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityScheduled,
 				0,
-				history.ActivityScheduledAttributes{
+				&history.ActivityScheduledAttributes{
 					Name:    "a1",
 					Version: "",
 					Inputs:  []payload.Payload{inputs},
@@ -120,7 +120,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_ActivityCompleted,
 				0,
-				history.ActivityCompletedAttributes{
+				&history.ActivityCompletedAttributes{
 					Result: result,
 				},
 			),
@@ -180,7 +180,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				history.ExecutionStartedAttributes{
+				&history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  []payload.Payload{},
@@ -207,7 +207,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	require.Equal(t, command.Command{
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
-		Attr: command.ScheduleActivityTaskCommandAttr{
+		Attr: &command.ScheduleActivityTaskCommandAttr{
 			Name:    "a1",
 			Version: "",
 			Inputs:  []payload.Payload{inputs},
@@ -247,7 +247,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				history.ExecutionStartedAttributes{
+				&history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  []payload.Payload{},
@@ -321,7 +321,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 			history.NewHistoryEvent(
 				history.HistoryEventType_WorkflowExecutionStarted,
 				-1,
-				history.ExecutionStartedAttributes{
+				&history.ExecutionStartedAttributes{
 					Name:    "w1",
 					Version: "",
 					Inputs:  []payload.Payload{},
