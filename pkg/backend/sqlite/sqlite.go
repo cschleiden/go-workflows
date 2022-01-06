@@ -172,7 +172,24 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 }
 
 func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent) error {
-	panic("not implemented") // TODO: Implement
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Unlock instance
+	if _, err := tx.ExecContext(ctx, "UPDATE `instances` SET locked_at = NULL, locked_by = NULL WHERE id = ?", task.WorkflowInstance.GetInstanceID()); err != nil {
+		return errors.Wrap(err, "could not unlock instance")
+	}
+
+	// Remove handled NewEvents
+
+	// Insert new NewEvents
+
+	// Add to history
+
+	return nil
 }
 
 func (sb *sqliteBackend) GetActivityTask(_ context.Context) (*task.Activity, error) {
