@@ -1,11 +1,11 @@
 package sync
 
 type Selector interface {
-	AddFuture(f Future, handler func(ctx Context, f Future))
+	AddFuture(f Future, handler func(ctx Context, f Future)) Selector
 
-	AddChannelReceive(c Channel, handler func(ctx Context, c Channel))
+	AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) Selector
 
-	AddDefault(handler func())
+	AddDefault(handler func()) Selector
 
 	Select(ctx Context)
 }
@@ -22,24 +22,30 @@ type selector struct {
 	defaultFunc func()
 }
 
-func (s *selector) AddFuture(f Future, handler func(ctx Context, f Future)) {
+func (s *selector) AddFuture(f Future, handler func(ctx Context, f Future)) Selector {
 	s.cases = append(s.cases, &futureCase{
 		f:  f.(*futureImpl),
 		fn: handler,
 	})
+
+	return s
 }
 
-func (s *selector) AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) {
+func (s *selector) AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) Selector {
 	channel := c.(*channel)
 
 	s.cases = append(s.cases, &channelCase{
 		c:  channel,
 		fn: handler,
 	})
+
+	return s
 }
 
-func (s *selector) AddDefault(handler func()) {
+func (s *selector) AddDefault(handler func()) Selector {
 	s.defaultFunc = handler
+
+	return s
 }
 
 func (s *selector) Select(ctx Context) {
