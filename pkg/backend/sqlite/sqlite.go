@@ -131,7 +131,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	// Get new events
-	events, err := tx.QueryContext(ctx, "SELECT * FROM `new_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` < CURRENT_TIMESTAMP)", instanceID)
+	events, err := tx.QueryContext(ctx, "SELECT * FROM `new_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get new events")
 	}
