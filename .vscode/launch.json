@@ -33,5 +33,12 @@
       "mode": "debug",
       "program": "${workspaceFolder}/samples/signal/signal.go"
     },
+    {
+      "name": "Launch cancel sample",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/samples/cancellation/cancellation.go"
+    },
   ]
 }
