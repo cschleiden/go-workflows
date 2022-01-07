@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/cschleiden/go-dt/pkg/core/task"
@@ -155,9 +154,7 @@ func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Histo
 		}
 	}
 
-	f.Set(ctx, func(v interface{}) error {
-		return converter.DefaultConverter.From(a.Result, v)
-	})
+	f.Set(a.Result, nil)
 
 	// TODO: Handle error
 	e.workflow.Continue(ctx)
@@ -188,12 +185,7 @@ func (e *executor) handleTimerFired(ctx sync.Context, event history.HistoryEvent
 		}
 	}
 
-	f.Set(ctx, func(v interface{}) error {
-		r := reflect.ValueOf(v)
-		r.Elem().Set(reflect.ValueOf(true)) // TODO: Set different value for timer future?
-
-		return nil
-	})
+	f.Set(nil, nil)
 
 	// TODO: Handle error
 	e.workflow.Continue(ctx)

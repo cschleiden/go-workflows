@@ -19,14 +19,11 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) (sync.Future, error) {
 	t := sync.NewFuture()
 	wfState.pendingFutures[eventID] = t
 
-	d := ctx.Done()
-	if d != nil {
+	if d := ctx.Done(); d != nil {
 		if c, ok := d.(sync.ChannelInternal); ok {
 			c.AddReceiveCallback(func(v interface{}) {
 				delete(wfState.pendingFutures, eventID)
-				t.Set(ctx, func(v interface{}) error {
-					return sync.Canceled
-				})
+				t.Set(nil, sync.Canceled)
 			})
 		}
 	}
