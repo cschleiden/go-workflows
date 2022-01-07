@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func Test_SetUnblocks(t *testing.T) {
 
 	require.False(t, c.Progress())
 
-	f.Set(42)
+	f.Set(42, nil)
 
 	c.Execute()
 
@@ -58,10 +59,29 @@ func Test_GetNil(t *testing.T) {
 		f.Get(ctx, nil)
 	})
 
-	f.Set(nil)
+	f.Set(nil, nil)
 
 	c.Execute()
 	require.Nil(t, c.Error())
 
 	require.True(t, c.Finished())
+}
+
+func Test_GetError(t *testing.T) {
+	ctx := Background()
+	f := NewFuture()
+
+	var err error
+
+	c := NewCoroutine(ctx, func(ctx Context) {
+		err = f.Get(ctx, nil)
+	})
+
+	f.Set(nil, errors.New("test"))
+
+	c.Execute()
+	require.Nil(t, c.Error())
+	require.True(t, c.Finished())
+
+	require.Equal(t, errors.New("test"), err)
 }

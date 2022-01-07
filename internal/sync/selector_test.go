@@ -31,7 +31,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 	cr.Execute()
 	require.False(t, reachedEnd)
 
-	f.Set(42)
+	f.Set(42, nil)
 
 	cr.Execute()
 	require.True(t, reachedEnd)
@@ -76,9 +76,9 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 
 	require.False(t, reachedEnd)
 
-	f.Set(42)
+	f.Set(42, nil)
 
-	f2.Set(23)
+	f2.Set(23, nil)
 
 	cs.Execute()
 
