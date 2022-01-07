@@ -71,7 +71,7 @@ func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, 
 	event := history.NewHistoryEvent(
 		history.HistoryEventType_SignalReceived,
 		-1,
-		history.SignalReceivedAttributes{
+		&history.SignalReceivedAttributes{
 			Name: name,
 			Arg:  input,
 		},

@@ -24,7 +24,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 	b := &backend.MockBackend{}
 	b.On("SignalWorkflow", ctx, wfi, mock.MatchedBy(func(event history.HistoryEvent) bool {
 		return event.EventType == history.HistoryEventType_SignalReceived &&
-			event.Attributes.(history.SignalReceivedAttributes).Name == "test"
+			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
 	})).Return(nil)
 
 	c := &client{
@@ -51,8 +51,8 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	b := &backend.MockBackend{}
 	b.On("SignalWorkflow", ctx, wfi, mock.MatchedBy(func(event history.HistoryEvent) bool {
 		return event.EventType == history.HistoryEventType_SignalReceived &&
-			event.Attributes.(history.SignalReceivedAttributes).Name == "test" &&
-			bytes.Equal(event.Attributes.(history.SignalReceivedAttributes).Arg, input)
+			event.Attributes.(*history.SignalReceivedAttributes).Name == "test" &&
+			bytes.Equal(event.Attributes.(*history.SignalReceivedAttributes).Arg, input)
 	})).Return(nil)
 
 	c := &client{

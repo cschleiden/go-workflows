@@ -10,7 +10,7 @@ import (
 type HistoryEventType uint
 
 const (
-	HistoryEventTypeNone HistoryEventType = iota
+	_ HistoryEventType = iota
 
 	HistoryEventType_OrchestratorStarted
 	HistoryEventType_OrchestratorFinished
@@ -31,10 +31,12 @@ const (
 )
 
 type HistoryEvent struct {
+	// ID is a unique identifier
 	ID string
 
 	EventType HistoryEventType
 
+	// EventID is a sequence number
 	EventID int
 
 	// Attributes are event type specific attributes
