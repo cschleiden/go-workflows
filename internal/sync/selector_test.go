@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,11 +31,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 	cr.Execute()
 	require.False(t, reachedEnd)
 
-	f.Set(ctx, func(v interface{}) error {
-		x := reflect.ValueOf(v)
-		x.Elem().Set(reflect.ValueOf(42))
-		return nil
-	})
+	f.Set(42)
 
 	cr.Execute()
 	require.True(t, reachedEnd)
@@ -81,19 +76,9 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 
 	require.False(t, reachedEnd)
 
-	f.Set(ctx, func(v interface{}) error {
-		x := reflect.ValueOf(v)
-		x.Elem().Set(reflect.ValueOf(42))
+	f.Set(42)
 
-		return nil
-	})
-
-	f2.Set(ctx, func(v interface{}) error {
-		x := reflect.ValueOf(v)
-		x.Elem().Set(reflect.ValueOf(23))
-
-		return nil
-	})
+	f2.Set(23)
 
 	cs.Execute()
 

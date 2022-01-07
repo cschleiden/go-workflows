@@ -1,34 +1,41 @@
 package sync
 
+import "github.com/cschleiden/go-dt/internal/converter"
+
 type Future interface {
 	// Set stores the value and unblocks any waiting consumers
-	Set(ctx Context, getter func(v interface{}) error)
+	Set(v interface{})
 
 	// Get returns the value if set, blocks otherwise
-	Get(ctx Context, v interface{}) error
+	Get(ctx Context, vptr interface{}) error
 }
 
 func NewFuture() Future {
-	return &futureImpl{}
+	return &futureImpl{
+		converter: converter.DefaultConverter,
+	}
 }
 
 type futureImpl struct {
-	fn func(v interface{}) error
+	hasValue  bool
+	v         interface{}
+	converter converter.Converter
 }
 
-func (f *futureImpl) Set(ctx Context, getter func(v interface{}) error) {
-	f.fn = getter
+func (f *futureImpl) Set(v interface{}) {
+	f.v = v
+	f.hasValue = true
 }
 
-func (f *futureImpl) Get(ctx Context, v interface{}) error {
+func (f *futureImpl) Get(ctx Context, vptr interface{}) error {
 	for {
 		cr := getCoState(ctx)
 
-		if f.fn != nil {
+		if f.hasValue {
 			cr.MadeProgress()
 
-			if v != nil {
-				return f.fn(v)
+			if vptr != nil {
+				converter.AssignValue(f.converter, f.v, vptr)
 			}
 
 			return nil
@@ -39,5 +46,5 @@ func (f *futureImpl) Get(ctx Context, v interface{}) error {
 }
 
 func (f *futureImpl) Ready() bool {
-	return f.fn != nil
+	return f.hasValue
 }

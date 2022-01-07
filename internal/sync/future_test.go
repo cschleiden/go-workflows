@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -39,12 +38,7 @@ func Test_SetUnblocks(t *testing.T) {
 
 	require.False(t, c.Progress())
 
-	f.Set(Background(), func(v interface{}) error {
-		r := reflect.ValueOf(v)
-		r.Elem().Set(reflect.ValueOf(42))
-
-		return nil
-	})
+	f.Set(42)
 
 	c.Execute()
 
@@ -64,10 +58,7 @@ func Test_GetNil(t *testing.T) {
 		f.Get(ctx, nil)
 	})
 
-	f.Set(ctx, func(v interface{}) error {
-		require.FailNow(t, "should not be called")
-		return nil
-	})
+	f.Set(nil)
 
 	c.Execute()
 	require.Nil(t, c.Error())
