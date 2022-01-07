@@ -158,6 +158,8 @@ func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Histo
 	f.Set(ctx, func(v interface{}) error {
 		return converter.DefaultConverter.From(a.Result, v)
 	})
+
+	// TODO: Handle error
 	e.workflow.Continue(ctx)
 }
 
@@ -192,6 +194,8 @@ func (e *executor) handleTimerFired(ctx sync.Context, event history.HistoryEvent
 
 		return nil
 	})
+
+	// TODO: Handle error
 	e.workflow.Continue(ctx)
 }
 
@@ -208,6 +212,7 @@ func (e *executor) handleSignalReceived(ctx sync.Context, event history.HistoryE
 		}
 	}
 
+	// TODO: Handle error
 	e.workflow.Continue(ctx)
 }
 
