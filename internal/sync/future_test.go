@@ -55,3 +55,22 @@ func Test_SetUnblocks(t *testing.T) {
 
 	require.Equal(t, 42, v)
 }
+
+func Test_GetNil(t *testing.T) {
+	ctx := Background()
+	f := NewFuture()
+
+	c := NewCoroutine(ctx, func(ctx Context) {
+		f.Get(ctx, nil)
+	})
+
+	f.Set(ctx, func(v interface{}) error {
+		require.FailNow(t, "should not be called")
+		return nil
+	})
+
+	c.Execute()
+	require.Nil(t, c.Error())
+
+	require.True(t, c.Finished())
+}

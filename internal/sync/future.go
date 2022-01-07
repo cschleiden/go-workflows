@@ -27,7 +27,11 @@ func (f *futureImpl) Get(ctx Context, v interface{}) error {
 		if f.fn != nil {
 			cr.MadeProgress()
 
-			return f.fn(v)
+			if v != nil {
+				return f.fn(v)
+			}
+
+			return nil
 		}
 
 		cr.Yield()
