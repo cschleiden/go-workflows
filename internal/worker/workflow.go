@@ -150,7 +150,7 @@ func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 
 	select {
 	case <-ctx.Done():
-		return nil, context.Canceled
+		return nil, nil
 
 	case <-done:
 		return task, err
