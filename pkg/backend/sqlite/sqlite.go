@@ -392,6 +392,11 @@ func deserializeAttributes(eventType history.HistoryEventType, attributes string
 	case history.HistoryEventType_TimerFired:
 		attr = &history.TimerFiredAttributes{}
 
+	case history.HistoryEventType_SubWorkflowScheduled:
+		attr = &history.SubWorkflowScheduledAttributes{}
+	case history.HistoryEventType_SubWorkflowCompleted:
+		attr = &history.SubWorkflowCompletedAttributes{}
+
 	default:
 		panic("unknown event type when deserializing attributes")
 	}
