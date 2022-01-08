@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,6 +61,24 @@ func Test_GetNil(t *testing.T) {
 	})
 
 	f.Set(nil, nil)
+
+	c.Execute()
+	require.Nil(t, c.Error())
+
+	require.True(t, c.Finished())
+}
+
+func Test_SetNil(t *testing.T) {
+	ctx := Background()
+	f := NewFuture()
+
+	var r int
+	c := NewCoroutine(ctx, func(ctx Context) {
+		f.Get(ctx, &r)
+	})
+
+	var v payload.Payload
+	f.Set(v, nil)
 
 	c.Execute()
 	require.Nil(t, c.Error())

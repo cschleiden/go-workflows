@@ -123,9 +123,11 @@ func Test_ExitIfAlreadyFinished(t *testing.T) {
 
 func Test_Continue_PanicsWhenDeadlocked(t *testing.T) {
 	c := NewCoroutine(Background(), func(ctx Context) {
-		getCoState(ctx).Yield()
+		s := getCoState(ctx)
+		s.deadlockDetection = time.Millisecond
+		s.Yield()
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Millisecond)
 	})
 
 	c.Execute()

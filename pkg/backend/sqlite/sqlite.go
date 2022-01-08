@@ -192,7 +192,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	return t, nil
 }
 
-func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent) error {
+func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent, workflowMessages []core.TaskMessage) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

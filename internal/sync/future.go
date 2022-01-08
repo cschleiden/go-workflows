@@ -41,7 +41,7 @@ func (f *futureImpl) Get(ctx Context, vptr interface{}) error {
 			}
 
 			if vptr != nil {
-				converter.AssignValue(f.converter, f.v, vptr)
+				return converter.AssignValue(f.converter, f.v, vptr)
 			}
 
 			return nil

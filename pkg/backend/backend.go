@@ -22,7 +22,7 @@ type Backend interface {
 	// CompleteWorkflowTask completes a workflow task retrieved using GetWorkflowTask
 	//
 	// This checkpoints the execution and schedules any new commands.
-	CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent) error
+	CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent, workflowMessages []core.TaskMessage) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(context.Context) (*task.Activity, error)

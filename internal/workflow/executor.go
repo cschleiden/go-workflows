@@ -99,7 +99,7 @@ func (e *executor) executeEvent(ctx sync.Context, event history.HistoryEvent) er
 		e.handleActivityScheduled(ctx, event, event.Attributes.(*history.ActivityScheduledAttributes))
 
 	case history.HistoryEventType_ActivityFailed:
-		// Nothing to handle
+		// TODO: Nothing to handle, yet?
 
 	case history.HistoryEventType_ActivityCompleted:
 		e.handleActivityCompleted(ctx, event, event.Attributes.(*history.ActivityCompletedAttributes))
@@ -113,6 +113,12 @@ func (e *executor) executeEvent(ctx sync.Context, event history.HistoryEvent) er
 	case history.HistoryEventType_SignalReceived:
 		e.handleSignalReceived(ctx, event, event.Attributes.(*history.SignalReceivedAttributes))
 
+	case history.HistoryEventType_SubWorkflowScheduled:
+		e.handleSubWorkflowScheduled(ctx, event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
+
+	case history.HistoryEventType_SubWorkflowCompleted:
+		e.handleSubWorkflowCompleted(ctx, event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
+
 	default:
 		panic("unknown event type")
 	}
@@ -124,7 +130,7 @@ func (e *executor) handleWorkflowExecutionStarted(ctx sync.Context, a *history.E
 	e.workflow.Execute(ctx, a.Inputs) // TODO: handle error
 }
 
-func (e *executor) handleActivityScheduled(_ sync.Context, event history.HistoryEvent, a *history.ActivityScheduledAttributes) {
+func (e *executor) handleActivityScheduled(ctx sync.Context, event history.HistoryEvent, a *history.ActivityScheduledAttributes) {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Ensure the same activity is scheduled again
@@ -160,7 +166,7 @@ func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Histo
 	e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleTimerScheduled(_ sync.Context, event history.HistoryEvent, a *history.TimerScheduledAttributes) {
+func (e *executor) handleTimerScheduled(ctx sync.Context, event history.HistoryEvent, a *history.TimerScheduledAttributes) {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Remove pending command
@@ -186,6 +192,42 @@ func (e *executor) handleTimerFired(ctx sync.Context, event history.HistoryEvent
 	}
 
 	f.Set(nil, nil)
+
+	// TODO: Handle error
+	e.workflow.Continue(ctx)
+}
+
+func (e *executor) handleSubWorkflowScheduled(ctx sync.Context, event history.HistoryEvent, a *history.SubWorkflowScheduledAttributes) {
+	for i, c := range e.workflowState.commands {
+		if c.ID == event.EventID {
+			// Ensure the same activity is scheduled again
+			ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
+			if a.Name != ca.Name {
+				panic("Previous workflow execution scheduled a different sub workflow") // TODO: Return to caller?
+			}
+
+			// Remove pending command
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
+			break
+		}
+	}
+}
+
+func (e *executor) handleSubWorkflowCompleted(ctx sync.Context, event history.HistoryEvent, a *history.SubWorkflowCompletedAttributes) {
+	f, ok := e.workflowState.pendingFutures[event.EventID]
+	if !ok {
+		panic("no pending future!")
+	}
+
+	// Remove pending command
+	for i, c := range e.workflowState.commands {
+		if c.ID == event.EventID {
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
+			break
+		}
+	}
+
+	f.Set(a.Result, nil)
 
 	// TODO: Handle error
 	e.workflow.Continue(ctx)

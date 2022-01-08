@@ -9,9 +9,11 @@ import (
 type CommandType int
 
 const (
-	CommandType_None CommandType = iota
+	_ CommandType = iota
 
 	CommandType_ScheduleActivityTask
+
+	CommandType_ScheduleSubWorkflow
 
 	CommandType_ScheduleTimer
 	CommandType_CancelTimer
@@ -38,6 +40,24 @@ func NewScheduleActivityTaskCommand(id int, name, version string, inputs []paylo
 		ID:   id,
 		Type: CommandType_ScheduleActivityTask,
 		Attr: &ScheduleActivityTaskCommandAttr{
+			Name:    name,
+			Version: version,
+			Inputs:  inputs,
+		},
+	}
+}
+
+type ScheduleSubWorkflowCommandAttr struct {
+	Name    string
+	Version string
+	Inputs  []payload.Payload
+}
+
+func NewScheduleSubWorkflowCommand(id int, name, version string, inputs []payload.Payload) Command {
+	return Command{
+		ID:   id,
+		Type: CommandType_ScheduleSubWorkflow,
+		Attr: &ScheduleSubWorkflowCommandAttr{
 			Name:    name,
 			Version: version,
 			Inputs:  inputs,

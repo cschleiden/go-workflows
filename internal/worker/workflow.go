@@ -7,8 +7,10 @@ import (
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
+	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/google/uuid"
 )
 
 type WorkflowWorker interface {
@@ -67,9 +69,11 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 
 func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
+
 	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx) // TODO: Handle error
 
 	newEvents := make([]history.HistoryEvent, 0)
+	workflowMessages := make([]core.TaskMessage, 0)
 
 	for _, c := range commands {
 		switch c.Type {
@@ -85,6 +89,37 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 					Inputs:  a.Inputs,
 				},
 			))
+
+		case command.CommandType_ScheduleSubWorkflow:
+			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
+
+			subWorkflowInstance := core.NewSubWorkflowInstance(uuid.NewString(), "", task.WorkflowInstance, c.ID)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.HistoryEventType_SubWorkflowScheduled,
+				c.ID,
+				&history.SubWorkflowScheduledAttributes{
+					// TODO: Do we need an execution ID?
+					InstanceID: subWorkflowInstance.GetInstanceID(),
+					Name:       a.Name,
+					Version:    a.Version,
+					Inputs:     a.Inputs,
+				},
+			))
+
+			// Send message to new workflow instance
+			workflowMessages = append(workflowMessages, core.TaskMessage{
+				WorkflowInstance: subWorkflowInstance,
+				HistoryEvent: history.NewHistoryEvent(
+					history.HistoryEventType_WorkflowExecutionStarted,
+					-1,
+					&history.ExecutionStartedAttributes{
+						Name:    a.Name,
+						Version: a.Version,
+						Inputs:  a.Inputs,
+					},
+				),
+			})
 
 		case command.CommandType_ScheduleTimer:
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
@@ -119,13 +154,27 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				},
 			))
 
+			if task.WorkflowInstance.SubWorkflow() {
+				// TODO: Send failure event or termination event
+				workflowMessages = append(workflowMessages, core.TaskMessage{
+					WorkflowInstance: task.WorkflowInstance.ParentInstance(),
+					HistoryEvent: history.NewHistoryEvent(
+						history.HistoryEventType_SubWorkflowCompleted,
+						task.WorkflowInstance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
+						&history.SubWorkflowCompletedAttributes{
+							Result: a.Result,
+						},
+					),
+				})
+			}
+
 		default:
 			panic("unsupported command")
 		}
 	}
 
 	// TODO: Handle error
-	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents); err != nil {
+	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowMessages); err != nil {
 		panic(err)
 	}
 }

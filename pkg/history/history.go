@@ -20,6 +20,10 @@ const (
 	HistoryEventType_WorkflowExecutionFailed
 	HistoryEventType_WorkflowExecutionTerminated
 
+	HistoryEventType_SubWorkflowScheduled
+	HistoryEventType_SubWorkflowCompleted
+	HistoryEventType_SubWorkflowFailed
+
 	HistoryEventType_ActivityScheduled
 	HistoryEventType_ActivityCompleted
 	HistoryEventType_ActivityFailed

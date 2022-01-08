@@ -85,6 +85,7 @@ func (w *workflow) Close(ctx sync.Context) {
 	w.s.Exit(ctx)
 }
 
+// TODO: Extract to converter package
 func inputsToArgs(activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
 	activityFnT := activityFn.Type()
 

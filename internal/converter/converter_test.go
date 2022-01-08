@@ -3,6 +3,7 @@ package converter
 import (
 	"testing"
 
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,5 +31,10 @@ func TestAssignValue_Zero(t *testing.T) {
 
 	b := true
 	AssignValue(DefaultConverter, nil, &b)
+	require.False(t, b)
+
+	var v payload.Payload
+	b = true
+	AssignValue(DefaultConverter, v, &b)
 	require.False(t, b)
 }

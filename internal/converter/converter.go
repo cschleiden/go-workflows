@@ -28,7 +28,7 @@ func ArgsToInputs(c Converter, args ...interface{}) ([]payload.Payload, error) {
 	return inputs, nil
 }
 
-func AssignValue(c Converter, v interface{}, vptr interface{}) {
+func AssignValue(c Converter, v interface{}, vptr interface{}) error {
 	vvptr := reflect.ValueOf(vptr)
 
 	if vvptr.Kind() != reflect.Ptr {
@@ -37,17 +37,21 @@ func AssignValue(c Converter, v interface{}, vptr interface{}) {
 
 	if v == nil {
 		vvptr.Elem().Set(reflect.Zero(vvptr.Elem().Type()))
-		return
+		return nil
 	}
 
 	// Try converting value first
 	if vp, ok := v.(payload.Payload); ok {
-		err := c.From(vp, vptr)
-		if err != nil {
-			panic(err)
+		if vp == nil {
+			vvptr.Elem().Set(reflect.Zero(vvptr.Elem().Type()))
+			return nil
 		}
+
+		return c.From(vp, vptr)
 	} else {
 		// TODO: Assert that values can be assigned
 		vvptr.Elem().Set(reflect.ValueOf(v))
 	}
+
+	return nil
 }

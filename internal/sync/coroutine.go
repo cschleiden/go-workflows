@@ -46,6 +46,8 @@ type coState struct {
 	err error
 
 	logger logger
+
+	deadlockDetection time.Duration
 }
 
 func NewCoroutine(ctx Context, fn func(ctx Context)) Coroutine {
@@ -78,6 +80,7 @@ func newState() *coState {
 		unblock:  make(chan bool),
 		logger:   log.New(io.Discard, "[co]", log.LstdFlags),
 		//logger: log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
+		deadlockDetection: 2 * time.Second,
 	}
 }
 
@@ -148,7 +151,7 @@ func (s *coState) Execute() {
 	s.unblock <- true
 	s.logger.Println("execute: unblocked")
 
-	t := time.NewTimer(time.Second * 2)
+	t := time.NewTimer(s.deadlockDetection)
 	defer t.Stop()
 
 	// Run until blocked (which is also true when finished)

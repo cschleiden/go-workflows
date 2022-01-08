@@ -11,6 +11,10 @@ func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
+func CreateSubWorkflowInstance(ctx Context, name string, args ...interface{}) (Future, error) {
+	return internal.CreateSubWorkflowInstance(ctx, name, args...)
+}
+
 func ExecuteActivity(ctx Context, name string, args ...interface{}) (Future, error) {
 	return internal.ExecuteActivity(ctx, name, args...)
 }

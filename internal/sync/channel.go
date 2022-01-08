@@ -111,6 +111,7 @@ func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 			cb := func(v interface{}) {
 				receivedValue = true
 
+				// TODO: Handle error
 				converter.AssignValue(c.converter, v, vptr)
 			}
 
@@ -171,6 +172,7 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		v := c.c[0]
 		c.c = c.c[1:]
 
+		// TODO: Handle error
 		converter.AssignValue(c.converter, v, vptr)
 		return true
 	}
@@ -178,6 +180,7 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 	// If channel has been closed and no values in buffer (if buffered) return zero
 	// element
 	if c.closed {
+		// TODO: Handle error
 		converter.AssignValue(c.converter, nil, vptr)
 		return true
 	}
@@ -188,6 +191,7 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		c.senders = c.senders[1:]
 
 		v := s()
+		// TODO: Handle error
 		converter.AssignValue(c.converter, v, vptr)
 
 		return true

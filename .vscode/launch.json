@@ -40,5 +40,12 @@
       "mode": "debug",
       "program": "${workspaceFolder}/samples/cancellation/cancellation.go"
     },
+    {
+      "name": "Launch subworkflow sample",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/samples/subworkflow/subworkflow.go"
+    },
   ]
 }
