@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS `new_events` (
   `instance_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `event_id` INTEGER NOT NULL,
-  `attributes` TEXT NOT NULL,
+  `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL
 );
 
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS `history` (
   `instance_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `event_id` INTEGER NOT NULL,
-  `attributes` TEXT NOT NULL,
+  `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL
 );
 
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `instance_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `event_id` INTEGER NOT NULL,
-  `attributes` TEXT NOT NULL,
+  `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
   `locked_by` TEXT NULL

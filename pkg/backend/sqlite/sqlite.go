@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -137,7 +136,8 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	for events.Next() {
-		var instanceID, attributes string
+		var instanceID string
+		var attributes []byte
 
 		historyEvent := history.HistoryEvent{}
 
@@ -145,7 +145,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 			return nil, errors.Wrap(err, "could not scan event")
 		}
 
-		a, err := deserializeAttributes(historyEvent.EventType, attributes)
+		a, err := history.DeserializeAttributes(historyEvent.EventType, attributes)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not deserialize attributes")
 		}
@@ -167,7 +167,8 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	for historyEvents.Next() {
-		var instanceID, attributes string
+		var instanceID string
+		var attributes []byte
 
 		historyEvent := history.HistoryEvent{}
 
@@ -175,7 +176,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 			return nil, errors.Wrap(err, "could not scan event")
 		}
 
-		a, err := deserializeAttributes(historyEvent.EventType, attributes)
+		a, err := history.DeserializeAttributes(historyEvent.EventType, attributes)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not deserialize attributes")
 		}
@@ -206,6 +207,15 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 		task.WorkflowInstance.GetInstanceID(),
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
+	}
+
+	changedRows := 0
+	if err := tx.QueryRowContext(ctx, "SELECT CHANGES()").Scan(&changedRows); err != nil {
+		return errors.Wrap(err, "could not check for unlocked workflow instances")
+	}
+
+	if changedRows != 1 {
+		return errors.New("could not find workflow instance to unlock")
 	}
 
 	// Remove handled events
@@ -297,14 +307,15 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		return nil, nil
 	}
 
-	var instanceID, attributes string
+	var instanceID string
+	var attributes []byte
 	event := history.HistoryEvent{}
 
 	if err := row.Scan(&event.ID, &instanceID, &event.EventType, &event.EventID, &attributes, &event.VisibleAt); err != nil {
 		return nil, errors.Wrap(err, "could not scan event")
 	}
 
-	a, err := deserializeAttributes(event.EventType, attributes)
+	a, err := history.DeserializeAttributes(event.EventType, attributes)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not deserialize attributes")
 	}
@@ -363,50 +374,13 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	return nil
 }
 
-func serializeAttributes(attributes interface{}) string {
-	b, err := json.Marshal(attributes)
-	if err != nil {
-		panic(err)
-	}
-
-	return string(b)
-}
-
-func deserializeAttributes(eventType history.HistoryEventType, attributes string) (attr interface{}, err error) {
-	switch eventType {
-	case history.HistoryEventType_WorkflowExecutionStarted:
-		attr = &history.ExecutionStartedAttributes{}
-	case history.HistoryEventType_WorkflowExecutionFinished:
-		attr = &history.ExecutionCompletedAttributes{}
-
-	case history.HistoryEventType_ActivityScheduled:
-		attr = &history.ActivityScheduledAttributes{}
-	case history.HistoryEventType_ActivityCompleted:
-		attr = &history.ActivityCompletedAttributes{}
-
-	case history.HistoryEventType_SignalReceived:
-		attr = &history.SignalReceivedAttributes{}
-
-	case history.HistoryEventType_TimerScheduled:
-		attr = &history.TimerScheduledAttributes{}
-	case history.HistoryEventType_TimerFired:
-		attr = &history.TimerFiredAttributes{}
-
-	case history.HistoryEventType_SubWorkflowScheduled:
-		attr = &history.SubWorkflowScheduledAttributes{}
-	case history.HistoryEventType_SubWorkflowCompleted:
-		attr = &history.SubWorkflowCompletedAttributes{}
-
-	default:
-		panic("unknown event type when deserializing attributes")
-	}
-
-	err = json.Unmarshal([]byte(attributes), &attr)
-	return attr, err
-}
-
 func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.HistoryEvent) error {
 	for _, newEvent := range newEvents {
+		a, err := history.SerializeAttributes(newEvent.Attributes)
+		if err != nil {
+			return err
+		}
+
 		if _, err := tx.ExecContext(
 			ctx,
 			"INSERT INTO `new_events` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -414,7 +388,7 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 			instanceID,
 			newEvent.EventType,
 			newEvent.EventID,
-			serializeAttributes(newEvent.Attributes),
+			a,
 			newEvent.VisibleAt,
 		); err != nil {
 			return err
@@ -426,6 +400,11 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 
 func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.HistoryEvent) error {
 	for _, historyEvent := range historyEvents {
+		a, err := history.SerializeAttributes(historyEvent.Attributes)
+		if err != nil {
+			return err
+		}
+
 		if _, err := tx.ExecContext(
 			ctx,
 			"INSERT INTO `history` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -433,7 +412,7 @@ func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, his
 			instanceID,
 			historyEvent.EventType,
 			historyEvent.EventID,
-			serializeAttributes(historyEvent.Attributes),
+			a,
 			historyEvent.VisibleAt,
 		); err != nil {
 			return err
@@ -444,7 +423,12 @@ func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, his
 }
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID string, event history.HistoryEvent) error {
-	_, err := tx.ExecContext(
+	a, err := history.SerializeAttributes(event.Attributes)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
 			(id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -452,7 +436,7 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID string, event 
 		instanceID,
 		event.EventType,
 		event.EventID,
-		serializeAttributes(event.Attributes),
+		a,
 		event.VisibleAt,
 	)
 
