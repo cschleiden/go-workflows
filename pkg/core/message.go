@@ -7,5 +7,5 @@ import (
 type TaskMessage struct {
 	WorkflowInstance WorkflowInstance
 
-	HistoryEvent history.HistoryEvent
+	HistoryEvent history.Event
 }

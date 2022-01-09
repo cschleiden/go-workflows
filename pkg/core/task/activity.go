@@ -10,5 +10,5 @@ type Activity struct {
 
 	ID string
 
-	Event history.HistoryEvent
+	Event history.Event
 }

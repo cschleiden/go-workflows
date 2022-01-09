@@ -33,9 +33,9 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.HistoryEvent{
+		History: []history.Event{
 			history.NewHistoryEvent(
-				history.HistoryEventType_WorkflowExecutionStarted,
+				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
 					Name:    "w1",
@@ -98,9 +98,9 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.HistoryEvent{
+		History: []history.Event{
 			history.NewHistoryEvent(
-				history.HistoryEventType_WorkflowExecutionStarted,
+				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
 					Name:    "w1",
@@ -109,7 +109,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
-				history.HistoryEventType_ActivityScheduled,
+				history.EventType_ActivityScheduled,
 				0,
 				&history.ActivityScheduledAttributes{
 					Name:    "a1",
@@ -118,7 +118,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
-				history.HistoryEventType_ActivityCompleted,
+				history.EventType_ActivityCompleted,
 				0,
 				&history.ActivityCompletedAttributes{
 					Result: result,
@@ -176,9 +176,9 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.HistoryEvent{
+		History: []history.Event{
 			history.NewHistoryEvent(
-				history.HistoryEventType_WorkflowExecutionStarted,
+				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
 					Name:    "w1",
@@ -243,9 +243,9 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.HistoryEvent{
+		History: []history.Event{
 			history.NewHistoryEvent(
-				history.HistoryEventType_WorkflowExecutionStarted,
+				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
 					Name:    "w1",
@@ -317,9 +317,9 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.HistoryEvent{
+		History: []history.Event{
 			history.NewHistoryEvent(
-				history.HistoryEventType_WorkflowExecutionStarted,
+				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
 					Name:    "w1",

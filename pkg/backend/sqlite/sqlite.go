@@ -61,7 +61,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	}
 
 	// Initial history is empty, store only new events
-	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.GetInstanceID(), []history.HistoryEvent{m.HistoryEvent}); err != nil {
+	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.GetInstanceID(), []history.Event{m.HistoryEvent}); err != nil {
 		return errors.Wrap(err, "could not insert new event")
 	}
 
@@ -72,14 +72,14 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	return nil
 }
 
-func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.HistoryEvent) error {
+func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.HistoryEvent{event}); err != nil {
+	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.Event{event}); err != nil {
 		return errors.Wrap(err, "could not insert signal event")
 	}
 
@@ -125,8 +125,8 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	t := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-		NewEvents:        []history.HistoryEvent{},
-		History:          []history.HistoryEvent{},
+		NewEvents:        []history.Event{},
+		History:          []history.Event{},
 	}
 
 	// Get new events
@@ -139,7 +139,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		var instanceID string
 		var attributes []byte
 
-		historyEvent := history.HistoryEvent{}
+		historyEvent := history.Event{}
 
 		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.EventType, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
 			return nil, errors.Wrap(err, "could not scan event")
@@ -170,7 +170,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		var instanceID string
 		var attributes []byte
 
-		historyEvent := history.HistoryEvent{}
+		historyEvent := history.Event{}
 
 		if err := historyEvents.Scan(&historyEvent.ID, &instanceID, &historyEvent.EventType, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
 			return nil, errors.Wrap(err, "could not scan event")
@@ -193,7 +193,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	return t, nil
 }
 
-func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent, workflowMessages []core.TaskMessage) error {
+func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.Event, workflowMessages []core.TaskMessage) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -247,11 +247,11 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 	// Schedule activities
 	for _, e := range newEvents {
 		switch e.EventType {
-		case history.HistoryEventType_ActivityScheduled:
+		case history.EventType_ActivityScheduled:
 			if err := scheduleActivity(ctx, tx, task.WorkflowInstance.GetInstanceID(), e); err != nil {
 				return errors.Wrap(err, "could not schedule activity")
 			}
-		case history.HistoryEventType_WorkflowExecutionFinished:
+		case history.EventType_WorkflowExecutionFinished:
 			workflowCompleted = true
 		}
 	}
@@ -309,7 +309,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 
 	var instanceID string
 	var attributes []byte
-	event := history.HistoryEvent{}
+	event := history.Event{}
 
 	if err := row.Scan(&event.ID, &instanceID, &event.EventType, &event.EventID, &attributes, &event.VisibleAt); err != nil {
 		return nil, errors.Wrap(err, "could not scan event")
@@ -335,7 +335,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	return t, nil
 }
 
-func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, id string, event history.HistoryEvent) error {
+func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, id string, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -363,7 +363,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.HistoryEvent{event}); err != nil {
+	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.Event{event}); err != nil {
 		return errors.Wrap(err, "could not insert new events for completed activity")
 	}
 
@@ -374,7 +374,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	return nil
 }
 
-func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.HistoryEvent) error {
+func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
 	for _, newEvent := range newEvents {
 		a, err := history.SerializeAttributes(newEvent.Attributes)
 		if err != nil {
@@ -398,7 +398,7 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 	return nil
 }
 
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.HistoryEvent) error {
+func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
 	for _, historyEvent := range historyEvents {
 		a, err := history.SerializeAttributes(historyEvent.Attributes)
 		if err != nil {
@@ -422,7 +422,7 @@ func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, his
 	return nil
 }
 
-func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID string, event history.HistoryEvent) error {
+func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID string, event history.Event) error {
 	a, err := history.SerializeAttributes(event.Attributes)
 	if err != nil {
 		return err

@@ -7,37 +7,37 @@ import (
 	"github.com/google/uuid"
 )
 
-type HistoryEventType uint
+type EventType uint
 
 const (
-	_ HistoryEventType = iota
+	_ EventType = iota
 
-	HistoryEventType_OrchestratorStarted
-	HistoryEventType_OrchestratorFinished
+	EventType_OrchestratorStarted
+	EventType_OrchestratorFinished
 
-	HistoryEventType_WorkflowExecutionStarted
-	HistoryEventType_WorkflowExecutionFinished
-	HistoryEventType_WorkflowExecutionTerminated
+	EventType_WorkflowExecutionStarted
+	EventType_WorkflowExecutionFinished
+	EventType_WorkflowExecutionTerminated
 
-	HistoryEventType_SubWorkflowScheduled
-	HistoryEventType_SubWorkflowCompleted
-	HistoryEventType_SubWorkflowFailed
+	EventType_SubWorkflowScheduled
+	EventType_SubWorkflowCompleted
+	EventType_SubWorkflowFailed
 
-	HistoryEventType_ActivityScheduled
-	HistoryEventType_ActivityCompleted
-	HistoryEventType_ActivityFailed
+	EventType_ActivityScheduled
+	EventType_ActivityCompleted
+	EventType_ActivityFailed
 
-	HistoryEventType_TimerScheduled
-	HistoryEventType_TimerFired
+	EventType_TimerScheduled
+	EventType_TimerFired
 
-	HistoryEventType_SignalReceived
+	EventType_SignalReceived
 )
 
-type HistoryEvent struct {
+type Event struct {
 	// ID is a unique identifier
 	ID string
 
-	EventType HistoryEventType
+	EventType EventType
 
 	// EventID is a sequence number
 	EventID int
@@ -48,12 +48,12 @@ type HistoryEvent struct {
 	VisibleAt *time.Time
 }
 
-func (e *HistoryEvent) String() string {
+func (e *Event) String() string {
 	return strconv.Itoa(int(e.EventType))
 }
 
-func NewHistoryEvent(eventType HistoryEventType, eventID int, attributes interface{}) HistoryEvent {
-	return HistoryEvent{
+func NewHistoryEvent(eventType EventType, eventID int, attributes interface{}) Event {
+	return Event{
 		ID:         uuid.NewString(),
 		EventType:  eventType,
 		EventID:    eventID,

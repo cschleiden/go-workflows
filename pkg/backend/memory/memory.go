@@ -29,9 +29,9 @@ type workflowState struct {
 
 	ParentInstance *core.WorkflowInstance
 
-	History []history.HistoryEvent
+	History []history.Event
 
-	NewEvents []history.HistoryEvent
+	NewEvents []history.Event
 
 	CreatedAt   time.Time
 	CompletedAt *time.Time
@@ -88,8 +88,8 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 
 	state := workflowState{
 		Instance:  m.WorkflowInstance,
-		History:   []history.HistoryEvent{},
-		NewEvents: []history.HistoryEvent{m.HistoryEvent},
+		History:   []history.Event{},
+		NewEvents: []history.Event{m.HistoryEvent},
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -99,7 +99,7 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	return nil
 }
 
-func (mb *memoryBackend) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, event history.HistoryEvent) error {
+func (mb *memoryBackend) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, event history.Event) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
@@ -134,7 +134,7 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 func (mb *memoryBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	t task.Workflow,
-	newEvents []history.HistoryEvent,
+	newEvents []history.Event,
 	workflowMessages []core.TaskMessage,
 ) error {
 	mb.mu.Lock()
@@ -176,14 +176,14 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 		mb.log.Println("\tEvent:", event.EventType)
 
 		switch event.EventType {
-		case history.HistoryEventType_ActivityScheduled:
+		case history.EventType_ActivityScheduled:
 			mb.activities <- &task.Activity{
 				WorkflowInstance: wfi,
 				ID:               uuid.NewString(),
 				Event:            event,
 			}
 
-		case history.HistoryEventType_TimerScheduled:
+		case history.EventType_TimerScheduled:
 			// Specific to this backend implementation, schedule a timer to put a new task in the queue when the timer fires
 			a := event.Attributes.(*history.TimerScheduledAttributes)
 			go func() {
@@ -196,7 +196,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 				mb.queueWorkflowTask(wfi)
 			}()
 
-		case history.HistoryEventType_WorkflowExecutionFinished:
+		case history.EventType_WorkflowExecutionFinished:
 			workflowCompleted = true
 		}
 
@@ -210,8 +210,8 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 			// Create new instance
 			state = &workflowState{
 				Instance:  m.WorkflowInstance,
-				History:   []history.HistoryEvent{},
-				NewEvents: []history.HistoryEvent{},
+				History:   []history.Event{},
+				NewEvents: []history.Event{},
 				CreatedAt: time.Now().UTC(),
 			}
 
@@ -250,7 +250,7 @@ func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	}
 }
 
-func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.WorkflowInstance, taskID string, event history.HistoryEvent) error {
+func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.WorkflowInstance, taskID string, event history.Event) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
@@ -281,7 +281,7 @@ func (mb *memoryBackend) queueWorkflowTask(wfi core.WorkflowInstance) {
 
 	// Return visible events to worker
 	mb.log.Println("Events to worker:")
-	newEvents := make([]history.HistoryEvent, 0)
+	newEvents := make([]history.Event, 0)
 	for _, event := range instance.NewEvents {
 		if event.VisibleAt == nil || event.VisibleAt.Before(time.Now().UTC()) {
 			mb.log.Println("\tEvent:", event.EventType)

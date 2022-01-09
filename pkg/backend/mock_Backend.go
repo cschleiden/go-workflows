@@ -19,11 +19,11 @@ type MockBackend struct {
 }
 
 // CompleteActivityTask provides a mock function with given fields: _a0, _a1, _a2, _a3
-func (_m *MockBackend) CompleteActivityTask(_a0 context.Context, _a1 core.WorkflowInstance, _a2 string, _a3 history.HistoryEvent) error {
+func (_m *MockBackend) CompleteActivityTask(_a0 context.Context, _a1 core.WorkflowInstance, _a2 string, _a3 history.Event) error {
 	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, string, history.HistoryEvent) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, string, history.Event) error); ok {
 		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Error(0)
@@ -33,11 +33,11 @@ func (_m *MockBackend) CompleteActivityTask(_a0 context.Context, _a1 core.Workfl
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, newEvents, workflowMessages
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 task.Workflow, newEvents []history.HistoryEvent, workflowMessages []core.TaskMessage) error {
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 task.Workflow, newEvents []history.Event, workflowMessages []core.TaskMessage) error {
 	ret := _m.Called(ctx, _a1, newEvents, workflowMessages)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, task.Workflow, []history.HistoryEvent, []core.TaskMessage) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, task.Workflow, []history.Event, []core.TaskMessage) error); ok {
 		r0 = rf(ctx, _a1, newEvents, workflowMessages)
 	} else {
 		r0 = ret.Error(0)
@@ -107,11 +107,11 @@ func (_m *MockBackend) GetWorkflowTask(_a0 context.Context) (*task.Workflow, err
 }
 
 // SignalWorkflow provides a mock function with given fields: _a0, _a1, _a2
-func (_m *MockBackend) SignalWorkflow(_a0 context.Context, _a1 core.WorkflowInstance, _a2 history.HistoryEvent) error {
+func (_m *MockBackend) SignalWorkflow(_a0 context.Context, _a1 core.WorkflowInstance, _a2 history.Event) error {
 	ret := _m.Called(_a0, _a1, _a2)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, history.HistoryEvent) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, history.Event) error); ok {
 		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)

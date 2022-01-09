@@ -14,7 +14,7 @@ type Backend interface {
 	CreateWorkflowInstance(context.Context, core.TaskMessage) error
 
 	// SignalWorkflow signals a running workflow instance
-	SignalWorkflow(context.Context, core.WorkflowInstance, history.HistoryEvent) error
+	SignalWorkflow(context.Context, core.WorkflowInstance, history.Event) error
 
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 	GetWorkflowTask(context.Context) (*task.Workflow, error)
@@ -22,11 +22,11 @@ type Backend interface {
 	// CompleteWorkflowTask completes a workflow task retrieved using GetWorkflowTask
 	//
 	// This checkpoints the execution and schedules any new commands.
-	CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.HistoryEvent, workflowMessages []core.TaskMessage) error
+	CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.Event, workflowMessages []core.TaskMessage) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(context.Context) (*task.Activity, error)
 
 	// CompleteActivityTask completes a activity task retrieved using GetActivityTask
-	CompleteActivityTask(context.Context, core.WorkflowInstance, string, history.HistoryEvent) error
+	CompleteActivityTask(context.Context, core.WorkflowInstance, string, history.Event) error
 }

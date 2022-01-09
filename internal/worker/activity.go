@@ -66,18 +66,18 @@ func (ww *activityWorker) runDispatcher(ctx context.Context) {
 func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 	result, err := ww.activityTaskExecutor.ExecuteActivity(ctx, task)
 
-	var event history.HistoryEvent
+	var event history.Event
 
 	if err != nil {
 		event = history.NewHistoryEvent(
-			history.HistoryEventType_ActivityFailed,
+			history.EventType_ActivityFailed,
 			task.Event.EventID,
 			&history.ActivityFailedAttributes{
 				Reason: err.Error(),
 			})
 	} else {
 		event = history.NewHistoryEvent(
-			history.HistoryEventType_ActivityCompleted,
+			history.EventType_ActivityCompleted,
 			task.Event.EventID,
 			&history.ActivityCompletedAttributes{
 				Result: result,

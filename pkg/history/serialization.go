@@ -9,31 +9,31 @@ func SerializeAttributes(attributes interface{}) ([]byte, error) {
 	return json.Marshal(attributes)
 }
 
-func DeserializeAttributes(eventType HistoryEventType, attributes []byte) (attr interface{}, err error) {
+func DeserializeAttributes(eventType EventType, attributes []byte) (attr interface{}, err error) {
 	switch eventType {
-	case HistoryEventType_WorkflowExecutionStarted:
+	case EventType_WorkflowExecutionStarted:
 		attr = &ExecutionStartedAttributes{}
-	case HistoryEventType_WorkflowExecutionFinished:
+	case EventType_WorkflowExecutionFinished:
 		attr = &ExecutionCompletedAttributes{}
 
-	case HistoryEventType_ActivityScheduled:
+	case EventType_ActivityScheduled:
 		attr = &ActivityScheduledAttributes{}
-	case HistoryEventType_ActivityCompleted:
+	case EventType_ActivityCompleted:
 		attr = &ActivityCompletedAttributes{}
-	case HistoryEventType_ActivityFailed:
+	case EventType_ActivityFailed:
 		attr = &ActivityFailedAttributes{}
 
-	case HistoryEventType_SignalReceived:
+	case EventType_SignalReceived:
 		attr = &SignalReceivedAttributes{}
 
-	case HistoryEventType_TimerScheduled:
+	case EventType_TimerScheduled:
 		attr = &TimerScheduledAttributes{}
-	case HistoryEventType_TimerFired:
+	case EventType_TimerFired:
 		attr = &TimerFiredAttributes{}
 
-	case HistoryEventType_SubWorkflowScheduled:
+	case EventType_SubWorkflowScheduled:
 		attr = &SubWorkflowScheduledAttributes{}
-	case HistoryEventType_SubWorkflowCompleted:
+	case EventType_SubWorkflowCompleted:
 		attr = &SubWorkflowCompletedAttributes{}
 
 	default:

@@ -39,7 +39,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	}
 
 	startedEvent := history.NewHistoryEvent(
-		history.HistoryEventType_WorkflowExecutionStarted,
+		history.EventType_WorkflowExecutionStarted,
 		-1,
 		&history.ExecutionStartedAttributes{
 			Name:   "wf1",
@@ -69,7 +69,7 @@ func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, 
 	}
 
 	event := history.NewHistoryEvent(
-		history.HistoryEventType_SignalReceived,
+		history.EventType_SignalReceived,
 		-1,
 		&history.SignalReceivedAttributes{
 			Name: name,

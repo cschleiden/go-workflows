@@ -72,7 +72,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 
 	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx) // TODO: Handle error
 
-	newEvents := make([]history.HistoryEvent, 0)
+	newEvents := make([]history.Event, 0)
 	workflowMessages := make([]core.TaskMessage, 0)
 
 	for _, c := range commands {
@@ -81,7 +81,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
-				history.HistoryEventType_ActivityScheduled,
+				history.EventType_ActivityScheduled,
 				c.ID,
 				&history.ActivityScheduledAttributes{
 					Name:    a.Name,
@@ -96,7 +96,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			subWorkflowInstance := core.NewSubWorkflowInstance(uuid.NewString(), "", task.WorkflowInstance, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
-				history.HistoryEventType_SubWorkflowScheduled,
+				history.EventType_SubWorkflowScheduled,
 				c.ID,
 				&history.SubWorkflowScheduledAttributes{
 					// TODO: Do we need an execution ID?
@@ -111,7 +111,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			workflowMessages = append(workflowMessages, core.TaskMessage{
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
-					history.HistoryEventType_WorkflowExecutionStarted,
+					history.EventType_WorkflowExecutionStarted,
 					-1,
 					&history.ExecutionStartedAttributes{
 						Name:    a.Name,
@@ -125,7 +125,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
 
 			timerEvent := history.NewHistoryEvent(
-				history.HistoryEventType_TimerScheduled,
+				history.EventType_TimerScheduled,
 				c.ID,
 				&history.TimerScheduledAttributes{
 					At: a.At,
@@ -134,7 +134,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			newEvents = append(newEvents, timerEvent)
 
 			timerFiredEvent := history.NewHistoryEvent(
-				history.HistoryEventType_TimerFired,
+				history.EventType_TimerFired,
 				c.ID,
 				&history.TimerFiredAttributes{
 					At: a.At,
@@ -147,7 +147,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
-				history.HistoryEventType_WorkflowExecutionFinished,
+				history.EventType_WorkflowExecutionFinished,
 				c.ID,
 				&history.ExecutionCompletedAttributes{
 					Result: a.Result,
@@ -160,7 +160,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				workflowMessages = append(workflowMessages, core.TaskMessage{
 					WorkflowInstance: task.WorkflowInstance.ParentInstance(),
 					HistoryEvent: history.NewHistoryEvent(
-						history.HistoryEventType_SubWorkflowCompleted,
+						history.EventType_SubWorkflowCompleted,
 						task.WorkflowInstance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
