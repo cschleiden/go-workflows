@@ -56,6 +56,7 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 		workflow:      workflow,
 		workflowState: newWorkflowState(),
 		logger:        log.New(io.Discard, "", log.LstdFlags),
+		//logger: log.Default(),
 	}
 }
 
@@ -248,7 +249,11 @@ func (e *executor) handleSubWorkflowCompleted(ctx sync.Context, event history.Ev
 		}
 	}
 
-	f.Set(a.Result, nil)
+	if a.Error != "" {
+		f.Set(nil, errors.New(a.Error))
+	} else {
+		f.Set(a.Result, nil)
+	}
 
 	// TODO: Handle error
 	e.workflow.Continue(ctx)

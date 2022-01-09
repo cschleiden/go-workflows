@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS `instances` (
   `id` TEXT PRIMARY KEY,
   `execution_id` TEXT NO NULL,
+  `parent_instance_id` TEXT NULL,
+  `parent_event_id` INTEGER NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,

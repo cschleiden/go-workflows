@@ -51,13 +51,8 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if _, err := tx.ExecContext(
-		ctx,
-		"INSERT INTO `instances` (id, execution_id) VALUES (?, ?)",
-		m.WorkflowInstance.GetInstanceID(),
-		m.WorkflowInstance.GetExecutionID(),
-	); err != nil {
-		return errors.Wrap(err, "could not insert workflow instance")
+	if err := createInstance(ctx, tx, m.WorkflowInstance); err != nil {
+		return err
 	}
 
 	// Initial history is empty, store only new events
@@ -67,6 +62,31 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "could not create workflow instance")
+	}
+
+	return nil
+}
+
+func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) error {
+	var parentInstanceID *string
+	var parentEventID *int
+	if wfi.SubWorkflow() {
+		i := wfi.ParentInstance().GetInstanceID()
+		parentInstanceID = &i
+
+		n := wfi.ParentInstance().ParentEventID()
+		parentEventID = &n
+	}
+
+	if _, err := tx.ExecContext(
+		ctx,
+		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_event_id) VALUES (?, ?, ?, ?)",
+		wfi.GetInstanceID(),
+		wfi.GetExecutionID(),
+		parentInstanceID,
+		parentEventID,
+	); err != nil {
+		return errors.Wrap(err, "could not insert workflow instance")
 	}
 
 	return nil
@@ -96,35 +116,43 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	// Lock next workflow task.
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
 	now := time.Now().UTC()
-	row, err := tx.QueryContext(
+	row := tx.QueryRowContext(
 		ctx,
 		`UPDATE instances
 			SET locked_until = ?, locked_by = ?
 			WHERE rowid = (
-				SELECT rowid FROM instances
+				SELECT rowid FROM instances i
 					WHERE (locked_until IS NULL OR locked_until < ?) AND completed_at IS NULL
+						AND EXISTS (
+							SELECT 1 FROM new_events WHERE instance_id = i.id AND execution_id = i.execution_id
+						)
 					LIMIT 1
-			) RETURNING id, execution_id`,
+			) RETURNING id, execution_id, parent_instance_id, parent_event_id`,
 		now.Add(WorkflowLockTimeout),
 		"worker-id", // TODO: What to use for `locked_by`?
 		now,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	if !row.Next() {
-		// No instance locked
-		return nil, nil
-	}
 
 	var instanceID, executionID string
-	if err := row.Scan(&instanceID, &executionID); err != nil {
+	var parentInstanceID *string
+	var parentEventID *int
+	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
 		return nil, err
+	}
+
+	var wfi core.WorkflowInstance
+	if parentInstanceID != nil {
+		wfi = core.NewSubWorkflowInstance(instanceID, executionID, core.NewWorkflowInstance(*parentInstanceID, ""), *parentEventID)
+	} else {
+		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
 	t := &task.Workflow{
-		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
+		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
 		History:          []history.Event{},
 	}
@@ -240,8 +268,6 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 		return errors.Wrap(err, "could not insert new events")
 	}
 
-	// TODO: Handle workflow finished?
-
 	workflowCompleted := false
 
 	// Schedule activities
@@ -253,6 +279,27 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 			}
 		case history.EventType_WorkflowExecutionFinished:
 			workflowCompleted = true
+		}
+	}
+
+	// Insert messages for other orchestrations
+	groupedEvents := make(map[core.WorkflowInstance][]history.Event)
+	for _, m := range workflowMessages {
+		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
+			groupedEvents[m.WorkflowInstance] = []history.Event{}
+		}
+
+		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
+	}
+
+	for instance, events := range groupedEvents {
+		// Create new instance
+		if err := createInstance(ctx, tx, instance); err != nil {
+			return err
+		}
+
+		if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), events); err != nil {
+			return errors.Wrap(err, "could not insert messages")
 		}
 	}
 

@@ -112,7 +112,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
 					history.EventType_WorkflowExecutionStarted,
-					-1,
+					c.ID,
 					&history.ExecutionStartedAttributes{
 						Name:    a.Name,
 						Version: a.Version,
@@ -164,6 +164,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 						task.WorkflowInstance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
+							Error:  a.Error,
 						},
 					),
 				})
