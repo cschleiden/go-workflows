@@ -42,7 +42,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		history.EventType_WorkflowExecutionStarted,
 		-1,
 		&history.ExecutionStartedAttributes{
-			Name:   "wf1",
+			Name:   "wf1", // TODO: get name from workflow
 			Inputs: inputs,
 		})
 
