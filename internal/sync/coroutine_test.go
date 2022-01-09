@@ -127,7 +127,7 @@ func Test_Continue_PanicsWhenDeadlocked(t *testing.T) {
 		s.deadlockDetection = time.Millisecond
 		s.Yield()
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(10 * time.Second)
 	})
 
 	c.Execute()
