@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 
+	a "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
@@ -33,7 +34,7 @@ func NewClient(backend backend.Backend) Client {
 }
 
 func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error) {
-	inputs, err := converter.ArgsToInputs(converter.DefaultConverter, args...)
+	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert arguments")
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/workflow"
@@ -32,9 +33,13 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) (pay
 		return nil, errors.New("activity not a function")
 	}
 
-	args, err := inputsToArgs(ctx, activityFn, a.Inputs)
+	args, err := args.InputsToArgs(converter.DefaultConverter, activityFn, a.Inputs)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert activity inputs")
+	}
+
+	if !args[0].IsValid() {
+		args[0] = reflect.ValueOf(ctx)
 	}
 
 	r := activityFn.Call(args)
@@ -64,37 +69,4 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) (pay
 	}
 
 	return result, errInterface
-}
-
-func inputsToArgs(ctx context.Context, activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
-	args := make([]reflect.Value, 0)
-	activityFnT := activityFn.Type()
-
-	input := 0
-	for i := 0; i < activityFnT.NumIn(); i++ {
-		argT := activityFnT.In(i)
-
-		// Insert context if requested
-		if i == 0 && isContext(argT) {
-			args = append(args, reflect.ValueOf(ctx))
-			continue
-		}
-
-		arg := reflect.New(argT).Interface()
-		err := converter.DefaultConverter.From(inputs[input], arg)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not convert activity input")
-		}
-
-		args = append(args, reflect.ValueOf(arg).Elem())
-
-		input++
-	}
-
-	return args, nil
-}
-
-func isContext(inType reflect.Type) bool {
-	contextElem := reflect.TypeOf((*context.Context)(nil)).Elem()
-	return inType != nil && inType.Implements(contextElem)
 }

@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	a "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/sync"
@@ -13,7 +14,7 @@ type Activity interface{}
 func ExecuteActivity(ctx sync.Context, name string, args ...interface{}) (sync.Future, error) {
 	wfState := getWfState(ctx)
 
-	inputs, err := converter.ArgsToInputs(converter.DefaultConverter, args...)
+	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert activity input")
 	}

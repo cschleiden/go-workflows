@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/payload"
-	"github.com/pkg/errors"
 )
 
 type Converter interface {
@@ -13,20 +12,6 @@ type Converter interface {
 }
 
 var DefaultConverter Converter = &jsonConverter{}
-
-func ArgsToInputs(c Converter, args ...interface{}) ([]payload.Payload, error) {
-	inputs := make([]payload.Payload, 0)
-
-	for _, arg := range args {
-		input, err := c.To(arg)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert activity input")
-		}
-		inputs = append(inputs, input)
-	}
-
-	return inputs, nil
-}
 
 func AssignValue(c Converter, v interface{}, vptr interface{}) error {
 	vvptr := reflect.ValueOf(vptr)

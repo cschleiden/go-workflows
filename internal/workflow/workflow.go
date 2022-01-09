@@ -3,10 +3,10 @@ package workflow
 import (
 	"reflect"
 
+	"github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
-	"github.com/pkg/errors"
 )
 
 type Workflow interface{}
@@ -29,7 +29,7 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 
 func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx sync.Context) {
-		args, err := inputsToArgs(w.fn, inputs)
+		args, err := args.InputsToArgs(converter.DefaultConverter, w.fn, inputs)
 		if err != nil {
 			panic(err) // TODO: Handle error
 		}
@@ -91,39 +91,4 @@ func (w *workflow) Error() error {
 func (w *workflow) Close(ctx sync.Context) {
 	// End coroutine execution to prevent goroutine leaks
 	w.s.Exit(ctx)
-}
-
-// TODO: Extract to converter package
-func inputsToArgs(activityFn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
-	activityFnT := activityFn.Type()
-
-	numArgs := activityFnT.NumIn()
-	args := make([]reflect.Value, numArgs)
-
-	input := 0
-	for i := 0; i < numArgs; i++ {
-		argT := activityFnT.In(i)
-
-		// Insert context if requested
-		if i == 0 && (isContext(argT)) {
-			continue
-		}
-
-		arg := reflect.New(argT).Interface()
-		err := converter.DefaultConverter.From(inputs[input], arg)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not convert activity input")
-		}
-
-		args[i] = reflect.ValueOf(arg).Elem()
-
-		input++
-	}
-
-	return args, nil
-}
-
-func isContext(inType reflect.Type) bool {
-	contextElem := reflect.TypeOf((*sync.Context)(nil)).Elem()
-	return inType != nil && inType.Implements(contextElem)
 }
