@@ -151,6 +151,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				c.ID,
 				&history.ExecutionCompletedAttributes{
 					Result: a.Result,
+					Error:  a.Error,
 				},
 			))
 

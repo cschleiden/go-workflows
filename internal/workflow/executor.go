@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"reflect"
@@ -75,7 +76,7 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, 
 
 	// Check if workflow finished
 	if e.workflow.Completed() {
-		e.workflowCompleted(ctx, e.workflow.result)
+		e.workflowCompleted(ctx, e.workflow.Result(), e.workflow.Error())
 	}
 
 	if e.workflow != nil {
@@ -99,7 +100,7 @@ func (e *executor) executeEvent(ctx sync.Context, event history.HistoryEvent) er
 		e.handleActivityScheduled(ctx, event, event.Attributes.(*history.ActivityScheduledAttributes))
 
 	case history.HistoryEventType_ActivityFailed:
-		// TODO: Nothing to handle, yet?
+		e.handleActivityFailed(ctx, event, event.Attributes.(*history.ActivityFailedAttributes))
 
 	case history.HistoryEventType_ActivityCompleted:
 		e.handleActivityCompleted(ctx, event, event.Attributes.(*history.ActivityCompletedAttributes))
@@ -161,6 +162,26 @@ func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Histo
 	}
 
 	f.Set(a.Result, nil)
+
+	// TODO: Handle error
+	e.workflow.Continue(ctx)
+}
+
+func (e *executor) handleActivityFailed(ctx sync.Context, event history.HistoryEvent, a *history.ActivityFailedAttributes) {
+	f, ok := e.workflowState.pendingFutures[event.EventID]
+	if !ok {
+		panic("no pending future!")
+	}
+
+	// Remove pending command
+	for i, c := range e.workflowState.commands {
+		if c.ID == event.EventID {
+			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
+			break
+		}
+	}
+
+	f.Set(nil, errors.New(a.Reason))
 
 	// TODO: Handle error
 	e.workflow.Continue(ctx)
@@ -250,9 +271,9 @@ func (e *executor) handleSignalReceived(ctx sync.Context, event history.HistoryE
 	e.workflow.Continue(ctx)
 }
 
-func (e *executor) workflowCompleted(ctx context.Context, result payload.Payload) {
+func (e *executor) workflowCompleted(ctx context.Context, result payload.Payload, err error) {
 	eventId := e.workflowState.eventID
 	e.workflowState.eventID++
 
-	e.workflowState.addCommand(command.NewCompleteWorkflowCommand(eventId, result))
+	e.workflowState.addCommand(command.NewCompleteWorkflowCommand(eventId, result, err))
 }

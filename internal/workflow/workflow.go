@@ -49,7 +49,7 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 			var err error
 			result, err = converter.DefaultConverter.To(r[0].Interface())
 			if err != nil {
-				// return nil, errors.Wrap(err, "could not convert activity result")
+				// return nil, errors.Wrap(err, "could not convert workflow result")
 				// TODO: return error from workflow
 			}
 		}
@@ -78,6 +78,14 @@ func (w *workflow) Continue(ctx sync.Context) error {
 
 func (w *workflow) Completed() bool {
 	return w.s.RunningCoroutines() == 0
+}
+
+func (w *workflow) Result() payload.Payload {
+	return w.result
+}
+
+func (w *workflow) Error() error {
+	return w.err
 }
 
 func (w *workflow) Close(ctx sync.Context) {

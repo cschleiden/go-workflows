@@ -34,13 +34,13 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) (pay
 
 	args, err := inputsToArgs(ctx, activityFn, a.Inputs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not convert activity inputs")
 	}
 
 	r := activityFn.Call(args)
 
 	if len(r) < 1 || len(r) > 2 {
-		return nil, errors.New("activity has to return either (error) or (result, error)")
+		return nil, errors.New("activity has to return either (error) or (<result>, error)")
 	}
 
 	var result payload.Payload

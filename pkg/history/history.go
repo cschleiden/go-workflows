@@ -17,7 +17,6 @@ const (
 
 	HistoryEventType_WorkflowExecutionStarted
 	HistoryEventType_WorkflowExecutionFinished
-	HistoryEventType_WorkflowExecutionFailed
 	HistoryEventType_WorkflowExecutionTerminated
 
 	HistoryEventType_SubWorkflowScheduled

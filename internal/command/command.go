@@ -95,14 +95,21 @@ func NewCancelTimerCommand(id, timerID int) Command {
 
 type CompleteWorkflowCommandAttr struct {
 	Result payload.Payload
+	Error  string
 }
 
-func NewCompleteWorkflowCommand(id int, result payload.Payload) Command {
+func NewCompleteWorkflowCommand(id int, result payload.Payload, err error) Command {
+	var error string
+	if err != nil {
+		error = err.Error()
+	}
+
 	return Command{
 		ID:   id,
 		Type: CommandType_CompleteWorkflow,
 		Attr: &CompleteWorkflowCommandAttr{
 			Result: result,
+			Error:  error,
 		},
 	}
 }

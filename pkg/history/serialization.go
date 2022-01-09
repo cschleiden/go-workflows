@@ -20,6 +20,8 @@ func DeserializeAttributes(eventType HistoryEventType, attributes []byte) (attr 
 		attr = &ActivityScheduledAttributes{}
 	case HistoryEventType_ActivityCompleted:
 		attr = &ActivityCompletedAttributes{}
+	case HistoryEventType_ActivityFailed:
+		attr = &ActivityFailedAttributes{}
 
 	case HistoryEventType_SignalReceived:
 		attr = &SignalReceivedAttributes{}
