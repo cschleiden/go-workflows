@@ -61,7 +61,7 @@ func (s *BackendTestSuite) TestGetActivityTaskReturnNilWhenTimeout() {
 func (s *BackendTestSuite) TestCreateWorkflowInstance_DoesNotError() {
 	ctx := context.Background()
 
-	err := s.b.CreateWorkflowInstance(ctx, core.TaskMessage{
+	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), ""),
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
@@ -72,7 +72,7 @@ func (s *BackendTestSuite) TestGetWorkflowTask_ReturnsTask() {
 	ctx := context.Background()
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), "")
-	err := s.b.CreateWorkflowInstance(ctx, core.TaskMessage{
+	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
@@ -89,7 +89,7 @@ func (s *BackendTestSuite) TestGetWorkflowTask_LocksTask() {
 	ctx := context.Background()
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), "")
-	err := s.b.CreateWorkflowInstance(ctx, core.TaskMessage{
+	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
@@ -114,7 +114,7 @@ func (s *BackendTestSuite) TestCompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 	ctx := context.Background()
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), "")
-	err := s.b.CreateWorkflowInstance(ctx, core.TaskMessage{
+	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
@@ -126,7 +126,7 @@ func (s *BackendTestSuite) TestCompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 		NewEvents:        []history.Event{},
 	}
 
-	err = s.b.CompleteWorkflowTask(ctx, t, []history.Event{}, []core.TaskMessage{})
+	err = s.b.CompleteWorkflowTask(ctx, t, []history.Event{}, []core.WorkflowEvent{})
 
 	s.Error(err)
 }

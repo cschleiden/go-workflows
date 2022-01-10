@@ -70,10 +70,13 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
 
-	commands, _ := workflowTaskExecutor.ExecuteWorkflowTask(ctx) // TODO: Handle error
+	commands, err := workflowTaskExecutor.ExecuteWorkflowTask(ctx)
+	if err != nil {
+		panic(err) // TODO: Handle error
+	}
 
 	newEvents := make([]history.Event, 0)
-	workflowMessages := make([]core.TaskMessage, 0)
+	workflowMessages := make([]core.WorkflowEvent, 0)
 
 	for _, c := range commands {
 		switch c.Type {
@@ -93,6 +96,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		case command.CommandType_ScheduleSubWorkflow:
 			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 
+			// TODO: Figure out execution id
 			subWorkflowInstance := core.NewSubWorkflowInstance(uuid.NewString(), "", task.WorkflowInstance, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
@@ -108,7 +112,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 			// Send message to new workflow instance
-			workflowMessages = append(workflowMessages, core.TaskMessage{
+			workflowMessages = append(workflowMessages, core.WorkflowEvent{
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
 					history.EventType_WorkflowExecutionStarted,
@@ -124,24 +128,26 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		case command.CommandType_ScheduleTimer:
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
 
-			timerEvent := history.NewHistoryEvent(
+			newEvents = append(newEvents, history.NewHistoryEvent(
 				history.EventType_TimerScheduled,
 				c.ID,
 				&history.TimerScheduledAttributes{
 					At: a.At,
 				},
-			)
-			newEvents = append(newEvents, timerEvent)
+			))
 
-			timerFiredEvent := history.NewHistoryEvent(
-				history.EventType_TimerFired,
-				c.ID,
-				&history.TimerFiredAttributes{
-					At: a.At,
-				},
+			// Create timer_fired event which will become visible in the future
+			workflowMessages = append(workflowMessages, core.WorkflowEvent{
+				WorkflowInstance: task.WorkflowInstance,
+				HistoryEvent: history.NewFutureHistoryEvent(
+					history.EventType_TimerFired,
+					c.ID,
+					&history.TimerFiredAttributes{
+						At: a.At,
+					},
+					a.At,
+				)},
 			)
-			timerFiredEvent.VisibleAt = &a.At
-			newEvents = append(newEvents, timerFiredEvent)
 
 		case command.CommandType_CompleteWorkflow:
 			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
@@ -156,8 +162,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 			if task.WorkflowInstance.SubWorkflow() {
-				// TODO: Send failure event or termination event
-				workflowMessages = append(workflowMessages, core.TaskMessage{
+				workflowMessages = append(workflowMessages, core.WorkflowEvent{
 					WorkflowInstance: task.WorkflowInstance.ParentInstance(),
 					HistoryEvent: history.NewHistoryEvent(
 						history.EventType_SubWorkflowCompleted,

@@ -16,13 +16,14 @@ import (
 func main() {
 	ctx := context.Background()
 
-	mb := sqlite.NewSqliteBackend("simple.sqlite")
+	b := sqlite.NewSqliteBackend("simple.sqlite")
+	//b := memory.NewMemoryBackend()
 
 	// Run worker
-	go RunWorker(ctx, mb)
+	go RunWorker(ctx, b)
 
 	// Start workflow via client
-	c := client.NewClient(mb)
+	c := client.NewClient(b)
 
 	startWorkflow(ctx, c)
 	// startWorkflow(ctx, c)

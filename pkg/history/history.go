@@ -60,3 +60,9 @@ func NewHistoryEvent(eventType EventType, eventID int, attributes interface{}) E
 		Attributes: attributes,
 	}
 }
+
+func NewFutureHistoryEvent(eventType EventType, eventID int, attributes interface{}, visibleAt time.Time) Event {
+	event := NewHistoryEvent(eventType, eventID, attributes)
+	event.VisibleAt = &visibleAt
+	return event
+}

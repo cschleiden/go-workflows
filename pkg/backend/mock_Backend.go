@@ -32,13 +32,13 @@ func (_m *MockBackend) CompleteActivityTask(_a0 context.Context, _a1 core.Workfl
 	return r0
 }
 
-// CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, newEvents, workflowMessages
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 task.Workflow, newEvents []history.Event, workflowMessages []core.TaskMessage) error {
-	ret := _m.Called(ctx, _a1, newEvents, workflowMessages)
+// CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, events, workflowEvents
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 task.Workflow, events []history.Event, workflowEvents []core.WorkflowEvent) error {
+	ret := _m.Called(ctx, _a1, events, workflowEvents)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, task.Workflow, []history.Event, []core.TaskMessage) error); ok {
-		r0 = rf(ctx, _a1, newEvents, workflowMessages)
+	if rf, ok := ret.Get(0).(func(context.Context, task.Workflow, []history.Event, []core.WorkflowEvent) error); ok {
+		r0 = rf(ctx, _a1, events, workflowEvents)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -47,11 +47,11 @@ func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 task.Workfl
 }
 
 // CreateWorkflowInstance provides a mock function with given fields: _a0, _a1
-func (_m *MockBackend) CreateWorkflowInstance(_a0 context.Context, _a1 core.TaskMessage) error {
+func (_m *MockBackend) CreateWorkflowInstance(_a0 context.Context, _a1 core.WorkflowEvent) error {
 	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.TaskMessage) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowEvent) error); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `locked_by` TEXT NULL
 );
 
-CREATE TABLE IF NOT EXISTS `new_events` (
+CREATE TABLE IF NOT EXISTS `pending_events` (
   `id` TEXT PRIMARY KEY,
   `instance_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,

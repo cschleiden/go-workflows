@@ -51,7 +51,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	executionID := uuid.NewString()
 	wfi := core.NewWorkflowInstance(instanceID, executionID)
 
-	startMessage := &core.TaskMessage{
+	startMessage := &core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     startedEvent,
 	}

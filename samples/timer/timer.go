@@ -18,13 +18,13 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	mb := memory.NewMemoryBackend()
+	b := memory.NewMemoryBackend()
 
 	// Run worker
-	go RunWorker(ctx, mb)
+	go RunWorker(ctx, b)
 
 	// Start workflow via client
-	c := client.NewClient(mb)
+	c := client.NewClient(b)
 
 	startWorkflow(ctx, c)
 
@@ -72,33 +72,26 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	}
 
 	tctx, cancel := workflow.WithCancel(ctx)
-	t, err := workflow.ScheduleTimer(tctx, 5*time.Second)
+	t, err := workflow.ScheduleTimer(tctx, 2*time.Second)
 	if err != nil {
 		panic("could not schedule timer")
 	}
 
-	s := workflow.NewSelector()
-
-	s.AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
+	workflow.NewSelector().AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
 		err := f.Get(ctx, nil)
 		if err != nil {
 			log.Println("Timer cancelled, IsReplaying:", workflow.Replaying(ctx))
 		} else {
 			log.Println("Timer fired, IsReplaying:", workflow.Replaying(ctx))
 		}
-	})
-
-	s.AddFuture(a1, func(ctx workflow.Context, f workflow.Future) {
+	}).AddFuture(a1, func(ctx workflow.Context, f workflow.Future) {
 		var r int
 		f.Get(ctx, &r)
 		log.Println("Activity result", r, ", IsReplaying:", workflow.Replaying(ctx))
 
 		// Cancel timer
 		cancel()
-	})
-
-	s.Select(ctx)
-	s.Select(ctx)
+	}).Select(ctx)
 
 	return "result", nil
 }

@@ -43,7 +43,7 @@ type sqliteBackend struct {
 	db *sql.DB
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.TaskMessage) error {
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "could not start transaction")
@@ -113,7 +113,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 	defer tx.Rollback()
 
-	// Lock next workflow task.
+	// Lock next workflow task by finding an unlocked instance with new events to process
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
 	now := time.Now().UTC()
 	row := tx.QueryRowContext(
@@ -124,12 +124,15 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 				SELECT rowid FROM instances i
 					WHERE (locked_until IS NULL OR locked_until < ?) AND completed_at IS NULL
 						AND EXISTS (
-							SELECT 1 FROM new_events WHERE instance_id = i.id AND execution_id = i.execution_id
+							SELECT 1
+								FROM pending_events
+								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 						)
 					LIMIT 1
 			) RETURNING id, execution_id, parent_instance_id, parent_event_id`,
 		now.Add(WorkflowLockTimeout),
 		"worker-id", // TODO: What to use for `locked_by`?
+		now,
 		now,
 	)
 
@@ -158,7 +161,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	// Get new events
-	events, err := tx.QueryContext(ctx, "SELECT * FROM `new_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
+	events, err := tx.QueryContext(ctx, "SELECT * FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get new events")
 	}
@@ -221,7 +224,12 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	return t, nil
 }
 
-func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Workflow, newEvents []history.Event, workflowMessages []core.TaskMessage) error {
+func (sb *sqliteBackend) CompleteWorkflowTask(
+	ctx context.Context,
+	task task.Workflow,
+	events []history.Event,
+	workflowEvents []core.WorkflowEvent,
+) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -246,7 +254,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 		return errors.New("could not find workflow instance to unlock")
 	}
 
-	// Remove handled events
+	// Remove handled events from task
 	if len(task.NewEvents) > 0 {
 		args := make([]interface{}, 0, len(task.NewEvents)+1)
 		args = append(args, task.WorkflowInstance.GetInstanceID())
@@ -256,35 +264,41 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 
 		if _, err := tx.ExecContext(
 			ctx,
-			fmt.Sprintf(`DELETE FROM new_events WHERE instance_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(task.NewEvents)-1)),
+			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(task.NewEvents)-1)),
 			args...,
 		); err != nil {
 			return errors.Wrap(err, "could not delete handled new events")
 		}
 	}
 
-	// Insert new events generated during this workflow execution
-	if err := insertNewEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), newEvents); err != nil {
+	// Add all handled events to history
+	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), task.NewEvents); err != nil {
 		return errors.Wrap(err, "could not insert new events")
+	}
+
+	// Insert new events generated during this workflow execution to the history
+	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), events); err != nil {
+		return errors.Wrap(err, "could not insert new history events")
 	}
 
 	workflowCompleted := false
 
 	// Schedule activities
-	for _, e := range newEvents {
+	for _, e := range events {
 		switch e.EventType {
 		case history.EventType_ActivityScheduled:
 			if err := scheduleActivity(ctx, tx, task.WorkflowInstance.GetInstanceID(), e); err != nil {
 				return errors.Wrap(err, "could not schedule activity")
 			}
+
 		case history.EventType_WorkflowExecutionFinished:
 			workflowCompleted = true
 		}
 	}
 
-	// Insert messages for other orchestrations
+	// Insert new workflow events
 	groupedEvents := make(map[core.WorkflowInstance][]history.Event)
-	for _, m := range workflowMessages {
+	for _, m := range workflowEvents {
 		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
 			groupedEvents[m.WorkflowInstance] = []history.Event{}
 		}
@@ -293,19 +307,16 @@ func (sb *sqliteBackend) CompleteWorkflowTask(ctx context.Context, task task.Wor
 	}
 
 	for instance, events := range groupedEvents {
-		// Create new instance
-		if err := createInstance(ctx, tx, instance); err != nil {
-			return err
+		if instance.GetInstanceID() != task.WorkflowInstance.GetInstanceID() {
+			// Create new instance
+			if err := createInstance(ctx, tx, instance); err != nil {
+				return err
+			}
 		}
 
 		if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), events); err != nil {
 			return errors.Wrap(err, "could not insert messages")
 		}
-	}
-
-	// Add all handled events to history
-	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), task.NewEvents); err != nil {
-		return errors.Wrap(err, "could not insert new events")
 	}
 
 	if workflowCompleted {
@@ -430,7 +441,7 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 
 		if _, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO `new_events` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
+			"INSERT INTO `pending_events` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
 			newEvent.ID,
 			instanceID,
 			newEvent.EventType,

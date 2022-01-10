@@ -3,8 +3,6 @@ package memory
 import (
 	"context"
 	"errors"
-	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -31,7 +29,7 @@ type workflowState struct {
 
 	History []history.Event
 
-	NewEvents []history.Event
+	PendingEvents []history.Event
 
 	CreatedAt   time.Time
 	CompletedAt *time.Time
@@ -45,12 +43,10 @@ type memoryBackend struct {
 	pendingWorkflows map[string]bool
 
 	// pending workflow tasks
-	workflows chan *task.Workflow
+	workflows chan string
 
 	// pending activity tasks
 	activities chan *task.Activity
-
-	log *log.Logger
 }
 
 func NewMemoryBackend() backend.Backend {
@@ -60,20 +56,17 @@ func NewMemoryBackend() backend.Backend {
 
 		// lockedWorkflows are currently in progress by a worker
 		lockedWorkflows: make(map[string]bool),
-		// pendingWorkflows have pending events
-		pendingWorkflows: make(map[string]bool),
 
 		// Queue of pending workflow instances
-		workflows: make(chan *task.Workflow, 100),
+		workflows:        make(chan string, 100),
+		pendingWorkflows: make(map[string]bool),
+
 		// Queue of pending activity instances
 		activities: make(chan *task.Activity, 100),
-
-		log: log.New(io.Discard, "mb", log.LstdFlags),
-		// log: log.New(os.Stderr, "[mb]\t", log.Lmsgprefix|log.Ltime),
 	}
 }
 
-func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.TaskMessage) error {
+func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
 	// attrs, ok := m.HistoryEvent.Attributes.(history.ExecutionStartedAttributes)
 	// if !ok {
 	// 	return errors.New("invalid workflow instance creation event")
@@ -86,14 +79,8 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Task
 		return errors.New("workflow instance already exists")
 	}
 
-	state := workflowState{
-		Instance:  m.WorkflowInstance,
-		History:   []history.Event{},
-		NewEvents: []history.Event{m.HistoryEvent},
-		CreatedAt: time.Now().UTC(),
-	}
+	mb.createWorkflowInstance(m)
 
-	mb.instances[m.WorkflowInstance.GetInstanceID()] = &state
 	mb.queueWorkflowTask(m.WorkflowInstance)
 
 	return nil
@@ -108,7 +95,7 @@ func (mb *memoryBackend) SignalWorkflow(ctx context.Context, wfi core.WorkflowIn
 		return errors.New("workflow instance does not exist")
 	}
 
-	instance.NewEvents = append(instance.NewEvents, event)
+	instance.PendingEvents = append(instance.PendingEvents, event)
 
 	mb.queueWorkflowTask(wfi)
 
@@ -120,12 +107,33 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	case <-ctx.Done():
 		return nil, nil
 
-	case t := <-mb.workflows:
+	case id := <-mb.workflows:
 		mb.mu.Lock()
 		defer mb.mu.Unlock()
 
-		mb.lockedWorkflows[t.WorkflowInstance.GetInstanceID()] = true
-		delete(mb.pendingWorkflows, t.WorkflowInstance.GetInstanceID())
+		delete(mb.pendingWorkflows, id)
+
+		// Only return visible events to worker
+		instance := mb.instances[id]
+		newEvents := make([]history.Event, 0)
+		for _, event := range instance.PendingEvents {
+			if event.VisibleAt == nil || event.VisibleAt.Before(time.Now().UTC()) {
+				newEvents = append(newEvents, event)
+			}
+		}
+
+		if len(newEvents) == 0 {
+			return nil, nil
+		}
+
+		mb.lockedWorkflows[id] = true
+
+		// Add task to queue
+		t := &task.Workflow{
+			WorkflowInstance: instance.Instance,
+			History:          instance.History,
+			NewEvents:        newEvents,
+		}
 
 		return t, nil
 	}
@@ -134,8 +142,8 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 func (mb *memoryBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	t task.Workflow,
-	newEvents []history.Event,
-	workflowMessages []core.TaskMessage,
+	events []history.Event,
+	workflowEvents []core.WorkflowEvent,
 ) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
@@ -155,26 +163,25 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 	}
 
 	i := 0
-	for _, event := range instance.NewEvents {
+	for _, event := range instance.PendingEvents {
 		if !handled[event.ID] {
-			instance.NewEvents[i] = event
+			instance.PendingEvents[i] = event
 			i++
-		} else {
-			// Event handled, add to history
-			instance.History = append(instance.History, event)
 		}
 	}
-	instance.NewEvents = instance.NewEvents[:i]
+	instance.PendingEvents = instance.PendingEvents[:i]
+
+	// Add handled events to history
+	instance.History = append(instance.History, t.NewEvents...)
+
+	// Add all events from the last execution to history
+	instance.History = append(instance.History, events...)
 
 	// Queue activities
 	workflowCompleted := false
 
-	mb.log.Println("New events:", len(newEvents))
-
-	// Handle special events
-	for _, event := range newEvents {
-		mb.log.Println("\tEvent:", event.EventType)
-
+	// Check events generated in last execution for any action that needs to be taken
+	for _, event := range events {
 		switch event.EventType {
 		case history.EventType_ActivityScheduled:
 			mb.activities <- &task.Activity{
@@ -183,53 +190,48 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 				Event:            event,
 			}
 
-		case history.EventType_TimerScheduled:
+		case history.EventType_WorkflowExecutionFinished:
+			workflowCompleted = true
+		}
+	}
+
+	// Handle events to be handled in the future
+	for _, we := range workflowEvents {
+		workflowInstance := we.WorkflowInstance
+		event := we.HistoryEvent
+
+		switch event.EventType {
+		case history.EventType_TimerFired:
 			// Specific to this backend implementation, schedule a timer to put a new task in the queue when the timer fires
-			a := event.Attributes.(*history.TimerScheduledAttributes)
+			a := event.Attributes.(*history.TimerFiredAttributes)
 			go func() {
+				// Ensure a workflow task is queued when this timer should fire
 				delay := a.At.Sub(time.Now().UTC())
 				<-time.After(delay)
 
 				mb.mu.Lock()
 				defer mb.mu.Unlock()
 
-				mb.queueWorkflowTask(wfi)
+				mb.queueWorkflowTask(workflowInstance)
 			}()
-
-		case history.EventType_WorkflowExecutionFinished:
-			workflowCompleted = true
 		}
 
-		instance.NewEvents = append(instance.NewEvents, event)
-	}
-
-	// Handle messages for other workflows
-	for _, m := range workflowMessages {
-		state, ok := mb.instances[m.WorkflowInstance.GetInstanceID()]
-		if !ok {
-			// Create new instance
-			state = &workflowState{
-				Instance:  m.WorkflowInstance,
-				History:   []history.Event{},
-				NewEvents: []history.Event{},
-				CreatedAt: time.Now().UTC(),
-			}
-
-			mb.instances[m.WorkflowInstance.GetInstanceID()] = state
+		if state, ok := mb.instances[workflowInstance.GetInstanceID()]; ok {
+			state.PendingEvents = append(state.PendingEvents, event)
+		} else {
+			mb.createWorkflowInstance(we)
 		}
-
-		state.NewEvents = append(state.NewEvents, m.HistoryEvent)
 
 		// Wake up workflow orchestration
-		mb.queueWorkflowTask(state.Instance)
+		mb.queueWorkflowTask(workflowInstance)
 	}
 
 	// Unlock instance
 	delete(mb.lockedWorkflows, wfi.GetInstanceID())
 
 	if !workflowCompleted {
-		// New events from this checkpoint or added while this was locked
-		hasNewEvents := len(instance.NewEvents) > 0
+		// New events have been added while this was being worked on
+		hasNewEvents := len(instance.PendingEvents) > 0
 		if hasNewEvents {
 			mb.queueWorkflowTask(wfi)
 		}
@@ -260,9 +262,9 @@ func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.Workfl
 	}
 
 	if instance.Status == workflowStatusCompleted {
-		mb.log.Println("Workflow already completed, ignoring activity result")
+		// Ignore activity result for completed workflow
 	} else {
-		instance.NewEvents = append(instance.NewEvents, event)
+		instance.PendingEvents = append(instance.PendingEvents, event)
 
 		// Workflow is not currently locked, mark as ready to be picked up
 		if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
@@ -273,38 +275,29 @@ func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.Workfl
 	return nil
 }
 
+func (mb *memoryBackend) createWorkflowInstance(m core.WorkflowEvent) *workflowState {
+	state := workflowState{
+		Instance:      m.WorkflowInstance,
+		History:       []history.Event{},
+		PendingEvents: []history.Event{m.HistoryEvent},
+		CreatedAt:     time.Now().UTC(),
+	}
+
+	mb.instances[m.WorkflowInstance.GetInstanceID()] = &state
+
+	return &state
+}
+
 func (mb *memoryBackend) queueWorkflowTask(wfi core.WorkflowInstance) {
-	instance, ok := mb.instances[wfi.GetInstanceID()]
-	if !ok {
+	if _, ok := mb.instances[wfi.GetInstanceID()]; !ok {
 		panic("could not find workflow instance")
 	}
 
-	// Return visible events to worker
-	mb.log.Println("Events to worker:")
-	newEvents := make([]history.Event, 0)
-	for _, event := range instance.NewEvents {
-		if event.VisibleAt == nil || event.VisibleAt.Before(time.Now().UTC()) {
-			mb.log.Println("\tEvent:", event.EventType)
-			newEvents = append(newEvents, event)
-		}
-	}
-
-	if len(newEvents) == 0 {
-		mb.log.Println("no events")
-		return
-	}
-
-	// Prevent multiple tasks for the same workflow
+	// Before enqueuing task, prevent multiple tasks for the same workflow
 	if mb.pendingWorkflows[wfi.GetInstanceID()] {
 		return
 	}
 
+	mb.workflows <- wfi.GetInstanceID()
 	mb.pendingWorkflows[wfi.GetInstanceID()] = true
-
-	// Add task to queue
-	mb.workflows <- &task.Workflow{
-		WorkflowInstance: wfi,
-		History:          instance.History,
-		NewEvents:        newEvents,
-	}
 }
