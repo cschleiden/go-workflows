@@ -1,6 +1,11 @@
 package workflow
 
-import "sync"
+import (
+	"reflect"
+	"runtime"
+	"strings"
+	"sync"
+)
 
 type Registry struct {
 	sync.Mutex
@@ -43,4 +48,14 @@ func (r *Registry) GetActivity(name string) Activity {
 	defer r.Unlock()
 
 	return r.activityMap[name]
+}
+
+func getFunctionName(i interface{}) string {
+	// Adapted from https://stackoverflow.com/a/7053871
+	fnName := runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+
+	s := strings.Split(fnName, ".")
+	fnName = s[len(s)-1]
+
+	return strings.TrimSuffix(fnName, "-fm")
 }
