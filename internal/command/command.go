@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/payload"
+	"github.com/google/uuid"
 )
 
 type CommandType int
@@ -48,9 +49,10 @@ func NewScheduleActivityTaskCommand(id int, name, version string, inputs []paylo
 }
 
 type ScheduleSubWorkflowCommandAttr struct {
-	Name    string
-	Version string
-	Inputs  []payload.Payload
+	InstanceID string
+	Name       string
+	Version    string
+	Inputs     []payload.Payload
 }
 
 func NewScheduleSubWorkflowCommand(id int, name, version string, inputs []payload.Payload) Command {
@@ -58,9 +60,10 @@ func NewScheduleSubWorkflowCommand(id int, name, version string, inputs []payloa
 		ID:   id,
 		Type: CommandType_ScheduleSubWorkflow,
 		Attr: &ScheduleSubWorkflowCommandAttr{
-			Name:    name,
-			Version: version,
-			Inputs:  inputs,
+			InstanceID: uuid.New().String(),
+			Name:       name,
+			Version:    version,
+			Inputs:     inputs,
 		},
 	}
 }

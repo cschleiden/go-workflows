@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `history` (
 CREATE TABLE IF NOT EXISTS `activities` (
   `id` TEXT PRIMARY KEY,
   `instance_id` TEXT NOT NULL,
+  `execution_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `event_id` INTEGER NOT NULL,
   `attributes` BLOB NOT NULL,

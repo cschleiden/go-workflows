@@ -96,14 +96,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		case command.CommandType_ScheduleSubWorkflow:
 			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 
-			// TODO: Figure out execution id
-			subWorkflowInstance := core.NewSubWorkflowInstance(uuid.NewString(), "", task.WorkflowInstance, c.ID)
+			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), task.WorkflowInstance, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				history.EventType_SubWorkflowScheduled,
 				c.ID,
 				&history.SubWorkflowScheduledAttributes{
-					// TODO: Do we need an execution ID?
 					InstanceID: subWorkflowInstance.GetInstanceID(),
 					Name:       a.Name,
 					Version:    a.Version,

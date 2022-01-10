@@ -62,7 +62,7 @@ func (s *BackendTestSuite) TestCreateWorkflowInstance_DoesNotError() {
 	ctx := context.Background()
 
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
-		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), ""),
+		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), uuid.NewString()),
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
@@ -71,7 +71,7 @@ func (s *BackendTestSuite) TestCreateWorkflowInstance_DoesNotError() {
 func (s *BackendTestSuite) TestGetWorkflowTask_ReturnsTask() {
 	ctx := context.Background()
 
-	wfi := core.NewWorkflowInstance(uuid.NewString(), "")
+	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
@@ -88,7 +88,7 @@ func (s *BackendTestSuite) TestGetWorkflowTask_ReturnsTask() {
 func (s *BackendTestSuite) TestGetWorkflowTask_LocksTask() {
 	ctx := context.Background()
 
-	wfi := core.NewWorkflowInstance(uuid.NewString(), "")
+	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
@@ -113,7 +113,7 @@ func (s *BackendTestSuite) TestGetWorkflowTask_LocksTask() {
 func (s *BackendTestSuite) TestCompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 	ctx := context.Background()
 
-	wfi := core.NewWorkflowInstance(uuid.NewString(), "")
+	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
@@ -122,7 +122,7 @@ func (s *BackendTestSuite) TestCompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 
 	//
 	t := task.Workflow{
-		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), ""),
+		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), uuid.NewString()),
 		NewEvents:        []history.Event{},
 	}
 
