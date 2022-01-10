@@ -22,7 +22,7 @@ func Workflow1(ctx workflow.Context, input string) error {
 		panic("error getting activity 1 result")
 	}
 
-  log.Println("A1 result:", r1)
+  	log.Println("A1 result:", r1)
 
 	a2, err := workflow.ExecuteActivity(ctx, Activity2)
 	if err != nil {
@@ -33,7 +33,7 @@ func Workflow1(ctx workflow.Context, input string) error {
 		panic("error getting activity 1 result")
 	}
 
-  log.Println("A2 result:", r2)
+	log.Println("A2 result:", r2)
 
 	return nil
 }
