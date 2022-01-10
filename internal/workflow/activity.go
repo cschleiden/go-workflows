@@ -24,7 +24,7 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) (
 	wfState.eventID++
 
 	name := fn.Name(activity)
-	command := command.NewScheduleActivityTaskCommand(eventID, name, "", inputs)
+	command := command.NewScheduleActivityTaskCommand(eventID, name, inputs)
 	wfState.addCommand(command)
 
 	f := sync.NewFuture()

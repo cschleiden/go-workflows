@@ -7,7 +7,5 @@ type SubWorkflowScheduledAttributes struct {
 
 	Name string
 
-	Version string
-
 	Inputs []payload.Payload
 }

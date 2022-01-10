@@ -31,19 +31,17 @@ type Command struct {
 }
 
 type ScheduleActivityTaskCommandAttr struct {
-	Name    string
-	Version string
-	Inputs  []payload.Payload
+	Name   string
+	Inputs []payload.Payload
 }
 
-func NewScheduleActivityTaskCommand(id int, name, version string, inputs []payload.Payload) Command {
+func NewScheduleActivityTaskCommand(id int, name string, inputs []payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleActivityTask,
 		Attr: &ScheduleActivityTaskCommandAttr{
-			Name:    name,
-			Version: version,
-			Inputs:  inputs,
+			Name:   name,
+			Inputs: inputs,
 		},
 	}
 }
@@ -51,18 +49,16 @@ func NewScheduleActivityTaskCommand(id int, name, version string, inputs []paylo
 type ScheduleSubWorkflowCommandAttr struct {
 	InstanceID string
 	Name       string
-	Version    string
 	Inputs     []payload.Payload
 }
 
-func NewScheduleSubWorkflowCommand(id int, name, version string, inputs []payload.Payload) Command {
+func NewScheduleSubWorkflowCommand(id int, name string, inputs []payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleSubWorkflow,
 		Attr: &ScheduleSubWorkflowCommandAttr{
 			InstanceID: uuid.New().String(),
 			Name:       name,
-			Version:    version,
 			Inputs:     inputs,
 		},
 	}

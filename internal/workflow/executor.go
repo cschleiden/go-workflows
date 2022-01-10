@@ -46,7 +46,6 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 		name = a.Name
 	}
 
-	// TODO: Support version?
 	wfFn := registry.GetWorkflow(name)
 	workflow := NewWorkflow(reflect.ValueOf(wfFn))
 

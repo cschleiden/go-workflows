@@ -44,9 +44,8 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "Workflow1",
-					Version: "",
-					Inputs:  []payload.Payload{},
+					Name:   "Workflow1",
+					Inputs: []payload.Payload{},
 				},
 			),
 		},
@@ -106,18 +105,16 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "WorkflowWithActivity",
-					Version: "",
-					Inputs:  []payload.Payload{inputs},
+					Name:   "WorkflowWithActivity",
+					Inputs: []payload.Payload{inputs},
 				},
 			),
 			history.NewHistoryEvent(
 				history.EventType_ActivityScheduled,
 				0,
 				&history.ActivityScheduledAttributes{
-					Name:    "Activity1",
-					Version: "",
-					Inputs:  []payload.Payload{inputs},
+					Name:   "Activity1",
+					Inputs: []payload.Payload{inputs},
 				},
 			),
 			history.NewHistoryEvent(
@@ -160,9 +157,8 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "workflowWithActivity",
-					Version: "",
-					Inputs:  []payload.Payload{},
+					Name:   "workflowWithActivity",
+					Inputs: []payload.Payload{},
 				},
 			),
 		},
@@ -186,9 +182,8 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
 		Attr: &command.ScheduleActivityTaskCommandAttr{
-			Name:    "Activity1",
-			Version: "",
-			Inputs:  []payload.Payload{inputs},
+			Name:   "Activity1",
+			Inputs: []payload.Payload{inputs},
 		},
 	}, e.workflowState.commands[0])
 }
@@ -228,9 +223,8 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "workflowWithTimer",
-					Version: "",
-					Inputs:  []payload.Payload{},
+					Name:   "workflowWithTimer",
+					Inputs: []payload.Payload{},
 				},
 			),
 		},
@@ -297,9 +291,8 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "workflowWithSelector",
-					Version: "",
-					Inputs:  []payload.Payload{},
+					Name:   "workflowWithSelector",
+					Inputs: []payload.Payload{},
 				},
 			),
 		},

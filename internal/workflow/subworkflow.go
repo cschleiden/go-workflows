@@ -21,7 +21,7 @@ func CreateSubWorkflowInstance(ctx sync.Context, workflow Workflow, args ...inte
 	wfState.eventID++
 
 	name := fn.Name(workflow)
-	command := command.NewScheduleSubWorkflowCommand(eventID, name, "", inputs)
+	command := command.NewScheduleSubWorkflowCommand(eventID, name, inputs)
 	wfState.addCommand(command)
 
 	f := sync.NewFuture()

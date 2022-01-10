@@ -87,9 +87,8 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				history.EventType_ActivityScheduled,
 				c.ID,
 				&history.ActivityScheduledAttributes{
-					Name:    a.Name,
-					Version: a.Version,
-					Inputs:  a.Inputs,
+					Name:   a.Name,
+					Inputs: a.Inputs,
 				},
 			))
 
@@ -104,7 +103,6 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				&history.SubWorkflowScheduledAttributes{
 					InstanceID: subWorkflowInstance.GetInstanceID(),
 					Name:       a.Name,
-					Version:    a.Version,
 					Inputs:     a.Inputs,
 				},
 			))
@@ -116,9 +114,8 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 					history.EventType_WorkflowExecutionStarted,
 					c.ID,
 					&history.ExecutionStartedAttributes{
-						Name:    a.Name,
-						Version: a.Version,
-						Inputs:  a.Inputs,
+						Name:   a.Name,
+						Inputs: a.Inputs,
 					},
 				),
 			})
