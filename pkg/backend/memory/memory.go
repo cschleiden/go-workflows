@@ -222,7 +222,8 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 			mb.createWorkflowInstance(we)
 		}
 
-		// Wake up workflow orchestration
+		// Wake up workflow orchestration, this is idempotent so even if we have multiple events for the same instance
+		// only one task will be scheduled
 		mb.queueWorkflowTask(workflowInstance)
 	}
 
