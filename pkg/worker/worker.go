@@ -9,11 +9,11 @@ import (
 )
 
 type WorkflowRegistry interface {
-	RegisterWorkflow(name string, w workflow.Workflow) error
+	RegisterWorkflow(w workflow.Workflow) error
 }
 
 type ActivityRegistry interface {
-	RegisterActivity(name string, a workflow.Activity) error
+	RegisterActivity(a workflow.Activity) error
 }
 
 type Registry interface {
@@ -63,18 +63,10 @@ func (w *worker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *worker) RegisterWorkflow(name string, wf workflow.Workflow) error {
-	// TODO: Check for conflicts etc.
-
-	w.registry.RegisterWorkflow(name, wf)
-
-	return nil
+func (w *worker) RegisterWorkflow(wf workflow.Workflow) error {
+	return w.registry.RegisterWorkflow(wf)
 }
 
-func (w *worker) RegisterActivity(name string, a workflow.Activity) error {
-	// TODO: Check for conflicts etc.
-
-	w.registry.RegisterActivity(name, a)
-
-	return nil
+func (w *worker) RegisterActivity(a workflow.Activity) error {
+	return w.registry.RegisterActivity(a)
 }

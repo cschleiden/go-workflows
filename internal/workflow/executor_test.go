@@ -18,6 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Activity1(ctx context.Context, r int) (int, error) {
+	fmt.Println("Entering Activity1")
+
+	return r, nil
+}
+
 func Test_ExecuteWorkflow(t *testing.T) {
 	r := NewRegistry()
 
@@ -29,7 +35,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		return nil
 	}
 
-	r.RegisterWorkflow("w1", Workflow1)
+	r.RegisterWorkflow(Workflow1)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -38,7 +44,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "w1",
+					Name:    "Workflow1",
 					Version: "",
 					Inputs:  []payload.Payload{},
 				},
@@ -61,37 +67,34 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	require.Len(t, e.workflowState.commands, 1)
 }
 
+var workflowActivityHit int
+
+func workflowWithActivity(ctx sync.Context) error {
+	workflowActivityHit++
+
+	f1, err := ExecuteActivity(ctx, Activity1, 42)
+	if err != nil {
+		panic("error executing activity 1")
+	}
+
+	var r int
+	err = f1.Get(ctx, &r)
+	if err != nil {
+		panic("error getting activity 1 result")
+	}
+
+	workflowActivityHit++
+
+	return nil
+}
+
 func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	r := NewRegistry()
 
-	var workflowHit int
+	workflowActivityHit = 0
 
-	Workflow1 := func(ctx sync.Context) error {
-		workflowHit++
-
-		f1, err := ExecuteActivity(ctx, "a1", 42)
-		if err != nil {
-			panic("error executing activity 1")
-		}
-
-		var r int
-		err = f1.Get(ctx, &r)
-		if err != nil {
-			panic("error getting activity 1 result")
-		}
-
-		workflowHit++
-
-		return nil
-	}
-	Activity1 := func(ctx context.Context, r int) (int, error) {
-		fmt.Println("Entering Activity1")
-
-		return r, nil
-	}
-
-	r.RegisterWorkflow("w1", Workflow1)
-	r.RegisterActivity("a1", Activity1)
+	r.RegisterWorkflow(workflowWithActivity)
+	r.RegisterActivity(Activity1)
 
 	inputs, _ := converter.DefaultConverter.To(42)
 	result, _ := converter.DefaultConverter.To(42)
@@ -103,7 +106,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "w1",
+					Name:    "WorkflowWithActivity",
 					Version: "",
 					Inputs:  []payload.Payload{inputs},
 				},
@@ -112,7 +115,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.EventType_ActivityScheduled,
 				0,
 				&history.ActivityScheduledAttributes{
-					Name:    "a1",
+					Name:    "Activity1",
 					Version: "",
 					Inputs:  []payload.Payload{inputs},
 				},
@@ -130,14 +133,14 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	e := &executor{
 		registry:      r,
 		task:          task,
-		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflow:      NewWorkflow(reflect.ValueOf(workflowWithActivity)),
 		workflowState: newWorkflowState(),
 		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
-	require.Equal(t, 2, workflowHit)
+	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.commands, 1)
 }
@@ -145,34 +148,10 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	r := NewRegistry()
 
-	var workflowHits int
+	workflowActivityHit = 0
 
-	Workflow1 := func(ctx sync.Context) error {
-		workflowHits++
-
-		f1, err := ExecuteActivity(ctx, "a1", 42)
-		if err != nil {
-			panic("error executing activity 1")
-		}
-
-		var r int
-		err = f1.Get(ctx, &r)
-		if err != nil {
-			panic("error getting activity 1 result")
-		}
-
-		workflowHits++
-
-		return nil
-	}
-	Activity1 := func(ctx context.Context, r int) (int, error) {
-		fmt.Println("Entering Activity1")
-
-		return r, nil
-	}
-
-	r.RegisterWorkflow("w1", Workflow1)
-	r.RegisterActivity("a1", Activity1)
+	r.RegisterWorkflow(workflowWithActivity)
+	r.RegisterActivity(Activity1)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -181,7 +160,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "w1",
+					Name:    "workflowWithActivity",
 					Version: "",
 					Inputs:  []payload.Payload{},
 				},
@@ -192,15 +171,14 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	e := &executor{
 		registry:      r,
 		task:          task,
-		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflow:      NewWorkflow(reflect.ValueOf(workflowWithActivity)),
 		workflowState: newWorkflowState(),
 		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
-	require.Equal(t, 1, workflowHits)
-
+	require.Equal(t, 1, workflowActivityHit)
 	require.Len(t, e.workflowState.commands, 1)
 
 	inputs, _ := converter.DefaultConverter.To(42)
@@ -208,38 +186,40 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
 		Attr: &command.ScheduleActivityTaskCommandAttr{
-			Name:    "a1",
+			Name:    "Activity1",
 			Version: "",
 			Inputs:  []payload.Payload{inputs},
 		},
 	}, e.workflowState.commands[0])
 }
 
+var workflowTimerHits int
+
+func workflowWithTimer(ctx sync.Context) error {
+	workflowTimerHits++
+
+	t, err := ScheduleTimer(ctx, time.Millisecond*5)
+	if err != nil {
+		panic("error executing activity 1")
+	}
+
+	var r bool
+	err = t.Get(ctx, &r)
+	if err != nil {
+		panic("error getting timer future")
+	}
+
+	workflowTimerHits++
+
+	return nil
+}
+
 func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	r := NewRegistry()
 
-	var workflowHits int
+	workflowTimerHits = 0
 
-	Workflow1 := func(ctx sync.Context) error {
-		workflowHits++
-
-		t, err := ScheduleTimer(ctx, time.Millisecond*5)
-		if err != nil {
-			panic("error executing activity 1")
-		}
-
-		var r bool
-		err = t.Get(ctx, &r)
-		if err != nil {
-			panic("error getting timer future")
-		}
-
-		workflowHits++
-
-		return nil
-	}
-
-	r.RegisterWorkflow("w1", Workflow1)
+	r.RegisterWorkflow(workflowWithTimer)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -248,7 +228,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "w1",
+					Name:    "workflowWithTimer",
 					Version: "",
 					Inputs:  []payload.Payload{},
 				},
@@ -259,61 +239,56 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	e := &executor{
 		registry:      r,
 		task:          task,
-		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflow:      NewWorkflow(reflect.ValueOf(workflowWithTimer)),
 		workflowState: newWorkflowState(),
 		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
-	require.Equal(t, 1, workflowHits)
+	require.Equal(t, 1, workflowTimerHits)
 	require.Len(t, e.workflowState.commands, 1)
 
 	require.Equal(t, 0, e.workflowState.commands[0].ID)
 	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[0].Type)
 }
 
+var workflowWithSelectorHits int
+
+func workflowWithSelector(ctx sync.Context) error {
+	workflowWithSelectorHits++
+
+	s := sync.NewSelector()
+
+	f1, err := ExecuteActivity(ctx, Activity1, 42)
+	if err != nil {
+		panic("error executing activity 1")
+	}
+	t, err := ScheduleTimer(ctx, time.Millisecond*2)
+	if err != nil {
+		panic("error executing activity 1")
+	}
+
+	s.AddFuture(f1, func(ctx sync.Context, f sync.Future) {
+		workflowWithSelectorHits++
+	})
+
+	s.AddFuture(t, func(ctx sync.Context, t sync.Future) {
+		workflowWithSelectorHits++
+	})
+
+	s.Select(ctx)
+
+	workflowWithSelectorHits++
+
+	return nil
+}
+
 func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	r := NewRegistry()
 
-	var workflowHits int
-
-	Workflow1 := func(ctx sync.Context) error {
-		workflowHits++
-
-		s := sync.NewSelector()
-
-		f1, err := ExecuteActivity(ctx, "a1", 42)
-		if err != nil {
-			panic("error executing activity 1")
-		}
-		t, err := ScheduleTimer(ctx, time.Millisecond*2)
-		if err != nil {
-			panic("error executing activity 1")
-		}
-
-		s.AddFuture(f1, func(ctx sync.Context, f sync.Future) {
-			workflowHits++
-		})
-
-		s.AddFuture(t, func(ctx sync.Context, t sync.Future) {
-			workflowHits++
-		})
-
-		s.Select(ctx)
-
-		workflowHits++
-
-		return nil
-	}
-	Activity1 := func(ctx context.Context, r int) (int, error) {
-		fmt.Println("Entering Activity1")
-
-		return r, nil
-	}
-
-	r.RegisterWorkflow("w1", Workflow1)
-	r.RegisterActivity("a1", Activity1)
+	r.RegisterWorkflow(workflowWithSelector)
+	r.RegisterActivity(Activity1)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -322,7 +297,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:    "w1",
+					Name:    "workflowWithSelector",
 					Version: "",
 					Inputs:  []payload.Payload{},
 				},
@@ -333,14 +308,14 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	e := &executor{
 		registry:      r,
 		task:          task,
-		workflow:      NewWorkflow(reflect.ValueOf(Workflow1)),
+		workflow:      NewWorkflow(reflect.ValueOf(workflowWithSelector)),
 		workflowState: newWorkflowState(),
 		logger:        log.Default(),
 	}
 
 	e.ExecuteWorkflowTask(context.Background())
 
-	require.Equal(t, 1, workflowHits)
+	require.Equal(t, 1, workflowWithSelectorHits)
 	require.Len(t, e.workflowState.commands, 2)
 
 	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.commands[0].Type)

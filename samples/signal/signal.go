@@ -51,7 +51,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.NewWorker(mb)
 
-	w.RegisterWorkflow("wf1", Workflow1)
+	w.RegisterWorkflow(Workflow1)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
@@ -74,6 +74,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		c.Receive(ctx, &r)
 
 		log.Println("Received signal:", r)
+		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	})
 
 	s.Select(ctx)

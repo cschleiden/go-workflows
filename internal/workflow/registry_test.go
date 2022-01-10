@@ -1,54 +1,28 @@
 package workflow
 
 import (
-	"context"
 	"testing"
 
+	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/stretchr/testify/require"
 )
 
-type foo struct {
-}
-
-func (f *foo) DoSomething(ctx context.Context) error {
+func workflow1(context sync.Context) error {
 	return nil
 }
 
-func (f *foo) bar(ctx context.Context) error {
-	return nil
-}
+func Test_WorkflowRegistration(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
 
-var f foo
+	err := r.RegisterWorkflow(workflow1)
+	require.NoError(t, err)
 
-func bar(_ int) {
-}
+	x := r.GetWorkflow("workflow1")
+	fn, ok := x.(func(context sync.Context) error)
+	require.True(t, ok)
+	require.NotNil(t, fn)
 
-func Test_getFunctionName(t *testing.T) {
-	tests := []struct {
-		name string
-		i    interface{}
-		want string
-	}{
-		{
-			name: "function",
-			i:    bar,
-			want: "bar",
-		},
-		{
-			name: "struct method",
-			i:    f.bar,
-			want: "bar",
-		},
-		{
-			name: "exported struct method",
-			i:    f.DoSomething,
-			want: "DoSomething",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getFunctionName(tt.i)
-			require.Equal(t, tt.want, got)
-		})
-	}
+	err = fn(sync.Background())
+	require.NoError(t, err)
 }

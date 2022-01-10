@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/memory"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -17,8 +17,8 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// b := memory.NewMemoryBackend()
-	b := sqlite.NewSqliteBackend("subworkflow.sqlite")
+	b := memory.NewMemoryBackend()
+	// b := sqlite.NewSqliteBackend("subworkflow.sqlite")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -46,11 +46,11 @@ func startWorkflow(ctx context.Context, c client.Client) {
 func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.NewWorker(mb)
 
-	w.RegisterWorkflow("wf1", Workflow1)
-	w.RegisterWorkflow("wf2", Workflow2)
+	w.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(Workflow2)
 
-	w.RegisterActivity("a1", Activity1)
-	w.RegisterActivity("a2", Activity2)
+	w.RegisterActivity(Activity1)
+	w.RegisterActivity(Activity2)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
@@ -66,7 +66,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		log.Println("Leaving Workflow1")
 	}()
 
-	w2, err := workflow.CreateSubWorkflowInstance(ctx, "wf2", "some input")
+	w2, err := workflow.CreateSubWorkflowInstance(ctx, Workflow2, "some input")
 	if err != nil {
 		return errors.Wrap(err, "failed to create sub workflow")
 	}
@@ -90,7 +90,7 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow2")
 	}()
 
-	a1, err := workflow.ExecuteActivity(ctx, "a1", 35, 12)
+	a1, err := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
 	if err != nil {
 		panic("error executing activity 1")
 	}
@@ -103,7 +103,7 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 	log.Println("R1 result:", r1)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	a2, err := workflow.ExecuteActivity(ctx, "a2")
+	a2, err := workflow.ExecuteActivity(ctx, Activity2)
 	if err != nil {
 		panic("error executing activity 1")
 	}

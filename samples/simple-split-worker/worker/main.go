@@ -25,10 +25,10 @@ func main() {
 func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.NewWorker(mb)
 
-	w.RegisterWorkflow("wf1", simple_split_worker.Workflow1)
+	w.RegisterWorkflow(simple_split_worker.Workflow1)
 
-	w.RegisterActivity("a1", simple_split_worker.Activity1)
-	w.RegisterActivity("a2", simple_split_worker.Activity2)
+	w.RegisterActivity(simple_split_worker.Activity1)
+	w.RegisterActivity(simple_split_worker.Activity2)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")

@@ -12,7 +12,7 @@ Workflows are written in Go code. The only exception is they must not use any of
 
 ```go
 func Workflow1(ctx workflow.Context, input string) error {
-	a1, err := workflow.ExecuteActivity(ctx, "a1", 35, 12)
+	a1, err := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func Workflow1(ctx workflow.Context, input string) error {
 
   log.Println("A1 result:", r1)
 
-	a2, err := workflow.ExecuteActivity(ctx, "a2")
+	a2, err := workflow.ExecuteActivity(ctx, Activity2)
 	if err != nil {
 		panic("error executing activity 1")
 	}
@@ -62,10 +62,10 @@ The worker is responsible for executing `Workflows` and `Activities`, both need 
 func runWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.NewWorker(mb)
 
-	w.RegisterWorkflow("wf1", Workflow1)
+	r.RegisterWorkflow(Workflow1)
 
-	w.RegisterActivity("a1", Activity1)
-	w.RegisterActivity("a2", Activity2)
+	w.RegisterActivity(Activity1)
+	w.RegisterActivity(Activity2)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")

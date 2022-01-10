@@ -1,10 +1,9 @@
 package workflow
 
 import (
-	"reflect"
-	"runtime"
-	"strings"
 	"sync"
+
+	"github.com/cschleiden/go-dt/internal/fn"
 )
 
 type Registry struct {
@@ -22,18 +21,24 @@ func NewRegistry() *Registry {
 	}
 }
 
-func (r *Registry) RegisterWorkflow(name string, workflow Workflow) {
+func (r *Registry) RegisterWorkflow(workflow Workflow) error {
 	r.Lock()
 	defer r.Unlock()
 
+	name := fn.Name(workflow)
 	r.workflowMap[name] = workflow
+
+	return nil
 }
 
-func (r *Registry) RegisterActivity(name string, activity Activity) {
+func (r *Registry) RegisterActivity(activity Activity) error {
 	r.Lock()
 	defer r.Unlock()
 
+	name := fn.Name(activity)
 	r.activityMap[name] = activity
+
+	return nil
 }
 
 func (r *Registry) GetWorkflow(name string) Workflow {
@@ -48,14 +53,4 @@ func (r *Registry) GetActivity(name string) Activity {
 	defer r.Unlock()
 
 	return r.activityMap[name]
-}
-
-func getFunctionName(i interface{}) string {
-	// Adapted from https://stackoverflow.com/a/7053871
-	fnName := runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
-
-	s := strings.Split(fnName, ".")
-	fnName = s[len(s)-1]
-
-	return strings.TrimSuffix(fnName, "-fm")
 }

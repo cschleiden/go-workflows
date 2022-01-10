@@ -5,6 +5,7 @@ import (
 
 	a "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-dt/internal/fn"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/core"
@@ -43,7 +44,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		history.EventType_WorkflowExecutionStarted,
 		-1,
 		&history.ExecutionStartedAttributes{
-			Name:   "wf1", // TODO: get name from workflow
+			Name:   fn.Name(wf),
 			Inputs: inputs,
 		})
 

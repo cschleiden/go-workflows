@@ -4,6 +4,7 @@ import (
 	a "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-dt/internal/fn"
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/pkg/errors"
 )
@@ -11,7 +12,7 @@ import (
 type Activity interface{}
 
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity(ctx sync.Context, name string, args ...interface{}) (sync.Future, error) {
+func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) (sync.Future, error) {
 	wfState := getWfState(ctx)
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
@@ -19,10 +20,10 @@ func ExecuteActivity(ctx sync.Context, name string, args ...interface{}) (sync.F
 		return nil, errors.Wrap(err, "failed to convert activity input")
 	}
 
-	// TOOO: Validate arguments against activity registration
 	eventID := wfState.eventID
 	wfState.eventID++
 
+	name := fn.Name(activity)
 	command := command.NewScheduleActivityTaskCommand(eventID, name, "", inputs)
 	wfState.addCommand(command)
 

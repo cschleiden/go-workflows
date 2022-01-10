@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-dt/internal/workflow"
 	internal "github.com/cschleiden/go-dt/internal/workflow"
 )
 
@@ -11,12 +12,12 @@ func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
-func CreateSubWorkflowInstance(ctx Context, name string, args ...interface{}) (Future, error) {
-	return internal.CreateSubWorkflowInstance(ctx, name, args...)
+func CreateSubWorkflowInstance(ctx Context, workflow workflow.Workflow, args ...interface{}) (Future, error) {
+	return internal.CreateSubWorkflowInstance(ctx, workflow, args...)
 }
 
-func ExecuteActivity(ctx Context, name string, args ...interface{}) (Future, error) {
-	return internal.ExecuteActivity(ctx, name, args...)
+func ExecuteActivity(ctx Context, activity workflow.Activity, args ...interface{}) (Future, error) {
+	return internal.ExecuteActivity(ctx, activity, args...)
 }
 
 func ScheduleTimer(ctx Context, delay time.Duration) (Future, error) {
