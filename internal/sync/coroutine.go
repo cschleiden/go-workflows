@@ -147,12 +147,12 @@ func (s *coState) Execute() {
 		return
 	}
 
+	t := time.NewTimer(s.deadlockDetection)
+	defer t.Stop()
+
 	s.logger.Println("execute: unblocking")
 	s.unblock <- true
 	s.logger.Println("execute: unblocked")
-
-	t := time.NewTimer(s.deadlockDetection)
-	defer t.Stop()
 
 	// Run until blocked (which is also true when finished)
 	select {
