@@ -50,7 +50,10 @@ var _ ChannelInternal = (*channel)(nil)
 func (c *channel) Close() {
 	c.closed = true
 
-	// TODO: Wake up all blocked sends
+	// If there are still blocked senders, error
+	if len(c.senders) > 0 {
+		panic("send on closed channel")
+	}
 
 	for len(c.receivers) > 0 {
 		r := c.receivers[0]
@@ -111,8 +114,9 @@ func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 			cb := func(v interface{}) {
 				receivedValue = true
 
-				// TODO: Handle error
-				converter.AssignValue(c.converter, v, vptr)
+				if err := converter.AssignValue(c.converter, v, vptr); err != nil {
+					panic(err)
+				}
 			}
 
 			c.receivers = append(c.receivers, cb)
@@ -172,16 +176,19 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		v := c.c[0]
 		c.c = c.c[1:]
 
-		// TODO: Handle error
-		converter.AssignValue(c.converter, v, vptr)
+		if err := converter.AssignValue(c.converter, v, vptr); err != nil {
+			panic(err)
+		}
 		return true
 	}
 
 	// If channel has been closed and no values in buffer (if buffered) return zero
 	// element
 	if c.closed {
-		// TODO: Handle error
-		converter.AssignValue(c.converter, nil, vptr)
+		if err := converter.AssignValue(c.converter, nil, vptr); err != nil {
+			panic(err)
+		}
+
 		return true
 	}
 
@@ -191,8 +198,9 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		c.senders = c.senders[1:]
 
 		v := s()
-		// TODO: Handle error
-		converter.AssignValue(c.converter, v, vptr)
+		if err := converter.AssignValue(c.converter, v, vptr); err != nil {
+			panic(err)
+		}
 
 		return true
 	}

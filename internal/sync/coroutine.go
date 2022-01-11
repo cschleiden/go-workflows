@@ -50,7 +50,7 @@ type coState struct {
 	deadlockDetection time.Duration
 }
 
-func NewCoroutine(ctx Context, fn func(ctx Context)) Coroutine {
+func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 	s := newState()
 	ctx = withCoState(ctx, s)
 
@@ -65,7 +65,7 @@ func NewCoroutine(ctx Context, fn func(ctx Context)) Coroutine {
 		// yield before the first execution
 		s.yield(false)
 
-		fn(ctx)
+		s.err = fn(ctx)
 	}()
 
 	return s

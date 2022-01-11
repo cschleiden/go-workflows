@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/command"
@@ -25,6 +26,8 @@ type workflowWorker struct {
 	registry *workflow.Registry
 
 	workflowTaskQueue chan task.Workflow
+
+	logger *log.Logger
 }
 
 func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) WorkflowWorker {
@@ -33,6 +36,8 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) Wor
 
 		registry:          registry,
 		workflowTaskQueue: make(chan task.Workflow),
+
+		logger: log.Default(),
 	}
 }
 
@@ -46,12 +51,16 @@ func (ww *workflowWorker) Start(ctx context.Context) error {
 
 func (ww *workflowWorker) runPoll(ctx context.Context) {
 	for {
-		task, err := ww.poll(ctx, 30*time.Second)
-		if err != nil {
-			// TODO: log and ignore?
-			panic(err)
-		} else if task != nil {
-			ww.workflowTaskQueue <- *task
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			task, err := ww.poll(ctx, 30*time.Second)
+			if err != nil {
+				log.Println("error while polling for workflow task:", err)
+			} else if task != nil {
+				ww.workflowTaskQueue <- *task
+			}
 		}
 	}
 }
@@ -72,7 +81,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 
 	commands, err := workflowTaskExecutor.ExecuteWorkflowTask(ctx)
 	if err != nil {
-		panic(err) // TODO: Handle error
+		ww.logger.Panic(err)
 	}
 
 	newEvents := make([]history.Event, 0)
@@ -171,13 +180,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			}
 
 		default:
-			panic("unsupported command")
+			ww.logger.Panicf("unknown command type: %v", c.Type)
 		}
 	}
 
-	// TODO: Handle error
 	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowMessages); err != nil {
-		panic(err)
+		ww.logger.Panic(err)
 	}
 }
 

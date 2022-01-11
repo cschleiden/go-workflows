@@ -1,12 +1,14 @@
 package workflow
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/pkg/errors"
 )
 
 type Workflow interface{}
@@ -28,10 +30,10 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 }
 
 func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
-	w.s.NewCoroutine(ctx, func(ctx sync.Context) {
+	w.s.NewCoroutine(ctx, func(ctx sync.Context) error {
 		args, err := args.InputsToArgs(converter.DefaultConverter, w.fn, inputs)
 		if err != nil {
-			panic(err) // TODO: Handle error
+			return errors.Wrap(err, "could not convert workflow inputs")
 		}
 
 		args[0] = reflect.ValueOf(ctx)
@@ -39,8 +41,7 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 		r := w.fn.Call(args)
 
 		if len(r) < 1 || len(r) > 2 {
-			//return errors.New("workflow has to return either (error) or (result, error)") // TODO: error handling
-			panic("workflow has to return either (error) or (result, error)")
+			return errors.New("workflow has to return either (error) or (result, error)")
 		}
 
 		var result payload.Payload
@@ -49,24 +50,24 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 			var err error
 			result, err = converter.DefaultConverter.To(r[0].Interface())
 			if err != nil {
-				// return nil, errors.Wrap(err, "could not convert workflow result")
-				// TODO: return error from workflow
+				return errors.Wrap(err, "could not convert workflow result")
 			}
 		}
 
 		errResult := r[len(r)-1]
 		if errResult.IsNil() {
 			w.result = result
-			return
+			return nil
 		}
 
 		errInterface, ok := errResult.Interface().(error)
 		if !ok {
-			// return nil, fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult)
-			// TODO: Handle workflow infrastructure error
+			return fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult)
 		}
 
 		w.err = errInterface
+
+		return nil
 	})
 
 	return w.s.Execute(ctx)

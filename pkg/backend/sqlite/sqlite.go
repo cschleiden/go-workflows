@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -131,7 +132,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 					LIMIT 1
 			) RETURNING id, execution_id, parent_instance_id, parent_event_id`,
 		now.Add(WorkflowLockTimeout),
-		"worker-id", // TODO: What to use for `locked_by`?
+		sb.getWorkerName(),
 		now,
 		now,
 	)
@@ -353,7 +354,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
 			) RETURNING id, instance_id, execution_id, event_type, event_id, attributes, visible_at`,
 		now.Add(ActivityLockTimeout),
-		"activity-worker-id", // TODO: What to use for `locked_by`?
+		sb.getWorkerName(),
 		now,
 	)
 	if err != nil {
@@ -406,7 +407,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 		`DELETE FROM activities WHERE instance_id = ? AND id = ? AND locked_by = ?`,
 		instance.GetInstanceID(),
 		id,
-		"activity-worker-id", // TODO: What to use for `locked_by`?
+		sb.getWorkerName(),
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
 	}
@@ -430,6 +431,10 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	}
 
 	return nil
+}
+
+func (sb *sqliteBackend) getWorkerName() string {
+	return fmt.Sprintf("worker-%v", os.Getpid())
 }
 
 func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {

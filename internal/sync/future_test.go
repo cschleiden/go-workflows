@@ -11,9 +11,11 @@ import (
 func Test_Yields(t *testing.T) {
 	f := NewFuture()
 
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		var v int
 		f.Get(ctx, &v)
+
+		return nil
 	})
 
 	c.Execute()
@@ -27,8 +29,10 @@ func Test_SetUnblocks(t *testing.T) {
 
 	var v int
 
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		f.Get(ctx, &v)
+
+		return nil
 	})
 
 	c.Execute()
@@ -56,8 +60,10 @@ func Test_GetNil(t *testing.T) {
 	ctx := Background()
 	f := NewFuture()
 
-	c := NewCoroutine(ctx, func(ctx Context) {
+	c := NewCoroutine(ctx, func(ctx Context) error {
 		f.Get(ctx, nil)
+
+		return nil
 	})
 
 	f.Set(nil, nil)
@@ -73,8 +79,10 @@ func Test_SetNil(t *testing.T) {
 	f := NewFuture()
 
 	var r int
-	c := NewCoroutine(ctx, func(ctx Context) {
+	c := NewCoroutine(ctx, func(ctx Context) error {
 		f.Get(ctx, &r)
+
+		return nil
 	})
 
 	var v payload.Payload
@@ -92,8 +100,10 @@ func Test_GetError(t *testing.T) {
 
 	var err error
 
-	c := NewCoroutine(ctx, func(ctx Context) {
+	c := NewCoroutine(ctx, func(ctx Context) error {
 		err = f.Get(ctx, nil)
+
+		return nil
 	})
 
 	f.Set(nil, errors.New("test"))

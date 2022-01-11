@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"reflect"
@@ -12,6 +13,7 @@ import (
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
+	errs "github.com/pkg/errors"
 )
 
 type WorkflowExecutor interface {
@@ -62,26 +64,33 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error) {
 	wfCtx := withWfState(sync.Background(), e.workflowState)
 
+	defer func() {
+		if e.workflow != nil {
+			// End workflow if running to prevent leaking goroutines
+			e.workflow.Close(wfCtx)
+		}
+	}()
+
 	// Replay history
 	e.workflowState.setReplaying(true)
 	for _, event := range e.task.History {
-		e.executeEvent(wfCtx, event)
+		if err := e.executeEvent(wfCtx, event); err != nil {
+			return nil, errs.Wrap(err, "error while replaying event")
+		}
 	}
 
 	// Play new events
 	e.workflowState.setReplaying(false)
 	for _, event := range e.task.NewEvents {
-		e.executeEvent(wfCtx, event)
+		if err := e.executeEvent(wfCtx, event); err != nil {
+			return nil, errs.Wrap(err, "error while executing event")
+		}
 	}
 
-	// Check if workflow finished
 	if e.workflow.Completed() {
-		e.workflowCompleted(ctx, e.workflow.Result(), e.workflow.Error())
-	}
-
-	if e.workflow != nil {
-		// End workflow if running to prevent leaking goroutines
-		e.workflow.Close(wfCtx)
+		if err := e.workflowCompleted(ctx, e.workflow.Result(), e.workflow.Error()); err != nil {
+			return nil, err
+		}
 	}
 
 	return e.workflowState.commands, nil
@@ -90,54 +99,56 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, 
 func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
 	e.logger.Println("Handling:", event.EventType)
 
+	var err error
+
 	switch event.EventType {
 	case history.EventType_WorkflowExecutionStarted:
-		e.handleWorkflowExecutionStarted(ctx, event.Attributes.(*history.ExecutionStartedAttributes))
+		err = e.handleWorkflowExecutionStarted(ctx, event.Attributes.(*history.ExecutionStartedAttributes))
 
 	case history.EventType_WorkflowExecutionFinished:
 
 	case history.EventType_ActivityScheduled:
-		e.handleActivityScheduled(ctx, event, event.Attributes.(*history.ActivityScheduledAttributes))
+		err = e.handleActivityScheduled(ctx, event, event.Attributes.(*history.ActivityScheduledAttributes))
 
 	case history.EventType_ActivityFailed:
-		e.handleActivityFailed(ctx, event, event.Attributes.(*history.ActivityFailedAttributes))
+		err = e.handleActivityFailed(ctx, event, event.Attributes.(*history.ActivityFailedAttributes))
 
 	case history.EventType_ActivityCompleted:
-		e.handleActivityCompleted(ctx, event, event.Attributes.(*history.ActivityCompletedAttributes))
+		err = e.handleActivityCompleted(ctx, event, event.Attributes.(*history.ActivityCompletedAttributes))
 
 	case history.EventType_TimerScheduled:
-		e.handleTimerScheduled(ctx, event, event.Attributes.(*history.TimerScheduledAttributes))
+		err = e.handleTimerScheduled(ctx, event, event.Attributes.(*history.TimerScheduledAttributes))
 
 	case history.EventType_TimerFired:
-		e.handleTimerFired(ctx, event, event.Attributes.(*history.TimerFiredAttributes))
+		err = e.handleTimerFired(ctx, event, event.Attributes.(*history.TimerFiredAttributes))
 
 	case history.EventType_SignalReceived:
-		e.handleSignalReceived(ctx, event, event.Attributes.(*history.SignalReceivedAttributes))
+		err = e.handleSignalReceived(ctx, event, event.Attributes.(*history.SignalReceivedAttributes))
 
 	case history.EventType_SubWorkflowScheduled:
-		e.handleSubWorkflowScheduled(ctx, event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
+		err = e.handleSubWorkflowScheduled(ctx, event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
 
 	case history.EventType_SubWorkflowCompleted:
-		e.handleSubWorkflowCompleted(ctx, event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
+		err = e.handleSubWorkflowCompleted(ctx, event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
 
 	default:
-		panic("unknown event type")
+		return fmt.Errorf("unknown event type: %v", event.EventType)
 	}
 
-	return nil
+	return err
 }
 
-func (e *executor) handleWorkflowExecutionStarted(ctx sync.Context, a *history.ExecutionStartedAttributes) {
-	e.workflow.Execute(ctx, a.Inputs) // TODO: handle error
+func (e *executor) handleWorkflowExecutionStarted(ctx sync.Context, a *history.ExecutionStartedAttributes) error {
+	return e.workflow.Execute(ctx, a.Inputs)
 }
 
-func (e *executor) handleActivityScheduled(ctx sync.Context, event history.Event, a *history.ActivityScheduledAttributes) {
+func (e *executor) handleActivityScheduled(ctx sync.Context, event history.Event, a *history.ActivityScheduledAttributes) error {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Ensure the same activity is scheduled again
 			ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 			if a.Name != ca.Name {
-				panic("Previous workflow execution scheduled different type of activity") // TODO: Return to caller?
+				return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
 			}
 
 			// Remove pending command
@@ -145,12 +156,14 @@ func (e *executor) handleActivityScheduled(ctx sync.Context, event history.Event
 			break
 		}
 	}
+
+	return nil
 }
 
-func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Event, a *history.ActivityCompletedAttributes) {
+func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Event, a *history.ActivityCompletedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		panic("no pending future!")
+		return errors.New("no pending future found for activity completed event")
 	}
 
 	// Remove pending command
@@ -163,14 +176,13 @@ func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Event
 
 	f.Set(a.Result, nil)
 
-	// TODO: Handle error
-	e.workflow.Continue(ctx)
+	return e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleActivityFailed(ctx sync.Context, event history.Event, a *history.ActivityFailedAttributes) {
+func (e *executor) handleActivityFailed(ctx sync.Context, event history.Event, a *history.ActivityFailedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		panic("no pending future!")
+		return errors.New("no pending future found for activity failed event")
 	}
 
 	// Remove pending command
@@ -183,11 +195,10 @@ func (e *executor) handleActivityFailed(ctx sync.Context, event history.Event, a
 
 	f.Set(nil, errors.New(a.Reason))
 
-	// TODO: Handle error
-	e.workflow.Continue(ctx)
+	return e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleTimerScheduled(ctx sync.Context, event history.Event, a *history.TimerScheduledAttributes) {
+func (e *executor) handleTimerScheduled(ctx sync.Context, event history.Event, a *history.TimerScheduledAttributes) error {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Remove pending command
@@ -195,13 +206,15 @@ func (e *executor) handleTimerScheduled(ctx sync.Context, event history.Event, a
 			break
 		}
 	}
+
+	return nil
 }
 
-func (e *executor) handleTimerFired(ctx sync.Context, event history.Event, a *history.TimerFiredAttributes) {
+func (e *executor) handleTimerFired(ctx sync.Context, event history.Event, a *history.TimerFiredAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
 		// Timer already cancelled ignore
-		return
+		return nil
 	}
 
 	// Remove pending command
@@ -214,17 +227,16 @@ func (e *executor) handleTimerFired(ctx sync.Context, event history.Event, a *hi
 
 	f.Set(nil, nil)
 
-	// TODO: Handle error
-	e.workflow.Continue(ctx)
+	return e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleSubWorkflowScheduled(ctx sync.Context, event history.Event, a *history.SubWorkflowScheduledAttributes) {
+func (e *executor) handleSubWorkflowScheduled(ctx sync.Context, event history.Event, a *history.SubWorkflowScheduledAttributes) error {
 	for i, c := range e.workflowState.commands {
 		if c.ID == event.EventID {
 			// Ensure the same activity is scheduled again
 			ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 			if a.Name != ca.Name {
-				panic("Previous workflow execution scheduled a different sub workflow") // TODO: Return to caller?
+				return errors.New("previous workflow execution scheduled a different sub workflow")
 			}
 
 			// Remove pending command
@@ -232,12 +244,14 @@ func (e *executor) handleSubWorkflowScheduled(ctx sync.Context, event history.Ev
 			break
 		}
 	}
+
+	return nil
 }
 
-func (e *executor) handleSubWorkflowCompleted(ctx sync.Context, event history.Event, a *history.SubWorkflowCompletedAttributes) {
+func (e *executor) handleSubWorkflowCompleted(ctx sync.Context, event history.Event, a *history.SubWorkflowCompletedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		panic("no pending future!")
+		return errors.New("no pending future found for sub workflow completed event")
 	}
 
 	// Remove pending command
@@ -254,11 +268,10 @@ func (e *executor) handleSubWorkflowCompleted(ctx sync.Context, event history.Ev
 		f.Set(a.Result, nil)
 	}
 
-	// TODO: Handle error
-	e.workflow.Continue(ctx)
+	return e.workflow.Continue(ctx)
 }
 
-func (e *executor) handleSignalReceived(ctx sync.Context, event history.Event, a *history.SignalReceivedAttributes) {
+func (e *executor) handleSignalReceived(ctx sync.Context, event history.Event, a *history.SignalReceivedAttributes) error {
 	sc := e.workflowState.getSignalChannel(a.Name)
 
 	sc.Send(ctx, a.Arg)
@@ -271,13 +284,14 @@ func (e *executor) handleSignalReceived(ctx sync.Context, event history.Event, a
 		}
 	}
 
-	// TODO: Handle error
-	e.workflow.Continue(ctx)
+	return e.workflow.Continue(ctx)
 }
 
-func (e *executor) workflowCompleted(ctx context.Context, result payload.Payload, err error) {
+func (e *executor) workflowCompleted(ctx context.Context, result payload.Payload, err error) error {
 	eventId := e.workflowState.eventID
 	e.workflowState.eventID++
 
 	e.workflowState.addCommand(command.NewCompleteWorkflowCommand(eventId, result, err))
+
+	return nil
 }

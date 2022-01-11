@@ -14,8 +14,10 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Send_Blocks",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(Background(), func(ctx Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
 					c.Send(ctx, 42)
+
+					return nil
 				})
 
 				cr.Execute()
@@ -27,9 +29,11 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Receive_Blocks",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(Background(), func(ctx Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
 					var r int
 					c.Receive(ctx, &r)
+
+					return nil
 				})
 
 				cr.Execute()
@@ -43,16 +47,20 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			fn: func(t *testing.T, c *channel) {
 				var r int
 
-				cr := NewCoroutine(Background(), func(ctx Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
 					more := c.Receive(ctx, &r)
 					require.True(t, more)
+
+					return nil
 				})
 				cr.Execute()
 
 				require.True(t, cr.Blocked(), "coroutine should be blocked")
 
-				crSend := NewCoroutine(Background(), func(ctx Context) {
+				crSend := NewCoroutine(Background(), func(ctx Context) error {
 					c.SendNonblocking(ctx, 42)
+
+					return nil
 				})
 				crSend.Execute()
 
@@ -75,16 +83,20 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			fn: func(t *testing.T, c *channel) {
 				r := int(42)
 
-				cr := NewCoroutine(Background(), func(ctx Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
 					more := c.Receive(ctx, &r)
 					require.False(t, more)
+
+					return nil
 				})
 				cr.Execute()
 
 				require.True(t, cr.Blocked(), "coroutine should be blocked")
 
-				crSend := NewCoroutine(Background(), func(ctx Context) {
+				crSend := NewCoroutine(Background(), func(ctx Context) error {
 					c.Close()
+
+					return nil
 				})
 				crSend.Execute()
 
@@ -105,17 +117,21 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "Send_BlocksUntilReceive",
 			fn: func(t *testing.T, c *channel) {
-				crSend := NewCoroutine(Background(), func(ctx Context) {
+				crSend := NewCoroutine(Background(), func(ctx Context) error {
 					c.Send(ctx, 42)
+
+					return nil
 				})
 				crSend.Execute()
 
 				require.True(t, crSend.Blocked(), "coroutine should be blocked")
 
 				var r int
-				crReceive := NewCoroutine(Background(), func(ctx Context) {
+				crReceive := NewCoroutine(Background(), func(ctx Context) error {
 					more := c.Receive(ctx, &r)
 					require.True(t, more)
+
+					return nil
 				})
 				crReceive.Execute()
 
@@ -136,10 +152,12 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "SendNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(Background(), func(ctx Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
 					r := c.SendNonblocking(ctx, 42)
 
 					require.False(t, r)
+
+					return nil
 				})
 
 				cr.Execute()
@@ -151,10 +169,12 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "ReceiveNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel) {
-				cr := NewCoroutine(Background(), func(ctx Context) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
 					r := c.SendNonblocking(ctx, 42)
 
 					require.False(t, r)
+
+					return nil
 				})
 
 				cr.Execute()
@@ -173,10 +193,12 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				var r int
 
 				for i := 0; i < 10; i++ {
-					s.NewCoroutine(ctx, func(ctx Context) {
+					s.NewCoroutine(ctx, func(ctx Context) error {
 						var t int
 						c.Receive(ctx, &t)
 						r++
+
+						return nil
 					})
 				}
 
@@ -184,8 +206,10 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				require.Equal(t, 0, r)
 
 				for i := 0; i < 10; i++ {
-					s.NewCoroutine(ctx, func(ctx Context) {
+					s.NewCoroutine(ctx, func(ctx Context) error {
 						c.Send(ctx, 42)
+
+						return nil
 					})
 				}
 
@@ -194,42 +218,6 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				}
 
 				require.Equal(t, 10, r)
-			},
-		},
-		{
-			name: "BufferedChannel_Send",
-			fn: func(t *testing.T, c *channel) {
-				ctx := Background()
-				cs := NewBufferedChannel(1)
-
-				sentValue := false
-
-				cr := NewCoroutine(ctx, func(ctx Context) {
-					cs.Send(ctx, 42)
-					sentValue = true
-					cs.Send(ctx, 23)
-				})
-
-				cr.Execute()
-				require.True(t, cr.Blocked()) // Blocking on second send
-				require.True(t, sentValue)
-
-				var r int
-				crReceive := NewCoroutine(ctx, func(ctx Context) {
-					for {
-						cs.Receive(ctx, &r)
-						getCoState(ctx).Yield()
-					}
-				})
-
-				crReceive.Execute()
-				require.Equal(t, 42, r)
-
-				cr.Execute()
-				require.True(t, cr.Finished())
-
-				crReceive.Execute()
-				require.Equal(t, 23, r)
 			},
 		},
 	}
@@ -257,7 +245,7 @@ func Test_Channel_Buffered(t *testing.T) {
 				c.Send(ctx, 2)
 				c.Send(ctx, 3)
 
-				cr := NewCoroutine(ctx, func(ctx Context) {
+				cr := NewCoroutine(ctx, func(ctx Context) error {
 					var r int
 
 					c.Receive(ctx, &r)
@@ -273,6 +261,8 @@ func Test_Channel_Buffered(t *testing.T) {
 
 					c.Receive(ctx, &r)
 					require.Equal(t, 0, r)
+
+					return nil
 				})
 
 				cr.Execute()
@@ -286,6 +276,44 @@ func Test_Channel_Buffered(t *testing.T) {
 
 				require.True(t, cr.Finished())
 				require.False(t, cr.Blocked())
+			},
+		},
+		{
+			name: "BufferedChannel_Send",
+			fn: func(t *testing.T, c *channel) {
+				ctx := Background()
+				cs := NewBufferedChannel(1)
+
+				sentValue := false
+
+				cr := NewCoroutine(ctx, func(ctx Context) error {
+					cs.Send(ctx, 42)
+					sentValue = true
+					cs.Send(ctx, 23)
+
+					return nil
+				})
+
+				cr.Execute()
+				require.True(t, cr.Blocked()) // Blocking on second send
+				require.True(t, sentValue)
+
+				var r int
+				crReceive := NewCoroutine(ctx, func(ctx Context) error {
+					for {
+						cs.Receive(ctx, &r)
+						getCoState(ctx).Yield()
+					}
+				})
+
+				crReceive.Execute()
+				require.Equal(t, 42, r)
+
+				cr.Execute()
+				require.True(t, cr.Finished())
+
+				crReceive.Execute()
+				require.Equal(t, 23, r)
 			},
 		},
 	}

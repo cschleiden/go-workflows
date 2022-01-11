@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/activity"
@@ -20,6 +21,8 @@ type activityWorker struct {
 
 	activityTaskQueue    chan task.Activity
 	activityTaskExecutor activity.Executor
+
+	logger *log.Logger
 }
 
 func NewActivityWorker(backend backend.Backend, registry *workflow.Registry) ActivityWorker {
@@ -28,6 +31,8 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry) Act
 
 		activityTaskQueue:    make(chan task.Activity),
 		activityTaskExecutor: activity.NewExecutor(registry),
+
+		logger: log.Default(),
 	}
 }
 
@@ -41,13 +46,16 @@ func (ww *activityWorker) Start(ctx context.Context) error {
 
 func (ww *activityWorker) runPoll(ctx context.Context) {
 	for {
-		task, err := ww.poll(ctx, 30*time.Second)
-		if err != nil {
-			// TODO: log and ignore?
-			// TODO: Handle context cancellation
-			panic(err)
-		} else if task != nil {
-			ww.activityTaskQueue <- *task
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			task, err := ww.poll(ctx, 30*time.Second)
+			if err != nil {
+				log.Println("error while polling for activity task:", err)
+			} else if task != nil {
+				ww.activityTaskQueue <- *task
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -8,16 +9,19 @@ import (
 )
 
 func Test_Coroutine_CanAccessState(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 		require.NotNil(t, s)
+
+		return nil
 	})
 
 	c.Execute()
 }
 
 func Test_Coroutine_MarkedAsDone(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
+		return nil
 	})
 
 	c.Execute()
@@ -26,12 +30,14 @@ func Test_Coroutine_MarkedAsDone(t *testing.T) {
 }
 
 func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 
 		s.Yield()
 
 		require.FailNow(t, "should not reach this")
+
+		return nil
 	})
 
 	c.Execute()
@@ -41,9 +47,11 @@ func Test_Coroutine_MarkedAsBlocked(t *testing.T) {
 }
 
 func Test_Coroutine_Continue(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 		s.Yield()
+
+		return nil
 	})
 
 	c.Execute()
@@ -58,7 +66,8 @@ func Test_Coroutine_Continue(t *testing.T) {
 }
 
 func Test_Coroutine_Continue_WhenFinished(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
+		return nil
 	})
 
 	c.Execute()
@@ -73,7 +82,7 @@ func Test_Coroutine_Continue_WhenFinished(t *testing.T) {
 func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	reached := false
 
-	c := NewCoroutine(Background(), func(ctx Context) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 
 		s.Yield()
@@ -83,6 +92,8 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 		s.Yield()
 
 		require.FailNow(t, "should not reach this")
+
+		return nil
 	})
 
 	c.Execute()
@@ -97,13 +108,15 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	require.True(t, reached)
 }
 
-func Test_Exit(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+func Test_Coroutine_Exit(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 
 		s.Yield()
 
 		require.FailNow(t, "should not reach this")
+
+		return nil
 	})
 
 	c.Exit()
@@ -111,9 +124,11 @@ func Test_Exit(t *testing.T) {
 	require.True(t, c.Finished())
 }
 
-func Test_ExitIfAlreadyFinished(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+func Test_Coroutine_ExitIfAlreadyFinished(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		// Complete immedeiately
+
+		return nil
 	})
 
 	c.Exit()
@@ -121,13 +136,15 @@ func Test_ExitIfAlreadyFinished(t *testing.T) {
 	require.True(t, c.Finished())
 }
 
-func Test_Continue_PanicsWhenDeadlocked(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) {
+func Test_Coroutine_PanicsWhenDeadlocked(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 		s.deadlockDetection = time.Millisecond
 		s.Yield()
 
 		time.Sleep(10 * time.Second)
+
+		return nil
 	})
 
 	c.Execute()
@@ -135,4 +152,28 @@ func Test_Continue_PanicsWhenDeadlocked(t *testing.T) {
 	require.Panics(t, func() {
 		c.Execute()
 	})
+}
+
+func Test_Coroutine_Error(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
+		return errors.New("custom error")
+	})
+
+	c.Execute()
+
+	require.True(t, c.Finished())
+	require.Error(t, c.Error())
+	require.Equal(t, c.Error().Error(), "custom error")
+}
+
+func Test_Coroutine_Panic(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
+		panic("test panic")
+	})
+
+	c.Execute()
+
+	require.True(t, c.Finished())
+	require.Error(t, c.Error())
+	require.Equal(t, c.Error().Error(), "panic: test panic")
 }

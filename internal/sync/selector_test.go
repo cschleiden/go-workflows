@@ -11,7 +11,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 	f := NewFuture()
 	reachedEnd := false
 
-	cr := NewCoroutine(ctx, func(ctx Context) {
+	cr := NewCoroutine(ctx, func(ctx Context) error {
 		s := NewSelector()
 
 		s.AddFuture(f, func(ctx Context, f Future) {
@@ -26,6 +26,8 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 		s.Select(ctx)
 
 		reachedEnd = true
+
+		return nil
 	})
 
 	cr.Execute()
@@ -46,7 +48,7 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	reachedEnd := false
 	order := make([]int, 0)
 
-	cs := NewCoroutine(ctx, func(ctx Context) {
+	cs := NewCoroutine(ctx, func(ctx Context) error {
 		s := NewSelector()
 
 		s.AddFuture(f, func(ctx Context, f Future) {
@@ -70,6 +72,8 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 		s.Select(ctx)
 
 		reachedEnd = true
+
+		return nil
 	})
 
 	cs.Execute()
@@ -93,7 +97,7 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 	defaultHandled := false
 	reachedEnd := false
 
-	cs := NewCoroutine(Background(), func(ctx Context) {
+	cs := NewCoroutine(Background(), func(ctx Context) error {
 		s := NewSelector()
 
 		s.AddFuture(f, func(_ Context, _ Future) {
@@ -108,6 +112,8 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 		s.Select(ctx)
 
 		reachedEnd = true
+
+		return nil
 	})
 
 	cs.Execute()
@@ -125,7 +131,7 @@ func Test_ChannelSelector_Select(t *testing.T) {
 
 	var r int
 
-	cr := NewCoroutine(ctx, func(ctx Context) {
+	cr := NewCoroutine(ctx, func(ctx Context) error {
 		s := NewSelector()
 
 		s.AddChannelReceive(c, func(ctx Context, c Channel) {
@@ -136,12 +142,16 @@ func Test_ChannelSelector_Select(t *testing.T) {
 		s.Select(ctx)
 
 		reachedEnd = true
+
+		return nil
 	})
 
 	cr.Execute()
 
-	NewCoroutine(ctx, func(ctx Context) {
+	NewCoroutine(ctx, func(ctx Context) error {
 		c.Send(ctx, 42)
+
+		return nil
 	}).Execute()
 
 	cr.Execute()

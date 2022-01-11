@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/cschleiden/go-dt/internal/payload"
@@ -17,7 +18,7 @@ func AssignValue(c Converter, v interface{}, vptr interface{}) error {
 	vvptr := reflect.ValueOf(vptr)
 
 	if vvptr.Kind() != reflect.Ptr {
-		panic("vptr needs to be a pointer")
+		return errors.New("vptr needs to be a pointer")
 	}
 
 	if v == nil {

@@ -2,7 +2,7 @@ package sync
 
 type Scheduler interface {
 	// Starts a new co-routine and tracks it in this scheduler
-	NewCoroutine(ctx Context, fn func(Context))
+	NewCoroutine(ctx Context, fn func(Context) error)
 
 	// Execute executes all coroutines until they are all blocked
 	Execute(ctx Context) error
@@ -22,7 +22,7 @@ func NewScheduler() Scheduler {
 	}
 }
 
-func (s *scheduler) NewCoroutine(ctx Context, fn func(Context)) {
+func (s *scheduler) NewCoroutine(ctx Context, fn func(Context) error) {
 	c := NewCoroutine(ctx, fn)
 	s.coroutines = append(s.coroutines, c)
 }

@@ -14,12 +14,14 @@ func Test_Scheduler(t *testing.T) {
 	hit := 0
 
 	ctx := Background()
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		hit++
 
 		getCoState(ctx).Yield()
 
 		fmt.Println("tes")
+
+		return nil
 	})
 
 	require.Equal(t, 0, hit)
@@ -40,7 +42,7 @@ func Test_Scheduler_OneCoroutineAtATime(t *testing.T) {
 	active := false
 
 	ctx := Background()
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		for i := 0; i < 5; i++ {
 			require.False(t, active)
 			active = true
@@ -48,9 +50,11 @@ func Test_Scheduler_OneCoroutineAtATime(t *testing.T) {
 			active = false
 			getCoState(ctx).Yield()
 		}
+
+		return nil
 	})
 
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		for i := 0; i < 5; i++ {
 			require.False(t, active)
 
@@ -60,6 +64,8 @@ func Test_Scheduler_OneCoroutineAtATime(t *testing.T) {
 
 			getCoState(ctx).Yield()
 		}
+
+		return nil
 	})
 
 	for i := 0; i < 10; i++ {
@@ -75,7 +81,7 @@ func Test_Scheduler_ExecuteUntilBlocked(t *testing.T) {
 	hits := 0
 
 	ctx := Background()
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		for i := 0; i < 4; i++ {
 			hits++
 
@@ -86,6 +92,8 @@ func Test_Scheduler_ExecuteUntilBlocked(t *testing.T) {
 		getCoState(ctx).Yield()
 
 		require.Fail(t, "should not be reached")
+
+		return nil
 	})
 
 	s.Execute(ctx)
@@ -99,16 +107,18 @@ func Test_Scheduler_ExecuteUntilAllBlocked(t *testing.T) {
 	hits := 0
 
 	ctx := Background()
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		for i := 0; i < 2; i++ {
 			hits++
 
 			getCoState(ctx).MadeProgress()
 			getCoState(ctx).Yield()
 		}
+
+		return nil
 	})
 
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		for i := 0; i < 4; i++ {
 			hits++
 
@@ -118,6 +128,8 @@ func Test_Scheduler_ExecuteUntilAllBlocked(t *testing.T) {
 
 		getCoState(ctx).Yield()
 		require.Fail(t, "should not be reached")
+
+		return nil
 	})
 
 	s.Execute(ctx)
@@ -131,7 +143,7 @@ func Test_Scheduler_Exit(t *testing.T) {
 	hits := 0
 
 	ctx := Background()
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		for {
 			hits++
 			getCoState(ctx).Yield()
@@ -152,7 +164,7 @@ func Test_Scheduler_Panic(t *testing.T) {
 	s := NewScheduler()
 
 	ctx := Background()
-	s.NewCoroutine(ctx, func(ctx Context) {
+	s.NewCoroutine(ctx, func(ctx Context) error {
 		panic("something went wrong")
 	})
 

@@ -19,7 +19,7 @@ func TestWithCancel(t *testing.T) {
 
 	canceled := false
 
-	cr := NewCoroutine(c2, func(ctx Context) {
+	cr := NewCoroutine(c2, func(ctx Context) error {
 		// Create child context, canceled when parent is canceled
 		ctx, _ = WithCancel(ctx)
 
@@ -30,6 +30,8 @@ func TestWithCancel(t *testing.T) {
 		})
 
 		s.Select(ctx)
+
+		return nil
 	})
 
 	cr.Execute()
