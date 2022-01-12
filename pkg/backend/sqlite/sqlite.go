@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -36,12 +36,14 @@ func NewSqliteBackend(path string) backend.Backend {
 	}
 
 	return &sqliteBackend{
-		db: db,
+		db:         db,
+		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
 	}
 }
 
 type sqliteBackend struct {
-	db *sql.DB
+	db         *sql.DB
+	workerName string
 }
 
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
@@ -132,7 +134,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 					LIMIT 1
 			) RETURNING id, execution_id, parent_instance_id, parent_event_id`,
 		now.Add(WorkflowLockTimeout),
-		sb.getWorkerName(),
+		sb.workerName,
 		now,
 		now,
 	)
@@ -240,8 +242,9 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	// Unlock instance
 	if _, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = NULL, locked_by = NULL WHERE id = ?`,
+		`UPDATE instances SET locked_until = NULL, locked_by = NULL WHERE id = ? AND execution_id = ?`,
 		task.WorkflowInstance.GetInstanceID(),
+		task.WorkflowInstance.GetExecutionID(),
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
 	}
@@ -323,7 +326,10 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	if workflowCompleted {
 		if _, err := tx.ExecContext(
 			ctx,
-			"UPDATE instances SET completed_at = ? WHERE id = ?", time.Now().UTC(), task.WorkflowInstance.GetInstanceID(),
+			"UPDATE instances SET completed_at = ? WHERE id = ? AND execution_id = ?",
+			time.Now().UTC(),
+			task.WorkflowInstance.GetInstanceID(),
+			task.WorkflowInstance.GetExecutionID(),
 		); err != nil {
 			return errors.Wrap(err, "could not mark instance as completed")
 		}
@@ -354,7 +360,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
 			) RETURNING id, instance_id, execution_id, event_type, event_id, attributes, visible_at`,
 		now.Add(ActivityLockTimeout),
-		sb.getWorkerName(),
+		sb.workerName,
 		now,
 	)
 	if err != nil {
@@ -407,7 +413,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 		`DELETE FROM activities WHERE instance_id = ? AND id = ? AND locked_by = ?`,
 		instance.GetInstanceID(),
 		id,
-		sb.getWorkerName(),
+		sb.workerName,
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
 	}
@@ -431,10 +437,6 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	}
 
 	return nil
-}
-
-func (sb *sqliteBackend) getWorkerName() string {
-	return fmt.Sprintf("worker-%v", os.Getpid())
 }
 
 func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
