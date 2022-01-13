@@ -38,6 +38,10 @@ func (wf *workflowState) addCommand(cmd command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
+func (wf *workflowState) clearCommands() {
+	wf.commands = []command.Command{}
+}
+
 func (wf *workflowState) getSignalChannel(name string) sync.Channel {
 	cs, ok := wf.signalChannels[name]
 	if !ok {
