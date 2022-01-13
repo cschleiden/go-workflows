@@ -310,9 +310,10 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	inputs, _ := converter.DefaultConverter.To(42)
 	result, _ := converter.DefaultConverter.To(42)
 
-	task := &task.Workflow{
+	oldTask := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
+		History:          []history.Event{},
+		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				history.EventType_WorkflowExecutionStarted,
 				-1,
@@ -334,7 +335,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 
 	e := &executor{
 		registry:      r,
-		task:          task,
+		task:          oldTask,
 		workflow:      NewWorkflow(reflect.ValueOf(workflowWithActivity)),
 		workflowState: newWorkflowState(),
 		logger:        log.Default(),
@@ -346,17 +347,24 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.False(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.commands, 0)
 
-	// Execute the workflow again with the activity completed event
-	e.ExecuteNewEvents(context.Background(), []history.Event{
-		history.NewHistoryEvent(
-			history.EventType_ActivityCompleted,
-			0,
-			&history.ActivityCompletedAttributes{
-				Result: result,
-			},
-		),
-	})
+	newTask := &task.Workflow{
+		WorkflowInstance: oldTask.WorkflowInstance,
+		History:          oldTask.NewEvents,
+		NewEvents: []history.Event{
+			history.NewHistoryEvent(
+				history.EventType_ActivityCompleted,
+				0,
+				&history.ActivityCompletedAttributes{
+					Result: result,
+				},
+			),
+		},
+	}
 
+	// Execute the workflow again with the activity completed event
+	_, err := e.ExecuteNewTask(context.Background(), newTask)
+
+	require.NoError(t, err)
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.commands, 1)

@@ -18,7 +18,7 @@ import (
 
 type WorkflowExecutor interface {
 	Execute(ctx context.Context) ([]command.Command, error)
-	ExecuteNewEvents(ctx context.Context, newEvents []history.Event) ([]command.Command, error)
+	ExecuteNewTask(ctx context.Context, task *task.Workflow) ([]command.Command, error)
 	Close()
 }
 
@@ -28,6 +28,7 @@ type executor struct {
 	workflow      *workflow
 	workflowState *workflowState
 	logger        *log.Logger
+	lastEventID   string
 }
 
 func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
@@ -82,14 +83,40 @@ func (e *executor) Execute(ctx context.Context) ([]command.Command, error) {
 	return e.workflowState.commands, nil
 }
 
-func (e *executor) ExecuteNewEvents(ctx context.Context, newEvents []history.Event) ([]command.Command, error) {
+func (e *executor) ExecuteNewTask(ctx context.Context, task *task.Workflow) ([]command.Command, error) {
 	wfCtx := withWfState(sync.Background(), e.workflowState)
+
+	// Check if replaying history is required
+	newestHistoryEvent := task.History[len(task.History)-1]
+	if newestHistoryEvent.ID != e.lastEventID {
+		// Mismatch in execution, find if the event we executed last is in the history
+		historyIdx := -1
+		for i, event := range task.History {
+			if event.ID == e.lastEventID {
+				historyIdx = i
+				break
+			}
+		}
+
+		if historyIdx == -1 {
+			return nil, errors.New("mismatch in execution, last event not found in history")
+		}
+
+		// Get history events we haven't executed
+		newHistory := task.History[historyIdx+1:]
+		e.workflowState.setReplaying(true)
+		for _, event := range newHistory {
+			if err := e.executeEvent(wfCtx, event); err != nil {
+				return nil, errs.Wrap(err, "error while replaying event")
+			}
+		}
+	}
 
 	// Clear commands from previous executions
 	e.workflowState.clearCommands()
 
 	// Execute new events
-	if err := e.executeNewEvents(wfCtx, newEvents); err != nil {
+	if err := e.executeNewEvents(wfCtx, task.NewEvents); err != nil {
 		return nil, errs.Wrap(err, "error while executing new events")
 	}
 
@@ -102,6 +129,9 @@ func (e *executor) executeNewEvents(wfCtx sync.Context, newEvents []history.Even
 		if err := e.executeEvent(wfCtx, event); err != nil {
 			return errs.Wrap(err, "error while executing event")
 		}
+
+		// Remember that we executed this event last
+		e.lastEventID = event.ID
 	}
 
 	if e.workflow.Completed() {
