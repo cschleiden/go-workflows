@@ -25,6 +25,8 @@ type workflowWorker struct {
 
 	registry *workflow.Registry
 
+	cache workflow.WorkflowExecutorCache
+
 	workflowTaskQueue chan task.Workflow
 
 	logger *log.Logger
@@ -37,11 +39,15 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) Wor
 		registry:          registry,
 		workflowTaskQueue: make(chan task.Workflow),
 
+		cache: workflow.NewWorkflowExecutorCache(workflow.DefaultWorkflowExecutorCacheOptions),
+
 		logger: log.Default(),
 	}
 }
 
 func (ww *workflowWorker) Start(ctx context.Context) error {
+	go ww.cache.StartEviction(ctx)
+
 	go ww.runPoll(ctx)
 
 	go ww.runDispatcher(ctx)
@@ -77,7 +83,8 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
-	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
+	var commands []command.Command
+	var err error
 
 	// Start heartbeat while processing workflow task
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
@@ -98,16 +105,26 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		}
 	}(heartbeatCtx)
 
-	commands, err := workflowTaskExecutor.Execute(ctx)
+	instance := task.WorkflowInstance
+	if workflowTaskExecutor, ok, cerr := ww.cache.Get(ctx, instance); cerr != nil {
+		ww.logger.Panic(cerr)
+	} else if ok {
+		commands, err = workflowTaskExecutor.ExecuteNewTask(ctx, &task)
+	} else {
+		workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
+
+		if err := ww.cache.Store(ctx, instance, workflowTaskExecutor); err != nil {
+			ww.logger.Println("error while storing workflow task executor:", err)
+		}
+
+		commands, err = workflowTaskExecutor.Execute(ctx)
+	}
 
 	cancelHeartbeat()
 
 	if err != nil {
 		ww.logger.Panic(err)
 	}
-
-	// Clean up goroutines
-	defer workflowTaskExecutor.Close()
 
 	newEvents := make([]history.Event, 0)
 	workflowEvents := make([]core.WorkflowEvent, 0)
