@@ -98,7 +98,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		}
 	}(heartbeatCtx)
 
-	commands, err := workflowTaskExecutor.ExecuteWorkflowTask(ctx)
+	commands, err := workflowTaskExecutor.Execute(ctx)
 
 	cancelHeartbeat()
 
@@ -106,8 +106,11 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		ww.logger.Panic(err)
 	}
 
+	// Clean up goroutines
+	defer workflowTaskExecutor.Close()
+
 	newEvents := make([]history.Event, 0)
-	workflowMessages := make([]core.WorkflowEvent, 0)
+	workflowEvents := make([]core.WorkflowEvent, 0)
 
 	for _, c := range commands {
 		switch c.Type {
@@ -139,7 +142,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 			// Send message to new workflow instance
-			workflowMessages = append(workflowMessages, core.WorkflowEvent{
+			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
 					history.EventType_WorkflowExecutionStarted,
@@ -163,7 +166,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 			// Create timer_fired event which will become visible in the future
-			workflowMessages = append(workflowMessages, core.WorkflowEvent{
+			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: task.WorkflowInstance,
 				HistoryEvent: history.NewFutureHistoryEvent(
 					history.EventType_TimerFired,
@@ -188,7 +191,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 			))
 
 			if task.WorkflowInstance.SubWorkflow() {
-				workflowMessages = append(workflowMessages, core.WorkflowEvent{
+				workflowEvents = append(workflowEvents, core.WorkflowEvent{
 					WorkflowInstance: task.WorkflowInstance.ParentInstance(),
 					HistoryEvent: history.NewHistoryEvent(
 						history.EventType_SubWorkflowCompleted,
@@ -206,7 +209,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		}
 	}
 
-	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowMessages); err != nil {
+	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowEvents); err != nil {
 		ww.logger.Panic(err)
 	}
 }
