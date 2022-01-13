@@ -14,7 +14,7 @@ import (
 )
 
 func Test_Cache_StoreAndGet(t *testing.T) {
-	c := NewWorkflowExecutorCache(context.Background(), DefaultWorkflowExecutorCacheOptions)
+	c := NewWorkflowExecutorCache(DefaultWorkflowExecutorCacheOptions)
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	task := &task.Workflow{
@@ -44,7 +44,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 }
 
 func Test_Cache_Evic(t *testing.T) {
-	c := NewWorkflowExecutorCache(context.Background(), WorkflowExecutorCacheOptions{
+	c := NewWorkflowExecutorCache(WorkflowExecutorCacheOptions{
 		CacheDuration: 1, // Should evict immediately
 	})
 
@@ -68,8 +68,9 @@ func Test_Cache_Evic(t *testing.T) {
 	err := c.Store(context.Background(), i, e)
 	require.NoError(t, err)
 
-	runtime.Gosched()
+	go c.StartEviction(context.Background())
 	time.Sleep(1 * time.Millisecond)
+	runtime.Gosched()
 
 	e2, ok, err := c.Get(context.Background(), i)
 	require.NoError(t, err)

@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,13 +12,14 @@ import (
 type WorkflowExecutorCache interface {
 	Store(ctx context.Context, instance core.WorkflowInstance, workflow WorkflowExecutor) error
 	Get(ctx context.Context, instance core.WorkflowInstance) (WorkflowExecutor, bool, error)
+	StartEviction(ctx context.Context)
 }
 
 type workflowExecutorCache struct {
 	options WorkflowExecutorCacheOptions
 	t       *time.Ticker
 	mu      *sync.Mutex
-	cache   map[core.WorkflowInstance]*workflowExecutorCacheEntry
+	cache   map[string]*workflowExecutorCacheEntry
 }
 
 type workflowExecutorCacheEntry struct {
@@ -34,15 +36,13 @@ var DefaultWorkflowExecutorCacheOptions = WorkflowExecutorCacheOptions{
 	CacheDuration: 30 * time.Second,
 }
 
-func NewWorkflowExecutorCache(ctx context.Context, options WorkflowExecutorCacheOptions) WorkflowExecutorCache {
+func NewWorkflowExecutorCache(options WorkflowExecutorCacheOptions) WorkflowExecutorCache {
 	c := workflowExecutorCache{
 		options: options,
 		t:       time.NewTicker(options.CacheDuration),
 		mu:      &sync.Mutex{},
-		cache:   make(map[core.WorkflowInstance]*workflowExecutorCacheEntry),
+		cache:   make(map[string]*workflowExecutorCacheEntry),
 	}
-
-	go c.evict(ctx)
 
 	return &c
 }
@@ -51,7 +51,7 @@ func (c *workflowExecutorCache) Store(ctx context.Context, instance core.Workflo
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.cache[instance] = &workflowExecutorCacheEntry{
+	c.cache[getKey(instance)] = &workflowExecutorCacheEntry{
 		executor:   executor,
 		lastAccess: time.Now().UTC(),
 	}
@@ -63,7 +63,7 @@ func (c *workflowExecutorCache) Get(ctx context.Context, instance core.WorkflowI
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if entry, ok := c.cache[instance]; ok {
+	if entry, ok := c.cache[getKey(instance)]; ok {
 		entry.lastAccess = time.Now().UTC()
 		return entry.executor, true, nil
 	}
@@ -71,7 +71,7 @@ func (c *workflowExecutorCache) Get(ctx context.Context, instance core.WorkflowI
 	return nil, false, nil
 }
 
-func (c *workflowExecutorCache) evict(ctx context.Context) {
+func (c *workflowExecutorCache) StartEviction(ctx context.Context) {
 	for {
 		select {
 		case <-c.t.C:
@@ -94,4 +94,8 @@ func (c *workflowExecutorCache) evict(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func getKey(instance core.WorkflowInstance) string {
+	return fmt.Sprintf("%s-%s", instance.GetInstanceID(), instance.GetExecutionID())
 }
