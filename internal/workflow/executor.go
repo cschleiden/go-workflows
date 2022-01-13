@@ -17,7 +17,9 @@ import (
 )
 
 type WorkflowExecutor interface {
-	ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error)
+	Execute(ctx context.Context) ([]command.Command, error)
+	ExecuteNewEvents(ctx context.Context, newEvents []history.Event) ([]command.Command, error)
+	Close()
 }
 
 type executor struct {
@@ -61,15 +63,8 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 	}
 }
 
-func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, error) {
+func (e *executor) Execute(ctx context.Context) ([]command.Command, error) {
 	wfCtx := withWfState(sync.Background(), e.workflowState)
-
-	defer func() {
-		if e.workflow != nil {
-			// End workflow if running to prevent leaking goroutines
-			e.workflow.Close(wfCtx)
-		}
-	}()
 
 	// Replay history
 	e.workflowState.setReplaying(true)
@@ -79,21 +74,50 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, 
 		}
 	}
 
-	// Play new events
+	// Execute new events
+	if err := e.executeNewEvents(wfCtx, e.task.NewEvents); err != nil {
+		return nil, errs.Wrap(err, "error while executing new events")
+	}
+
+	return e.workflowState.commands, nil
+}
+
+func (e *executor) ExecuteNewEvents(ctx context.Context, newEvents []history.Event) ([]command.Command, error) {
+	wfCtx := withWfState(sync.Background(), e.workflowState)
+
+	// Clear commands from previous executions
+	e.workflowState.clearCommands()
+
+	// Execute new events
+	if err := e.executeNewEvents(wfCtx, newEvents); err != nil {
+		return nil, errs.Wrap(err, "error while executing new events")
+	}
+
+	return e.workflowState.commands, nil
+}
+
+func (e *executor) executeNewEvents(wfCtx sync.Context, newEvents []history.Event) error {
 	e.workflowState.setReplaying(false)
-	for _, event := range e.task.NewEvents {
+	for _, event := range newEvents {
 		if err := e.executeEvent(wfCtx, event); err != nil {
-			return nil, errs.Wrap(err, "error while executing event")
+			return errs.Wrap(err, "error while executing event")
 		}
 	}
 
 	if e.workflow.Completed() {
-		if err := e.workflowCompleted(ctx, e.workflow.Result(), e.workflow.Error()); err != nil {
-			return nil, err
+		if err := e.workflowCompleted(e.workflow.Result(), e.workflow.Error()); err != nil {
+			return err
 		}
 	}
 
-	return e.workflowState.commands, nil
+	return nil
+}
+
+func (e *executor) Close() {
+	if e.workflow != nil {
+		// End workflow if running to prevent leaking goroutines
+		e.workflow.Close(withWfState(sync.Background(), e.workflowState)) // TODO: Cache this context?
+	}
 }
 
 func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
@@ -287,7 +311,7 @@ func (e *executor) handleSignalReceived(ctx sync.Context, event history.Event, a
 	return e.workflow.Continue(ctx)
 }
 
-func (e *executor) workflowCompleted(ctx context.Context, result payload.Payload, err error) error {
+func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	eventId := e.workflowState.eventID
 	e.workflowState.eventID++
 

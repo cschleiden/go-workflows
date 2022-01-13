@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Activity1(ctx context.Context, r int) (int, error) {
+func activity1(ctx context.Context, r int) (int, error) {
 	fmt.Println("Entering Activity1")
 
 	return r, nil
@@ -59,7 +59,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		logger:        log.Default(),
 	}
 
-	e.ExecuteWorkflowTask(context.Background())
+	e.Execute(context.Background())
 
 	require.Equal(t, 1, workflowHits)
 	require.True(t, e.workflow.Completed())
@@ -71,7 +71,7 @@ var workflowActivityHit int
 func workflowWithActivity(ctx sync.Context) error {
 	workflowActivityHit++
 
-	f1 := ExecuteActivity(ctx, Activity1, 42)
+	f1 := ExecuteActivity(ctx, activity1, 42)
 
 	var r int
 	err := f1.Get(ctx, &r)
@@ -90,7 +90,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	workflowActivityHit = 0
 
 	r.RegisterWorkflow(workflowWithActivity)
-	r.RegisterActivity(Activity1)
+	r.RegisterActivity(activity1)
 
 	inputs, _ := converter.DefaultConverter.To(42)
 	result, _ := converter.DefaultConverter.To(42)
@@ -110,7 +110,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.EventType_ActivityScheduled,
 				0,
 				&history.ActivityScheduledAttributes{
-					Name:   "Activity1",
+					Name:   "activity1",
 					Inputs: []payload.Payload{inputs},
 				},
 			),
@@ -132,7 +132,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		logger:        log.Default(),
 	}
 
-	e.ExecuteWorkflowTask(context.Background())
+	e.Execute(context.Background())
 
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
@@ -145,7 +145,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	workflowActivityHit = 0
 
 	r.RegisterWorkflow(workflowWithActivity)
-	r.RegisterActivity(Activity1)
+	r.RegisterActivity(activity1)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -169,7 +169,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		logger:        log.Default(),
 	}
 
-	e.ExecuteWorkflowTask(context.Background())
+	e.Execute(context.Background())
 
 	require.Equal(t, 1, workflowActivityHit)
 	require.Len(t, e.workflowState.commands, 1)
@@ -179,7 +179,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		ID:   0,
 		Type: command.CommandType_ScheduleActivityTask,
 		Attr: &command.ScheduleActivityTaskCommandAttr{
-			Name:   "Activity1",
+			Name:   "activity1",
 			Inputs: []payload.Payload{inputs},
 		},
 	}, e.workflowState.commands[0])
@@ -229,7 +229,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 		logger:        log.Default(),
 	}
 
-	e.ExecuteWorkflowTask(context.Background())
+	e.Execute(context.Background())
 
 	require.Equal(t, 1, workflowTimerHits)
 	require.Len(t, e.workflowState.commands, 1)
@@ -243,7 +243,7 @@ var workflowWithSelectorHits int
 func workflowWithSelector(ctx sync.Context) error {
 	workflowWithSelectorHits++
 
-	f1 := ExecuteActivity(ctx, Activity1, 42)
+	f1 := ExecuteActivity(ctx, activity1, 42)
 	t := ScheduleTimer(ctx, time.Millisecond*2)
 
 	s := sync.NewSelector()
@@ -266,7 +266,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	r := NewRegistry()
 
 	r.RegisterWorkflow(workflowWithSelector)
-	r.RegisterActivity(Activity1)
+	r.RegisterActivity(activity1)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -290,11 +290,74 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 		logger:        log.Default(),
 	}
 
-	e.ExecuteWorkflowTask(context.Background())
+	e.Execute(context.Background())
 
 	require.Equal(t, 1, workflowWithSelectorHits)
 	require.Len(t, e.workflowState.commands, 2)
 
 	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.commands[0].Type)
 	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[1].Type)
+}
+
+func Test_ExecuteNewEvents(t *testing.T) {
+	r := NewRegistry()
+
+	workflowActivityHit = 0
+
+	r.RegisterWorkflow(workflowWithActivity)
+	r.RegisterActivity(activity1)
+
+	inputs, _ := converter.DefaultConverter.To(42)
+	result, _ := converter.DefaultConverter.To(42)
+
+	task := &task.Workflow{
+		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		History: []history.Event{
+			history.NewHistoryEvent(
+				history.EventType_WorkflowExecutionStarted,
+				-1,
+				&history.ExecutionStartedAttributes{
+					Name:   "workflowWithActivity",
+					Inputs: []payload.Payload{inputs},
+				},
+			),
+			history.NewHistoryEvent(
+				history.EventType_ActivityScheduled,
+				0,
+				&history.ActivityScheduledAttributes{
+					Name:   "activity1",
+					Inputs: []payload.Payload{inputs},
+				},
+			),
+		},
+	}
+
+	e := &executor{
+		registry:      r,
+		task:          task,
+		workflow:      NewWorkflow(reflect.ValueOf(workflowWithActivity)),
+		workflowState: newWorkflowState(),
+		logger:        log.Default(),
+	}
+
+	e.Execute(context.Background())
+
+	require.Equal(t, 1, workflowActivityHit)
+	require.False(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.commands, 0)
+
+	// Execute the workflow again with the activity completed event
+	e.ExecuteNewEvents(context.Background(), []history.Event{
+		history.NewHistoryEvent(
+			history.EventType_ActivityCompleted,
+			0,
+			&history.ActivityCompletedAttributes{
+				Result: result,
+			},
+		),
+	})
+
+	require.Equal(t, 2, workflowActivityHit)
+	require.True(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.commands, 1)
 }
