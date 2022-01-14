@@ -75,7 +75,7 @@ func runWorker(ctx context.Context, mb backend.Backend) {
 
 ### Backend
 
-The backend is responsible for persisting the workflow events. Currently there is an in-memory backend implementation for testing, and one using [SQLite](http://sqlite.org).
+The backend is responsible for persisting the workflow events. Currently there is an in-memory backend implementation for testing, one using [SQLite](http://sqlite.org), and one for MySql.
 
 ```go
 b := sqlite.NewSqliteBackend("simple.sqlite")
