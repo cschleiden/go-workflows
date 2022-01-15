@@ -7,7 +7,7 @@ import (
 	"github.com/cschleiden/go-dt/internal/sync"
 )
 
-func ScheduleTimer(ctx sync.Context, delay time.Duration) (sync.Future, error) {
+func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
 	wfState := getWfState(ctx)
 
 	eventID := wfState.eventID
@@ -28,5 +28,5 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) (sync.Future, error) {
 		}
 	}
 
-	return t, nil
+	return t
 }

@@ -12,14 +12,16 @@ import (
 type Activity interface{}
 
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) (sync.Future, error) {
-	wfState := getWfState(ctx)
+func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) sync.Future {
+	f := sync.NewFuture()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert activity input")
+		f.Set(nil, errors.Wrap(err, "failed to convert activity input"))
+		return f
 	}
 
+	wfState := getWfState(ctx)
 	eventID := wfState.eventID
 	wfState.eventID++
 
@@ -27,8 +29,7 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) (
 	command := command.NewScheduleActivityTaskCommand(eventID, name, inputs)
 	wfState.addCommand(command)
 
-	f := sync.NewFuture()
 	wfState.pendingFutures[eventID] = f
 
-	return f, nil
+	return f
 }

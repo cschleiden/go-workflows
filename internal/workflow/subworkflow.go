@@ -9,13 +9,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CreateSubWorkflowInstance(ctx sync.Context, workflow Workflow, args ...interface{}) (sync.Future, error) {
-	wfState := getWfState(ctx)
+func CreateSubWorkflowInstance(ctx sync.Context, workflow Workflow, args ...interface{}) sync.Future {
+	f := sync.NewFuture()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert workflow input")
+		f.Set(nil, errors.Wrap(err, "failed to convert workflow input"))
+		return f
 	}
+
+	wfState := getWfState(ctx)
 
 	eventID := wfState.eventID
 	wfState.eventID++
@@ -24,8 +27,7 @@ func CreateSubWorkflowInstance(ctx sync.Context, workflow Workflow, args ...inte
 	command := command.NewScheduleSubWorkflowCommand(eventID, name, inputs)
 	wfState.addCommand(command)
 
-	f := sync.NewFuture()
 	wfState.pendingFutures[eventID] = f
 
-	return f, nil
+	return f
 }

@@ -64,15 +64,8 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1, err := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-
-	a2, err := workflow.ExecuteActivity(ctx, Activity2)
-	if err != nil {
-		panic("error executing activity 1")
-	}
+	a1 := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
+	a2 := workflow.ExecuteActivity(ctx, Activity2)
 
 	results := 0
 

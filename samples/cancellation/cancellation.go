@@ -73,10 +73,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	canceled := false
 	for i := 0; i < 2 && !canceled; i++ {
-		a, err := workflow.ExecuteActivity(ctx, Activity1, 1, 2)
-		if err != nil {
-			panic(err)
-		}
+		a := workflow.ExecuteActivity(ctx, Activity1, 1, 2)
 
 		workflow.NewSelector().
 			AddChannelReceive(cancelChannel, func(ctx sync.Context, c sync.Channel) {

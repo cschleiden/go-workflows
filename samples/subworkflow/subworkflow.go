@@ -66,13 +66,8 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		log.Println("Leaving Workflow1")
 	}()
 
-	w2, err := workflow.CreateSubWorkflowInstance(ctx, Workflow2, "some input")
-	if err != nil {
-		return errors.Wrap(err, "failed to create sub workflow")
-	}
-
 	var wr string
-	if err := w2.Get(ctx, &wr); err != nil {
+	if err := workflow.CreateSubWorkflowInstance(ctx, Workflow2, "some input").Get(ctx, &wr); err != nil {
 		return errors.Wrap(err, "could not get sub workflow result")
 	}
 
@@ -90,26 +85,16 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow2")
 	}()
 
-	a1, err := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-
 	var r1 int
-	err = a1.Get(ctx, &r1)
+	err := workflow.ExecuteActivity(ctx, Activity1, 35, 12).Get(ctx, &r1)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
 	log.Println("R1 result:", r1)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	a2, err := workflow.ExecuteActivity(ctx, Activity2)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-
 	var r2 int
-	err = a2.Get(ctx, &r2)
+	err = workflow.ExecuteActivity(ctx, Activity2).Get(ctx, &r2)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}

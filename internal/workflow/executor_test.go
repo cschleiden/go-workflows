@@ -71,13 +71,10 @@ var workflowActivityHit int
 func workflowWithActivity(ctx sync.Context) error {
 	workflowActivityHit++
 
-	f1, err := ExecuteActivity(ctx, Activity1, 42)
-	if err != nil {
-		panic("error executing activity 1")
-	}
+	f1 := ExecuteActivity(ctx, Activity1, 42)
 
 	var r int
-	err = f1.Get(ctx, &r)
+	err := f1.Get(ctx, &r)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
@@ -193,14 +190,8 @@ var workflowTimerHits int
 func workflowWithTimer(ctx sync.Context) error {
 	workflowTimerHits++
 
-	t, err := ScheduleTimer(ctx, time.Millisecond*5)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-
 	var r bool
-	err = t.Get(ctx, &r)
-	if err != nil {
+	if err := ScheduleTimer(ctx, time.Millisecond*5).Get(ctx, &r); err != nil {
 		panic("error getting timer future")
 	}
 
@@ -252,17 +243,10 @@ var workflowWithSelectorHits int
 func workflowWithSelector(ctx sync.Context) error {
 	workflowWithSelectorHits++
 
+	f1 := ExecuteActivity(ctx, Activity1, 42)
+	t := ScheduleTimer(ctx, time.Millisecond*2)
+
 	s := sync.NewSelector()
-
-	f1, err := ExecuteActivity(ctx, Activity1, 42)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-	t, err := ScheduleTimer(ctx, time.Millisecond*2)
-	if err != nil {
-		panic("error executing activity 1")
-	}
-
 	s.AddFuture(f1, func(ctx sync.Context, f sync.Future) {
 		workflowWithSelectorHits++
 	})

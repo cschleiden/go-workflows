@@ -12,15 +12,15 @@ func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
-func CreateSubWorkflowInstance(ctx Context, workflow workflow.Workflow, args ...interface{}) (Future, error) {
+func CreateSubWorkflowInstance(ctx Context, workflow workflow.Workflow, args ...interface{}) Future {
 	return internal.CreateSubWorkflowInstance(ctx, workflow, args...)
 }
 
-func ExecuteActivity(ctx Context, activity workflow.Activity, args ...interface{}) (Future, error) {
+func ExecuteActivity(ctx Context, activity workflow.Activity, args ...interface{}) Future {
 	return internal.ExecuteActivity(ctx, activity, args...)
 }
 
-func ScheduleTimer(ctx Context, delay time.Duration) (Future, error) {
+func ScheduleTimer(ctx Context, delay time.Duration) Future {
 	return internal.ScheduleTimer(ctx, delay)
 }
 

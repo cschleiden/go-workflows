@@ -63,13 +63,10 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	defer func() { log.Println("Leaving Workflow1") }()
 
-	a1, err := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
-	if err != nil {
-		panic("error executing activity 1")
-	}
+	a1 := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
 
 	var r1 int
-	err = a1.Get(ctx, &r1)
+	err := a1.Get(ctx, &r1)
 	if err != nil {
 		log.Println("Error from Activity 1", err)
 		return errs.Wrap(err, "error getting result from activity 1")
