@@ -10,7 +10,7 @@ import (
 func Test_SqliteBackend(t *testing.T) {
 	test.TestBackend(t, test.Tester{
 		New: func() backend.Backend {
-			return NewMysqlBackend("TODO")
+			return NewMysqlBackend("todo", "todo", "todo")
 		},
 	})
 }
