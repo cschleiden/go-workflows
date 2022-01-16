@@ -79,7 +79,29 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
 
+	// Start heartbeat while processing workflow task
+	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+
+	go func(ctx context.Context) {
+		t := time.NewTicker(25 * time.Second)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if err := ww.backend.ExtendWorkflowTask(ctx, task.WorkflowInstance); err != nil {
+					ww.logger.Panic(err)
+				}
+			}
+		}
+	}(heartbeatCtx)
+
 	commands, err := workflowTaskExecutor.ExecuteWorkflowTask(ctx)
+
+	cancelHeartbeat()
+
 	if err != nil {
 		ww.logger.Panic(err)
 	}

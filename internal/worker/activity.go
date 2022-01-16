@@ -72,7 +72,7 @@ func (ww *activityWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
-	heartbeatCtx, cancel := context.WithCancel(ctx)
+	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 
 	go func(ctx context.Context) {
 		t := time.NewTicker(30 * time.Second)
@@ -84,7 +84,7 @@ func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 				return
 			case <-t.C:
 				if err := ww.backend.ExtendActivityTask(ctx, task.ID); err != nil {
-					panic(err)
+					ww.logger.Panic(err)
 				}
 			}
 		}
@@ -92,7 +92,7 @@ func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 
 	result, err := ww.activityTaskExecutor.ExecuteActivity(ctx, task)
 
-	cancel()
+	cancelHeartbeat()
 
 	var event history.Event
 
@@ -113,7 +113,7 @@ func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
 	}
 
 	if err := ww.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
-		panic(err)
+		ww.logger.Panic(err)
 	}
 }
 

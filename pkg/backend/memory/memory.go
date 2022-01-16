@@ -243,6 +243,11 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 	return nil
 }
 
+func (mb *memoryBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
+	// No need to extend workflow task, return immediately
+	return nil
+}
+
 func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
 	select {
 	case <-ctx.Done():

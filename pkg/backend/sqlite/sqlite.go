@@ -338,6 +338,35 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	return tx.Commit()
 }
 
+func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	until := time.Now().UTC().Add(WorkflowLockTimeout)
+	res, err := tx.ExecContext(
+		ctx,
+		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND locked_by = ?`,
+		until,
+		instance.GetInstanceID(),
+		instance.GetExecutionID(),
+		sb.workerName,
+	)
+	if err != nil {
+		return errors.Wrap(err, "could not extend workflow task lock")
+	}
+
+	if rowsAffected, err := res.RowsAffected(); err != nil {
+		return errors.Wrap(err, "could not determine if workflow task was extended")
+	} else if rowsAffected == 0 {
+		return errors.New("could not extend workflow task")
+	}
+
+	return tx.Commit()
+}
+
 func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {

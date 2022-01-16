@@ -19,6 +19,9 @@ type Backend interface {
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
 
+	// ExtendWorkflowTask extends the lock of a workflow task
+	ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error
+
 	// CompleteWorkflowTask completes a workflow task retrieved using GetWorkflowTask
 	//
 	// This checkpoints the execution. events are new events from the last workflow execution
@@ -32,6 +35,6 @@ type Backend interface {
 	// CompleteActivityTask completes a activity task retrieved using GetActivityTask
 	CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error
 
-	// ExtendActivityTask extends the lock
+	// ExtendActivityTask extends the lock of an activity task
 	ExtendActivityTask(ctx context.Context, activityID string) error
 }
