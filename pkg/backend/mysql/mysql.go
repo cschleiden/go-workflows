@@ -499,6 +499,34 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance core.W
 	return nil
 }
 
+func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+	tx, err := b.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	until := time.Now().UTC().Add(ActivityLockTimeout)
+	res, err := tx.ExecContext(
+		ctx,
+		`UPDATE activities SET locked_until = ? WHERE activity_id = ? AND locked_by = ?`,
+		until,
+		activityID,
+		b.workerName,
+	)
+	if err != nil {
+		return errors.Wrap(err, "could not extend activity lock")
+	}
+
+	if rowsAffected, err := res.RowsAffected(); err != nil {
+		return errors.Wrap(err, "could not determine if activity was extended")
+	} else if rowsAffected == 0 {
+		return errors.New("could not extend activity")
+	}
+
+	return tx.Commit()
+}
+
 func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
 	for _, historyEvent := range historyEvents {
 		a, err := history.SerializeAttributes(historyEvent.Attributes)

@@ -11,13 +11,13 @@ import (
 //go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
-	CreateWorkflowInstance(context.Context, core.WorkflowEvent) error
+	CreateWorkflowInstance(ctx context.Context, event core.WorkflowEvent) error
 
 	// SignalWorkflow signals a running workflow instance
-	SignalWorkflow(context.Context, core.WorkflowInstance, history.Event) error
+	SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.Event) error
 
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
-	GetWorkflowTask(context.Context) (*task.Workflow, error)
+	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
 
 	// CompleteWorkflowTask completes a workflow task retrieved using GetWorkflowTask
 	//
@@ -27,8 +27,11 @@ type Backend interface {
 	CompleteWorkflowTask(ctx context.Context, task task.Workflow, events []history.Event, workflowEvents []core.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
-	GetActivityTask(context.Context) (*task.Activity, error)
+	GetActivityTask(ctx context.Context) (*task.Activity, error)
 
 	// CompleteActivityTask completes a activity task retrieved using GetActivityTask
-	CompleteActivityTask(context.Context, core.WorkflowInstance, string, history.Event) error
+	CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error
+
+	// ExtendActivityTask extends the lock
+	ExtendActivityTask(ctx context.Context, activityID string) error
 }

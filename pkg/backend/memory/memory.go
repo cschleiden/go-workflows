@@ -253,7 +253,7 @@ func (mb *memoryBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	}
 }
 
-func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.WorkflowInstance, taskID string, event history.Event) error {
+func (mb *memoryBackend) CompleteActivityTask(ctx context.Context, wfi core.WorkflowInstance, taskID string, event history.Event) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
@@ -273,6 +273,11 @@ func (mb *memoryBackend) CompleteActivityTask(_ context.Context, wfi core.Workfl
 		}
 	}
 
+	return nil
+}
+
+func (mb *memoryBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+	// No locking here, just return
 	return nil
 }
 

@@ -335,11 +335,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
@@ -432,11 +428,35 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 		return errors.Wrap(err, "could not insert new events for completed activity")
 	}
 
-	if err := tx.Commit(); err != nil {
+	return tx.Commit()
+}
+
+func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 
-	return nil
+	until := time.Now().UTC().Add(ActivityLockTimeout)
+	res, err := tx.ExecContext(
+		ctx,
+		`UPDATE activities SET locked_until = ? WHERE id = ? AND locked_by = ?`,
+		until,
+		activityID,
+		sb.workerName,
+	)
+	if err != nil {
+		return errors.Wrap(err, "could not extend activity lock")
+	}
+
+	if rowsAffected, err := res.RowsAffected(); err != nil {
+		return errors.Wrap(err, "could not determine if activity was extended")
+	} else if rowsAffected == 0 {
+		return errors.New("could not extend activity")
+	}
+
+	return tx.Commit()
 }
 
 func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {

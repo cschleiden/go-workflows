@@ -72,7 +72,27 @@ func (ww *activityWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *activityWorker) handleTask(ctx context.Context, task task.Activity) {
+	heartbeatCtx, cancel := context.WithCancel(ctx)
+
+	go func(ctx context.Context) {
+		t := time.NewTicker(30 * time.Second)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if err := ww.backend.ExtendActivityTask(ctx, task.ID); err != nil {
+					panic(err)
+				}
+			}
+		}
+	}(heartbeatCtx)
+
 	result, err := ww.activityTaskExecutor.ExecuteActivity(ctx, task)
+
+	cancel()
 
 	var event history.Event
 
