@@ -18,13 +18,13 @@ type MockBackend struct {
 	mock.Mock
 }
 
-// CompleteActivityTask provides a mock function with given fields: _a0, _a1, _a2, _a3
-func (_m *MockBackend) CompleteActivityTask(_a0 context.Context, _a1 core.WorkflowInstance, _a2 string, _a3 history.Event) error {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+// CompleteActivityTask provides a mock function with given fields: ctx, instance, activityID, event
+func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error {
+	ret := _m.Called(ctx, instance, activityID, event)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, string, history.Event) error); ok {
-		r0 = rf(_a0, _a1, _a2, _a3)
+		r0 = rf(ctx, instance, activityID, event)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -46,13 +46,13 @@ func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 task.Workfl
 	return r0
 }
 
-// CreateWorkflowInstance provides a mock function with given fields: _a0, _a1
-func (_m *MockBackend) CreateWorkflowInstance(_a0 context.Context, _a1 core.WorkflowEvent) error {
-	ret := _m.Called(_a0, _a1)
+// CreateWorkflowInstance provides a mock function with given fields: ctx, event
+func (_m *MockBackend) CreateWorkflowInstance(ctx context.Context, event core.WorkflowEvent) error {
+	ret := _m.Called(ctx, event)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowEvent) error); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, event)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -60,13 +60,41 @@ func (_m *MockBackend) CreateWorkflowInstance(_a0 context.Context, _a1 core.Work
 	return r0
 }
 
-// GetActivityTask provides a mock function with given fields: _a0
-func (_m *MockBackend) GetActivityTask(_a0 context.Context) (*task.Activity, error) {
-	ret := _m.Called(_a0)
+// ExtendActivityTask provides a mock function with given fields: ctx, activityID
+func (_m *MockBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+	ret := _m.Called(ctx, activityID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, activityID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ExtendWorkflowTask provides a mock function with given fields: ctx, instance
+func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
+	ret := _m.Called(ctx, instance)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance) error); ok {
+		r0 = rf(ctx, instance)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetActivityTask provides a mock function with given fields: ctx
+func (_m *MockBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+	ret := _m.Called(ctx)
 
 	var r0 *task.Activity
 	if rf, ok := ret.Get(0).(func(context.Context) *task.Activity); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*task.Activity)
@@ -75,7 +103,7 @@ func (_m *MockBackend) GetActivityTask(_a0 context.Context) (*task.Activity, err
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -83,13 +111,13 @@ func (_m *MockBackend) GetActivityTask(_a0 context.Context) (*task.Activity, err
 	return r0, r1
 }
 
-// GetWorkflowTask provides a mock function with given fields: _a0
-func (_m *MockBackend) GetWorkflowTask(_a0 context.Context) (*task.Workflow, error) {
-	ret := _m.Called(_a0)
+// GetWorkflowTask provides a mock function with given fields: ctx
+func (_m *MockBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+	ret := _m.Called(ctx)
 
 	var r0 *task.Workflow
 	if rf, ok := ret.Get(0).(func(context.Context) *task.Workflow); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*task.Workflow)
@@ -98,7 +126,7 @@ func (_m *MockBackend) GetWorkflowTask(_a0 context.Context) (*task.Workflow, err
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -106,13 +134,13 @@ func (_m *MockBackend) GetWorkflowTask(_a0 context.Context) (*task.Workflow, err
 	return r0, r1
 }
 
-// SignalWorkflow provides a mock function with given fields: _a0, _a1, _a2
-func (_m *MockBackend) SignalWorkflow(_a0 context.Context, _a1 core.WorkflowInstance, _a2 history.Event) error {
-	ret := _m.Called(_a0, _a1, _a2)
+// SignalWorkflow provides a mock function with given fields: ctx, instance, event
+func (_m *MockBackend) SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
+	ret := _m.Called(ctx, instance, event)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, history.Event) error); ok {
-		r0 = rf(_a0, _a1, _a2)
+		r0 = rf(ctx, instance, event)
 	} else {
 		r0 = ret.Error(0)
 	}
