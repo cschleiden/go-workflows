@@ -23,7 +23,7 @@ func main() {
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
-	w := worker.NewWorker(mb)
+	w := worker.New(mb)
 
 	w.RegisterWorkflow(simple_split_worker.Workflow1)
 

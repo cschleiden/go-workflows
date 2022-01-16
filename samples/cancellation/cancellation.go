@@ -50,7 +50,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
-	w := worker.NewWorker(mb)
+	w := worker.New(mb)
 
 	w.RegisterWorkflow(Workflow1)
 	w.RegisterActivity(Activity1)

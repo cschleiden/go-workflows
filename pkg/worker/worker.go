@@ -40,7 +40,7 @@ type worker struct {
 	activities map[string]interface{}
 }
 
-func NewWorker(backend backend.Backend) Worker {
+func New(backend backend.Backend) Worker {
 	registry := workflow.NewRegistry()
 
 	return &worker{
