@@ -118,7 +118,7 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 			"INSERT INTO `pending_events` (event_id, instance_id, event_type, event_id2, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
 			newEvent.ID,
 			instanceID,
-			newEvent.EventType,
+			newEvent.Type,
 			newEvent.EventID,
 			a,
 			newEvent.VisibleAt,
@@ -229,11 +229,11 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		historyEvent := history.Event{}
 
-		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.EventType, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
+		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
 			return nil, errors.Wrap(err, "could not scan event")
 		}
 
-		a, err := history.DeserializeAttributes(historyEvent.EventType, attributes)
+		a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not deserialize attributes")
 		}
@@ -264,11 +264,11 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		historyEvent := history.Event{}
 
-		if err := historyEvents.Scan(&historyEvent.ID, &instanceID, &historyEvent.EventType, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
+		if err := historyEvents.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
 			return nil, errors.Wrap(err, "could not scan event")
 		}
 
-		a, err := history.DeserializeAttributes(historyEvent.EventType, attributes)
+		a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not deserialize attributes")
 		}
@@ -348,7 +348,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(ctx context.Context, task task.Workf
 
 	// Schedule activities
 	for _, e := range events {
-		switch e.EventType {
+		switch e.Type {
 		case history.EventType_ActivityScheduled:
 			if err := scheduleActivity(ctx, tx, task.WorkflowInstance.GetInstanceID(), task.WorkflowInstance.GetExecutionID(), e); err != nil {
 				return errors.Wrap(err, "could not schedule activity")
@@ -455,7 +455,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	var attributes []byte
 	event := history.Event{}
 
-	if err := res.Scan(&id, &event.ID, &instanceID, &executionID, &event.EventType, &event.EventID, &attributes, &event.VisibleAt); err != nil {
+	if err := res.Scan(&id, &event.ID, &instanceID, &executionID, &event.Type, &event.EventID, &attributes, &event.VisibleAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -463,7 +463,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 		return nil, errors.Wrap(err, "could not find activity task to lock")
 	}
 
-	a, err := history.DeserializeAttributes(event.EventType, attributes)
+	a, err := history.DeserializeAttributes(event.Type, attributes)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not deserialize attributes")
 	}
@@ -568,7 +568,7 @@ func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, his
 			"INSERT INTO `history` (event_id, instance_id, event_type, event_id2, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
 			historyEvent.ID,
 			instanceID,
-			historyEvent.EventType,
+			historyEvent.Type,
 			historyEvent.EventID,
 			a,
 			historyEvent.VisibleAt,
@@ -593,7 +593,7 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID s
 		event.ID,
 		instanceID,
 		executionID,
-		event.EventType,
+		event.Type,
 		event.EventID,
 		a,
 		event.VisibleAt,

@@ -182,7 +182,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 
 	// Check events generated in last execution for any action that needs to be taken
 	for _, event := range events {
-		switch event.EventType {
+		switch event.Type {
 		case history.EventType_ActivityScheduled:
 			mb.activities <- &task.Activity{
 				WorkflowInstance: wfi,
@@ -200,7 +200,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 		workflowInstance := we.WorkflowInstance
 		event := we.HistoryEvent
 
-		switch event.EventType {
+		switch event.Type {
 		case history.EventType_TimerFired:
 			// Specific to this backend implementation, schedule a timer to put a new task in the queue when the timer fires
 			a := event.Attributes.(*history.TimerFiredAttributes)

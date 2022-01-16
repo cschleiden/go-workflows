@@ -97,11 +97,11 @@ func (e *executor) ExecuteWorkflowTask(ctx context.Context) ([]command.Command, 
 }
 
 func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
-	e.logger.Println("Handling:", event.EventType)
+	e.logger.Println("Handling:", event.Type)
 
 	var err error
 
-	switch event.EventType {
+	switch event.Type {
 	case history.EventType_WorkflowExecutionStarted:
 		err = e.handleWorkflowExecutionStarted(ctx, event.Attributes.(*history.ExecutionStartedAttributes))
 
@@ -132,7 +132,7 @@ func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
 		err = e.handleSubWorkflowCompleted(ctx, event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
 
 	default:
-		return fmt.Errorf("unknown event type: %v", event.EventType)
+		return fmt.Errorf("unknown event type: %v", event.Type)
 	}
 
 	return err

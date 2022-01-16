@@ -37,9 +37,11 @@ type Event struct {
 	// ID is a unique identifier
 	ID string
 
-	EventType EventType
+	Type EventType
 
-	// EventID is a sequence number
+	// EventID is used to correlate events belonging together
+	// For example, if an activity is scheduled, EventID of the schedule event and the
+	// completion/failure event are the same.
 	EventID int
 
 	// Attributes are event type specific attributes
@@ -49,13 +51,13 @@ type Event struct {
 }
 
 func (e *Event) String() string {
-	return strconv.Itoa(int(e.EventType))
+	return strconv.Itoa(int(e.Type))
 }
 
 func NewHistoryEvent(eventType EventType, eventID int, attributes interface{}) Event {
 	return Event{
 		ID:         uuid.NewString(),
-		EventType:  eventType,
+		Type:       eventType,
 		EventID:    eventID,
 		Attributes: attributes,
 	}
