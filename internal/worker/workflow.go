@@ -106,9 +106,13 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 	}(heartbeatCtx)
 
 	instance := task.WorkflowInstance
-	if workflowTaskExecutor, ok, cerr := ww.cache.Get(ctx, instance); cerr != nil {
-		ww.logger.Panic(cerr)
-	} else if ok {
+
+	workflowTaskExecutor, ok, cerr := ww.cache.Get(ctx, instance)
+	if cerr != nil {
+		ww.logger.Println(cerr)
+	}
+
+	if ok {
 		commands, err = workflowTaskExecutor.ExecuteNewTask(ctx, &task)
 	} else {
 		workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
