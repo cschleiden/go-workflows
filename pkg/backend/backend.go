@@ -22,7 +22,7 @@ type Backend interface {
 	// ExtendWorkflowTask extends the lock of a workflow task
 	ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error
 
-	// CompleteWorkflowTask completes a workflow task retrieved using GetWorkflowTask
+	// CompleteWorkflowTask checkpoints a workflow task retrieved using GetWorkflowTask
 	//
 	// This checkpoints the execution. events are new events from the last workflow execution
 	// which will be added to the workflow instance history. workflowEvents are new events for the

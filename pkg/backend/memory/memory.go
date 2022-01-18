@@ -13,28 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type workflowStatus int
-
-const (
-	workflowStatusRunning workflowStatus = iota
-	workflowStatusCompleted
-)
-
-type workflowState struct {
-	Status workflowStatus
-
-	Instance core.WorkflowInstance
-
-	ParentInstance *core.WorkflowInstance
-
-	History []history.Event
-
-	PendingEvents []history.Event
-
-	CreatedAt   time.Time
-	CompletedAt *time.Time
-}
-
 // Simple in-memory backend for development
 type memoryBackend struct {
 	mu               sync.Mutex
@@ -115,12 +93,7 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 		// Only return visible events to worker
 		instance := mb.instances[id]
-		newEvents := make([]history.Event, 0)
-		for _, event := range instance.PendingEvents {
-			if event.VisibleAt == nil || event.VisibleAt.Before(time.Now().UTC()) {
-				newEvents = append(newEvents, event)
-			}
-		}
+		newEvents := instance.getNewEvents()
 
 		if len(newEvents) == 0 {
 			return nil, nil
@@ -232,7 +205,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 
 	if !workflowCompleted {
 		// New events have been added while this was being worked on
-		hasNewEvents := len(instance.PendingEvents) > 0
+		hasNewEvents := len(instance.getNewEvents()) > 0
 		if hasNewEvents {
 			mb.queueWorkflowTask(wfi)
 		}
