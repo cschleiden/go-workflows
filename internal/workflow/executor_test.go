@@ -362,7 +362,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	}
 
 	// Execute the workflow again with the activity completed event
-	_, err := e.ExecuteNewTask(context.Background(), newTask)
+	_, err := e.ExecuteContinuationTask(context.Background(), newTask)
 
 	require.NoError(t, err)
 	require.Equal(t, 2, workflowActivityHit)

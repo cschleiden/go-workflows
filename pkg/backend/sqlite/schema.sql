@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
-  `locked_by` TEXT NULL
+  `sticky_until` DATETIME NULL,
+  `worker` TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS `pending_events` (

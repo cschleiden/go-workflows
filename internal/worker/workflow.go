@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
@@ -76,60 +77,87 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case task := <-ww.workflowTaskQueue:
-			go ww.handleTask(ctx, task)
+		case t := <-ww.workflowTaskQueue:
+			if t.Kind == task.Continuation {
+				go ww.handleContinuationTask(ctx, t)
+			} else {
+				go ww.handleTask(ctx, t)
+			}
 		}
 	}
 }
 
 func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
-	var commands []command.Command
-	var err error
-
 	// Start heartbeat while processing workflow task
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+	defer cancelHeartbeat()
+	go ww.heartbeatTask(heartbeatCtx, &task)
 
-	go func(ctx context.Context) {
-		t := time.NewTicker(25 * time.Second)
-		defer t.Stop()
+	workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				if err := ww.backend.ExtendWorkflowTask(ctx, task.WorkflowInstance); err != nil {
-					ww.logger.Panic(err)
-				}
-			}
-		}
-	}(heartbeatCtx)
-
-	instance := task.WorkflowInstance
-
-	workflowTaskExecutor, ok, cerr := ww.cache.Get(ctx, instance)
-	if cerr != nil {
-		ww.logger.Println(cerr)
+	if err := ww.cache.Store(ctx, task.WorkflowInstance, workflowTaskExecutor); err != nil {
+		ww.logger.Println("error while storing workflow task executor:", err)
 	}
 
-	if ok {
-		commands, err = workflowTaskExecutor.ExecuteNewTask(ctx, &task)
-	} else {
-		workflowTaskExecutor := workflow.NewExecutor(ww.registry, &task)
-
-		if err := ww.cache.Store(ctx, instance, workflowTaskExecutor); err != nil {
-			ww.logger.Println("error while storing workflow task executor:", err)
-		}
-
-		commands, err = workflowTaskExecutor.Execute(ctx)
-	}
-
-	cancelHeartbeat()
-
+	commands, err := workflowTaskExecutor.Execute(ctx)
 	if err != nil {
 		ww.logger.Panic(err)
 	}
 
+	cancelHeartbeat()
+
+	newEvents, workflowEvents := ww.processCommands(ctx, task.WorkflowInstance, commands)
+
+	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowEvents); err != nil {
+		ww.logger.Panic(err)
+	}
+}
+
+func (ww *workflowWorker) handleContinuationTask(ctx context.Context, task task.Workflow) {
+	// Start heartbeat while processing workflow task
+	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+	defer cancelHeartbeat()
+	go ww.heartbeatTask(heartbeatCtx, &task)
+
+	workflowTaskExecutor, ok, cerr := ww.cache.Get(ctx, task.WorkflowInstance)
+	if cerr != nil {
+		// TODO: Can we fall back to getting a full task here?
+		ww.logger.Fatal(cerr)
+	} else if !ok {
+		ww.logger.Fatal(errors.New("workflow task executor not found in cache"))
+	}
+
+	commands, err := workflowTaskExecutor.ExecuteContinuationTask(ctx, &task)
+	if err != nil {
+		ww.logger.Panic(err)
+	}
+
+	cancelHeartbeat()
+
+	newEvents, workflowEvents := ww.processCommands(ctx, task.WorkflowInstance, commands)
+
+	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowEvents); err != nil {
+		ww.logger.Panic(err)
+	}
+}
+
+func (ww *workflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow) {
+	t := time.NewTicker(25 * time.Second)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := ww.backend.ExtendWorkflowTask(ctx, task.WorkflowInstance); err != nil {
+				ww.logger.Panic(err)
+			}
+		}
+	}
+}
+
+func (ww *workflowWorker) processCommands(ctx context.Context, instance core.WorkflowInstance, commands []command.Command) ([]history.Event, []core.WorkflowEvent) {
 	newEvents := make([]history.Event, 0)
 	workflowEvents := make([]core.WorkflowEvent, 0)
 
@@ -150,7 +178,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		case command.CommandType_ScheduleSubWorkflow:
 			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 
-			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), task.WorkflowInstance, c.ID)
+			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				history.EventType_SubWorkflowScheduled,
@@ -188,7 +216,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 
 			// Create timer_fired event which will become visible in the future
 			workflowEvents = append(workflowEvents, core.WorkflowEvent{
-				WorkflowInstance: task.WorkflowInstance,
+				WorkflowInstance: instance,
 				HistoryEvent: history.NewFutureHistoryEvent(
 					history.EventType_TimerFired,
 					c.ID,
@@ -211,12 +239,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 				},
 			))
 
-			if task.WorkflowInstance.SubWorkflow() {
+			if instance.SubWorkflow() {
 				workflowEvents = append(workflowEvents, core.WorkflowEvent{
-					WorkflowInstance: task.WorkflowInstance.ParentInstance(),
+					WorkflowInstance: instance.ParentInstance(),
 					HistoryEvent: history.NewHistoryEvent(
 						history.EventType_SubWorkflowCompleted,
-						task.WorkflowInstance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
+						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
 							Error:  a.Error,
@@ -230,9 +258,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, task task.Workflow) {
 		}
 	}
 
-	if err := ww.backend.CompleteWorkflowTask(ctx, task, newEvents, workflowEvents); err != nil {
-		ww.logger.Panic(err)
-	}
+	return newEvents, workflowEvents
 }
 
 func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*task.Workflow, error) {

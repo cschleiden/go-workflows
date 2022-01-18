@@ -122,32 +122,44 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	row := tx.QueryRowContext(
 		ctx,
 		`UPDATE instances
-			SET locked_until = ?, locked_by = ?
+			SET locked_until = ?, worker = ?
 			WHERE rowid = (
 				SELECT rowid FROM instances i
-					WHERE (locked_until IS NULL OR locked_until < ?) AND completed_at IS NULL
+					WHERE
+						(locked_until IS NULL OR locked_until < ?)
+						AND (sticky_until IS NULL OR sticky_until < ? OR worker = ?)
+						AND completed_at IS NULL
 						AND EXISTS (
 							SELECT 1
 								FROM pending_events
 								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 						)
 					LIMIT 1
-			) RETURNING id, execution_id, parent_instance_id, parent_event_id`,
+			) RETURNING id, execution_id, parent_instance_id, parent_event_id, queue_until`,
 		now.Add(WorkflowLockTimeout),
-		sb.workerName,
-		now,
-		now,
+		now,           // locked_until
+		now,           // sticky_until
+		sb.workerName, // worker
+		now,           // event.visible_at
 	)
 
 	var instanceID, executionID string
 	var parentInstanceID *string
 	var parentEventID *int
-	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID); err != nil {
+	var queueUntil time.Time
+	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID, &queueUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 
-		return nil, err
+		return nil, errors.Wrap(err, "could not lock workflow task")
+	}
+
+	var kind task.Kind
+
+	// Check if this task is using a dedicated queue
+	if queueUntil.After(now) {
+		kind = task.Continuation
 	}
 
 	var wfi core.WorkflowInstance
@@ -164,60 +176,32 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	// Get new events
-	events, err := tx.QueryContext(ctx, "SELECT * FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
+	pendingEvents, err := getPendingEvents(ctx, tx, instanceID)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get new events")
-	}
-
-	for events.Next() {
-		var instanceID string
-		var attributes []byte
-
-		historyEvent := history.Event{}
-
-		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
-			return nil, errors.Wrap(err, "could not scan event")
-		}
-
-		a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not deserialize attributes")
-		}
-
-		historyEvent.Attributes = a
-
-		t.NewEvents = append(t.NewEvents, historyEvent)
+		return nil, errors.Wrap(err, "could not get pending events")
 	}
 
 	// Return if there aren't any new events
-	if len(t.NewEvents) == 0 {
+	if len(pendingEvents) == 0 {
 		return nil, nil
 	}
 
-	// Get historyEvents
-	historyEvents, err := tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ?", instanceID)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get history")
-	}
+	t.NewEvents = pendingEvents
 
-	for historyEvents.Next() {
-		var instanceID string
-		var attributes []byte
-
-		historyEvent := history.Event{}
-
-		if err := historyEvents.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
-			return nil, errors.Wrap(err, "could not scan event")
-		}
-
-		a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
+	// Get workflow history
+	if kind != task.Continuation {
+		// Retrieve full history
+		h, err := getHistory(ctx, tx, instanceID)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not deserialize attributes")
+			return nil, errors.Wrap(err, "could not get workflow history")
 		}
 
-		historyEvent.Attributes = a
-
-		t.History = append(t.History, historyEvent)
+		t.History = h
+	} else {
+		// TODO: Fetch only the last history event.
+		// TODO: Introduce sequence number to order events
+		// Get only last history event
+		// historyEvent, err := tx.QueryRowContext(ctx, "SELECT * FROM `history` WHERE instance_id = ? ORDER BY `event_id` DESC LIMIT 1", instanceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -239,22 +223,23 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 	defer tx.Rollback()
 
-	// Unlock instance
+	// Unlock instance, but keep it sticky to the current worker
 	if _, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = NULL, locked_by = NULL WHERE id = ? AND execution_id = ?`,
+		`UPDATE instances SET locked_until = NULL, sticky_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
+		time.Now().UTC().Add(5*time.Second), // TODO: Make this configurable
 		task.WorkflowInstance.GetInstanceID(),
 		task.WorkflowInstance.GetExecutionID(),
+		sb.workerName,
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
 	}
 
 	changedRows := 0
+	// TODO: Use AffectedRows?
 	if err := tx.QueryRowContext(ctx, "SELECT CHANGES()").Scan(&changedRows); err != nil {
 		return errors.Wrap(err, "could not check for unlocked workflow instances")
-	}
-
-	if changedRows != 1 {
+	} else if changedRows != 1 {
 		return errors.New("could not find workflow instance to unlock")
 	}
 
@@ -348,7 +333,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance core.W
 	until := time.Now().UTC().Add(WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND locked_by = ?`,
+		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
 		until,
 		instance.GetInstanceID(),
 		instance.GetExecutionID(),
@@ -380,7 +365,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	row, err := tx.QueryContext(
 		ctx,
 		`UPDATE activities
-			SET locked_until = ?, locked_by = ?
+			SET locked_until = ?, worker = ?
 			WHERE rowid = (
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
 			) RETURNING id, instance_id, execution_id, event_type, event_id, attributes, visible_at`,
@@ -435,7 +420,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	// Remove activity
 	if _, err := tx.ExecContext(
 		ctx,
-		`DELETE FROM activities WHERE instance_id = ? AND id = ? AND locked_by = ?`,
+		`DELETE FROM activities WHERE instance_id = ? AND id = ? AND worker = ?`,
 		instance.GetInstanceID(),
 		id,
 		sb.workerName,
@@ -470,7 +455,7 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 	until := time.Now().UTC().Add(ActivityLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
-		`UPDATE activities SET locked_until = ? WHERE id = ? AND locked_by = ?`,
+		`UPDATE activities SET locked_until = ? WHERE id = ? AND worker = ?`,
 		until,
 		activityID,
 		sb.workerName,
@@ -486,54 +471,6 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 	}
 
 	return tx.Commit()
-}
-
-func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
-	for _, newEvent := range newEvents {
-		a, err := history.SerializeAttributes(newEvent.Attributes)
-		if err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO `pending_events` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
-			newEvent.ID,
-			instanceID,
-			newEvent.Type,
-			newEvent.EventID,
-			a,
-			newEvent.VisibleAt,
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
-	for _, historyEvent := range historyEvents {
-		a, err := history.SerializeAttributes(historyEvent.Attributes)
-		if err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO `history` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
-			historyEvent.ID,
-			instanceID,
-			historyEvent.Type,
-			historyEvent.EventID,
-			a,
-			historyEvent.VisibleAt,
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event history.Event) error {
