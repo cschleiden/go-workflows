@@ -135,8 +135,9 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 						)
 					LIMIT 1
-			) RETURNING id, execution_id, parent_instance_id, parent_event_id, queue_until`,
-		now.Add(WorkflowLockTimeout),
+			) RETURNING id, execution_id, parent_instance_id, parent_event_id, sticky_until`,
+		now.Add(WorkflowLockTimeout), // new locked_until
+		sb.workerName,
 		now,           // locked_until
 		now,           // sticky_until
 		sb.workerName, // worker
@@ -146,8 +147,8 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	var instanceID, executionID string
 	var parentInstanceID *string
 	var parentEventID *int
-	var queueUntil time.Time
-	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID, &queueUntil); err != nil {
+	var stickyUntil *time.Time
+	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -155,10 +156,9 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		return nil, errors.Wrap(err, "could not lock workflow task")
 	}
 
+	// Check if this task is using a dedicated queue and should be returned as a continuation
 	var kind task.Kind
-
-	// Check if this task is using a dedicated queue
-	if queueUntil.After(now) {
+	if stickyUntil != nil && stickyUntil.After(now) {
 		kind = task.Continuation
 	}
 
@@ -173,6 +173,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
 		History:          []history.Event{},
+		Kind:             kind,
 	}
 
 	// Get new events
@@ -198,10 +199,15 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 		t.History = h
 	} else {
-		// TODO: Fetch only the last history event.
-		// TODO: Introduce sequence number to order events
-		// Get only last history event
-		// historyEvent, err := tx.QueryRowContext(ctx, "SELECT * FROM `history` WHERE instance_id = ? ORDER BY `event_id` DESC LIMIT 1", instanceID)
+		// Get only most recent history event
+		row := tx.QueryRowContext(ctx, "SELECT * FROM `history` WHERE instance_id = ? ORDER BY rowid DESC LIMIT 1", instanceID)
+
+		lastHistoryEvent, err := scanEvent(row)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get workflow history")
+		}
+
+		t.History = []history.Event{lastHistoryEvent}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -265,10 +271,10 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		return errors.Wrap(err, "could not insert new events")
 	}
 
-	// Insert new events generated during this workflow execution to the history
-	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), events); err != nil {
-		return errors.Wrap(err, "could not insert new history events")
-	}
+	// // Insert new events generated during this workflow execution to the history
+	// if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), events); err != nil {
+	// 	return errors.Wrap(err, "could not insert new history events")
+	// }
 
 	workflowCompleted := false
 
@@ -471,26 +477,4 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 	}
 
 	return tx.Commit()
-}
-
-func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event history.Event) error {
-	a, err := history.SerializeAttributes(event.Attributes)
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.ExecContext(
-		ctx,
-		`INSERT INTO activities
-			(id, instance_id, execution_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		event.ID,
-		instanceID,
-		executionID,
-		event.Type,
-		event.EventID,
-		a,
-		event.VisibleAt,
-	)
-
-	return err
 }

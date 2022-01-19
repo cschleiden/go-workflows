@@ -3,6 +3,7 @@ package simple_split_worker
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/cschleiden/go-dt/pkg/workflow"
 )
@@ -36,6 +37,8 @@ func Workflow1(ctx workflow.Context, msg string) error {
 
 func Activity1(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering Activity1")
+
+	time.Sleep(5 * time.Second)
 
 	defer func() {
 		log.Println("Leaving Activity1")

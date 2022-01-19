@@ -50,7 +50,11 @@ func getHistory(ctx context.Context, tx *sql.Tx, instanceID string) ([]history.E
 	return events, nil
 }
 
-func scanEvent(row *sql.Rows) (history.Event, error) {
+type Scanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanEvent(row Scanner) (history.Event, error) {
 	var instanceID string
 	var attributes []byte
 

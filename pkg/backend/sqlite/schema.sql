@@ -37,5 +37,5 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
-  `locked_by` TEXT NULL
+  `worker` TEXT NULL
 );
