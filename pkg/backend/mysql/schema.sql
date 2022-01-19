@@ -7,10 +7,11 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
-  `locked_by` NVARCHAR(64) NULL,
+  `sticky_until` DATETIME NULL,
+  `worker` NVARCHAR(64) NULL,
 
   UNIQUE INDEX `idx_instances_instance_id_execution_id` (`instance_id`, `execution_id`),
-  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `completed_at`)
+  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `sticky_until`, `completed_at`)
 );
 
 
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
-  `locked_by` NVARCHAR(64) NULL,
+  `worker` NVARCHAR(64) NULL,
 
   UNIQUE INDEX `idx_activities_instance_id` (`activity_id`, `instance_id`, `execution_id`),
   INDEX `idx_activities_locked_until` (`locked_until`)

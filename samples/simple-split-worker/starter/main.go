@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/mysql"
 	"github.com/cschleiden/go-dt/pkg/client"
 	simple_split_worker "github.com/cschleiden/go-dt/samples/simple-split-worker"
 	"github.com/google/uuid"
@@ -13,10 +13,11 @@ import (
 func main() {
 	ctx := context.Background()
 
-	mb := sqlite.NewSqliteBackend("../simple-split.sqlite")
+	//b := sqlite.NewSqliteBackend("../simple-split.sqlite")
+	b := mysql.NewMysqlBackend("root", "SqlPassw0rd", "simple")
 
 	// Start workflow via client
-	c := client.NewClient(mb)
+	c := client.NewClient(b)
 	startWorkflow(ctx, c)
 }
 

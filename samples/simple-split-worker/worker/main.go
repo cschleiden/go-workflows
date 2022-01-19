@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/mysql"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	simple_split_worker "github.com/cschleiden/go-dt/samples/simple-split-worker"
 )
@@ -13,10 +13,11 @@ import (
 func main() {
 	ctx := context.Background()
 
-	mb := sqlite.NewSqliteBackend("../simple-split.sqlite")
+	//b := sqlite.NewSqliteBackend("../simple-split.sqlite")
+	b := mysql.NewMysqlBackend("root", "SqlPassw0rd", "simple")
 
 	// Run worker
-	go RunWorker(ctx, mb)
+	go RunWorker(ctx, b)
 
 	c2 := make(chan os.Signal, 1)
 	<-c2
