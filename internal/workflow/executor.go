@@ -20,6 +20,7 @@ type WorkflowExecutor interface {
 	Execute(ctx context.Context) ([]command.Command, error)
 	ExecuteContinuationTask(ctx context.Context, task *task.Workflow) ([]command.Command, error)
 	Close()
+	SetLastEventID(id string)
 }
 
 type executor struct {
@@ -86,7 +87,7 @@ func (e *executor) Execute(ctx context.Context) ([]command.Command, error) {
 func (e *executor) ExecuteContinuationTask(ctx context.Context, task *task.Workflow) ([]command.Command, error) {
 	wfCtx := withWfState(sync.Background(), e.workflowState)
 
-	// Check if replaying history is required
+	// Check if the current state matches the backend's history state
 	newestHistoryEvent := task.History[len(task.History)-1]
 	if newestHistoryEvent.ID != e.lastEventID {
 		return nil, errors.New("mismatch in execution, last event not found in history")
@@ -121,6 +122,10 @@ func (e *executor) executeNewEvents(wfCtx sync.Context, newEvents []history.Even
 	}
 
 	return nil
+}
+
+func (e *executor) SetLastEventID(id string) {
+	e.lastEventID = id
 }
 
 func (e *executor) Close() {

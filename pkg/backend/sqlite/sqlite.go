@@ -21,6 +21,7 @@ import (
 //go:embed schema.sql
 var schema string
 
+var StickyTimeout = time.Second * 30
 var WorkflowLockTimeout = time.Minute * 1
 var ActivityLockTimeout = time.Minute * 2
 
@@ -233,7 +234,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	if _, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = NULL, sticky_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
-		time.Now().UTC().Add(5*time.Second), // TODO: Make this configurable
+		time.Now().UTC().Add(StickyTimeout), // TODO: Make this configurable
 		task.WorkflowInstance.GetInstanceID(),
 		task.WorkflowInstance.GetExecutionID(),
 		sb.workerName,
@@ -271,10 +272,10 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		return errors.Wrap(err, "could not insert new events")
 	}
 
-	// // Insert new events generated during this workflow execution to the history
-	// if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), events); err != nil {
-	// 	return errors.Wrap(err, "could not insert new history events")
-	// }
+	// Insert new events generated during this workflow execution to the history
+	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), events); err != nil {
+		return errors.Wrap(err, "could not insert new history events")
+	}
 
 	workflowCompleted := false
 
