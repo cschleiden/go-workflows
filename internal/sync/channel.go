@@ -114,8 +114,10 @@ func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 			cb := func(v interface{}) {
 				receivedValue = true
 
-				if err := converter.AssignValue(c.converter, v, vptr); err != nil {
-					panic(err)
+				if vptr != nil {
+					if err := converter.AssignValue(c.converter, v, vptr); err != nil {
+						panic(err)
+					}
 				}
 			}
 

@@ -43,6 +43,27 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			},
 		},
 		{
+			name: "Receive_ToNil",
+			fn: func(t *testing.T, c *channel) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
+					c.Receive(ctx, nil)
+					return nil
+				})
+				cr.Execute()
+
+				crSend := NewCoroutine(Background(), func(ctx Context) error {
+					c.SendNonblocking(ctx, 42)
+
+					return nil
+				})
+				crSend.Execute()
+
+				cr.Execute()
+
+				require.True(t, cr.Finished())
+			},
+		},
+		{
 			name: "Receive_BlocksUntilSend",
 			fn: func(t *testing.T, c *channel) {
 				var r int

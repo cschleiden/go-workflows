@@ -45,6 +45,9 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	time.Sleep(2 * time.Second)
 	c.SignalWorkflow(ctx, wf, "test", 42)
 
+	time.Sleep(2 * time.Second)
+	c.SignalWorkflow(ctx, wf, "test2", 42)
+
 	log.Println("Signaled workflow", wf.GetInstanceID())
 }
 
@@ -62,22 +65,20 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	defer log.Println("Leaving Workflow1")
 
-	defer func() {
-		log.Println("Leaving Workflow1")
-	}()
-
-	s := workflow.NewSelector()
-
-	s.AddChannelReceive(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
+	log.Println("Waiting for first signal")
+	workflow.NewSelector().AddChannelReceive(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
 		var r int
 		c.Receive(ctx, &r)
 
 		log.Println("Received signal:", r)
 		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-	})
+	}).Select(ctx)
 
-	s.Select(ctx)
+	log.Println("Waiting for second signal")
+	workflow.NewSignalChannel(ctx, "test2").Receive(ctx, nil)
+	log.Println("Received second signal")
 
 	return "result", nil
 }
