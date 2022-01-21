@@ -33,3 +33,7 @@ func NewSelector() sync.Selector {
 func NewSignalChannel(ctx Context, name string) Channel {
 	return internal.NewSignalChannel(ctx, name)
 }
+
+func Now(ctx Context) time.Time {
+	return internal.Now(ctx)
+}

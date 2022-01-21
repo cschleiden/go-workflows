@@ -50,7 +50,7 @@ func (r *Registry) GetWorkflow(name string) (Workflow, error) {
 		return workflow, nil
 	}
 
-	return nil, errors.New("activity not found")
+	return nil, errors.New("workflow not found")
 }
 
 func (r *Registry) GetActivity(name string) (Activity, error) {

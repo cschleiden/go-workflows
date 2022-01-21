@@ -10,7 +10,8 @@ import (
 func Test_SqliteBackend(t *testing.T) {
 	test.TestBackend(t, test.Tester{
 		New: func() backend.Backend {
-			return NewSqliteBackend("test.db?mode=memory")
+			// Disable sticky workflow behavior for the test execution
+			return NewSqliteBackend("test.db?mode=memory", backend.WithStickyTimeout(0))
 		},
 	})
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func workflow1(context sync.Context) error {
+func reg_workflow1(ctx sync.Context) error {
 	return nil
 }
 
@@ -15,10 +15,10 @@ func Test_WorkflowRegistration(t *testing.T) {
 	r := NewRegistry()
 	require.NotNil(t, r)
 
-	err := r.RegisterWorkflow(workflow1)
+	err := r.RegisterWorkflow(reg_workflow1)
 	require.NoError(t, err)
 
-	x, err := r.GetWorkflow("workflow1")
+	x, err := r.GetWorkflow("reg_workflow1")
 	require.NoError(t, err)
 
 	fn, ok := x.(func(context sync.Context) error)

@@ -11,104 +11,85 @@ import (
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/task"
 	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/google/uuid"
 	errs "github.com/pkg/errors"
 )
 
 type WorkflowExecutor interface {
-	Execute(ctx context.Context) ([]command.Command, error)
-	ExecuteContinuationTask(ctx context.Context, task *task.Workflow) ([]command.Command, error)
+	ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error)
+
 	Close()
-	SetLastEventID(id string)
 }
 
 type executor struct {
 	registry      *Registry
-	task          *task.Workflow
 	workflow      *workflow
 	workflowState *workflowState
 	logger        *log.Logger
 	lastEventID   string // TODO: Not the same as the sequence number Event ID
 }
 
-func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
-	// TODO: Is taking this from the first message the best approach? Should we move
-	// this into the task itself? Will this be an issue once we get to sub/child workflows
-	// ?
-	var name string
-
-	if len(task.History) == 0 {
-		a, ok := task.NewEvents[0].Attributes.(*history.ExecutionStartedAttributes)
-		if !ok {
-			panic("workflow task did not contain execution started as first message")
-		}
-		name = a.Name
-	} else {
-		a, ok := task.History[0].Attributes.(*history.ExecutionStartedAttributes)
-		if !ok {
-			panic("workflow task did not contain execution started as first message")
-		}
-		name = a.Name
-	}
-
-	wfFn, err := registry.GetWorkflow(name)
-	if err != nil {
-		panic(fmt.Sprintf("workflow %s not found", name))
-	}
-	workflow := NewWorkflow(reflect.ValueOf(wfFn))
-
+func NewExecutor(registry *Registry, task *task.Workflow) (WorkflowExecutor, error) {
 	return &executor{
 		registry:      registry,
-		task:          task,
-		workflow:      workflow,
 		workflowState: newWorkflowState(),
 		logger:        log.New(io.Discard, "", log.LstdFlags),
 		//logger: log.Default(),
-	}
+	}, nil
 }
 
-func (e *executor) Execute(ctx context.Context) ([]command.Command, error) {
+func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
 	wfCtx := withWfState(sync.Background(), e.workflowState)
 
-	// Replay history
-	e.workflowState.setReplaying(true)
-	for _, event := range e.task.History {
-		if err := e.executeEvent(wfCtx, event); err != nil {
-			return nil, errs.Wrap(err, "error while replaying event")
+	if t.Kind == task.Continuation {
+		// Check if the current state matches the backend's history state
+		newestHistoryEvent := t.History[len(t.History)-1]
+		if newestHistoryEvent.ID != e.lastEventID {
+			return nil, nil, errors.New("mismatch in execution, last event not found in history")
+		}
+
+		// Clear commands from previous executions
+		e.workflowState.clearCommands()
+	} else {
+		// Replay history
+		e.workflowState.setReplaying(true)
+		for _, event := range t.History {
+			if err := e.executeEvent(wfCtx, event); err != nil {
+				return nil, nil, errs.Wrap(err, "error while replaying event")
+			}
 		}
 	}
 
-	// Execute new events
-	if err := e.executeNewEvents(wfCtx, e.task.NewEvents); err != nil {
-		return nil, errs.Wrap(err, "error while executing new events")
+	// Always pad the received events with WorkflowTaskStarted/Finished events to indicate the execution
+	events := []history.Event{history.NewHistoryEvent(history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})}
+	events = append(events, t.NewEvents...)
+
+	// Execute new events received from the backend
+	if err := e.executeNewEvents(wfCtx, events); err != nil {
+		return nil, nil, errs.Wrap(err, "error while executing new events")
 	}
 
-	return e.workflowState.commands, nil
-}
-
-func (e *executor) ExecuteContinuationTask(ctx context.Context, task *task.Workflow) ([]command.Command, error) {
-	wfCtx := withWfState(sync.Background(), e.workflowState)
-
-	// Check if the current state matches the backend's history state
-	newestHistoryEvent := task.History[len(task.History)-1]
-	if newestHistoryEvent.ID != e.lastEventID {
-		return nil, errors.New("mismatch in execution, last event not found in history")
+	newCommandEvents, workflowEvents, err := e.processCommands(ctx, t)
+	if err != nil {
+		return nil, nil, errs.Wrap(err, "could not process commands")
 	}
+	events = append(events, newCommandEvents...)
 
-	// Clear commands from previous executions
-	e.workflowState.clearCommands()
+	// Execution of this task is finished, add event to history
+	events = append(events, history.NewHistoryEvent(history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
 
-	// Execute new events
-	if err := e.executeNewEvents(wfCtx, task.NewEvents); err != nil {
-		return nil, errs.Wrap(err, "error while executing new events")
-	}
+	// TODO: The finished event isn't actually executed, does this make sense?
+	e.lastEventID = events[len(events)-1].ID
 
-	return e.workflowState.commands, nil
+	return events, workflowEvents, nil
 }
 
 func (e *executor) executeNewEvents(wfCtx sync.Context, newEvents []history.Event) error {
 	e.workflowState.setReplaying(false)
+
 	for _, event := range newEvents {
 		if err := e.executeEvent(wfCtx, event); err != nil {
 			return errs.Wrap(err, "error while executing event")
@@ -125,10 +106,6 @@ func (e *executor) executeNewEvents(wfCtx sync.Context, newEvents []history.Even
 	}
 
 	return nil
-}
-
-func (e *executor) SetLastEventID(id string) {
-	e.lastEventID = id
 }
 
 func (e *executor) Close() {
@@ -148,6 +125,13 @@ func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
 		err = e.handleWorkflowExecutionStarted(ctx, event.Attributes.(*history.ExecutionStartedAttributes))
 
 	case history.EventType_WorkflowExecutionFinished:
+		// Ignore
+
+	case history.EventType_WorkflowTaskStarted:
+		err = e.handleWorkflowTaskStarted(ctx, event, event.Attributes.(*history.WorkflowTaskStartedAttributes))
+
+	case history.EventType_WorkflowTaskFinished:
+		// Ignore
 
 	case history.EventType_ActivityScheduled:
 		err = e.handleActivityScheduled(ctx, event, event.Attributes.(*history.ActivityScheduledAttributes))
@@ -181,7 +165,20 @@ func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
 }
 
 func (e *executor) handleWorkflowExecutionStarted(ctx sync.Context, a *history.ExecutionStartedAttributes) error {
+	wfFn, err := e.registry.GetWorkflow(a.Name)
+	if err != nil {
+		return fmt.Errorf("workflow %s not found", a.Name)
+	}
+
+	e.workflow = NewWorkflow(reflect.ValueOf(wfFn))
+
 	return e.workflow.Execute(ctx, a.Inputs)
+}
+
+func (e *executor) handleWorkflowTaskStarted(ctx sync.Context, event history.Event, a *history.WorkflowTaskStartedAttributes) error {
+	e.workflowState.setTime(event.Timestamp)
+
+	return nil
 }
 
 func (e *executor) handleActivityScheduled(ctx sync.Context, event history.Event, a *history.ActivityScheduledAttributes) error {
@@ -336,4 +333,112 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	e.workflowState.addCommand(command.NewCompleteWorkflowCommand(eventId, result, err))
 
 	return nil
+}
+
+func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
+	instance := t.WorkflowInstance
+	commands := e.workflowState.commands
+
+	newEvents := make([]history.Event, 0)
+	workflowEvents := make([]core.WorkflowEvent, 0)
+
+	for _, c := range commands {
+		switch c.Type {
+		case command.CommandType_ScheduleActivityTask:
+			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.EventType_ActivityScheduled,
+				c.ID,
+				&history.ActivityScheduledAttributes{
+					Name:   a.Name,
+					Inputs: a.Inputs,
+				},
+			))
+
+		case command.CommandType_ScheduleSubWorkflow:
+			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
+
+			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance, c.ID)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.EventType_SubWorkflowScheduled,
+				c.ID,
+				&history.SubWorkflowScheduledAttributes{
+					InstanceID: subWorkflowInstance.GetInstanceID(),
+					Name:       a.Name,
+					Inputs:     a.Inputs,
+				},
+			))
+
+			// Send message to new workflow instance
+			workflowEvents = append(workflowEvents, core.WorkflowEvent{
+				WorkflowInstance: subWorkflowInstance,
+				HistoryEvent: history.NewHistoryEvent(
+					history.EventType_WorkflowExecutionStarted,
+					c.ID,
+					&history.ExecutionStartedAttributes{
+						Name:   a.Name,
+						Inputs: a.Inputs,
+					},
+				),
+			})
+
+		case command.CommandType_ScheduleTimer:
+			a := c.Attr.(*command.ScheduleTimerCommandAttr)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.EventType_TimerScheduled,
+				c.ID,
+				&history.TimerScheduledAttributes{
+					At: a.At,
+				},
+			))
+
+			// Create timer_fired event which will become visible in the future
+			workflowEvents = append(workflowEvents, core.WorkflowEvent{
+				WorkflowInstance: instance,
+				HistoryEvent: history.NewFutureHistoryEvent(
+					history.EventType_TimerFired,
+					c.ID,
+					&history.TimerFiredAttributes{
+						At: a.At,
+					},
+					a.At,
+				)},
+			)
+
+		case command.CommandType_CompleteWorkflow:
+			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
+
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.EventType_WorkflowExecutionFinished,
+				c.ID,
+				&history.ExecutionCompletedAttributes{
+					Result: a.Result,
+					Error:  a.Error,
+				},
+			))
+
+			if instance.SubWorkflow() {
+				// Send completion message back to parent workflow instance
+				workflowEvents = append(workflowEvents, core.WorkflowEvent{
+					WorkflowInstance: instance.ParentInstance(),
+					HistoryEvent: history.NewHistoryEvent(
+						history.EventType_SubWorkflowCompleted,
+						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
+						&history.SubWorkflowCompletedAttributes{
+							Result: a.Result,
+							Error:  a.Error,
+						},
+					),
+				})
+			}
+
+		default:
+			return nil, nil, fmt.Errorf("unknown command type: %v", c.Type)
+		}
+	}
+
+	return newEvents, workflowEvents, nil
 }

@@ -114,24 +114,22 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 func (mb *memoryBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	t task.Workflow,
-	events []history.Event,
+	wfi core.WorkflowInstance,
+	executedEvents []history.Event,
 	workflowEvents []core.WorkflowEvent,
 ) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
-	wfi := t.WorkflowInstance
-
-	if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
+	if !mb.lockedWorkflows[wfi.GetInstanceID()] {
 		return errors.New("could not find locked workflow instance")
 	}
 
 	instance := mb.instances[wfi.GetInstanceID()]
 
-	// Remove handled events from instance
+	// Remove handled events from pending events
 	handled := make(map[string]bool)
-	for _, event := range t.NewEvents {
+	for _, event := range executedEvents {
 		handled[event.ID] = true
 	}
 
@@ -144,17 +142,14 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 	}
 	instance.PendingEvents = instance.PendingEvents[:i]
 
-	// Add handled events to history
-	instance.History = append(instance.History, t.NewEvents...)
-
 	// Add all events from the last execution to history
-	instance.History = append(instance.History, events...)
+	instance.History = append(instance.History, executedEvents...)
 
 	// Queue activities
 	workflowCompleted := false
 
 	// Check events generated in last execution for any action that needs to be taken
-	for _, event := range events {
+	for _, event := range executedEvents {
 		switch event.Type {
 		case history.EventType_ActivityScheduled:
 			mb.activities <- &task.Activity{

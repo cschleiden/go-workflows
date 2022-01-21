@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"time"
+
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/sync"
 )
@@ -15,6 +17,7 @@ type workflowState struct {
 	pendingFutures map[int]sync.Future
 	signalChannels map[string]sync.Channel
 	replaying      bool
+	time           time.Time
 }
 
 func newWorkflowState() *workflowState {
@@ -53,4 +56,8 @@ func (wf *workflowState) getSignalChannel(name string) sync.Channel {
 
 func (wf *workflowState) setReplaying(replaying bool) {
 	wf.replaying = replaying
+}
+
+func (wf *workflowState) setTime(t time.Time) {
+	wf.time = t
 }

@@ -38,8 +38,10 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 
 		args[0] = reflect.ValueOf(ctx)
 
+		// Call workflow function
 		r := w.fn.Call(args)
 
+		// Process result
 		if len(r) < 1 || len(r) > 2 {
 			return errors.New("workflow has to return either (error) or (result, error)")
 		}

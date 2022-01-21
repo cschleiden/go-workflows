@@ -1,4 +1,4 @@
 {
-  "go.testFlags": ["-race", "-timeout", "5s", "-count", "1"],
+  "go.testFlags": ["-race", "-timeout", "20s", "-count", "1"],
   "peacock.color": "#007fff"
 }

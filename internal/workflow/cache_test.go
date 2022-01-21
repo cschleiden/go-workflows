@@ -33,9 +33,10 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e := NewExecutor(r, task)
+	e, err := NewExecutor(r, task)
+	require.NoError(t, err)
 
-	err := c.Store(context.Background(), i, e)
+	err = c.Store(context.Background(), i, e)
 	require.NoError(t, err)
 
 	e2, ok, err := c.Get(context.Background(), i)
@@ -67,9 +68,10 @@ func Test_Cache_Evic(t *testing.T) {
 
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e := NewExecutor(r, task)
+	e, err := NewExecutor(r, task)
+	require.NoError(t, err)
 
-	err := c.Store(context.Background(), i, e)
+	err = c.Store(context.Background(), i, e)
 	require.NoError(t, err)
 
 	go c.StartEviction(context.Background())

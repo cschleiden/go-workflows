@@ -21,11 +21,7 @@ import (
 //go:embed schema.sql
 var schema string
 
-var StickyTimeout = time.Second * 30
-var WorkflowLockTimeout = time.Minute * 1
-var ActivityLockTimeout = time.Minute * 2
-
-func NewSqliteBackend(path string) backend.Backend {
+func NewSqliteBackend(path string, opts ...backend.BackendOption) backend.Backend {
 	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%v", path))
 	if err != nil {
 		panic(err)
@@ -39,12 +35,14 @@ func NewSqliteBackend(path string) backend.Backend {
 	return &sqliteBackend{
 		db:         db,
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
+		options:    backend.ApplyOptions(opts...),
 	}
 }
 
 type sqliteBackend struct {
 	db         *sql.DB
 	workerName string
+	options    backend.Options
 }
 
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
@@ -137,7 +135,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 						)
 					LIMIT 1
 			) RETURNING id, execution_id, parent_instance_id, parent_event_id, sticky_until`,
-		now.Add(WorkflowLockTimeout), // new locked_until
+		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
 		now,           // locked_until
 		now,           // sticky_until
@@ -218,10 +216,12 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	return t, nil
 }
 
+// CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, executedEvents []history.Event, workflowEvents []core.WorkflowEvent) error
+
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	task task.Workflow,
-	events []history.Event,
+	instance core.WorkflowInstance,
+	executedEvents []history.Event,
 	workflowEvents []core.WorkflowEvent,
 ) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
@@ -231,59 +231,50 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	defer tx.Rollback()
 
 	// Unlock instance, but keep it sticky to the current worker
-	if _, err := tx.ExecContext(
+	if res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = NULL, sticky_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
-		time.Now().UTC().Add(StickyTimeout), // TODO: Make this configurable
-		task.WorkflowInstance.GetInstanceID(),
-		task.WorkflowInstance.GetExecutionID(),
+		time.Now().UTC().Add(sb.options.StickyTimeout),
+		instance.GetInstanceID(),
+		instance.GetExecutionID(),
 		sb.workerName,
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
-	}
-
-	changedRows := 0
-	// TODO: Use AffectedRows?
-	if err := tx.QueryRowContext(ctx, "SELECT CHANGES()").Scan(&changedRows); err != nil {
+	} else if n, err := res.RowsAffected(); err != nil {
 		return errors.Wrap(err, "could not check for unlocked workflow instances")
-	} else if changedRows != 1 {
+	} else if n != 1 {
 		return errors.New("could not find workflow instance to unlock")
 	}
 
 	// Remove handled events from task
-	if len(task.NewEvents) > 0 {
-		args := make([]interface{}, 0, len(task.NewEvents)+1)
-		args = append(args, task.WorkflowInstance.GetInstanceID())
-		for _, e := range task.NewEvents {
+	if len(executedEvents) > 0 {
+		args := make([]interface{}, 0, len(executedEvents)+1)
+		args = append(args, instance.GetInstanceID())
+		for _, e := range executedEvents {
 			args = append(args, e.ID)
 		}
 
 		if _, err := tx.ExecContext(
 			ctx,
-			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(task.NewEvents)-1)),
+			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(executedEvents)-1)),
 			args...,
 		); err != nil {
 			return errors.Wrap(err, "could not delete handled new events")
 		}
 	}
 
-	// Add all handled events to history
-	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), task.NewEvents); err != nil {
-		return errors.Wrap(err, "could not insert new events")
-	}
-
-	// Insert new events generated during this workflow execution to the history
-	if err := insertHistoryEvents(ctx, tx, task.WorkflowInstance.GetInstanceID(), events); err != nil {
+	// Add events from last execution to history
+	if err := insertHistoryEvents(ctx, tx, instance.GetInstanceID(), executedEvents); err != nil {
 		return errors.Wrap(err, "could not insert new history events")
 	}
 
 	workflowCompleted := false
 
 	// Schedule activities
-	for _, e := range events {
-		switch e.Type {
+	for _, event := range executedEvents {
+		switch event.Type {
 		case history.EventType_ActivityScheduled:
-			if err := scheduleActivity(ctx, tx, task.WorkflowInstance.GetInstanceID(), task.WorkflowInstance.GetExecutionID(), e); err != nil {
+			if err := scheduleActivity(ctx, tx, instance.GetInstanceID(), instance.GetExecutionID(), event); err != nil {
 				return errors.Wrap(err, "could not schedule activity")
 			}
 
@@ -302,15 +293,16 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
 	}
 
-	for instance, events := range groupedEvents {
-		if instance.GetInstanceID() != task.WorkflowInstance.GetInstanceID() {
+	for targetInstance, events := range groupedEvents {
+		if instance.GetInstanceID() != targetInstance.GetInstanceID() {
 			// Create new instance
-			if err := createInstance(ctx, tx, instance); err != nil {
+			if err := createInstance(ctx, tx, targetInstance); err != nil {
 				return err
 			}
 		}
 
-		if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), events); err != nil {
+		// Insert pending events for target instance
+		if err := insertNewEvents(ctx, tx, targetInstance.GetInstanceID(), events); err != nil {
 			return errors.Wrap(err, "could not insert messages")
 		}
 	}
@@ -320,8 +312,8 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 			ctx,
 			"UPDATE instances SET completed_at = ? WHERE id = ? AND execution_id = ?",
 			time.Now().UTC(),
-			task.WorkflowInstance.GetInstanceID(),
-			task.WorkflowInstance.GetExecutionID(),
+			instance.GetInstanceID(),
+			instance.GetExecutionID(),
 		); err != nil {
 			return errors.Wrap(err, "could not mark instance as completed")
 		}
@@ -337,7 +329,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance core.W
 	}
 	defer tx.Rollback()
 
-	until := time.Now().UTC().Add(WorkflowLockTimeout)
+	until := time.Now().UTC().Add(sb.options.WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
@@ -376,7 +368,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 			WHERE rowid = (
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
 			) RETURNING id, instance_id, execution_id, event_type, timestamp, event_id, attributes, visible_at`,
-		now.Add(ActivityLockTimeout),
+		now.Add(sb.options.ActivityLockTimeout),
 		sb.workerName,
 		now,
 	)
@@ -425,7 +417,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 	defer tx.Rollback()
 
 	// Remove activity
-	if _, err := tx.ExecContext(
+	if res, err := tx.ExecContext(
 		ctx,
 		`DELETE FROM activities WHERE instance_id = ? AND id = ? AND worker = ?`,
 		instance.GetInstanceID(),
@@ -433,15 +425,9 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 		sb.workerName,
 	); err != nil {
 		return errors.Wrap(err, "could not unlock instance")
-	}
-
-	// TODO: Use affected rows here?
-	changedRows := 0
-	if err := tx.QueryRowContext(ctx, "SELECT CHANGES()").Scan(&changedRows); err != nil {
+	} else if n, err := res.RowsAffected(); err != nil {
 		return errors.Wrap(err, "could not check for deleted activities")
-	}
-
-	if changedRows != 1 {
+	} else if n != 1 {
 		return errors.New("could not find activity to delete")
 	}
 
@@ -460,7 +446,7 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 	}
 	defer tx.Rollback()
 
-	until := time.Now().UTC().Add(ActivityLockTimeout)
+	until := time.Now().UTC().Add(sb.options.ActivityLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE id = ? AND worker = ?`,

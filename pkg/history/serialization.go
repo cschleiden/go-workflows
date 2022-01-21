@@ -16,6 +16,11 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 	case EventType_WorkflowExecutionFinished:
 		attr = &ExecutionCompletedAttributes{}
 
+	case EventType_WorkflowTaskStarted:
+		attr = &WorkflowTaskStartedAttributes{}
+	case EventType_WorkflowTaskFinished:
+		attr = &WorkflowTaskFinishedAttributes{}
+
 	case EventType_ActivityScheduled:
 		attr = &ActivityScheduledAttributes{}
 	case EventType_ActivityCompleted:

@@ -16,8 +16,8 @@ const (
 	EventType_WorkflowExecutionFinished
 	EventType_WorkflowExecutionTerminated
 
-	EventType_OrchestratorStarted
-	EventType_OrchestratorFinished
+	EventType_WorkflowTaskStarted
+	EventType_WorkflowTaskFinished
 
 	EventType_SubWorkflowScheduled
 	EventType_SubWorkflowCompleted
