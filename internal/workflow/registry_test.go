@@ -18,7 +18,9 @@ func Test_WorkflowRegistration(t *testing.T) {
 	err := r.RegisterWorkflow(workflow1)
 	require.NoError(t, err)
 
-	x := r.GetWorkflow("workflow1")
+	x, err := r.GetWorkflow("workflow1")
+	require.NoError(t, err)
+
 	fn, ok := x.(func(context sync.Context) error)
 	require.True(t, ok)
 	require.NotNil(t, fn)

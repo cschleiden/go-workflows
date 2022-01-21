@@ -24,14 +24,16 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:   "WorkflowWithActivity",
+					Name:   "workflowWithActivity",
 					Inputs: []payload.Payload{},
 				},
 			),
 		},
 	}
 
-	e := NewExecutor(NewRegistry(), task)
+	r := NewRegistry()
+	r.RegisterWorkflow(workflowWithActivity)
+	e := NewExecutor(r, task)
 
 	err := c.Store(context.Background(), i, e)
 	require.NoError(t, err)
@@ -56,14 +58,16 @@ func Test_Cache_Evic(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
-					Name:   "WorkflowWithActivity",
+					Name:   "workflowWithActivity",
 					Inputs: []payload.Payload{},
 				},
 			),
 		},
 	}
 
-	e := NewExecutor(NewRegistry(), task)
+	r := NewRegistry()
+	r.RegisterWorkflow(workflowWithActivity)
+	e := NewExecutor(r, task)
 
 	err := c.Store(context.Background(), i, e)
 	require.NoError(t, err)

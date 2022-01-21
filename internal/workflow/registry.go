@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/cschleiden/go-dt/internal/fn"
@@ -41,16 +42,24 @@ func (r *Registry) RegisterActivity(activity Activity) error {
 	return nil
 }
 
-func (r *Registry) GetWorkflow(name string) Workflow {
+func (r *Registry) GetWorkflow(name string) (Workflow, error) {
 	r.Lock()
 	defer r.Unlock()
 
-	return r.workflowMap[name]
+	if workflow, ok := r.workflowMap[name]; ok {
+		return workflow, nil
+	}
+
+	return nil, errors.New("activity not found")
 }
 
-func (r *Registry) GetActivity(name string) Activity {
+func (r *Registry) GetActivity(name string) (Activity, error) {
 	r.Lock()
 	defer r.Unlock()
 
-	return r.activityMap[name]
+	if activity, ok := r.activityMap[name]; ok {
+		return activity, nil
+	}
+
+	return nil, errors.New("activity not found")
 }

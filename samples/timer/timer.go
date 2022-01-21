@@ -70,6 +70,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	tctx, cancel := workflow.WithCancel(ctx)
 	t := workflow.ScheduleTimer(tctx, 2*time.Second)
+	cancel()
 
 	workflow.NewSelector().AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
 		if err := f.Get(ctx, nil); err != nil {
@@ -86,7 +87,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Activity result", r, ", IsReplaying:", workflow.Replaying(ctx))
 
 		// Cancel timer
-		cancel()
+		// cancel()
 	}).Select(ctx)
 
 	return "result", nil

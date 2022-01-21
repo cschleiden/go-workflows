@@ -26,7 +26,10 @@ func NewExecutor(r *workflow.Registry) Executor {
 func (e *Executor) ExecuteActivity(ctx context.Context, task task.Activity) (payload.Payload, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 
-	activity := e.r.GetActivity(a.Name)
+	activity, err := e.r.GetActivity(a.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not find activity in registry")
+	}
 
 	activityFn := reflect.ValueOf(activity)
 	if activityFn.Type().Kind() != reflect.Func {

@@ -52,7 +52,10 @@ func NewExecutor(registry *Registry, task *task.Workflow) WorkflowExecutor {
 		name = a.Name
 	}
 
-	wfFn := registry.GetWorkflow(name)
+	wfFn, err := registry.GetWorkflow(name)
+	if err != nil {
+		panic(fmt.Sprintf("workflow %s not found", name))
+	}
 	workflow := NewWorkflow(reflect.ValueOf(wfFn))
 
 	return &executor{
