@@ -46,7 +46,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Started workflow", wf.GetInstanceID())
 
 	time.Sleep(3 * time.Second)
-	c.SignalWorkflow(ctx, wf, "cancelled", nil)
+	c.SignalWorkflow(ctx, wf.GetInstanceID(), "cancelled", nil)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {

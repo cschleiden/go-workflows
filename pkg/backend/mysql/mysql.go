@@ -132,14 +132,14 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 }
 
 // SignalWorkflow signals a running workflow instance
-func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
+func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.Event{event}); err != nil {
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
 		return errors.Wrap(err, "could not insert signal event")
 	}
 

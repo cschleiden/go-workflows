@@ -43,10 +43,10 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Started workflow", wf.GetInstanceID())
 
 	time.Sleep(2 * time.Second)
-	c.SignalWorkflow(ctx, wf, "test", 42)
+	c.SignalWorkflow(ctx, wf.GetInstanceID(), "test", 42)
 
 	time.Sleep(2 * time.Second)
-	c.SignalWorkflow(ctx, wf, "test2", 42)
+	c.SignalWorkflow(ctx, wf.GetInstanceID(), "test2", 42)
 
 	log.Println("Signaled workflow", wf.GetInstanceID())
 }

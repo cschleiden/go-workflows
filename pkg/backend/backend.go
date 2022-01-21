@@ -14,7 +14,7 @@ type Backend interface {
 	CreateWorkflowInstance(ctx context.Context, event core.WorkflowEvent) error
 
 	// SignalWorkflow signals a running workflow instance
-	SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.Event) error
+	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error
 
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)

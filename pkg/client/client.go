@@ -21,7 +21,7 @@ type WorkflowInstanceOptions struct {
 type Client interface {
 	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error)
 
-	SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, arg interface{}) error
+	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
 }
 
 type client struct {
@@ -62,7 +62,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
-func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, name string, arg interface{}) error {
+func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
 	input, err := converter.DefaultConverter.To(arg)
 	if err != nil {
 		return errors.Wrap(err, "could not convert arguments")
@@ -77,5 +77,5 @@ func (c *client) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, 
 		},
 	)
 
-	return c.backend.SignalWorkflow(ctx, wfi, event)
+	return c.backend.SignalWorkflow(ctx, instanceID, event)
 }

@@ -59,23 +59,23 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Work
 
 	mb.createWorkflowInstance(m)
 
-	mb.queueWorkflowTask(m.WorkflowInstance)
+	mb.queueWorkflowTask(m.WorkflowInstance.GetInstanceID())
 
 	return nil
 }
 
-func (mb *memoryBackend) SignalWorkflow(ctx context.Context, wfi core.WorkflowInstance, event history.Event) error {
+func (mb *memoryBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
-	instance, ok := mb.instances[wfi.GetInstanceID()]
+	instance, ok := mb.instances[instanceID]
 	if !ok {
 		return errors.New("workflow instance does not exist")
 	}
 
 	instance.PendingEvents = append(instance.PendingEvents, event)
 
-	mb.queueWorkflowTask(wfi)
+	mb.queueWorkflowTask(instanceID)
 
 	return nil
 }
@@ -185,7 +185,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 				mb.mu.Lock()
 				defer mb.mu.Unlock()
 
-				mb.queueWorkflowTask(workflowInstance)
+				mb.queueWorkflowTask(workflowInstance.GetInstanceID())
 			}()
 		}
 
@@ -197,7 +197,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 
 		// Wake up workflow orchestration, this is idempotent so even if we have multiple events for the same instance
 		// only one task will be scheduled
-		mb.queueWorkflowTask(workflowInstance)
+		mb.queueWorkflowTask(workflowInstance.GetInstanceID())
 	}
 
 	// Unlock instance
@@ -207,7 +207,7 @@ func (mb *memoryBackend) CompleteWorkflowTask(
 		// New events have been added while this was being worked on
 		hasNewEvents := len(instance.getNewEvents()) > 0
 		if hasNewEvents {
-			mb.queueWorkflowTask(wfi)
+			mb.queueWorkflowTask(wfi.GetInstanceID())
 		}
 	} else {
 		instance.Status = workflowStatusCompleted
@@ -247,7 +247,7 @@ func (mb *memoryBackend) CompleteActivityTask(ctx context.Context, wfi core.Work
 
 		// Workflow is not currently locked, mark as ready to be picked up
 		if _, ok := mb.lockedWorkflows[wfi.GetInstanceID()]; !ok {
-			mb.queueWorkflowTask(wfi)
+			mb.queueWorkflowTask(wfi.GetInstanceID())
 		}
 	}
 
@@ -272,16 +272,16 @@ func (mb *memoryBackend) createWorkflowInstance(m core.WorkflowEvent) *workflowS
 	return &state
 }
 
-func (mb *memoryBackend) queueWorkflowTask(wfi core.WorkflowInstance) {
-	if _, ok := mb.instances[wfi.GetInstanceID()]; !ok {
+func (mb *memoryBackend) queueWorkflowTask(instanceID string) {
+	if _, ok := mb.instances[instanceID]; !ok {
 		panic("could not find workflow instance")
 	}
 
 	// Before enqueuing task, prevent multiple tasks for the same workflow
-	if mb.pendingWorkflows[wfi.GetInstanceID()] {
+	if mb.pendingWorkflows[instanceID] {
 		return
 	}
 
-	mb.workflows <- wfi.GetInstanceID()
-	mb.pendingWorkflows[wfi.GetInstanceID()] = true
+	mb.workflows <- instanceID
+	mb.pendingWorkflows[instanceID] = true
 }

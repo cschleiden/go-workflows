@@ -134,13 +134,13 @@ func (_m *MockBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	return r0, r1
 }
 
-// SignalWorkflow provides a mock function with given fields: ctx, instance, event
-func (_m *MockBackend) SignalWorkflow(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
-	ret := _m.Called(ctx, instance, event)
+// SignalWorkflow provides a mock function with given fields: ctx, instanceID, event
+func (_m *MockBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
+	ret := _m.Called(ctx, instanceID, event)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, history.Event) error); ok {
-		r0 = rf(ctx, instance, event)
+	if rf, ok := ret.Get(0).(func(context.Context, string, history.Event) error); ok {
+		r0 = rf(ctx, instanceID, event)
 	} else {
 		r0 = ret.Error(0)
 	}

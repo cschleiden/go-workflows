@@ -7,7 +7,6 @@ import (
 
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/history"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -16,13 +15,11 @@ import (
 
 func Test_Client_SignalWorkflow(t *testing.T) {
 	instanceID := uuid.NewString()
-	executionID := uuid.NewString()
-	wfi := core.NewWorkflowInstance(instanceID, executionID)
 
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
-	b.On("SignalWorkflow", ctx, wfi, mock.MatchedBy(func(event history.Event) bool {
+	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
 	})).Return(nil)
@@ -31,7 +28,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 		backend: b,
 	}
 
-	err := c.SignalWorkflow(ctx, wfi, "test", "signal")
+	err := c.SignalWorkflow(ctx, instanceID, "test", "signal")
 
 	require.Nil(t, err)
 	b.AssertExpectations(t)
@@ -39,8 +36,6 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 
 func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	instanceID := uuid.NewString()
-	executionID := uuid.NewString()
-	wfi := core.NewWorkflowInstance(instanceID, executionID)
 
 	ctx := context.Background()
 
@@ -49,7 +44,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	input, _ := converter.DefaultConverter.To(arg)
 
 	b := &backend.MockBackend{}
-	b.On("SignalWorkflow", ctx, wfi, mock.MatchedBy(func(event history.Event) bool {
+	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test" &&
 			bytes.Equal(event.Attributes.(*history.SignalReceivedAttributes).Arg, input)
@@ -59,7 +54,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 		backend: b,
 	}
 
-	err := c.SignalWorkflow(ctx, wfi, "test", arg)
+	err := c.SignalWorkflow(ctx, instanceID, "test", arg)
 
 	require.Nil(t, err)
 	b.AssertExpectations(t)
