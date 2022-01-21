@@ -9,7 +9,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CreateSubWorkflowInstance(ctx sync.Context, workflow Workflow, args ...interface{}) sync.Future {
+type SubWorkflowInstanceOptions struct {
+	InstanceID string
+}
+
+func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowInstanceOptions, workflow Workflow, args ...interface{}) sync.Future {
 	f := sync.NewFuture()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
@@ -24,7 +28,7 @@ func CreateSubWorkflowInstance(ctx sync.Context, workflow Workflow, args ...inte
 	wfState.eventID++
 
 	name := fn.Name(workflow)
-	command := command.NewScheduleSubWorkflowCommand(eventID, name, inputs)
+	command := command.NewScheduleSubWorkflowCommand(eventID, options.InstanceID, name, inputs)
 	wfState.addCommand(command)
 
 	wfState.pendingFutures[eventID] = f

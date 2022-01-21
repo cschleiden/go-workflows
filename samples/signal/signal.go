@@ -33,9 +33,11 @@ func main() {
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
+	subID := uuid.NewString()
+
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
-	}, Workflow1, "Hello world")
+	}, Workflow1, "Hello world", subID)
 	if err != nil {
 		panic("could not start workflow")
 	}
@@ -48,6 +50,9 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	time.Sleep(2 * time.Second)
 	c.SignalWorkflow(ctx, wf.GetInstanceID(), "test2", 42)
 
+	time.Sleep(2 * time.Second)
+	c.SignalWorkflow(ctx, subID, "sub-signal", 42)
+
 	log.Println("Signaled workflow", wf.GetInstanceID())
 }
 
@@ -55,13 +60,14 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb)
 
 	w.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(SubWorkflow1)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) (string, error) {
+func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
@@ -80,5 +86,24 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	workflow.NewSignalChannel(ctx, "test2").Receive(ctx, nil)
 	log.Println("Received second signal")
 
+	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{
+		InstanceID: subID,
+	}, SubWorkflow1).Get(ctx, nil); err != nil {
+		panic(err)
+	}
+
+	log.Println("Sub workflow finished")
+
 	return "result", nil
+}
+
+func SubWorkflow1(ctx workflow.Context) (string, error) {
+	log.Println("Waiting for signal from sub-worflow")
+	defer log.Println("Leaving SubWorkflow1")
+
+	workflow.NewSignalChannel(ctx, "sub-signal").Receive(ctx, nil)
+
+	log.Println("Received.")
+
+	return "World", nil
 }

@@ -8,12 +8,14 @@ import (
 	internal "github.com/cschleiden/go-dt/internal/workflow"
 )
 
+type SubWorkflowInstanceOptions = internal.SubWorkflowInstanceOptions
+
 func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
-func CreateSubWorkflowInstance(ctx Context, workflow workflow.Workflow, args ...interface{}) Future {
-	return internal.CreateSubWorkflowInstance(ctx, workflow, args...)
+func CreateSubWorkflowInstance(ctx Context, options SubWorkflowInstanceOptions, workflow workflow.Workflow, args ...interface{}) Future {
+	return internal.CreateSubWorkflowInstance(ctx, options, workflow, args...)
 }
 
 func ExecuteActivity(ctx Context, activity workflow.Activity, args ...interface{}) Future {

@@ -52,12 +52,16 @@ type ScheduleSubWorkflowCommandAttr struct {
 	Inputs     []payload.Payload
 }
 
-func NewScheduleSubWorkflowCommand(id int, name string, inputs []payload.Payload) Command {
+func NewScheduleSubWorkflowCommand(id int, instanceID, name string, inputs []payload.Payload) Command {
+	if instanceID == "" {
+		instanceID = uuid.New().String()
+	}
+
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleSubWorkflow,
 		Attr: &ScheduleSubWorkflowCommandAttr{
-			InstanceID: uuid.New().String(),
+			InstanceID: instanceID,
 			Name:       name,
 			Inputs:     inputs,
 		},
