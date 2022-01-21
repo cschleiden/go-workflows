@@ -12,6 +12,9 @@ type EventType uint
 const (
 	_ EventType = iota
 
+	EventType_OrchestratorStarted
+	EventType_OrchestratorFinished
+
 	EventType_WorkflowExecutionStarted
 	EventType_WorkflowExecutionFinished
 	EventType_WorkflowExecutionTerminated
