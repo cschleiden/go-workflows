@@ -12,12 +12,12 @@ type EventType uint
 const (
 	_ EventType = iota
 
-	EventType_OrchestratorStarted
-	EventType_OrchestratorFinished
-
 	EventType_WorkflowExecutionStarted
 	EventType_WorkflowExecutionFinished
 	EventType_WorkflowExecutionTerminated
+
+	EventType_OrchestratorStarted
+	EventType_OrchestratorFinished
 
 	EventType_SubWorkflowScheduled
 	EventType_SubWorkflowCompleted
@@ -39,6 +39,8 @@ type Event struct {
 
 	Type EventType
 
+	Timestamp time.Time
+
 	// EventID is used to correlate events belonging together
 	// For example, if an activity is scheduled, EventID of the schedule event and the
 	// completion/failure event are the same.
@@ -58,6 +60,7 @@ func NewHistoryEvent(eventType EventType, eventID int, attributes interface{}) E
 	return Event{
 		ID:         uuid.NewString(),
 		Type:       eventType,
+		Timestamp:  time.Now().UTC(),
 		EventID:    eventID,
 		Attributes: attributes,
 	}

@@ -375,7 +375,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 			SET locked_until = ?, worker = ?
 			WHERE rowid = (
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
-			) RETURNING id, instance_id, execution_id, event_type, event_id, attributes, visible_at`,
+			) RETURNING id, instance_id, execution_id, event_type, timestamp, event_id, attributes, visible_at`,
 		now.Add(ActivityLockTimeout),
 		sb.workerName,
 		now,
@@ -393,7 +393,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	var attributes []byte
 	event := history.Event{}
 
-	if err := row.Scan(&event.ID, &instanceID, &executionID, &event.Type, &event.EventID, &attributes, &event.VisibleAt); err != nil {
+	if err := row.Scan(&event.ID, &instanceID, &executionID, &event.Type, &event.Timestamp, &event.EventID, &attributes, &event.VisibleAt); err != nil {
 		return nil, errors.Wrap(err, "could not scan event")
 	}
 
@@ -435,6 +435,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core
 		return errors.Wrap(err, "could not unlock instance")
 	}
 
+	// TODO: Use affected rows here?
 	changedRows := 0
 	if err := tx.QueryRowContext(ctx, "SELECT CHANGES()").Scan(&changedRows); err != nil {
 		return errors.Wrap(err, "could not check for deleted activities")

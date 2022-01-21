@@ -60,7 +60,7 @@ func scanEvent(row Scanner) (history.Event, error) {
 
 	historyEvent := history.Event{}
 
-	if err := row.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
+	if err := row.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
 		return historyEvent, errors.Wrap(err, "could not scan event")
 	}
 
@@ -83,10 +83,11 @@ func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEven
 
 		if _, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO `pending_events` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
+			"INSERT INTO `pending_events` (id, instance_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			newEvent.ID,
 			instanceID,
 			newEvent.Type,
+			newEvent.Timestamp,
 			newEvent.EventID,
 			a,
 			newEvent.VisibleAt,
@@ -107,10 +108,11 @@ func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, his
 
 		if _, err := tx.ExecContext(
 			ctx,
-			"INSERT INTO `history` (id, instance_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?)",
+			"INSERT INTO `history` (id, instance_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			historyEvent.ID,
 			instanceID,
 			historyEvent.Type,
+			historyEvent.Timestamp,
 			historyEvent.EventID,
 			a,
 			historyEvent.VisibleAt,

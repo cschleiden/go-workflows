@@ -16,11 +16,12 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID s
 	_, err = tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
-			(id, instance_id, execution_id, event_type, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			(id, instance_id, execution_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
 		instanceID,
 		executionID,
 		event.Type,
+		event.Timestamp,
 		event.EventID,
 		attributes,
 		event.VisibleAt,

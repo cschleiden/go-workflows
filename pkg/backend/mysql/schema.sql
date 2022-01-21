@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   `event_id` NVARCHAR(64) NOT NULL,
   `instance_id` NVARCHAR(64) NOT NULL,
   `event_type` INT NOT NULL,
+  `timestamp` DATETIME NOT NULL,
   `event_id2` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS `history` (
   `event_id` NVARCHAR(64) NOT NULL,
   `instance_id` NVARCHAR(64) NOT NULL,
   `event_type` INT NOT NULL,
+  `timestamp` DATETIME NOT NULL,
   `event_id2` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL, -- Is this required?
@@ -47,6 +49,7 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `instance_id` NVARCHAR(64) NOT NULL,
   `execution_id` NVARCHAR(64) NOT NULL,
   `event_type` INT NOT NULL,
+  `timestamp` DATETIME NOT NULL,
   `event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
