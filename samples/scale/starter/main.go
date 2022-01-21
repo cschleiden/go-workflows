@@ -16,7 +16,7 @@ func main() {
 	mb := sqlite.NewSqliteBackend("../scale.sqlite")
 
 	// Start workflow via client
-	c := client.NewClient(mb)
+	c := client.New(mb)
 
 	for i := 0; i < 100; i++ {
 		startWorkflow(ctx, c)

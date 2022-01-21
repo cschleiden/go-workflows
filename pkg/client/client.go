@@ -28,7 +28,7 @@ type client struct {
 	backend backend.Backend
 }
 
-func NewClient(backend backend.Backend) Client {
+func New(backend backend.Backend) Client {
 	return &client{
 		backend: backend,
 	}

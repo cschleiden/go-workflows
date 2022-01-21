@@ -24,7 +24,7 @@ func main() {
 	go RunWorker(ctx, b)
 
 	// Start workflow via client
-	c := client.NewClient(b)
+	c := client.New(b)
 
 	startWorkflow(ctx, c)
 	// startWorkflow(ctx, c)

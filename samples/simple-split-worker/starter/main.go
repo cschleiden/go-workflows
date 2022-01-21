@@ -17,7 +17,7 @@ func main() {
 	b := mysql.NewMysqlBackend("root", "SqlPassw0rd", "simple")
 
 	// Start workflow via client
-	c := client.NewClient(b)
+	c := client.New(b)
 	startWorkflow(ctx, c)
 }
 
