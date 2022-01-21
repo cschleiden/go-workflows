@@ -42,7 +42,7 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 		arg := reflect.New(argT).Interface()
 		err := c.From(inputs[input], arg)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not convert activity input")
+			return nil, errors.Wrap(err, "could not convert inputs")
 		}
 
 		args[i] = reflect.ValueOf(arg).Elem()
