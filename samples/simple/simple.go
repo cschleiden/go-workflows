@@ -77,7 +77,7 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error
 	}()
 
 	var r1, r2 int
-	err := workflow.ExecuteActivity(ctx, Activity1, 35, 12).Get(ctx, &r1)
+	err := workflow.ExecuteActivity(ctx, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
@@ -94,9 +94,11 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error
 	return nil
 }
 
-func Activity1(ctx context.Context, a, b int) (int, error) {
+func Activity1(ctx context.Context, a, b int, x, y *string) (int, error) {
 	log.Println("Entering Activity1")
 	defer log.Println("Leaving Activity1")
+
+	log.Println(x, *y)
 
 	time.Sleep(2 * time.Second)
 

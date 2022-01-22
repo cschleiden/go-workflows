@@ -80,7 +80,7 @@ func newState() *coState {
 		unblock:  make(chan bool),
 		logger:   log.New(io.Discard, "[co]", log.LstdFlags),
 		//logger: log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
-		deadlockDetection: 2 * time.Second,
+		deadlockDetection: 20 * time.Second,
 	}
 }
 

@@ -101,7 +101,11 @@ func SubWorkflow1(ctx workflow.Context) (string, error) {
 	log.Println("Waiting for signal from sub-worflow")
 	defer log.Println("Leaving SubWorkflow1")
 
-	workflow.NewSignalChannel(ctx, "sub-signal").Receive(ctx, nil)
+	// workflow.NewSignalChannel(ctx, "sub-signal").Receive(ctx, nil)
+
+	workflow.NewSelector().AddChannelReceive(workflow.NewSignalChannel(ctx, "sub-signal"), func(ctx workflow.Context, c sync.Channel) {
+		c.Receive(ctx, nil)
+	}).Select(ctx)
 
 	log.Println("Received.")
 

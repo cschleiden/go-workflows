@@ -301,9 +301,9 @@ func Test_Channel_Buffered(t *testing.T) {
 		},
 		{
 			name: "BufferedChannel_Send",
-			fn: func(t *testing.T, c *channel) {
+			size: 1,
+			fn: func(t *testing.T, cs *channel) {
 				ctx := Background()
-				cs := NewBufferedChannel(1)
 
 				sentValue := false
 
@@ -335,6 +335,22 @@ func Test_Channel_Buffered(t *testing.T) {
 
 				crReceive.Execute()
 				require.Equal(t, 23, r)
+			},
+		},
+		{
+			name: "BufferedChannel_Receive_ToNil",
+			size: 1,
+			fn: func(t *testing.T, c *channel) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
+					c.Send(ctx, 42)
+
+					c.Receive(ctx, nil)
+
+					return nil
+				})
+				cr.Execute()
+
+				require.NoError(t, cr.Error())
 			},
 		},
 	}

@@ -2,6 +2,7 @@ package sync
 
 import (
 	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/pkg/errors"
 )
 
 type Channel interface {
@@ -178,17 +179,22 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		v := c.c[0]
 		c.c = c.c[1:]
 
-		if err := converter.AssignValue(c.converter, v, vptr); err != nil {
-			panic(err)
+		if vptr != nil {
+			if err := converter.AssignValue(c.converter, v, vptr); err != nil {
+				panic(errors.Wrap(err, "could not assign value when receiving from channel"))
+			}
 		}
+
 		return true
 	}
 
 	// If channel has been closed and no values in buffer (if buffered) return zero
 	// element
 	if c.closed {
-		if err := converter.AssignValue(c.converter, nil, vptr); err != nil {
-			panic(err)
+		if vptr != nil {
+			if err := converter.AssignValue(c.converter, nil, vptr); err != nil {
+				panic(err)
+			}
 		}
 
 		return true
@@ -200,8 +206,11 @@ func (c *channel) tryReceive(vptr interface{}) bool {
 		c.senders = c.senders[1:]
 
 		v := s()
-		if err := converter.AssignValue(c.converter, v, vptr); err != nil {
-			panic(err)
+
+		if vptr != nil {
+			if err := converter.AssignValue(c.converter, v, vptr); err != nil {
+				panic(err)
+			}
 		}
 
 		return true
