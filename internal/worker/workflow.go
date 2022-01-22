@@ -105,7 +105,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, t task.Workflow) ([]hi
 
 	executedEvents, workflowEvents, err := executor.ExecuteTask(ctx, &t)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not executre workflow task")
+		return nil, nil, errors.Wrap(err, "could not execute workflow task")
 	}
 
 	return executedEvents, workflowEvents, nil
