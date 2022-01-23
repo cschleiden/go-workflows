@@ -18,7 +18,11 @@ const testPassword = "SqlPassw0rd"
 // Creating and dropping databases is terribly inefficient, but easiest for complete test isolation. For
 // the future consider nested transactions, or manually TRUNCATE-ing the tables in-between tests.
 
-func Test_SqliteBackend(t *testing.T) {
+func Test_MysqlBackend(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	dbName := "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
 
 	test.TestBackend(t, test.Tester{
