@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const DeadlockDetection = 40 * time.Second
+
 type Coroutine interface {
 	// Execute continues execution of a blocked corouting and waits until
 	// it is finished or blocked again
@@ -25,6 +27,8 @@ type Coroutine interface {
 	Progress() bool
 
 	Error() error
+
+	SetScheduler(s Scheduler)
 }
 
 type key int
@@ -48,6 +52,8 @@ type coState struct {
 	logger logger
 
 	deadlockDetection time.Duration
+
+	scheduler Scheduler
 }
 
 func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
@@ -71,22 +77,23 @@ func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 	return s
 }
 
-var i = 0
-
 func newState() *coState {
-	i++
 	return &coState{
 		blocking: make(chan bool, 1),
 		unblock:  make(chan bool),
 		logger:   log.New(io.Discard, "[co]", log.LstdFlags),
 		//logger: log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
-		deadlockDetection: 20 * time.Second,
+		deadlockDetection: DeadlockDetection,
 	}
 }
 
 func (s *coState) finish() {
 	s.finished.Store(true)
 	s.blocking <- true
+}
+
+func (s *coState) SetScheduler(scheduler Scheduler) {
+	s.scheduler = scheduler
 }
 
 func (s *coState) Finished() bool {
