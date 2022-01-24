@@ -48,7 +48,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 		// Check if the current state matches the backend's history state
 		newestHistoryEvent := t.History[len(t.History)-1]
 		if newestHistoryEvent.ID != e.lastEventID {
-			return nil, nil, errors.New("mismatch in execution, last event not found in history")
+			return nil, nil, fmt.Errorf("mismatch in execution, last event %v not found in history, last there is %v (%v)", e.lastEventID, newestHistoryEvent.ID, newestHistoryEvent.Type)
 		}
 
 		// Clear commands from previous executions
