@@ -312,8 +312,7 @@ func (e *executor) handleSubWorkflowCompleted(ctx sync.Context, event history.Ev
 
 func (e *executor) handleSignalReceived(ctx sync.Context, event history.Event, a *history.SignalReceivedAttributes) error {
 	sc := e.workflowState.getSignalChannel(a.Name)
-
-	sc.Send(ctx, a.Arg)
+	sc.SendNonblocking(ctx, a.Arg)
 
 	// Remove pending command
 	for i, c := range e.workflowState.commands {

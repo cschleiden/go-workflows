@@ -371,3 +371,57 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.commands, 1)
 }
+
+var workflowSignalHits int
+
+func workflowWithSignal1(ctx sync.Context) error {
+
+	c := NewSignalChannel(ctx, "signal1")
+	c.Receive(ctx, nil)
+
+	workflowSignalHits++
+
+	return nil
+}
+
+func Test_ExecuteWorkflowWithSignal(t *testing.T) {
+	r := NewRegistry()
+
+	r.RegisterWorkflow(workflowWithSignal1)
+
+	task := &task.Workflow{
+		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		History: []history.Event{
+			history.NewHistoryEvent(
+				history.EventType_WorkflowExecutionStarted,
+				-1,
+				&history.ExecutionStartedAttributes{
+					Name:   "workflowWithSignal1",
+					Inputs: []payload.Payload{},
+				},
+			),
+			history.NewHistoryEvent(
+				history.EventType_SignalReceived,
+				-1,
+				&history.SignalReceivedAttributes{
+					Name: "signal1",
+					Arg:  payload.Payload{},
+				},
+			),
+		},
+	}
+
+	e := &executor{
+		registry:      r,
+		workflow:      NewWorkflow(reflect.ValueOf(workflow1)),
+		workflowState: newWorkflowState(),
+		logger:        log.Default(),
+	}
+
+	_, _, err := e.ExecuteTask(context.Background(), task)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, workflowSignalHits)
+	require.True(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.commands, 1)
+}
