@@ -13,8 +13,7 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
 	eventID := wfState.eventID
 	wfState.eventID++
 
-	// TODO: Use deterministic clock
-	timerCommand := command.NewScheduleTimerCommand(eventID, time.Now().UTC().Add(delay))
+	timerCommand := command.NewScheduleTimerCommand(eventID, Now(ctx).Add(delay))
 	wfState.addCommand(timerCommand)
 
 	t := sync.NewFuture()

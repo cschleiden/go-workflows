@@ -25,6 +25,7 @@ func NewScheduler() Scheduler {
 func (s *scheduler) NewCoroutine(ctx Context, fn func(Context) error) {
 	c := NewCoroutine(ctx, fn)
 	s.coroutines = append(s.coroutines, c)
+	c.SetScheduler(s)
 }
 
 func (s *scheduler) Execute(ctx Context) error {
@@ -37,7 +38,10 @@ func (s *scheduler) Execute(ctx Context) error {
 			c.Execute()
 
 			if c.Finished() {
-				// Coroutine is finished, remove from list
+				// Coroutine finished, this counts as progress
+				allBlocked = false
+
+				// remove from list
 				s.coroutines[i] = nil
 				s.coroutines = append(s.coroutines[:i], s.coroutines[i+1:]...)
 				i--

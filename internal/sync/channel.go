@@ -66,11 +66,14 @@ func (c *channel) Close() {
 }
 
 func (c *channel) Send(ctx Context, v interface{}) {
+	cr := getCoState(ctx)
+
 	addedSender := false
 	sentValue := false
 
 	for {
 		if c.trySend(v) {
+			cr.MadeProgress()
 			return
 		}
 
@@ -85,10 +88,10 @@ func (c *channel) Send(ctx Context, v interface{}) {
 			c.senders = append(c.senders, cb)
 		}
 
-		cr := getCoState(ctx)
 		cr.Yield()
 
 		if sentValue {
+			cr.MadeProgress()
 			return
 		}
 	}
@@ -107,6 +110,7 @@ func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 	for {
 		// Try to receive from buffered channel or blocked sender
 		if c.tryReceive(vptr) {
+			cr.MadeProgress()
 			return !c.closed
 		}
 
@@ -130,6 +134,7 @@ func (c *channel) Receive(ctx Context, vptr interface{}) (more bool) {
 
 		// If we received a value via the callback, return
 		if receivedValue {
+			cr.MadeProgress()
 			return !c.closed
 		}
 	}

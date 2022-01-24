@@ -90,6 +90,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 
 				cr.Execute()
 
+				require.True(t, cr.Progress())
 				require.True(t, cr.Finished())
 				require.False(t, cr.Blocked())
 
@@ -262,9 +263,16 @@ func Test_Channel_Buffered(t *testing.T) {
 			fn: func(t *testing.T, c *channel) {
 				ctx := Background()
 
-				c.Send(ctx, 1)
-				c.Send(ctx, 2)
-				c.Send(ctx, 3)
+				cs := NewCoroutine(ctx, func(ctx Context) error {
+					c.Send(ctx, 1)
+					c.Send(ctx, 2)
+					c.Send(ctx, 3)
+
+					return nil
+				})
+				cs.Execute()
+				cs.Execute()
+				cs.Execute()
 
 				cr := NewCoroutine(ctx, func(ctx Context) error {
 					var r int

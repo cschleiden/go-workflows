@@ -26,14 +26,30 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future {
 	return internal.ScheduleTimer(ctx, delay)
 }
 
-func NewSelector() sync.Selector {
-	return sync.NewSelector()
-}
-
 func NewSignalChannel(ctx Context, name string) Channel {
 	return internal.NewSignalChannel(ctx, name)
 }
 
 func Now(ctx Context) time.Time {
 	return internal.Now(ctx)
+}
+
+func Sleep(ctx Context, d time.Duration) error {
+	return internal.Sleep(ctx, d)
+}
+
+func Go(ctx Context, f func(ctx Context)) {
+	sync.Go(ctx, f)
+}
+
+func NewSelector() sync.Selector {
+	return sync.NewSelector()
+}
+
+func NewChannel() Channel {
+	return sync.NewChannel()
+}
+
+func NewBufferedChannel(size int) Channel {
+	return sync.NewBufferedChannel(size)
 }
