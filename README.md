@@ -12,13 +12,13 @@ Workflows are written in Go code. The only exception is they must not use any of
 func Workflow1(ctx workflow.Context, input string) error {
 	var r1, r2 int
 
-	if err := workflow.ExecuteActivity(ctx, Activity1, 35, 12).Get(ctx, &r1); err != nil {
+	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1); err != nil {
 		panic("error getting activity 1 result")
 	}
 
 	log.Println("A1 result:", r1)
 
-	if err := workflow.ExecuteActivity(ctx, Activity2).Get(ctx, &r2); err != nil {
+	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2); err != nil {
 		panic("error getting activity 1 result")
 	}
 

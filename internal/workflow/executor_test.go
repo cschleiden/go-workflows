@@ -80,7 +80,7 @@ var workflowActivityHit int
 func workflowWithActivity(ctx sync.Context) error {
 	workflowActivityHit++
 
-	f1 := ExecuteActivity(ctx, activity1, 42)
+	f1 := ExecuteActivity(ctx, DefaultActivityOptions, activity1, 42)
 
 	var r int
 	err := f1.Get(ctx, &r)
@@ -235,7 +235,7 @@ var workflowWithSelectorHits int
 func workflowWithSelector(ctx sync.Context) error {
 	workflowWithSelectorHits++
 
-	f1 := ExecuteActivity(ctx, activity1, 42)
+	f1 := ExecuteActivity(ctx, DefaultActivityOptions, activity1, 42)
 	t := ScheduleTimer(ctx, time.Millisecond*2)
 
 	s := sync.NewSelector()

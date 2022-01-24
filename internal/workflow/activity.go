@@ -1,18 +1,57 @@
 package workflow
 
 import (
+	"log"
+	"time"
+
 	a "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/fn"
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/pkg/errors"
 )
 
 type Activity interface{}
 
+type ActivityOptions struct {
+	RetryOptions RetryOptions
+}
+
+var DefaultActivityOptions = ActivityOptions{
+	RetryOptions: DefaultRetryOptions,
+}
+
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) sync.Future {
+func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
+	r := sync.NewFuture()
+
+	sync.Go(ctx, func(ctx sync.Context) {
+		for attempt := 0; attempt < options.RetryOptions.MaxAttempts; attempt++ {
+			var result payload.Payload
+			f := executeActivity(ctx, options, activity, args...)
+
+			err := f.Get(ctx, &result)
+			if err != nil {
+				log.Println("Activity error", err)
+
+				backoffDuration := time.Second * 2 // TODO
+				Sleep(ctx, backoffDuration)
+
+				continue
+			}
+
+			// TODO: Set raw value?
+			r.Set(result, err)
+			return
+		}
+	})
+
+	return r
+}
+
+func executeActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
 	f := sync.NewFuture()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)

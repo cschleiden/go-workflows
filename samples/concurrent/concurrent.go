@@ -64,8 +64,8 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1 := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
-	a2 := workflow.ExecuteActivity(ctx, Activity2)
+	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
+	a2 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2)
 
 	results := 0
 

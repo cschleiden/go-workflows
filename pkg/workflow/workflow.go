@@ -8,22 +8,29 @@ import (
 	"github.com/cschleiden/go-dt/pkg/core"
 )
 
-type SubWorkflowInstanceOptions = internal.SubWorkflowInstanceOptions
-
 func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
-type Workflow = internal.Workflow
+type (
+	Workflow                   = internal.Workflow
+	SubWorkflowInstanceOptions = internal.SubWorkflowInstanceOptions
+)
 
 func CreateSubWorkflowInstance(ctx Context, options SubWorkflowInstanceOptions, workflow Workflow, args ...interface{}) Future {
 	return internal.CreateSubWorkflowInstance(ctx, options, workflow, args...)
 }
 
-type Activity = internal.Activity
+type (
+	Activity        = internal.Activity
+	ActivityOptions = internal.ActivityOptions
+)
 
-func ExecuteActivity(ctx Context, activity Activity, args ...interface{}) Future {
-	return internal.ExecuteActivity(ctx, activity, args...)
+var DefaultActivityOptions = internal.DefaultActivityOptions
+
+// ExecuteActivity schedules the given activity to be executed
+func ExecuteActivity(ctx Context, options ActivityOptions, activity Activity, args ...interface{}) Future {
+	return internal.ExecuteActivity(ctx, options, activity, args...)
 }
 
 func ScheduleTimer(ctx Context, delay time.Duration) Future {

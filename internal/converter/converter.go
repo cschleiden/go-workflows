@@ -33,6 +33,12 @@ func AssignValue(c Converter, v interface{}, vptr interface{}) error {
 			return nil
 		}
 
+		// If the receiving ptr is also of type Payload, we can directly assign
+		if plptr, ok := vptr.(*payload.Payload); ok {
+			*plptr = vp
+			return nil
+		}
+
 		return c.From(vp, vptr)
 	} else {
 		// TODO: Assert that values can be assigned

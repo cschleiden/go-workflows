@@ -21,14 +21,14 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	var r1, r2 int
 
-	err := workflow.ExecuteActivity(ctx, Activity1, 35, 12).Get(ctx, &r1)
+	err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
 	if err != nil {
 		return "", errs.Wrap(err, "error getting activity 1 result")
 	}
 	log.Println("R1 result:", r1)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	err = workflow.ExecuteActivity(ctx, Activity2).Get(ctx, &r2)
+	err = workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
 	if err != nil {
 		return "", errs.Wrap(err, "error getting activity 2 result")
 	}

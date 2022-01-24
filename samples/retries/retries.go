@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
-	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
@@ -12,12 +12,13 @@ import (
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/google/uuid"
+	errs "github.com/pkg/errors"
 )
 
 func main() {
 	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
 
+	// b := sqlite.NewSqliteBackend("simple.sqlite")
 	b := sqlite.NewInMemoryBackend()
 
 	// Run worker
@@ -27,17 +28,16 @@ func main() {
 	c := client.New(b)
 
 	startWorkflow(ctx, c)
+	// startWorkflow(ctx, c)
 
 	c2 := make(chan os.Signal, 1)
 	<-c2
-
-	cancel()
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
-	}, Workflow1, "Hello world")
+	}, Workflow1, "Hello world"+uuid.NewString())
 	if err != nil {
 		panic("could not start workflow")
 	}
@@ -57,50 +57,38 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	}
 }
 
-func Workflow1(ctx workflow.Context, msg string) (string, error) {
+func Workflow1(ctx workflow.Context, msg string) error {
 	log.Println("Entering Workflow1")
 	log.Println("\tWorkflow instance input:", msg)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-
-	defer func() {
-		log.Println("Leaving Workflow1")
-	}()
+	defer func() { log.Println("Leaving Workflow1") }()
 
 	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
-	tctx, cancel := workflow.WithCancel(ctx)
-	t := workflow.ScheduleTimer(tctx, 2*time.Second)
-	cancel()
+	var r1 int
+	err := a1.Get(ctx, &r1)
+	if err != nil {
+		log.Println("Error from Activity 1", err)
+		return errs.Wrap(err, "error getting result from activity 1")
+	}
+	log.Println("R1 result:", r1)
+	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	workflow.NewSelector().AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
-		if err := f.Get(ctx, nil); err != nil {
-			log.Println("Timer cancelled, IsReplaying:", workflow.Replaying(ctx))
-		} else {
-			log.Println("Timer fired, IsReplaying:", workflow.Replaying(ctx))
-		}
-	}).AddFuture(a1, func(ctx workflow.Context, f workflow.Future) {
-		var r int
-		if err := f.Get(ctx, &r); err != nil {
-			panic(err)
-		}
-
-		log.Println("Activity result", r, ", IsReplaying:", workflow.Replaying(ctx))
-
-		// Cancel timer
-		// cancel()
-	}).Select(ctx)
-
-	return "result", nil
+	log.Println("Completing workflow 1")
+	return nil
 }
 
-func Activity1(ctx context.Context, a, b int) (int, error) {
+var calls = 0
+
+func Activity1(ctx context.Context, a int) (int, error) {
 	log.Println("Entering Activity1")
+	defer log.Println("Leaving Activity1")
 
-	time.Sleep(3 * time.Second)
+	calls++
+	if calls < 2 {
+		log.Println("Activity error", calls)
+		return 0, errors.New("some activity error")
+	}
 
-	defer func() {
-		log.Println("Leaving Activity1")
-	}()
-
-	return a + b, nil
+	return a, nil
 }
