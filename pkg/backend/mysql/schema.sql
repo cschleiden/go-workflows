@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `sticky_until` DATETIME NULL,
   `worker` NVARCHAR(64) NULL,
 
-  UNIQUE INDEX `idx_instances_instance_id_execution_id` (`instance_id`, `execution_id`),
-  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `sticky_until`, `completed_at`)
+  UNIQUE INDEX `idx_instances_instance_id` (`instance_id`),
+  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `sticky_until`, `completed_at`, `worker`)
 );
 
 
