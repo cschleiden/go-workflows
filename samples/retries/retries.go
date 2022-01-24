@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -58,23 +58,23 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-	defer func() { log.Println("Leaving Workflow1") }()
+	trace(ctx, "Entering Workflow1")
+	trace(ctx, "\tWorkflow instance input:", msg)
+	trace(ctx, "\tIsReplaying:", workflow.Replaying(ctx))
+	defer func() { trace(ctx, "Leaving Workflow1") }()
 
 	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
 	var r1 int
 	err := a1.Get(ctx, &r1)
 	if err != nil {
-		log.Println("Error from Activity 1", err)
+		trace(ctx, "Error from Activity 1", err)
 		return errs.Wrap(err, "error getting result from activity 1")
 	}
-	log.Println("R1 result:", r1)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	trace(ctx, "R1 result:", r1)
+	trace(ctx, "\tIsReplaying:", workflow.Replaying(ctx))
 
-	log.Println("Completing workflow 1")
+	trace(ctx, "Completing workflow 1")
 	return nil
 }
 
@@ -86,9 +86,17 @@ func Activity1(ctx context.Context, a int) (int, error) {
 
 	calls++
 	if calls < 2 {
-		log.Println("Activity error", calls)
-		return 0, errors.New("some activity error")
+		log.Println(">> Activity error", calls)
+		return 0, fmt.Errorf("activity error %d", calls)
 	}
 
 	return a, nil
+}
+
+// Only trace when not replaying
+func trace(ctx workflow.Context, args ...interface{}) {
+	if !workflow.Replaying(ctx) {
+		args := append([]interface{}{workflow.Now(ctx)}, args...)
+		log.Println(args...)
+	}
 }

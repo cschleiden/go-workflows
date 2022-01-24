@@ -34,7 +34,7 @@ func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activit
 
 			err := f.Get(ctx, &result)
 			if err != nil {
-				log.Println("Activity error", err)
+				trace(ctx, "Activity error", err)
 
 				backoffDuration := time.Second * 2 // TODO
 				Sleep(ctx, backoffDuration)
@@ -89,4 +89,10 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 	}
 
 	return f
+}
+
+func trace(ctx sync.Context, args ...interface{}) {
+	if !Replaying(ctx) {
+		log.Println(args...)
+	}
 }
