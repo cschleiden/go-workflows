@@ -40,7 +40,7 @@ func Test_MysqlBackend(t *testing.T) {
 				panic(err)
 			}
 
-			return NewMysqlBackend(testUser, testPassword, dbName, backend.WithStickyTimeout(0))
+			return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
 		},
 
 		Teardown: func() {

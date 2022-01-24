@@ -18,7 +18,7 @@ func main() {
 
 	// b := sqlite.NewSqliteBackend("simple.sqlite")
 	//b := memory.NewMemoryBackend()
-	b := mysql.NewMysqlBackend("root", "SqlPassw0rd", "simple")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 
 	// Run worker
 	go RunWorker(ctx, b)

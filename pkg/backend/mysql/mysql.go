@@ -20,8 +20,8 @@ import (
 //go:embed schema.sql
 var schema string
 
-func NewMysqlBackend(user, password, database string, opts ...backend.BackendOption) backend.Backend {
-	dsn := fmt.Sprintf("%s:%s@/%s?parseTime=true&interpolateParams=true", user, password, database)
+func NewMysqlBackend(host string, port int, user, password, database string, opts ...backend.BackendOption) backend.Backend {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&interpolateParams=true", user, password, host, port, database)
 
 	schemaDsn := dsn + "&multiStatements=true"
 	db, err := sql.Open("mysql", schemaDsn)
