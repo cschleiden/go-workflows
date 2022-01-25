@@ -76,7 +76,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) 
 		i := wfi.ParentInstance().GetInstanceID()
 		parentInstanceID = &i
 
-		n := wfi.ParentInstance().ParentEventID()
+		n := wfi.ParentEventID()
 		parentEventID = &n
 	}
 
