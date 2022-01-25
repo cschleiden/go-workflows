@@ -348,7 +348,9 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	executedEvents []history.Event,
 	workflowEvents []core.WorkflowEvent,
 ) error {
-	tx, err := b.db.BeginTx(ctx, nil)
+	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelReadCommitted,
+	})
 	if err != nil {
 		return err
 	}
@@ -370,9 +372,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	changedRows, err := res.RowsAffected()
 	if err != nil {
 		return errors.Wrap(err, "could not check for unlocked workflow instances")
-	}
-
-	if changedRows != 1 {
+	} else if changedRows != 1 {
 		return errors.New("could not find workflow instance to unlock")
 	}
 
