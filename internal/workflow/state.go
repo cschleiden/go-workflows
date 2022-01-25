@@ -45,13 +45,19 @@ func (wf *workflowState) clearCommands() {
 	wf.commands = []command.Command{}
 }
 
+func (wf *workflowState) createSignalChannel(name string) sync.Channel {
+	cs := sync.NewBufferedChannel(10_000)
+	wf.signalChannels[name] = cs
+	return cs
+}
+
 func (wf *workflowState) getSignalChannel(name string) sync.Channel {
 	cs, ok := wf.signalChannels[name]
-	if !ok {
-		panic("signal channel not found")
+	if ok {
+		return cs
 	}
 
-	return cs
+	return wf.createSignalChannel(name)
 }
 
 func (wf *workflowState) setReplaying(replaying bool) {
