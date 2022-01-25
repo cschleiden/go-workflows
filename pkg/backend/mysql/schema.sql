@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
 
-  INDEX `idx_pending_events_instance_id_execution_id_visible_at` (`instance_id`, `visible_at`)
+  INDEX `idx_pending_events_instance_id` (`instance_id`)
 );
 
 
