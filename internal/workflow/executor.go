@@ -34,7 +34,7 @@ type executor struct {
 	lastEventID       string // TODO: Not the same as the sequence number Event ID
 }
 
-func NewExecutor(registry *Registry, task *task.Workflow) (WorkflowExecutor, error) {
+func NewExecutor(registry *Registry) (WorkflowExecutor, error) {
 	state := newWorkflowState()
 	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
 
@@ -196,17 +196,12 @@ func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.Wor
 }
 
 func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			// Ensure the same activity is scheduled again
-			ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
-			if a.Name != ca.Name {
-				return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
-			}
-
-			// Remove pending command
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
+	c := e.workflowState.removeCommandByEventID(event.EventID)
+	if c != nil {
+		// Ensure the same activity is scheduled again
+		ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
+		if a.Name != ca.Name {
+			return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
 		}
 	}
 
@@ -216,20 +211,10 @@ func (e *executor) handleActivityScheduled(event history.Event, a *history.Activ
 func (e *executor) handleActivityCompleted(event history.Event, a *history.ActivityCompletedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		// return errors.New("no pending future found for activity completed event")
-
-		// TODO: already canceled, is this check enough?
 		return nil
 	}
 
-	// Remove pending command
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
-		}
-	}
-
+	e.workflowState.removeCommandByEventID(event.EventID)
 	f.Set(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -241,13 +226,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 		return errors.New("no pending future found for activity failed event")
 	}
 
-	// Remove pending command
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
-		}
-	}
+	e.workflowState.removeCommandByEventID(event.EventID)
 
 	f.Set(nil, errors.New(a.Reason))
 
@@ -255,13 +234,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 }
 
 func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerScheduledAttributes) error {
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			// Remove pending command
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
-		}
-	}
+	e.workflowState.removeCommandByEventID(event.EventID)
 
 	return nil
 }
@@ -273,13 +246,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 		return nil
 	}
 
-	// Remove pending command
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
-		}
-	}
+	e.workflowState.removeCommandByEventID(event.EventID)
 
 	f.Set(nil, nil)
 
@@ -287,17 +254,11 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 }
 
 func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			// Ensure the same activity is scheduled again
-			ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
-			if a.Name != ca.Name {
-				return errors.New("previous workflow execution scheduled a different sub workflow")
-			}
-
-			// Remove pending command
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
+	c := e.workflowState.removeCommandByEventID(event.EventID)
+	if c != nil {
+		ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
+		if a.Name != ca.Name {
+			return errors.New("previous workflow execution scheduled a different sub workflow")
 		}
 	}
 
@@ -310,13 +271,7 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 		return errors.New("no pending future found for sub workflow completed event")
 	}
 
-	// Remove pending command
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
-		}
-	}
+	e.workflowState.removeCommandByEventID(event.EventID)
 
 	if a.Error != "" {
 		f.Set(nil, errors.New(a.Error))
@@ -328,16 +283,11 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 }
 
 func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
+	// Send signal to workflow channel
 	sc := e.workflowState.getSignalChannel(a.Name)
 	sc.SendNonblocking(e.workflowCtx, a.Arg)
 
-	// Remove pending command
-	for i, c := range e.workflowState.commands {
-		if c.ID == event.EventID {
-			e.workflowState.commands = append(e.workflowState.commands[:i], e.workflowState.commands[i+1:]...)
-			break
-		}
-	}
+	e.workflowState.removeCommandByEventID(event.EventID)
 
 	return e.workflow.Continue(e.workflowCtx)
 }

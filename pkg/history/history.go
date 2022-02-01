@@ -34,6 +34,43 @@ const (
 	EventType_SignalReceived
 )
 
+func (et EventType) String() string {
+	switch et {
+	case EventType_WorkflowExecutionStarted:
+		return "WorkflowExecutionStarted"
+	case EventType_WorkflowExecutionFinished:
+		return "WorkflowExecutionFinished"
+	case EventType_WorkflowExecutionTerminated:
+		return "WorkflowExecutionTerminated"
+	case EventType_WorkflowExecutionCancelled:
+		return "WorkflowExecutionCancelled"
+	case EventType_WorkflowTaskStarted:
+		return "WorkflowTaskStarted"
+	case EventType_WorkflowTaskFinished:
+		return "WorkflowTaskFinished"
+	case EventType_SubWorkflowScheduled:
+		return "SubWorkflowScheduled"
+	case EventType_SubWorkflowCompleted:
+		return "SubWorkflowCompleted"
+	case EventType_SubWorkflowFailed:
+		return "SubWorkflowFailed"
+	case EventType_ActivityScheduled:
+		return "ActivityScheduled"
+	case EventType_ActivityCompleted:
+		return "ActivityCompleted"
+	case EventType_ActivityFailed:
+		return "ActivityFailed"
+	case EventType_TimerScheduled:
+		return "TimerScheduled"
+	case EventType_TimerFired:
+		return "TimerFired"
+	case EventType_SignalReceived:
+		return "SignalReceived"
+	default:
+		return "Unknown"
+	}
+}
+
 type Event struct {
 	// ID is a unique identifier
 	ID string
@@ -53,7 +90,7 @@ type Event struct {
 	VisibleAt *time.Time
 }
 
-func (e *Event) String() string {
+func (e Event) String() string {
 	return strconv.Itoa(int(e.Type))
 }
 

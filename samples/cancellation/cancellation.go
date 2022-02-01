@@ -2,16 +2,16 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/mysql"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-dt/samples"
 	"github.com/google/uuid"
 )
 
@@ -20,7 +20,8 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 
 	//b := memory.NewMemoryBackend()
-	b := sqlite.NewSqliteBackend("cancellation.sqlite?ephemeral=true")
+	//b := sqlite.NewSqliteBackend("cancellation.sqlite?ephemeral=true")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -70,33 +71,33 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	trace(ctx, "Entering Workflow1")
-	defer trace(ctx, "Leaving Workflow1")
-	trace(ctx, "\tWorkflow instance input:", msg)
+	samples.Trace(ctx, "Entering Workflow1")
+	defer samples.Trace(ctx, "Leaving Workflow1")
+	samples.Trace(ctx, "\tWorkflow instance input:", msg)
 
 	var r0 int
-	trace(ctx, "schedule ActivitySuccess")
+	samples.Trace(ctx, "schedule ActivitySuccess")
 	if err := workflow.ExecuteActivity(ctx, ActivitySuccess, 1, 2).Get(ctx, &r0); err != nil {
-		trace(ctx, "error getting activity success result", err)
+		samples.Trace(ctx, "error getting activity success result", err)
 	} else {
-		trace(ctx, "ActivitySuccess result:", r0)
+		samples.Trace(ctx, "ActivitySuccess result:", r0)
 	}
 
 	var r1 int
-	trace(ctx, "schedule ActivityCancel")
+	samples.Trace(ctx, "schedule ActivityCancel")
 	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {
-		trace(ctx, "error getting activity cancel result", err)
+		samples.Trace(ctx, "error getting activity cancel result", err)
 	}
-	trace(ctx, "ActivityCancel result:", r1)
+	samples.Trace(ctx, "ActivityCancel result:", r1)
 
 	var r2 int
-	trace(ctx, "schedule ActivitySkip")
+	samples.Trace(ctx, "schedule ActivitySkip")
 	if err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx, &r2); err != nil {
-		trace(ctx, "error getting activity skip result", err)
+		samples.Trace(ctx, "error getting activity skip result", err)
 	}
-	trace(ctx, "ActivitySkip result:", r2)
+	samples.Trace(ctx, "ActivitySkip result:", r2)
 
-	trace(ctx, "Workflow finished")
+	samples.Trace(ctx, "Workflow finished")
 	return "result", nil
 }
 
@@ -121,10 +122,4 @@ func ActivitySkip(ctx context.Context, a, b int) (int, error) {
 	defer log.Println("Leaving ActivitySkip")
 
 	return a + b, nil
-}
-
-func trace(ctx workflow.Context, v ...interface{}) {
-	prefix := fmt.Sprintf("[replay: %v]", workflow.Replaying(ctx))
-	args := append([]interface{}{prefix}, v...)
-	log.Println(args...)
 }

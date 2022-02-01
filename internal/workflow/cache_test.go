@@ -6,10 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/core/task"
-	"github.com/cschleiden/go-dt/pkg/history"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,23 +14,10 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	c := NewWorkflowExecutorCache(DefaultWorkflowExecutorCacheOptions)
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
-	task := &task.Workflow{
-		WorkflowInstance: i,
-		History: []history.Event{
-			history.NewHistoryEvent(
-				history.EventType_WorkflowExecutionStarted,
-				-1,
-				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithActivity",
-					Inputs: []payload.Payload{},
-				},
-			),
-		},
-	}
 
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(r, task)
+	e, err := NewExecutor(r)
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)
@@ -52,23 +36,9 @@ func Test_Cache_Evic(t *testing.T) {
 	})
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
-	task := &task.Workflow{
-		WorkflowInstance: i,
-		History: []history.Event{
-			history.NewHistoryEvent(
-				history.EventType_WorkflowExecutionStarted,
-				-1,
-				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithActivity",
-					Inputs: []payload.Payload{},
-				},
-			),
-		},
-	}
-
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(r, task)
+	e, err := NewExecutor(r)
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)

@@ -81,7 +81,19 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.Workfl
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
-	panic("not implemented")
+	tx, err := b.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	instanceID := instance.GetInstanceID()
+
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
+		return errors.Wrap(err, "could not insert cancellation event")
+	}
+
+	return tx.Commit()
 }
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) error {
