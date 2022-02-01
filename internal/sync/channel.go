@@ -18,6 +18,8 @@ type Channel interface {
 }
 
 type ChannelInternal interface {
+	ReceiveNonBlocking(ctx Context, cb func(v interface{})) (ok bool)
+
 	AddReceiveCallback(cb func(v interface{}))
 }
 
@@ -230,4 +232,16 @@ func (c *channel) hasCapacity() bool {
 
 func (c *channel) AddReceiveCallback(cb func(v interface{})) {
 	c.receivers = append(c.receivers, cb)
+}
+
+func (c *channel) ReceiveNonBlocking(ctx Context, cb func(v interface{})) (ok bool) {
+	var vptr interface{}
+	if c.tryReceive(vptr) {
+		cb(vptr)
+		return true
+	}
+
+	c.AddReceiveCallback(cb)
+
+	return false
 }

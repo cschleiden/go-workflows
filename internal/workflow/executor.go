@@ -182,7 +182,7 @@ func (e *executor) handleWorkflowExecutionStarted(ctx sync.Context, a *history.E
 func (e *executor) handleWorkflowCanceled(ctx sync.Context, cancel sync.CancelFunc) error {
 	cancel()
 
-	return nil
+	return e.workflow.Continue(ctx)
 }
 
 func (e *executor) handleWorkflowTaskStarted(ctx sync.Context, event history.Event, a *history.WorkflowTaskStartedAttributes) error {

@@ -41,6 +41,15 @@ func (wf *workflowState) addCommand(cmd command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
+func (wf *workflowState) removeCommand(cmd command.Command) {
+	for i, c := range wf.commands {
+		if c == cmd {
+			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
+			return
+		}
+	}
+}
+
 func (wf *workflowState) clearCommands() {
 	wf.commands = []command.Command{}
 }

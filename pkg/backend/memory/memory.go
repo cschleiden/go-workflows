@@ -121,7 +121,6 @@ func (mb *memoryBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 		mb.lockedWorkflows[id] = true
 
-		// Add task to queue
 		t := &task.Workflow{
 			WorkflowInstance: instance.Instance,
 			History:          instance.History,

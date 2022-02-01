@@ -34,10 +34,14 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) s
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
 		if c, ok := d.(sync.ChannelInternal); ok {
-			c.AddReceiveCallback(func(v interface{}) {
+			ok := c.ReceiveNonBlocking(ctx, func(_ interface{}) {
+				wfState.removeCommand(command)
 				delete(wfState.pendingFutures, eventID)
 				f.Set(nil, sync.Canceled)
 			})
+			if !ok {
+				// callback added
+			}
 		}
 	}
 

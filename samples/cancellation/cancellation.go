@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -60,6 +61,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w.RegisterWorkflow(Workflow1)
 	w.RegisterActivity(ActivityCancel)
 	w.RegisterActivity(ActivitySkip)
+	w.RegisterActivity(ActivitySuccess)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
@@ -67,26 +69,36 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	trace(ctx, "Entering Workflow1")
+	defer trace(ctx, "Leaving Workflow1")
+	trace(ctx, "\tWorkflow instance input:", msg)
 
-	defer func() {
-		log.Println("Leaving Workflow1")
-	}()
+	var r0 int
+	if err := workflow.ExecuteActivity(ctx, ActivitySuccess, 1, 2).Get(ctx, &r0); err != nil {
+		trace(ctx, "error getting activity success result", err)
+	} else {
+		trace(ctx, "ActivitySuccess result:", r0)
+	}
 
 	var r1 int
 	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {
-		log.Println("error getting activity 1 result")
+		trace(ctx, "error getting activity cancel result", err)
 	}
 
 	var r2 int
 	if err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx, &r2); err != nil {
-		log.Println("error getting activity 2 result")
+		trace(ctx, "error getting activity skip result", err)
 	}
 
-	log.Println("Workflow finished")
+	trace(ctx, "Workflow finished")
 	return "result", nil
+}
+
+func ActivitySuccess(ctx context.Context, a, b int) (int, error) {
+	log.Println("Entering ActivitySuccess")
+	defer log.Println("Leaving ActivitySuccess")
+
+	return a + b, nil
 }
 
 func ActivityCancel(ctx context.Context, a, b int) (int, error) {
@@ -99,10 +111,16 @@ func ActivityCancel(ctx context.Context, a, b int) (int, error) {
 }
 
 func ActivitySkip(ctx context.Context, a, b int) (int, error) {
-	log.Println("Entering Activity1")
-	defer log.Println("Leaving Activity1")
+	log.Println("Entering ActivitySkip")
+	defer log.Println("Leaving ActivitySkip")
 
 	time.Sleep(2 * time.Second)
 
 	return a + b, nil
+}
+
+func trace(ctx workflow.Context, v ...interface{}) {
+	prefix := fmt.Sprintf("[replay: %v]", workflow.Replaying(ctx))
+	args := append([]interface{}{prefix}, v...)
+	log.Println(args...)
 }
