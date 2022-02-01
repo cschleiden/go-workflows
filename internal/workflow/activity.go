@@ -33,7 +33,11 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) s
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
+		// log.Println(&d, d)
+
 		if c, ok := d.(sync.ChannelInternal); ok {
+			// log.Println("Channel closed", c.Closed())
+
 			ok := c.ReceiveNonBlocking(ctx, func(_ interface{}) {
 				wfState.removeCommand(command)
 				delete(wfState.pendingFutures, eventID)

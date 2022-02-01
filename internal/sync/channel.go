@@ -18,6 +18,8 @@ type Channel interface {
 }
 
 type ChannelInternal interface {
+	Closed() bool
+
 	ReceiveNonBlocking(ctx Context, cb func(v interface{})) (ok bool)
 
 	AddReceiveCallback(cb func(v interface{}))
@@ -244,4 +246,8 @@ func (c *channel) ReceiveNonBlocking(ctx Context, cb func(v interface{})) (ok bo
 	c.AddReceiveCallback(cb)
 
 	return false
+}
+
+func (c *channel) Closed() bool {
+	return c.closed
 }

@@ -64,7 +64,7 @@ func (mb *memoryBackend) CreateWorkflowInstance(ctx context.Context, m core.Work
 	return nil
 }
 
-func (mb *memoryBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (mb *memoryBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
@@ -73,10 +73,8 @@ func (mb *memoryBackend) CancelWorkflowInstance(ctx context.Context, instance co
 		return errors.New("workflow instance does not exist")
 	}
 
-	// TODO: Cancel any active sub-workflows?
-
 	// Add workflow canceled event
-	i.PendingEvents = append(i.PendingEvents, history.NewHistoryEvent(history.EventType_WorkflowExecutionCancelled, -1, nil))
+	i.PendingEvents = append(i.PendingEvents, event)
 
 	// Run workflow task
 	mb.queueWorkflowTask(instance.GetInstanceID())

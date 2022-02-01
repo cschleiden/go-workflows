@@ -80,7 +80,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.Workfl
 	return nil
 }
 
-func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
 	panic("not implemented")
 }
 

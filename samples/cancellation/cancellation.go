@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/memory"
+	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -19,13 +19,14 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	mb := memory.NewMemoryBackend()
+	//b := memory.NewMemoryBackend()
+	b := sqlite.NewSqliteBackend("cancellation.sqlite?ephemeral=true")
 
 	// Run worker
-	go RunWorker(ctx, mb)
+	go RunWorker(ctx, b)
 
 	// Start workflow via client
-	c := client.New(mb)
+	c := client.New(b)
 
 	startWorkflow(ctx, c)
 
@@ -74,6 +75,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	trace(ctx, "\tWorkflow instance input:", msg)
 
 	var r0 int
+	trace(ctx, "schedule ActivitySuccess")
 	if err := workflow.ExecuteActivity(ctx, ActivitySuccess, 1, 2).Get(ctx, &r0); err != nil {
 		trace(ctx, "error getting activity success result", err)
 	} else {
@@ -81,14 +83,18 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	}
 
 	var r1 int
+	trace(ctx, "schedule ActivityCancel")
 	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {
 		trace(ctx, "error getting activity cancel result", err)
 	}
+	trace(ctx, "ActivityCancel result:", r1)
 
 	var r2 int
+	trace(ctx, "schedule ActivitySkip")
 	if err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx, &r2); err != nil {
 		trace(ctx, "error getting activity skip result", err)
 	}
+	trace(ctx, "ActivitySkip result:", r2)
 
 	trace(ctx, "Workflow finished")
 	return "result", nil
@@ -105,7 +111,7 @@ func ActivityCancel(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering ActivityCancel")
 	defer log.Println("Leaving ActivityCancel")
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	return a + b, nil
 }
@@ -113,8 +119,6 @@ func ActivityCancel(ctx context.Context, a, b int) (int, error) {
 func ActivitySkip(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering ActivitySkip")
 	defer log.Println("Leaving ActivitySkip")
-
-	time.Sleep(2 * time.Second)
 
 	return a + b, nil
 }
