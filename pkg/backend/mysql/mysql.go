@@ -80,6 +80,10 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.Workfl
 	return nil
 }
 
+func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+	panic("not implemented")
+}
+
 func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) error {
 	var parentInstanceID *string
 	var parentEventID *int

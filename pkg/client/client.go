@@ -21,6 +21,8 @@ type WorkflowInstanceOptions struct {
 type Client interface {
 	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error)
 
+	CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error
+
 	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
 }
 
@@ -60,6 +62,10 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	}
 
 	return wfi, nil
+}
+
+func (c *client) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+	return c.backend.CancelWorkflowInstance(ctx, instance)
 }
 
 func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {

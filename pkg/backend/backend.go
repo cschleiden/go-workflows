@@ -13,6 +13,9 @@ type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
 	CreateWorkflowInstance(ctx context.Context, event core.WorkflowEvent) error
 
+	// CancelWorkflowInstance cancels a running workflow instance
+	CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error
+
 	// SignalWorkflow signals a running workflow instance
 	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error
 

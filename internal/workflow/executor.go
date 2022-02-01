@@ -43,6 +43,7 @@ func NewExecutor(registry *Registry, task *task.Workflow) (WorkflowExecutor, err
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
 	wfCtx := withWfState(sync.Background(), e.workflowState)
+	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	if t.Kind == task.Continuation {
 		// Check if the current state matches the backend's history state
@@ -57,7 +58,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 		// Replay history
 		e.workflowState.setReplaying(true)
 		for _, event := range t.History {
-			if err := e.executeEvent(wfCtx, event); err != nil {
+			if err := e.executeEvent(wfCtx, cancel, event); err != nil {
 				return nil, nil, errs.Wrap(err, "error while replaying event")
 			}
 		}
@@ -68,7 +69,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	events = append(events, t.NewEvents...)
 
 	// Execute new events received from the backend
-	if err := e.executeNewEvents(wfCtx, events); err != nil {
+	if err := e.executeNewEvents(wfCtx, cancel, events); err != nil {
 		return nil, nil, errs.Wrap(err, "error while executing new events")
 	}
 
@@ -87,11 +88,11 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	return events, workflowEvents, nil
 }
 
-func (e *executor) executeNewEvents(wfCtx sync.Context, newEvents []history.Event) error {
+func (e *executor) executeNewEvents(wfCtx sync.Context, cancel sync.CancelFunc, newEvents []history.Event) error {
 	e.workflowState.setReplaying(false)
 
 	for _, event := range newEvents {
-		if err := e.executeEvent(wfCtx, event); err != nil {
+		if err := e.executeEvent(wfCtx, cancel, event); err != nil {
 			return errs.Wrap(err, "error while executing event")
 		}
 
@@ -115,7 +116,7 @@ func (e *executor) Close() {
 	}
 }
 
-func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
+func (e *executor) executeEvent(ctx sync.Context, cancel sync.CancelFunc, event history.Event) error {
 	e.logger.Println("Handling:", event.Type)
 
 	var err error
@@ -125,7 +126,10 @@ func (e *executor) executeEvent(ctx sync.Context, event history.Event) error {
 		err = e.handleWorkflowExecutionStarted(ctx, event.Attributes.(*history.ExecutionStartedAttributes))
 
 	case history.EventType_WorkflowExecutionFinished:
-		// Ignore
+	// Ignore
+
+	case history.EventType_WorkflowExecutionCancelled:
+		err = e.handleWorkflowCanceled(ctx, cancel)
 
 	case history.EventType_WorkflowTaskStarted:
 		err = e.handleWorkflowTaskStarted(ctx, event, event.Attributes.(*history.WorkflowTaskStartedAttributes))
@@ -175,6 +179,12 @@ func (e *executor) handleWorkflowExecutionStarted(ctx sync.Context, a *history.E
 	return e.workflow.Execute(ctx, a.Inputs)
 }
 
+func (e *executor) handleWorkflowCanceled(ctx sync.Context, cancel sync.CancelFunc) error {
+	cancel()
+
+	return nil
+}
+
 func (e *executor) handleWorkflowTaskStarted(ctx sync.Context, event history.Event, a *history.WorkflowTaskStartedAttributes) error {
 	e.workflowState.setTime(event.Timestamp)
 
@@ -202,7 +212,10 @@ func (e *executor) handleActivityScheduled(ctx sync.Context, event history.Event
 func (e *executor) handleActivityCompleted(ctx sync.Context, event history.Event, a *history.ActivityCompletedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		return errors.New("no pending future found for activity completed event")
+		// return errors.New("no pending future found for activity completed event")
+
+		// TODO: already canceled, is this check enough?
+		return nil
 	}
 
 	// Remove pending command

@@ -15,6 +15,7 @@ const (
 	EventType_WorkflowExecutionStarted
 	EventType_WorkflowExecutionFinished
 	EventType_WorkflowExecutionTerminated
+	EventType_WorkflowExecutionCancelled
 
 	EventType_WorkflowTaskStarted
 	EventType_WorkflowTaskFinished

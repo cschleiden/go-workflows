@@ -31,5 +31,15 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) s
 
 	wfState.pendingFutures[eventID] = f
 
+	// Handle cancellation
+	if d := ctx.Done(); d != nil {
+		if c, ok := d.(sync.ChannelInternal); ok {
+			c.AddReceiveCallback(func(v interface{}) {
+				delete(wfState.pendingFutures, eventID)
+				f.Set(nil, sync.Canceled)
+			})
+		}
+	}
+
 	return f
 }

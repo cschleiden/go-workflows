@@ -94,6 +94,10 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) 
 	return nil
 }
 
+func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+	panic("not implemented")
+}
+
 func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
