@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-dt/samples"
 	"github.com/google/uuid"
 )
 
@@ -68,12 +69,12 @@ type Inputs struct {
 }
 
 func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error {
-	log.Println("Entering Workflow1", workflow.Now(ctx))
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	samples.Trace(ctx, "Entering Workflow1")
+	samples.Trace(ctx, "\tWorkflow instance input:", msg)
+	samples.Trace(ctx, "\tIsReplaying:")
 
 	defer func() {
-		log.Println("Leaving Workflow1", workflow.Now(ctx))
+		samples.Trace(ctx, "Leaving Workflow1")
 	}()
 
 	var r1, r2 int
@@ -81,15 +82,13 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	log.Println("R1 result:", r1, workflow.Now(ctx))
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	samples.Trace(ctx, "R1 result:", r1)
 
 	err = workflow.ExecuteActivity(ctx, Activity2).Get(ctx, &r2)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	log.Println("R2 result:", r2, workflow.Now(ctx))
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	samples.Trace(ctx, "R2 result:", r2)
 
 	return nil
 }
