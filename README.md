@@ -2,9 +2,7 @@
 
 Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as [DTFx](https://github.com/Azure/durabletask).
 
-## Example
-
-
+## Simple example
 
 ### Workflow
 
@@ -95,5 +93,72 @@ func main() {
 
 	c2 := make(chan os.Signal, 1)
 	<-c2
+}
+```
+
+## Scenarios
+
+## Starting workflows
+
+`CreateWorkflowInstance` on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.
+
+```go
+wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+	InstanceID: uuid.NewString(),
+}, Workflow1, "input-for-workflow")
+if err != nil {
+```
+
+## Running activities
+
+From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future` you can await to get the result or any error it might return.
+
+```go
+var r1 int
+err := workflow.ExecuteActivity(ctx, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
+if err != nil {
+	panic("error getting activity 1 result")
+}
+
+log.Println(r1)
+```
+
+## Running sub-workflows
+
+Call `workflow.CreateSubWorkflowInstance` to start a sub-workflow.
+
+```go
+func Workflow1(ctx workflow.Context, msg string) error {
+	var wr int
+	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{}, Workflow2, "some input").Get(ctx, &wr); err != nil {
+		return errors.Wrap(err, "could not get sub workflow result")
+	}
+
+	log.Println("Sub workflow result:", wr)
+	return nil
+}
+
+func Workflow2(ctx workflow.Context, msg string) (int, error) {
+	var r1 int
+
+	if err := workflow.ExecuteActivity(ctx, Activity1, 35, 12).Get(ctx, &r1); err != nil {
+		return "", errors.Wrap(err, "could not get activity result")
+	}
+
+	log.Println("A1 result:", r1)
+
+	return r1, nil
+}
+```
+
+## Canceling workflows
+
+Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Activities running when a workflow is canceled will still run to completion.
+
+```go
+var c client.Client
+err = c.CancelWorkflowInstance(context.Background(), workflowInstance)
+if err != nil {
+	panic("could not cancel workflow")
 }
 ```
