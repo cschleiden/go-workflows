@@ -28,8 +28,8 @@ func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowInstanceOpti
 	wfState.eventID++
 
 	name := fn.Name(workflow)
-	command := command.NewScheduleSubWorkflowCommand(eventID, options.InstanceID, name, inputs)
-	wfState.addCommand(command)
+	cmd := command.NewScheduleSubWorkflowCommand(eventID, options.InstanceID, name, inputs)
+	wfState.addCommand(&cmd)
 
 	wfState.pendingFutures[eventID] = f
 
@@ -37,7 +37,14 @@ func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowInstanceOpti
 	if d := ctx.Done(); d != nil {
 		if c, ok := d.(sync.ChannelInternal); ok {
 			c.ReceiveNonBlocking(ctx, func(_ interface{}) {
-				wfState.removeCommand(command)
+				// Workflow has been canceled, check if the sub-workflow has already been scheduled
+				if cmd.State == command.CommandState_Committed {
+					// Command has already been committed, that means the sub-workflow has already been scheduled. Wait
+					// until it is done.
+					return
+				}
+
+				wfState.removeCommand(cmd)
 				delete(wfState.pendingFutures, eventID)
 				f.Set(nil, sync.Canceled)
 			})

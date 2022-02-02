@@ -22,7 +22,17 @@ const (
 	CommandType_CompleteWorkflow
 )
 
+type CommandState int
+
+const (
+	CommandState_Pending CommandState = iota
+	CommandState_Committed
+	CommandState_Done
+)
+
 type Command struct {
+	State CommandState
+
 	ID int
 
 	Type CommandType

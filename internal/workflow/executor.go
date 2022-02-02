@@ -296,7 +296,8 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	eventId := e.workflowState.eventID
 	e.workflowState.eventID++
 
-	e.workflowState.addCommand(command.NewCompleteWorkflowCommand(eventId, result, err))
+	cmd := command.NewCompleteWorkflowCommand(eventId, result, err)
+	e.workflowState.addCommand(&cmd)
 
 	return nil
 }
@@ -309,6 +310,10 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 	workflowEvents := make([]core.WorkflowEvent, 0)
 
 	for _, c := range commands {
+		// TODO: Move to state machine?
+		// Mark this command as committed.
+		c.State = command.CommandState_Committed
+
 		switch c.Type {
 		case command.CommandType_ScheduleActivityTask:
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)

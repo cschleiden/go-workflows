@@ -13,8 +13,8 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
 	eventID := wfState.eventID
 	wfState.eventID++
 
-	timerCommand := command.NewScheduleTimerCommand(eventID, Now(ctx).Add(delay))
-	wfState.addCommand(timerCommand)
+	timerCmd := command.NewScheduleTimerCommand(eventID, Now(ctx).Add(delay))
+	wfState.addCommand(&timerCmd)
 
 	t := sync.NewFuture()
 	wfState.pendingFutures[eventID] = t

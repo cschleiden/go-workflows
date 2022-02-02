@@ -15,7 +15,7 @@ var workflowCtxKey key
 type workflowState struct {
 	instance       core.WorkflowInstance
 	eventID        int
-	commands       []command.Command
+	commands       []*command.Command
 	pendingFutures map[int]sync.Future
 	signalChannels map[string]sync.Channel
 	replaying      bool
@@ -25,7 +25,7 @@ type workflowState struct {
 func newWorkflowState(instance core.WorkflowInstance) *workflowState {
 	return &workflowState{
 		instance:       instance,
-		commands:       []command.Command{},
+		commands:       []*command.Command{},
 		eventID:        0,
 		pendingFutures: map[int]sync.Future{},
 		signalChannels: make(map[string]sync.Channel),
@@ -40,7 +40,7 @@ func withWfState(ctx sync.Context, wfState *workflowState) sync.Context {
 	return sync.WithValue(ctx, workflowCtxKey, wfState)
 }
 
-func (wf *workflowState) addCommand(cmd command.Command) {
+func (wf *workflowState) addCommand(cmd *command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
@@ -48,7 +48,7 @@ func (wf *workflowState) removeCommandByEventID(eventID int) *command.Command {
 	for i, c := range wf.commands {
 		if c.ID == eventID {
 			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
-			return &c
+			return c
 		}
 	}
 
@@ -57,7 +57,10 @@ func (wf *workflowState) removeCommandByEventID(eventID int) *command.Command {
 
 func (wf *workflowState) removeCommand(cmd command.Command) {
 	for i, c := range wf.commands {
-		if c == cmd {
+		if *c == cmd {
+			// TODO: Move to state machines?
+			c.State = command.CommandState_Done
+
 			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
 			return
 		}
@@ -65,7 +68,7 @@ func (wf *workflowState) removeCommand(cmd command.Command) {
 }
 
 func (wf *workflowState) clearCommands() {
-	wf.commands = []command.Command{}
+	wf.commands = []*command.Command{}
 }
 
 func (wf *workflowState) createSignalChannel(name string) sync.Channel {

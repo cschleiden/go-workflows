@@ -26,8 +26,8 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) s
 	wfState.eventID++
 
 	name := fn.Name(activity)
-	command := command.NewScheduleActivityTaskCommand(eventID, name, inputs)
-	wfState.addCommand(command)
+	cmd := command.NewScheduleActivityTaskCommand(eventID, name, inputs)
+	wfState.addCommand(&cmd)
 
 	wfState.pendingFutures[eventID] = f
 
@@ -35,7 +35,14 @@ func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) s
 	if d := ctx.Done(); d != nil {
 		if c, ok := d.(sync.ChannelInternal); ok {
 			c.ReceiveNonBlocking(ctx, func(_ interface{}) {
-				wfState.removeCommand(command)
+				// Workflow has been canceled, check if the activity has already been scheduled
+				if cmd.State == command.CommandState_Committed {
+					// Command has already been committed, that means the activity has already been scheduled. Wait
+					// until the activity is done.
+					return
+				}
+
+				wfState.removeCommand(cmd)
 				delete(wfState.pendingFutures, eventID)
 				f.Set(nil, sync.Canceled)
 			})
