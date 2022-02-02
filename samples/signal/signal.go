@@ -8,7 +8,7 @@ import (
 
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/memory"
+	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -18,13 +18,13 @@ import (
 func main() {
 	ctx := context.Background()
 
-	mb := memory.NewMemoryBackend()
+	b := sqlite.NewInMemoryBackend()
 
 	// Run worker
-	go RunWorker(ctx, mb)
+	go RunWorker(ctx, b)
 
 	// Start workflow via client
-	c := client.New(mb)
+	c := client.New(b)
 
 	startWorkflow(ctx, c)
 

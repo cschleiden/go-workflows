@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/memory"
+	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -18,7 +18,7 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	b := memory.NewMemoryBackend()
+	b := sqlite.NewInMemoryBackend()
 
 	// Run worker
 	go RunWorker(ctx, b)

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/mysql"
+	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -19,9 +19,9 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	//b := memory.NewMemoryBackend()
-	//b := sqlite.NewSqliteBackend("cancellation.sqlite?ephemeral=true")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
+	b := sqlite.NewInMemoryBackend()
+	// b := sqlite.NewSqliteBackend("cancellation.sqlite")
+	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
 
 	// Run worker
 	go RunWorker(ctx, b)

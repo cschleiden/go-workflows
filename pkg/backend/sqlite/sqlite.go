@@ -21,8 +21,20 @@ import (
 //go:embed schema.sql
 var schema string
 
+func NewInMemoryBackend(opts ...backend.BackendOption) backend.Backend {
+	b := newSqliteBackend("file::memory:", opts...)
+
+	b.db.SetMaxOpenConns(1)
+
+	return b
+}
+
 func NewSqliteBackend(path string, opts ...backend.BackendOption) backend.Backend {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%v", path))
+	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
+}
+
+func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend {
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		panic(err)
 	}
