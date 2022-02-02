@@ -33,5 +33,16 @@ func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowInstanceOpti
 
 	wfState.pendingFutures[eventID] = f
 
+	// Handle cancellation
+	if d := ctx.Done(); d != nil {
+		if c, ok := d.(sync.ChannelInternal); ok {
+			c.ReceiveNonBlocking(ctx, func(_ interface{}) {
+				wfState.removeCommand(command)
+				delete(wfState.pendingFutures, eventID)
+				f.Set(nil, sync.Canceled)
+			})
+		}
+	}
+
 	return f
 }
