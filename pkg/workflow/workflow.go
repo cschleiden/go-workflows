@@ -15,16 +15,14 @@ func Replaying(ctx Context) bool {
 type (
 	Workflow                   = internal.Workflow
 	SubWorkflowInstanceOptions = internal.SubWorkflowInstanceOptions
+	Activity                   = internal.Activity
+	ActivityOptions            = internal.ActivityOptions
+	RetryOptions               = internal.RetryOptions
 )
 
 func CreateSubWorkflowInstance(ctx Context, options SubWorkflowInstanceOptions, workflow Workflow, args ...interface{}) Future {
 	return internal.CreateSubWorkflowInstance(ctx, options, workflow, args...)
 }
-
-type (
-	Activity        = internal.Activity
-	ActivityOptions = internal.ActivityOptions
-)
 
 var DefaultActivityOptions = internal.DefaultActivityOptions
 

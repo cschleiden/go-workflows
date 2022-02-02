@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-dt/samples"
 	"github.com/google/uuid"
 	errs "github.com/pkg/errors"
 )
@@ -58,12 +59,14 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
-	trace(ctx, "Entering Workflow1")
-	trace(ctx, "\tWorkflow instance input:", msg)
-	trace(ctx, "\tIsReplaying:", workflow.Replaying(ctx))
-	defer func() { trace(ctx, "Leaving Workflow1") }()
+	trace(ctx, "Entering Workflow1", msg)
+	defer trace(ctx, "Leaving Workflow1")
 
-	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
+	a1 := workflow.ExecuteActivity(ctx, workflow.ActivityOptions{
+		RetryOptions: workflow.RetryOptions{
+			MaxAttempts: 1,
+		},
+	}, Activity1, 35, 12)
 
 	var r1 int
 	err := a1.Get(ctx, &r1)
@@ -72,7 +75,6 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		return errs.Wrap(err, "error getting result from activity 1")
 	}
 	trace(ctx, "R1 result:", r1)
-	trace(ctx, "\tIsReplaying:", workflow.Replaying(ctx))
 
 	trace(ctx, "Completing workflow 1")
 	return nil
@@ -93,10 +95,6 @@ func Activity1(ctx context.Context, a int) (int, error) {
 	return a, nil
 }
 
-// Only trace when not replaying
 func trace(ctx workflow.Context, args ...interface{}) {
-	if !workflow.Replaying(ctx) {
-		args := append([]interface{}{workflow.Now(ctx)}, args...)
-		log.Println(args...)
-	}
+	samples.Trace(ctx, args...)
 }

@@ -28,11 +28,13 @@ func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activit
 	r := sync.NewFuture()
 
 	sync.Go(ctx, func(ctx sync.Context) {
+		var result payload.Payload
+		var err error
+
 		for attempt := 0; attempt < options.RetryOptions.MaxAttempts; attempt++ {
-			var result payload.Payload
 			f := executeActivity(ctx, options, activity, args...)
 
-			err := f.Get(ctx, &result)
+			err = f.Get(ctx, &result)
 			if err != nil {
 				trace(ctx, "Activity error", err)
 
@@ -42,10 +44,11 @@ func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activit
 				continue
 			}
 
-			// TODO: Set raw value?
-			r.Set(result, err)
-			return
+			break
 		}
+
+		// TODO: Set raw value?
+		r.Set(result, err)
 	})
 
 	return r
