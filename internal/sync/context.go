@@ -355,3 +355,10 @@ func (c *valueCtx) Value(key interface{}) interface{} {
 	}
 	return c.Context.Value(key)
 }
+
+func NewDisconnectedContext(ctx Context) Context {
+	return &cancelCtx{
+		Context: ctx,
+		done:    NewChannel(),
+	}
+}

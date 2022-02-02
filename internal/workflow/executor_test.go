@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newExecutor(r *Registry) *executor {
-	state := newWorkflowState()
+func newExecutor(r *Registry, i core.WorkflowInstance) *executor {
+	state := newWorkflowState(i)
 	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
 
 	return &executor{
@@ -65,7 +65,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, task.WorkflowInstance)
 
 	_, _, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
@@ -133,7 +133,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, task.WorkflowInstance)
 
 	_, _, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, task.WorkflowInstance)
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -219,7 +219,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, task.WorkflowInstance)
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -274,7 +274,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, task.WorkflowInstance)
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -319,7 +319,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, oldTask.WorkflowInstance)
 
 	newEvents, _, err := e.ExecuteTask(context.Background(), oldTask)
 
@@ -395,7 +395,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r)
+	e := newExecutor(r, task.WorkflowInstance)
 
 	_, _, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)

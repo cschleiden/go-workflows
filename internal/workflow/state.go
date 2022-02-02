@@ -5,6 +5,7 @@ import (
 
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-dt/pkg/core"
 )
 
 type key int
@@ -12,6 +13,7 @@ type key int
 var workflowCtxKey key
 
 type workflowState struct {
+	instance       core.WorkflowInstance
 	eventID        int
 	commands       []command.Command
 	pendingFutures map[int]sync.Future
@@ -20,8 +22,9 @@ type workflowState struct {
 	time           time.Time
 }
 
-func newWorkflowState() *workflowState {
+func newWorkflowState(instance core.WorkflowInstance) *workflowState {
 	return &workflowState{
+		instance:       instance,
 		commands:       []command.Command{},
 		eventID:        0,
 		pendingFutures: map[int]sync.Future{},

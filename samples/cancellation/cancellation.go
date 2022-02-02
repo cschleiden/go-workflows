@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -49,8 +50,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 
 	time.Sleep(2 * time.Second)
 
-	err = c.CancelWorkflowInstance(ctx, wf)
-	if err != nil {
+	if err := c.CancelWorkflowInstance(ctx, wf); err != nil {
 		panic("could not cancel workflow")
 	}
 
@@ -64,6 +64,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w.RegisterActivity(ActivityCancel)
 	w.RegisterActivity(ActivitySkip)
 	w.RegisterActivity(ActivitySuccess)
+	w.RegisterActivity(ActivityCleanup)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
@@ -71,9 +72,21 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	samples.Trace(ctx, "Entering Workflow1")
+	samples.Trace(ctx, "Entering Workflow1", msg)
 	defer samples.Trace(ctx, "Leaving Workflow1")
-	samples.Trace(ctx, "\tWorkflow instance input:", msg)
+
+	defer func() {
+		if errors.Is(ctx.Err(), workflow.Canceled) {
+			samples.Trace(ctx, "Workflow1 was canceled")
+
+			samples.Trace(ctx, "Do cleanup")
+			ctx := workflow.NewDisconnectedContext(ctx)
+			if err := workflow.ExecuteActivity(ctx, ActivityCleanup).Get(ctx, nil); err != nil {
+				panic("could not execute cleanup activity")
+			}
+			samples.Trace(ctx, "Done with cleanup")
+		}
+	}()
 
 	var r0 int
 	samples.Trace(ctx, "schedule ActivitySuccess")
@@ -122,4 +135,13 @@ func ActivitySkip(ctx context.Context, a, b int) (int, error) {
 	defer log.Println("Leaving ActivitySkip")
 
 	return a + b, nil
+}
+
+func ActivityCleanup(ctx context.Context) error {
+	log.Println("Entering ActivityCleanup")
+	defer log.Println("Leaving ActivityCleanup")
+
+	log.Println("Do some cleanup")
+
+	return nil
 }

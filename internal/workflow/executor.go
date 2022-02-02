@@ -34,8 +34,8 @@ type executor struct {
 	lastEventID       string // TODO: Not the same as the sequence number Event ID
 }
 
-func NewExecutor(registry *Registry) (WorkflowExecutor, error) {
-	state := newWorkflowState()
+func NewExecutor(registry *Registry, instance core.WorkflowInstance) (WorkflowExecutor, error) {
+	state := newWorkflowState(instance)
 	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
 
 	return &executor{

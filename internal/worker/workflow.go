@@ -124,7 +124,7 @@ func (ww *workflowWorker) getExecutor(ctx context.Context, t task.Workflow) (wor
 		return executor, nil
 	}
 
-	executor, err := workflow.NewExecutor(ww.registry)
+	executor, err := workflow.NewExecutor(ww.registry, t.WorkflowInstance)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create workflow executor")
 	}

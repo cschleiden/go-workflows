@@ -13,3 +13,7 @@ type CancelFunc = sync.CancelFunc
 func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {
 	return sync.WithCancel(parent)
 }
+
+func NewDisconnectedContext(ctx Context) Context {
+	return sync.NewDisconnectedContext(ctx)
+}
