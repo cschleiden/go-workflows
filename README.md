@@ -153,12 +153,46 @@ func Workflow2(ctx workflow.Context, msg string) (int, error) {
 
 ## Canceling workflows
 
-Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Activities running when a workflow is canceled will still run to completion.
+Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Activities or sub-workflows already running when a workflow is canceled will still run to completion and their result will be available.
+
+Sub-workflows will be canceled if their parent workflow is canceled.
 
 ```go
 var c client.Client
 err = c.CancelWorkflowInstance(context.Background(), workflowInstance)
 if err != nil {
 	panic("could not cancel workflow")
+}
+```
+
+### Perform any cleanup
+
+```go
+func Workflow2(ctx workflow.Context, msg string) (string, error) {
+	defer func() {
+		if errors.Is(ctx.Err(), workflow.Canceled) {
+			// Workflow was canceled. Get new context to perform any cleanup activities
+			ctx := workflow.NewDisconnectedContext(ctx)
+
+			// Execute the cleanup activity
+			if err := workflow.ExecuteActivity(ctx, ActivityCleanup).Get(ctx, nil); err != nil {
+				return errors.Wrap(err, "could not perform cleanup")
+			}
+		}
+	}()
+
+	var r1 int
+	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {  // <---- Workflow is canceled while this activity is running
+		return errors.Wrap(err, "could not get ActivityCancel result")
+	}
+
+	// r1 will contain the result of ActivityCancel
+	// ⬇ ActivitySkip will be skipped immediately
+	var r2 int
+	if err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx, &r2); err != nil {
+		return errors.Wrap(err, "could not get ActivitySkip result")
+	}
+
+	return "some result", nil
 }
 ```
