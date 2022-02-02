@@ -106,7 +106,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) 
 	return nil
 }
 
-func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
+func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -115,8 +115,31 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance co
 
 	instanceID := instance.GetInstanceID()
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
+	// Cancel workflow instance
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
 		return errors.Wrap(err, "could not insert cancellation event")
+	}
+
+	// Recursively, find any sub-workflow instance to cancel
+	for {
+		row := tx.QueryRowContext(ctx, "SELECT id FROM `instances` WHERE parent_instance_id = ? AND completed_at IS NULL LIMIT 1", instanceID)
+
+		var subWorkflowInstanceID string
+		if err := row.Scan(&subWorkflowInstanceID); err != nil {
+			if err == sql.ErrNoRows {
+				// No more sub-workflow instances to cancel
+				break
+			}
+
+			return errors.Wrap(err, "could not get workflow instance for cancelling")
+		}
+
+		// Cancel sub-workflow instance
+		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
+			return errors.Wrap(err, "could not insert cancellation event")
+		}
+
+		instanceID = subWorkflowInstanceID
 	}
 
 	return tx.Commit()

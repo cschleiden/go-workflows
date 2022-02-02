@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `worker` NVARCHAR(64) NULL,
 
   UNIQUE INDEX `idx_instances_instance_id` (`instance_id`),
-  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `sticky_until`, `completed_at`, `worker`)
+  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `sticky_until`, `completed_at`, `worker`),
+  INDEX `idx_instances_parent_instance_id` (`parent_instance_id`)
 );
 
 

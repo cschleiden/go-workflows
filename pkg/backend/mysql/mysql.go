@@ -80,7 +80,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.Workfl
 	return nil
 }
 
-func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
+func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -89,8 +89,31 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core
 
 	instanceID := instance.GetInstanceID()
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
+	// Cancel workflow instance
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
 		return errors.Wrap(err, "could not insert cancellation event")
+	}
+
+	// Recursively, find any sub-workflow instance to cancel
+	for {
+		row := tx.QueryRowContext(ctx, "SELECT instance_id FROM `instances` WHERE parent_instance_id = ? AND completed_at IS NULL LIMIT 1", instanceID)
+
+		var subWorkflowInstanceID string
+		if err := row.Scan(&subWorkflowInstanceID); err != nil {
+			if err == sql.ErrNoRows {
+				// No more sub-workflow instances to cancel
+				break
+			}
+
+			return errors.Wrap(err, "could not get workflow instance for cancelling")
+		}
+
+		// Cancel sub-workflow instance
+		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
+			return errors.Wrap(err, "could not insert cancellation event")
+		}
+
+		instanceID = subWorkflowInstanceID
 	}
 
 	return tx.Commit()

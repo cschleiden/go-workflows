@@ -109,3 +109,7 @@ func NewFutureHistoryEvent(eventType EventType, eventID int, attributes interfac
 	event.VisibleAt = &visibleAt
 	return event
 }
+
+func NewWorkflowCancellationEvent() Event {
+	return NewHistoryEvent(EventType_WorkflowExecutionCancelled, -1, &ExecutionCancelledAttributes{})
+}

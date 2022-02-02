@@ -8,7 +8,11 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `locked_until` DATETIME NULL,
   `sticky_until` DATETIME NULL,
   `worker` TEXT NULL
+
 );
+
+CREATE INDEX `idx_instances_locked_until_completed_at` ON `instances` (`locked_until`, `sticky_until`, `completed_at`, `worker`);
+CREATE INDEX `idx_instances_parent_instance_id` ON `instances` (`parent_instance_id`);
 
 CREATE TABLE IF NOT EXISTS `pending_events` (
   `id` TEXT PRIMARY KEY,

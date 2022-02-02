@@ -65,9 +65,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 }
 
 func (c *client) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
-	cancellationEvent := history.NewHistoryEvent(history.EventType_WorkflowExecutionCancelled, -1, &history.ExecutionCancelledAttributes{})
-
-	return c.backend.CancelWorkflowInstance(ctx, instance, cancellationEvent)
+	return c.backend.CancelWorkflowInstance(ctx, instance)
 }
 
 func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {

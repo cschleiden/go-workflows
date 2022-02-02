@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/mysql"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -20,9 +20,9 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	b := sqlite.NewInMemoryBackend()
-	// b := sqlite.NewSqliteBackend("cancellation.sqlite")
-	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
+	//b := sqlite.NewInMemoryBackend()
+	//b := sqlite.NewSqliteBackend("cancellation.sqlite")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -61,6 +61,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb)
 
 	w.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(Workflow2)
 	w.RegisterActivity(ActivityCancel)
 	w.RegisterActivity(ActivitySkip)
 	w.RegisterActivity(ActivitySuccess)
@@ -96,12 +97,14 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		samples.Trace(ctx, "ActivitySuccess result:", r0)
 	}
 
-	var r1 int
+	var rw string
 	samples.Trace(ctx, "schedule ActivityCancel")
-	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {
-		samples.Trace(ctx, "error getting activity cancel result", err)
+	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{
+		InstanceID: "sub-workflow",
+	}, Workflow2, "hello sub").Get(ctx, &rw); err != nil {
+		samples.Trace(ctx, "error getting workflow2 result", err)
 	}
-	samples.Trace(ctx, "ActivityCancel result:", r1)
+	samples.Trace(ctx, "Workflow2 result:", rw)
 
 	var r2 int
 	samples.Trace(ctx, "schedule ActivitySkip")
@@ -112,6 +115,35 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	samples.Trace(ctx, "Workflow finished")
 	return "result", nil
+}
+
+func Workflow2(ctx workflow.Context, msg string) (ret string, err error) {
+	samples.Trace(ctx, "Entering Workflow2", msg)
+	defer samples.Trace(ctx, "Leaving Workflow2")
+
+	defer func() {
+		if errors.Is(ctx.Err(), workflow.Canceled) {
+			samples.Trace(ctx, "Workflow2 was canceled")
+
+			samples.Trace(ctx, "Do cleanup")
+			ctx := workflow.NewDisconnectedContext(ctx)
+			if err := workflow.ExecuteActivity(ctx, ActivityCleanup).Get(ctx, nil); err != nil {
+				panic("could not execute cleanup activity")
+			}
+			samples.Trace(ctx, "Done with cleanup")
+
+			ret = "cleanup result"
+		}
+	}()
+
+	var r1 int
+	samples.Trace(ctx, "schedule ActivityCancel")
+	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {
+		samples.Trace(ctx, "error getting activity cancel result", err)
+	}
+	samples.Trace(ctx, "ActivityCancel result:", r1)
+
+	return "some result", nil
 }
 
 func ActivitySuccess(ctx context.Context, a, b int) (int, error) {
