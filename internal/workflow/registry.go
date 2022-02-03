@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 
 	"github.com/cschleiden/go-dt/internal/fn"
@@ -36,8 +37,36 @@ func (r *Registry) RegisterActivity(activity Activity) error {
 	r.Lock()
 	defer r.Unlock()
 
+	t := reflect.TypeOf(activity)
+
+	// Activities on struct
+	if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+		return r.registerActivitiesFromStruct(activity)
+	}
+
+	// Activity as function
 	name := fn.Name(activity)
 	r.activityMap[name] = activity
+
+	return nil
+}
+
+func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
+	// Enumerate functions defined on a
+	v := reflect.ValueOf(a)
+	t := v.Type()
+	for i := 0; i < v.NumMethod(); i++ {
+		mv := v.Method(i)
+		mt := t.Method(i)
+
+		// Ignore private methods
+		if mt.PkgPath != "" {
+			continue
+		}
+
+		name := mt.Name
+		r.activityMap[name] = mv.Interface()
+	}
 
 	return nil
 }
