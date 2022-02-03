@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
@@ -64,7 +65,9 @@ func Workflow1(ctx workflow.Context, msg string) error {
 
 	a1 := workflow.ExecuteActivity(ctx, workflow.ActivityOptions{
 		RetryOptions: workflow.RetryOptions{
-			MaxAttempts: 1,
+			MaxAttempts:        4,
+			FirstRetryInterval: time.Second * 3,
+			BackoffCoefficient: 2,
 		},
 	}, Activity1, 35, 12)
 
@@ -87,7 +90,9 @@ func Activity1(ctx context.Context, a int) (int, error) {
 	defer log.Println("Leaving Activity1")
 
 	calls++
-	if calls < 2 {
+	if calls < 3 {
+		time.Sleep(2 * time.Second)
+
 		log.Println(">> Activity error", calls)
 		return 0, fmt.Errorf("activity error %d", calls)
 	}

@@ -49,10 +49,11 @@ func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activit
 
 			err = f.Get(ctx, &result)
 			if err != nil {
-				trace(ctx, "Activity error", err)
-
 				backoffDuration := time.Duration(float64(options.RetryOptions.FirstRetryInterval) * math.Pow(options.RetryOptions.BackoffCoefficient, float64(attempt)))
-				backoffDuration = time.Duration(math.Min(float64(backoffDuration), float64(options.RetryOptions.MaxRetryInterval)))
+				if options.RetryOptions.MaxRetryInterval > 0 {
+					backoffDuration = time.Duration(math.Min(float64(backoffDuration), float64(options.RetryOptions.MaxRetryInterval)))
+				}
+
 				Sleep(ctx, backoffDuration)
 
 				continue
