@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"log"
+	"math"
 	"time"
 
 	a "github.com/cschleiden/go-dt/internal/args"
@@ -28,17 +29,30 @@ func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activit
 	r := sync.NewFuture()
 
 	sync.Go(ctx, func(ctx sync.Context) {
+		firstAttempt := Now(ctx)
+
 		var result payload.Payload
 		var err error
 
+		var retryExpiration time.Time
+		if options.RetryOptions.RetryTimeout != 0 {
+			retryExpiration = firstAttempt.Add(options.RetryOptions.RetryTimeout)
+		}
+
 		for attempt := 0; attempt < options.RetryOptions.MaxAttempts; attempt++ {
+			if !retryExpiration.IsZero() && Now(ctx).After(retryExpiration) {
+				// Reached maximum retry time, abort retries
+				break
+			}
+
 			f := executeActivity(ctx, options, activity, args...)
 
 			err = f.Get(ctx, &result)
 			if err != nil {
 				trace(ctx, "Activity error", err)
 
-				backoffDuration := time.Second * 2 // TODO
+				backoffDuration := time.Duration(float64(options.RetryOptions.FirstRetryInterval) * math.Pow(options.RetryOptions.BackoffCoefficient, float64(attempt)))
+				backoffDuration = time.Duration(math.Min(float64(backoffDuration), float64(options.RetryOptions.MaxRetryInterval)))
 				Sleep(ctx, backoffDuration)
 
 				continue
@@ -47,7 +61,6 @@ func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activit
 			break
 		}
 
-		// TODO: Set raw value?
 		r.Set(result, err)
 	})
 
