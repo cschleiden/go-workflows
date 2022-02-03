@@ -78,13 +78,13 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error
 	}()
 
 	var r1, r2 int
-	err := workflow.ExecuteActivity(ctx, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
+	err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
 	samples.Trace(ctx, "R1 result:", r1)
 
-	err = workflow.ExecuteActivity(ctx, Activity2).Get(ctx, &r2)
+	err = workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}

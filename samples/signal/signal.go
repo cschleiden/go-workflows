@@ -86,7 +86,7 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 	workflow.NewSignalChannel(ctx, "test2").Receive(ctx, nil)
 	log.Println("Received second signal")
 
-	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{
+	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{
 		InstanceID: subID,
 	}, SubWorkflow1).Get(ctx, nil); err != nil {
 		panic(err)

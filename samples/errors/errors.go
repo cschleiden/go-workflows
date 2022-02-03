@@ -62,7 +62,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 	defer func() { log.Println("Leaving Workflow1") }()
 
-	a1 := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
+	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
 	var r1 int
 	err := a1.Get(ctx, &r1)

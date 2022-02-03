@@ -11,8 +11,22 @@ import (
 
 type Activity interface{}
 
+type ActivityOptions struct {
+	RetryOptions RetryOptions
+}
+
+var DefaultActivityOptions = ActivityOptions{
+	RetryOptions: DefaultRetryOptions,
+}
+
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity(ctx sync.Context, activity Activity, args ...interface{}) sync.Future {
+func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
+	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context) sync.Future {
+		return executeActivity(ctx, options, activity, args...)
+	})
+}
+
+func executeActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
 	f := sync.NewFuture()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)

@@ -4,26 +4,34 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-dt/internal/workflow"
 	internal "github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/core"
 )
 
-type SubWorkflowInstanceOptions = internal.SubWorkflowInstanceOptions
+type (
+	Workflow           = internal.Workflow
+	SubWorkflowOptions = internal.SubWorkflowOptions
+	Activity           = internal.Activity
+	ActivityOptions    = internal.ActivityOptions
+	RetryOptions       = internal.RetryOptions
+)
+
+var DefaultRetryOptions = workflow.DefaultRetryOptions
 
 func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
-type Workflow = internal.Workflow
-
-func CreateSubWorkflowInstance(ctx Context, options SubWorkflowInstanceOptions, workflow Workflow, args ...interface{}) Future {
+func CreateSubWorkflowInstance(ctx Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) Future {
 	return internal.CreateSubWorkflowInstance(ctx, options, workflow, args...)
 }
 
-type Activity = internal.Activity
+var DefaultActivityOptions = internal.DefaultActivityOptions
 
-func ExecuteActivity(ctx Context, activity Activity, args ...interface{}) Future {
-	return internal.ExecuteActivity(ctx, activity, args...)
+// ExecuteActivity schedules the given activity to be executed
+func ExecuteActivity(ctx Context, options ActivityOptions, activity Activity, args ...interface{}) Future {
+	return internal.ExecuteActivity(ctx, options, activity, args...)
 }
 
 func ScheduleTimer(ctx Context, delay time.Duration) Future {

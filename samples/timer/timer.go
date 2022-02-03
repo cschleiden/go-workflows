@@ -66,7 +66,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1 := workflow.ExecuteActivity(ctx, Activity1, 35, 12)
+	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
 	tctx, cancel := workflow.WithCancel(ctx)
 	t := workflow.ScheduleTimer(tctx, 2*time.Second)
