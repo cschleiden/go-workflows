@@ -67,7 +67,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	}()
 
 	var wr string
-	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{}, Workflow2, "some input").Get(ctx, &wr); err != nil {
+	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{}, Workflow2, "some input").Get(ctx, &wr); err != nil {
 		return errors.Wrap(err, "could not get sub workflow result")
 	}
 

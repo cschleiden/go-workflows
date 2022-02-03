@@ -99,7 +99,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	var rw string
 	samples.Trace(ctx, "schedule ActivityCancel")
-	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{
+	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{
 		InstanceID: "sub-workflow",
 	}, Workflow2, "hello sub").Get(ctx, &rw); err != nil {
 		samples.Trace(ctx, "error getting workflow2 result", err)

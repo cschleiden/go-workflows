@@ -9,11 +9,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-type SubWorkflowInstanceOptions struct {
+type SubWorkflowOptions struct {
 	InstanceID string
+
+	RetryOptions RetryOptions
 }
 
-func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowInstanceOptions, workflow Workflow, args ...interface{}) sync.Future {
+func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) sync.Future {
+	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context) sync.Future {
+		return createSubWorkflowInstance(ctx, options, workflow, args...)
+	})
+}
+
+func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) sync.Future {
 	f := sync.NewFuture()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)

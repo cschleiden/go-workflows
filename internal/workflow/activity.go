@@ -1,15 +1,10 @@
 package workflow
 
 import (
-	"log"
-	"math"
-	"time"
-
 	a "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/command"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/fn"
-	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/sync"
 	"github.com/pkg/errors"
 )
@@ -26,46 +21,9 @@ var DefaultActivityOptions = ActivityOptions{
 
 // ExecuteActivity schedules the given activity to be executed
 func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
-	r := sync.NewFuture()
-
-	sync.Go(ctx, func(ctx sync.Context) {
-		firstAttempt := Now(ctx)
-
-		var result payload.Payload
-		var err error
-
-		var retryExpiration time.Time
-		if options.RetryOptions.RetryTimeout != 0 {
-			retryExpiration = firstAttempt.Add(options.RetryOptions.RetryTimeout)
-		}
-
-		for attempt := 0; attempt < options.RetryOptions.MaxAttempts; attempt++ {
-			if !retryExpiration.IsZero() && Now(ctx).After(retryExpiration) {
-				// Reached maximum retry time, abort retries
-				break
-			}
-
-			f := executeActivity(ctx, options, activity, args...)
-
-			err = f.Get(ctx, &result)
-			if err != nil {
-				backoffDuration := time.Duration(float64(options.RetryOptions.FirstRetryInterval) * math.Pow(options.RetryOptions.BackoffCoefficient, float64(attempt)))
-				if options.RetryOptions.MaxRetryInterval > 0 {
-					backoffDuration = time.Duration(math.Min(float64(backoffDuration), float64(options.RetryOptions.MaxRetryInterval)))
-				}
-
-				Sleep(ctx, backoffDuration)
-
-				continue
-			}
-
-			break
-		}
-
-		r.Set(result, err)
+	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context) sync.Future {
+		return executeActivity(ctx, options, activity, args...)
 	})
-
-	return r
 }
 
 func executeActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
@@ -106,10 +64,4 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 	}
 
 	return f
-}
-
-func trace(ctx sync.Context, args ...interface{}) {
-	if !Replaying(ctx) {
-		log.Println(args...)
-	}
 }

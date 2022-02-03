@@ -174,13 +174,14 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	inputs, _ := converter.DefaultConverter.To(42)
 	require.Equal(t, command.Command{
-		ID:   0,
-		Type: command.CommandType_ScheduleActivityTask,
+		ID:    0,
+		State: command.CommandState_Committed,
+		Type:  command.CommandType_ScheduleActivityTask,
 		Attr: &command.ScheduleActivityTaskCommandAttr{
 			Name:   "activity1",
 			Inputs: []payload.Payload{inputs},
 		},
-	}, e.workflowState.commands[0])
+	}, *e.workflowState.commands[0])
 }
 
 var workflowTimerHits int
@@ -281,8 +282,8 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	require.Equal(t, 1, workflowWithSelectorHits)
 	require.Len(t, e.workflowState.commands, 2)
 
-	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.commands[0].Type)
-	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[1].Type)
+	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[0].Type)
+	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.commands[1].Type)
 }
 
 func Test_ExecuteNewEvents(t *testing.T) {

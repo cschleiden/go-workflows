@@ -51,6 +51,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb)
 
 	w.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(WorkflowWithFailures)
 
 	w.RegisterActivity(Activity1)
 
@@ -63,38 +64,65 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	trace(ctx, "Entering Workflow1", msg)
 	defer trace(ctx, "Leaving Workflow1")
 
-	a1 := workflow.ExecuteActivity(ctx, workflow.ActivityOptions{
+	// Illustrate sub workflow retries. The called workflow will fail a few times, and its execution will be retried.
+	err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{
 		RetryOptions: workflow.RetryOptions{
-			MaxAttempts:        4,
+			MaxAttempts:        3,
+			FirstRetryInterval: time.Second * 3,
+			BackoffCoefficient: 1,
+		},
+	}, WorkflowWithFailures, "Hello world"+uuid.NewString()).Get(ctx, nil)
+	if err != nil {
+		return errs.Wrap(err, "error starting subworkflow")
+	}
+
+	trace(ctx, "Completing workflow 1")
+	return nil
+}
+
+var workflowCalls = 0
+
+func WorkflowWithFailures(ctx workflow.Context, msg string) error {
+	trace(ctx, "Entering WorkflowWithFailures", msg)
+	defer trace(ctx, "Leaving WorkflowWithFailures")
+
+	workflowCalls++
+	if workflowCalls < 3 {
+		return fmt.Errorf("workflow error %d", workflowCalls)
+	}
+
+	// Illustrate activity retries. The called activity will fail a few times, and its execution will be retried.
+	var r1 int
+	err := workflow.ExecuteActivity(ctx, workflow.ActivityOptions{
+		RetryOptions: workflow.RetryOptions{
+			MaxAttempts:        3,
 			FirstRetryInterval: time.Second * 3,
 			BackoffCoefficient: 2,
 		},
-	}, Activity1, 35, 12)
-
-	var r1 int
-	err := a1.Get(ctx, &r1)
+	}, Activity1, 35, 12).Get(ctx, &r1)
 	if err != nil {
 		trace(ctx, "Error from Activity 1", err)
 		return errs.Wrap(err, "error getting result from activity 1")
 	}
+
 	trace(ctx, "R1 result:", r1)
 
 	trace(ctx, "Completing workflow 1")
 	return nil
 }
 
-var calls = 0
+var activityCalls = 0
 
 func Activity1(ctx context.Context, a int) (int, error) {
 	log.Println("Entering Activity1")
 	defer log.Println("Leaving Activity1")
 
-	calls++
-	if calls < 3 {
+	activityCalls++
+	if activityCalls < 3 {
 		time.Sleep(2 * time.Second)
 
-		log.Println(">> Activity error", calls)
-		return 0, fmt.Errorf("activity error %d", calls)
+		log.Println(">> Activity error", activityCalls)
+		return 0, fmt.Errorf("activity error %d", activityCalls)
 	}
 
 	return a, nil
