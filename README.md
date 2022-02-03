@@ -98,6 +98,78 @@ func main() {
 
 ## Scenarios
 
+## Registering workflows
+
+Workflows need to accept `workflow.Context` as their first parameter, and any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.). Workflows need to return an `error` and optionally one additional result, which again needs to be serializable.
+
+```go
+func Workflow1(ctx workflow.Context) error {
+}
+```
+
+Workflows needs to be registered with the worker before they can be started:
+
+```go
+var b backend.Backend
+w := worker.New(b)
+
+w.RegisterWorkflow(Workflow1)
+```
+
+## Registering activities
+
+Similar to workflows, activities need to be registered with the worker before they can be started. They also need to accept `context.Context` as their first parameter, and any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.). Activities need to return an `error` and optionally one additional result, which again needs to be serializable.
+
+Activites can be registered as plain `func`s or as methods on a struct. The latter is useful if you want to provide some shared state to activities, for example, a database connection.
+
+```go
+func Activity1(ctx context.Context, a, b int) (int, error) {
+	return a + b, nil
+}
+```
+
+```go
+var b backend.Backend
+w := worker.New(b)
+
+w.RegisterActivity(Activity1)
+```
+
+And using a `struct`:
+
+```go
+type act struct {
+	SharedState int
+}
+
+func (a *act) Activity1(ctx context.Context, a, b int) (int, error) {
+	return a + b + act.SharedState, nil
+}
+
+func (a *act) Activity2(ctx context.Context, a int) (int, error) {
+	return a * act.SharedState, nil
+}
+```
+
+```go
+var b backend.Backend
+w := worker.New(b)
+
+w.RegisterActivity(&act{SharedState: 12})
+```
+
+to call activities registered on a struct from a workflow:
+
+```go
+// ...
+var a *act
+
+if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12).Get(ctx, &r1); err != nil {
+	// handle error
+}
+// Output r1 = 47 + 12 (from the worker registration) = 59
+```
+
 ## Starting workflows
 
 `CreateWorkflowInstance` on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.
