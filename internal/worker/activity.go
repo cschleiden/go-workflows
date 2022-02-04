@@ -19,15 +19,19 @@ type ActivityWorker interface {
 type activityWorker struct {
 	backend backend.Backend
 
+	options *Options
+
 	activityTaskQueue    chan task.Activity
 	activityTaskExecutor activity.Executor
 
 	logger *log.Logger
 }
 
-func NewActivityWorker(backend backend.Backend, registry *workflow.Registry) ActivityWorker {
+func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, options *Options) ActivityWorker {
 	return &activityWorker{
 		backend: backend,
+
+		options: options,
 
 		activityTaskQueue:    make(chan task.Activity),
 		activityTaskExecutor: activity.NewExecutor(registry),
@@ -61,12 +65,27 @@ func (ww *activityWorker) runPoll(ctx context.Context) {
 }
 
 func (ww *activityWorker) runDispatcher(ctx context.Context) {
+	var sem chan struct{}
+	if ww.options.MaxParallelActivityTasks > 0 {
+		sem = make(chan struct{}, ww.options.MaxParallelActivityTasks)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case task := <-ww.activityTaskQueue:
-			go ww.handleTask(ctx, task)
+			if sem != nil {
+				sem <- struct{}{}
+			}
+
+			go func() {
+				ww.handleTask(ctx, task)
+
+				if sem != nil {
+					<-sem
+				}
+			}()
 		}
 	}
 }

@@ -15,12 +15,12 @@ import (
 
 type WorkflowWorker interface {
 	Start(context.Context) error
-
-	// Poll(ctx context.Context, timeout time.Duration) (*task.WorkflowTask, error)
 }
 
 type workflowWorker struct {
 	backend backend.Backend
+
+	options *Options
 
 	registry *workflow.Registry
 
@@ -31,9 +31,11 @@ type workflowWorker struct {
 	logger *log.Logger
 }
 
-func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry) WorkflowWorker {
+func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, options *Options) WorkflowWorker {
 	return &workflowWorker{
 		backend: backend,
+
+		options: options,
 
 		registry:          registry,
 		workflowTaskQueue: make(chan task.Workflow),
@@ -71,12 +73,28 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 }
 
 func (ww *workflowWorker) runDispatcher(ctx context.Context) {
+	var sem chan (struct{})
+
+	if ww.options.MaxParallelWorkflowTasks > 0 {
+		sem = make(chan struct{}, ww.options.MaxParallelWorkflowTasks)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case t := <-ww.workflowTaskQueue:
-			go ww.handle(ctx, t)
+			if sem != nil {
+				sem <- struct{}{}
+			}
+
+			go func() {
+				ww.handle(ctx, t)
+
+				if sem != nil {
+					<-sem
+				}
+			}()
 		}
 	}
 }

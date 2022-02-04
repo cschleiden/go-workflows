@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/mysql"
+	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
 	"github.com/cschleiden/go-dt/pkg/client"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -19,8 +19,8 @@ func main() {
 	ctx := context.Background()
 
 	// b := sqlite.NewSqliteBackend("simple.sqlite")
-	// b := memory.NewMemoryBackend()
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
+	b := sqlite.NewInMemoryBackend()
+	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -51,7 +51,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
-	w := worker.New(mb)
+	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
 

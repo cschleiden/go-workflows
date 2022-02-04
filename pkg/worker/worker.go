@@ -40,14 +40,22 @@ type worker struct {
 	activities map[string]interface{}
 }
 
-func New(backend backend.Backend) Worker {
+type Options = internal.Options
+
+var DefaultWorkerOptions = internal.DefaultOptions
+
+func New(backend backend.Backend, options *Options) Worker {
+	if options == nil {
+		options = &internal.DefaultOptions
+	}
+
 	registry := workflow.NewRegistry()
 
 	return &worker{
 		backend: backend,
 
-		workflowWorker: internal.NewWorkflowWorker(backend, registry),
-		activityWorker: internal.NewActivityWorker(backend, registry),
+		workflowWorker: internal.NewWorkflowWorker(backend, registry, options),
+		activityWorker: internal.NewActivityWorker(backend, registry, options),
 
 		registry: registry,
 
