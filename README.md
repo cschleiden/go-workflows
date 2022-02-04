@@ -96,6 +96,43 @@ func main() {
 }
 ```
 
+## Architecture (WIP)
+
+The high-level architecture follows the same model as Azure's [DurableTask](https://github.com/Azure/durabletask) library. The "persistence store" or "providers" mentioned there are implementations of `backend.Backend` for `go-dt`. There is no intermediate server, clients which create new workflow instances and retrieve their results, as well as worker processes (which could also be the same as clients), talk directly to the backend. For the two implemented backends so far, that also means directly to the database.
+
+![](./docs/high-level-arch.drawio.png)
+
+### Execution model
+
+While there are implementations for other lanuages in the context of Azure Durable Functions, the general purpose version of Durable Task was only implemented for C#.
+
+The execution model for `go-dt` follows closely the one created for Uber's [Cadence](https://cadenceworkflow.io) and which was then forked by the original creators for [Temporal.io](https://temporal.io).
+
+TODO: describe in more detail here.
+
+### Supported backends
+
+For all backends, for now the initial schema is applied upon first usage. In the future this might move to something more powerful to migrate between versions, but in this early stage, there is no upgrade.
+
+#### Sqlite
+
+The Sqlite backend implementation supports two different modes, in-memory and on-disk.
+
+ * In-memory:
+	```go
+	b := sqlite.NewInMemoryBackend()
+	```
+ * On-disk:
+	```go
+	b := sqlite.NewSqliteBackend("simple.sqlite")
+	```
+
+#### MySql
+
+```go
+b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
+```
+
 ## Scenarios
 
 ## Registering workflows
