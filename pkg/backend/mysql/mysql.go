@@ -144,31 +144,6 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) 
 	return nil
 }
 
-func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
-	for _, newEvent := range newEvents {
-		a, err := history.SerializeAttributes(newEvent.Attributes)
-		if err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO `pending_events` (event_id, instance_id, event_type, timestamp, event_id2, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			newEvent.ID,
-			instanceID,
-			newEvent.Type,
-			newEvent.Timestamp,
-			newEvent.EventID,
-			a,
-			newEvent.VisibleAt,
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // SignalWorkflow signals a running workflow instance
 func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 	tx, err := b.db.BeginTx(ctx, nil)
@@ -653,31 +628,6 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	}
 
 	return tx.Commit()
-}
-
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
-	for _, historyEvent := range historyEvents {
-		a, err := history.SerializeAttributes(historyEvent.Attributes)
-		if err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO `history` (event_id, instance_id, event_type, timestamp, event_id2, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			historyEvent.ID,
-			instanceID,
-			historyEvent.Type,
-			historyEvent.Timestamp,
-			historyEvent.EventID,
-			a,
-			historyEvent.VisibleAt,
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event history.Event) error {

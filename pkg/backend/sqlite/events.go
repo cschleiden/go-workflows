@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/history"
@@ -75,51 +76,45 @@ func scanEvent(row Scanner) (history.Event, error) {
 }
 
 func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
-	for _, newEvent := range newEvents {
-		a, err := history.SerializeAttributes(newEvent.Attributes)
-		if err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO `pending_events` (id, instance_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			newEvent.ID,
-			instanceID,
-			newEvent.Type,
-			newEvent.Timestamp,
-			newEvent.EventID,
-			a,
-			newEvent.VisibleAt,
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return insertEvents(ctx, tx, "pending_events", instanceID, newEvents)
 }
 
 func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
-	for _, historyEvent := range historyEvents {
-		a, err := history.SerializeAttributes(historyEvent.Attributes)
+	return insertEvents(ctx, tx, "history", instanceID, historyEvents)
+}
+
+func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID string, events []history.Event) error {
+	const batchSize = 20
+	for batchStart := 0; batchStart < len(events); batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(events) {
+			batchEnd = len(events)
+		}
+		batchEvents := events[batchStart:batchEnd]
+
+		query := "INSERT INTO `" + tableName + "` (id, instance_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)" +
+			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+
+		args := make([]interface{}, 0, len(batchEvents)*7)
+
+		for _, newEvent := range batchEvents {
+			a, err := history.SerializeAttributes(newEvent.Attributes)
+			if err != nil {
+				return err
+			}
+
+			args = append(args, newEvent.ID, instanceID, newEvent.Type, newEvent.Timestamp, newEvent.EventID, a, newEvent.VisibleAt)
+		}
+
+		_, err := tx.ExecContext(
+			ctx,
+			query,
+			args...,
+		)
+
 		if err != nil {
 			return err
 		}
-
-		if _, err := tx.ExecContext(
-			ctx,
-			"INSERT INTO `history` (id, instance_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			historyEvent.ID,
-			instanceID,
-			historyEvent.Type,
-			historyEvent.Timestamp,
-			historyEvent.EventID,
-			a,
-			historyEvent.VisibleAt,
-		); err != nil {
-			return err
-		}
 	}
-
 	return nil
 }

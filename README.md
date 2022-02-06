@@ -92,6 +92,8 @@ func main() {
 	}
 
 	c2 := make(chan os.Signal, 1)
+signal.Notify(c2, os.Interrupt)
+	signal.Notify(c2, os.Interrupt)
 	<-c2
 }
 ```

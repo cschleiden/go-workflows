@@ -2,28 +2,40 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
+	"os/signal"
+	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/mysql"
 	"github.com/cschleiden/go-dt/pkg/worker"
 	scale "github.com/cschleiden/go-dt/samples/scale"
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
-	mb := sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
+	//b := sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 
 	// Run worker
-	go RunWorker(ctx, mb)
+	go RunWorker(ctx, b)
 
 	c2 := make(chan os.Signal, 1)
+	signal.Notify(c2, os.Interrupt)
 	<-c2
+
+	log.Println("Shutting down")
+	cancel()
+	time.Sleep(5 * time.Second)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
-	w := worker.New(mb, nil)
+	w := worker.New(mb, &worker.Options{
+		MaxParallelWorkflowTasks: 5,
+		MaxParallelActivityTasks: 10,
+	})
 
 	w.RegisterWorkflow(scale.Workflow1)
 

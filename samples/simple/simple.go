@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
@@ -32,6 +33,7 @@ func main() {
 	// startWorkflow(ctx, c)
 
 	c2 := make(chan os.Signal, 1)
+	signal.Notify(c2, os.Interrupt)
 	<-c2
 }
 
@@ -77,18 +79,32 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error
 		samples.Trace(ctx, "Leaving Workflow1")
 	}()
 
-	var r1, r2 int
-	err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
-	if err != nil {
-		panic("error getting activity 1 result")
-	}
-	samples.Trace(ctx, "R1 result:", r1)
+	c := workflow.NewChannel()
 
-	err = workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
-	if err != nil {
-		panic("error getting activity 1 result")
-	}
-	samples.Trace(ctx, "R2 result:", r2)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		var r1 int
+		err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
+		if err != nil {
+			panic("error getting activity 1 result")
+		}
+		samples.Trace(ctx, "R1 result:", r1)
+
+		c.Send(ctx, nil)
+	})
+
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		var r2 int
+		err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+		if err != nil {
+			panic("error getting activity 1 result")
+		}
+		samples.Trace(ctx, "R2 result:", r2)
+
+		c.Send(ctx, nil)
+	})
+
+	c.Receive(ctx, nil)
+	c.Receive(ctx, nil)
 
 	return nil
 }
@@ -99,7 +115,7 @@ func Activity1(ctx context.Context, a, b int, x, y *string) (int, error) {
 
 	log.Println(x, *y)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	return a + b, nil
 }

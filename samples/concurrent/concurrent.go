@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
@@ -28,6 +29,7 @@ func main() {
 	startWorkflow(ctx, c)
 
 	c2 := make(chan os.Signal, 1)
+	signal.Notify(c2, os.Interrupt)
 	<-c2
 }
 

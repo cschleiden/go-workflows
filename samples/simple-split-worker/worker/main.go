@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"os/signal"
 
 	"github.com/cschleiden/go-dt/pkg/backend"
 	"github.com/cschleiden/go-dt/pkg/backend/mysql"
@@ -20,6 +21,7 @@ func main() {
 	go RunWorker(ctx, b)
 
 	c2 := make(chan os.Signal, 1)
+	signal.Notify(c2, os.Interrupt)
 	<-c2
 }
 

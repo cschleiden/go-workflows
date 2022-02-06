@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
+	"github.com/cschleiden/go-dt/pkg/backend/mysql"
 	"github.com/cschleiden/go-dt/pkg/client"
 	scale "github.com/cschleiden/go-dt/samples/scale"
 	"github.com/google/uuid"
@@ -13,10 +13,11 @@ import (
 func main() {
 	ctx := context.Background()
 
-	mb := sqlite.NewSqliteBackend("../scale.sqlite")
+	//b := sqlite.NewSqliteBackend("../scale.sqlite")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 
 	// Start workflow via client
-	c := client.New(mb)
+	c := client.New(b)
 
 	for i := 0; i < 100; i++ {
 		startWorkflow(ctx, c)
