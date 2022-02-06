@@ -14,5 +14,15 @@
     "activityBar.inactiveForeground": "#15202b99",
     "activityBarBadge.background": "#bf0060",
     "activityBarBadge.foreground": "#e7e7e7"
+  },
+
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/vendor": true,
   }
 }
