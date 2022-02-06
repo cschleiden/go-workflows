@@ -32,10 +32,7 @@ func main() {
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
-	w := worker.New(mb, &worker.Options{
-		MaxParallelWorkflowTasks: 5,
-		MaxParallelActivityTasks: 10,
-	})
+	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(scale.Workflow1)
 
