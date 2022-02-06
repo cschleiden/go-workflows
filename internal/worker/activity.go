@@ -41,7 +41,9 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, opt
 }
 
 func (ww *activityWorker) Start(ctx context.Context) error {
-	go ww.runPoll(ctx)
+	for i := 0; i <= ww.options.ActivityPollers; i++ {
+		go ww.runPoll(ctx)
+	}
 
 	go ww.runDispatcher(ctx)
 

@@ -49,7 +49,9 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, opt
 func (ww *workflowWorker) Start(ctx context.Context) error {
 	go ww.cache.StartEviction(ctx)
 
-	go ww.runPoll(ctx)
+	for i := 0; i <= ww.options.WorkflowPollers; i++ {
+		go ww.runPoll(ctx)
+	}
 
 	go ww.runDispatcher(ctx)
 
