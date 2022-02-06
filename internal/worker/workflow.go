@@ -116,10 +116,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, t task.Workflow) ([]hi
 		return nil, nil, err
 	}
 
-	// Start heartbeat while processing workflow task
-	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-	defer cancelHeartbeat()
-	go ww.heartbeatTask(heartbeatCtx, &t)
+	if ww.options.HeartbeatWorkflowTasks {
+		// Start heartbeat while processing workflow task
+		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+		defer cancelHeartbeat()
+		go ww.heartbeatTask(heartbeatCtx, &t)
+	}
 
 	executedEvents, workflowEvents, err := executor.ExecuteTask(ctx, &t)
 	if err != nil {

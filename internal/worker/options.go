@@ -6,6 +6,8 @@ type Options struct {
 
 	// MaxParallelActivityTasks
 	MaxParallelActivityTasks int
+
+	HeartbeatWorkflowTasks bool
 }
 
 var DefaultOptions = Options{
