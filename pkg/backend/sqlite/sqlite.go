@@ -290,7 +290,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		instance.GetExecutionID(),
 		sb.workerName,
 	); err != nil {
-		return errors.Wrap(err, "could not unlock instance")
+		return errors.Wrap(err, "could not unlock workflow instance")
 	} else if n, err := res.RowsAffected(); err != nil {
 		return errors.Wrap(err, "could not check for unlocked workflow instances")
 	} else if n != 1 {

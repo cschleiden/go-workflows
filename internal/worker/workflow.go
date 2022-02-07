@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/cschleiden/go-dt/internal/workflow"
@@ -15,6 +16,8 @@ import (
 
 type WorkflowWorker interface {
 	Start(context.Context) error
+
+	Stop() error
 }
 
 type workflowWorker struct {
@@ -26,9 +29,11 @@ type workflowWorker struct {
 
 	cache workflow.WorkflowExecutorCache
 
-	workflowTaskQueue chan task.Workflow
+	workflowTaskQueue chan *task.Workflow
 
 	logger *log.Logger
+
+	wg *sync.WaitGroup
 }
 
 func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, options *Options) WorkflowWorker {
@@ -38,11 +43,13 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, opt
 		options: options,
 
 		registry:          registry,
-		workflowTaskQueue: make(chan task.Workflow),
+		workflowTaskQueue: make(chan *task.Workflow),
 
 		cache: workflow.NewWorkflowExecutorCache(workflow.DefaultWorkflowExecutorCacheOptions),
 
 		logger: log.Default(),
+
+		wg: &sync.WaitGroup{},
 	}
 }
 
@@ -58,6 +65,12 @@ func (ww *workflowWorker) Start(ctx context.Context) error {
 	return nil
 }
 
+func (ww *workflowWorker) Stop() error {
+	ww.wg.Wait()
+
+	return nil
+}
+
 func (ww *workflowWorker) runPoll(ctx context.Context) {
 	for {
 		select {
@@ -68,7 +81,7 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 			if err != nil {
 				log.Println("error while polling for workflow task:", err)
 			} else if task != nil {
-				ww.workflowTaskQueue <- *task
+				ww.workflowTaskQueue <- task
 			}
 		}
 	}
@@ -90,7 +103,10 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 				sem <- struct{}{}
 			}
 
+			ww.wg.Add(1)
 			go func() {
+				defer ww.wg.Done()
+
 				ww.handle(ctx, t)
 
 				if sem != nil {
@@ -101,7 +117,7 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 	}
 }
 
-func (ww *workflowWorker) handle(ctx context.Context, t task.Workflow) {
+func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	executedEvents, workflowEvents, err := ww.handleTask(ctx, t)
 	if err != nil {
 		ww.logger.Panic(err)
@@ -112,7 +128,7 @@ func (ww *workflowWorker) handle(ctx context.Context, t task.Workflow) {
 	}
 }
 
-func (ww *workflowWorker) handleTask(ctx context.Context, t task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
+func (ww *workflowWorker) handleTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
 	executor, err := ww.getExecutor(ctx, t)
 	if err != nil {
 		return nil, nil, err
@@ -122,10 +138,10 @@ func (ww *workflowWorker) handleTask(ctx context.Context, t task.Workflow) ([]hi
 		// Start heartbeat while processing workflow task
 		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 		defer cancelHeartbeat()
-		go ww.heartbeatTask(heartbeatCtx, &t)
+		go ww.heartbeatTask(heartbeatCtx, t)
 	}
 
-	executedEvents, workflowEvents, err := executor.ExecuteTask(ctx, &t)
+	executedEvents, workflowEvents, err := executor.ExecuteTask(ctx, t)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not execute workflow task")
 	}
@@ -133,7 +149,7 @@ func (ww *workflowWorker) handleTask(ctx context.Context, t task.Workflow) ([]hi
 	return executedEvents, workflowEvents, nil
 }
 
-func (ww *workflowWorker) getExecutor(ctx context.Context, t task.Workflow) (workflow.WorkflowExecutor, error) {
+func (ww *workflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (workflow.WorkflowExecutor, error) {
 	if t.Kind == task.Continuation {
 		executor, ok, err := ww.cache.Get(ctx, t.WorkflowInstance)
 		if err != nil {

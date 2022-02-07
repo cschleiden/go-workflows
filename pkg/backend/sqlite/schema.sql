@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS `instances` (
 
 );
 
-CREATE INDEX `idx_instances_locked_until_completed_at` ON `instances` (`locked_until`, `sticky_until`, `completed_at`, `worker`);
-CREATE INDEX `idx_instances_parent_instance_id` ON `instances` (`parent_instance_id`);
+CREATE INDEX IF NOT EXISTS `idx_instances_locked_until_completed_at` ON `instances` (`locked_until`, `sticky_until`, `completed_at`, `worker`);
+CREATE INDEX IF NOT EXISTS `idx_instances_parent_instance_id` ON `instances` (`parent_instance_id`);
 
 CREATE TABLE IF NOT EXISTS `pending_events` (
   `id` TEXT PRIMARY KEY,

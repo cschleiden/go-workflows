@@ -24,5 +24,11 @@
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
     "**/vendor": true,
+  },
+
+  "gopls": {
+    "ui.semanticTokens": true,
+    "ui.navigation.symbolMatcher": "CaseSensitive",
+    // "ui.navigation.symbolStyle":
   }
 }

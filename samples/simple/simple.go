@@ -17,24 +17,29 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
-	// b := sqlite.NewSqliteBackend("simple.sqlite")
-	b := sqlite.NewInMemoryBackend()
+	b := sqlite.NewSqliteBackend("simple.sqlite")
+	//b := sqlite.NewInMemoryBackend()
 	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 
 	// Run worker
-	go RunWorker(ctx, b)
+	w := RunWorker(ctx, b)
 
 	// Start workflow via client
 	c := client.New(b)
 
 	startWorkflow(ctx, c)
-	// startWorkflow(ctx, c)
 
 	c2 := make(chan os.Signal, 1)
 	signal.Notify(c2, os.Interrupt)
 	<-c2
+
+	cancel()
+
+	if err := w.Stop(); err != nil {
+		panic("could not stop worker" + err.Error())
+	}
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
@@ -52,7 +57,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Started workflow", wf.GetInstanceID())
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) {
+func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
@@ -63,6 +68,8 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
+
+	return w
 }
 
 type Inputs struct {
@@ -71,40 +78,23 @@ type Inputs struct {
 }
 
 func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) error {
-	samples.Trace(ctx, "Entering Workflow1")
-	samples.Trace(ctx, "\tWorkflow instance input:", msg)
-	samples.Trace(ctx, "\tIsReplaying:")
+	samples.Trace(ctx, "Entering Workflow1", msg, times, inputs)
 
-	defer func() {
-		samples.Trace(ctx, "Leaving Workflow1")
-	}()
+	defer samples.Trace(ctx, "Leaving Workflow1")
 
-	c := workflow.NewChannel()
+	var r1 int
+	err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
+	if err != nil {
+		panic("error getting activity 1 result")
+	}
+	samples.Trace(ctx, "R1 result:", r1)
 
-	workflow.Go(ctx, func(ctx workflow.Context) {
-		var r1 int
-		err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
-		if err != nil {
-			panic("error getting activity 1 result")
-		}
-		samples.Trace(ctx, "R1 result:", r1)
-
-		c.Send(ctx, nil)
-	})
-
-	workflow.Go(ctx, func(ctx workflow.Context) {
-		var r2 int
-		err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
-		if err != nil {
-			panic("error getting activity 1 result")
-		}
-		samples.Trace(ctx, "R2 result:", r2)
-
-		c.Send(ctx, nil)
-	})
-
-	c.Receive(ctx, nil)
-	c.Receive(ctx, nil)
+	var r2 int
+	err = workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	if err != nil {
+		panic("error getting activity 1 result")
+	}
+	samples.Trace(ctx, "R2 result:", r2)
 
 	return nil
 }

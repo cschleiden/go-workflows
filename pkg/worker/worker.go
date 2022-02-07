@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"sync"
 
 	internal "github.com/cschleiden/go-dt/internal/worker"
 	"github.com/cschleiden/go-dt/internal/workflow"
@@ -25,11 +26,17 @@ type Worker interface {
 	Registry
 
 	// Start starts the worker
-	Start(context.Context) error
+	Start(ctx context.Context) error
+
+	// Stop stops the worker and waits for in-progress work to complete
+	Stop() error
 }
 
 type worker struct {
 	backend backend.Backend
+
+	done chan struct{}
+	wg   *sync.WaitGroup
 
 	registry *workflow.Registry
 
@@ -54,6 +61,9 @@ func New(backend backend.Backend, options *Options) Worker {
 	return &worker{
 		backend: backend,
 
+		done: make(chan struct{}),
+		wg:   &sync.WaitGroup{},
+
 		workflowWorker: internal.NewWorkflowWorker(backend, registry, options),
 		activityWorker: internal.NewActivityWorker(backend, registry, options),
 
@@ -67,6 +77,18 @@ func New(backend backend.Backend, options *Options) Worker {
 func (w *worker) Start(ctx context.Context) error {
 	w.workflowWorker.Start(ctx)
 	w.activityWorker.Start(ctx)
+
+	return nil
+}
+
+func (w *worker) Stop() error {
+	if err := w.workflowWorker.Stop(); err != nil {
+		return err
+	}
+
+	if err := w.activityWorker.Stop(); err != nil {
+		return err
+	}
 
 	return nil
 }
