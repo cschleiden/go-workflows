@@ -31,7 +31,7 @@ var DefaultRetryOptions = RetryOptions{
 }
 
 func WithRetries(ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.Context) sync.Future) sync.Future {
-	if retryOptions.MaxAttempts == 1 {
+	if retryOptions.MaxAttempts <= 1 {
 		// Short-circuit if we don't need to retry
 		return fn(ctx)
 	}
