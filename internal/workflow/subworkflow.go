@@ -15,6 +15,10 @@ type SubWorkflowOptions struct {
 	RetryOptions RetryOptions
 }
 
+var DefaultSubWorkflowOptions = SubWorkflowOptions{
+	RetryOptions: DefaultRetryOptions,
+}
+
 func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) sync.Future {
 	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context) sync.Future {
 		return createSubWorkflowInstance(ctx, options, workflow, args...)

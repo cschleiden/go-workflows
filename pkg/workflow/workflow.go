@@ -23,6 +23,8 @@ func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
 }
 
+var DefaultSubWorkflowOptions = internal.DefaultSubWorkflowOptions
+
 func CreateSubWorkflowInstance(ctx Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) Future {
 	return internal.CreateSubWorkflowInstance(ctx, options, workflow, args...)
 }
