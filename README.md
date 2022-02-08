@@ -137,7 +137,7 @@ b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 
 ## Scenarios
 
-## Registering workflows
+### Registering workflows
 
 Workflows need to accept `workflow.Context` as their first parameter, and any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.). Workflows need to return an `error` and optionally one additional result, which again needs to be serializable.
 
@@ -155,7 +155,7 @@ w := worker.New(b)
 w.RegisterWorkflow(Workflow1)
 ```
 
-## Registering activities
+### Registering activities
 
 Similar to workflows, activities need to be registered with the worker before they can be started. They also need to accept `context.Context` as their first parameter, and any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.). Activities need to return an `error` and optionally one additional result, which again needs to be serializable.
 
@@ -209,7 +209,7 @@ if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, a.Activ
 // Output r1 = 47 + 12 (from the worker registration) = 59
 ```
 
-## Starting workflows
+### Starting workflows
 
 `CreateWorkflowInstance` on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.
 
@@ -220,7 +220,7 @@ wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 if err != nil {
 ```
 
-## Running activities
+### Running activities
 
 From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future` you can await to get the result or any error it might return.
 
@@ -234,7 +234,18 @@ if err != nil {
 log.Println(r1)
 ```
 
-## Running sub-workflows
+### Executing side effects
+
+Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
+
+```go
+var id string
+workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+	return uuid.NewString()
+}).Get(ctx, &id)
+```
+
+### Running sub-workflows
 
 Call `workflow.CreateSubWorkflowInstance` to start a sub-workflow.
 
@@ -262,7 +273,7 @@ func Workflow2(ctx workflow.Context, msg string) (int, error) {
 }
 ```
 
-## Canceling workflows
+### Canceling workflows
 
 Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Activities or sub-workflows already running when a workflow is canceled will still run to completion and their result will be available.
 
@@ -276,7 +287,7 @@ if err != nil {
 }
 ```
 
-### Perform any cleanup
+#### Perform any cleanup
 
 ```go
 func Workflow2(ctx workflow.Context, msg string) (string, error) {

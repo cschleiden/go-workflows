@@ -19,6 +19,8 @@ const (
 	CommandType_ScheduleTimer
 	CommandType_CancelTimer
 
+	CommandType_SideEffect
+
 	CommandType_CompleteWorkflow
 )
 
@@ -102,6 +104,20 @@ func NewCancelTimerCommand(id, timerID int) Command {
 		Type: CommandType_CancelTimer,
 		Attr: &CancelTimerCommandAttr{
 			TimerID: timerID,
+		},
+	}
+}
+
+type SideEffectCommandAttr struct {
+	Result payload.Payload
+}
+
+func NewSideEffectCommand(id int, result payload.Payload) Command {
+	return Command{
+		ID:   id,
+		Type: CommandType_SideEffect,
+		Attr: &SideEffectCommandAttr{
+			Result: result,
 		},
 	}
 }

@@ -32,6 +32,8 @@ const (
 	EventType_TimerFired
 
 	EventType_SignalReceived
+
+	EventType_SideEffectResult
 )
 
 func (et EventType) String() string {
@@ -66,6 +68,8 @@ func (et EventType) String() string {
 		return "TimerFired"
 	case EventType_SignalReceived:
 		return "SignalReceived"
+	case EventType_SideEffectResult:
+		return "SideEffectResult"
 	default:
 		return "Unknown"
 	}

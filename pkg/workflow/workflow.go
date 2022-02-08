@@ -29,6 +29,10 @@ func CreateSubWorkflowInstance(ctx Context, options SubWorkflowOptions, workflow
 	return internal.CreateSubWorkflowInstance(ctx, options, workflow, args...)
 }
 
+func SideEffect(ctx Context, f func(ctx Context) interface{}) Future {
+	return internal.SideEffect(ctx, f)
+}
+
 var DefaultActivityOptions = internal.DefaultActivityOptions
 
 // ExecuteActivity schedules the given activity to be executed

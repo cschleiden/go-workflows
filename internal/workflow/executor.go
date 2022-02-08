@@ -159,6 +159,9 @@ func (e *executor) executeEvent(event history.Event) error {
 	case history.EventType_SignalReceived:
 		err = e.handleSignalReceived(event, event.Attributes.(*history.SignalReceivedAttributes))
 
+	case history.EventType_SideEffectResult:
+		err = e.handleSideEffectResult(event, event.Attributes.(*history.SideEffectResultAttributes))
+
 	case history.EventType_SubWorkflowScheduled:
 		err = e.handleSubWorkflowScheduled(event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
 
@@ -292,6 +295,17 @@ func (e *executor) handleSignalReceived(event history.Event, a *history.SignalRe
 	return e.workflow.Continue(e.workflowCtx)
 }
 
+func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
+	f, ok := e.workflowState.pendingFutures[event.EventID]
+	if !ok {
+		return errors.New("no pending future found for side effect result event")
+	}
+
+	f.Set(a.Result, nil)
+
+	return e.workflow.Continue(e.workflowCtx)
+}
+
 func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	eventId := e.workflowState.eventID
 	e.workflowState.eventID++
@@ -354,6 +368,16 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 					},
 				),
 			})
+
+		case command.CommandType_SideEffect:
+			a := c.Attr.(*command.SideEffectCommandAttr)
+			newEvents = append(newEvents, history.NewHistoryEvent(
+				history.EventType_SideEffectResult,
+				c.ID,
+				&history.SideEffectResultAttributes{
+					Result: a.Result,
+				},
+			))
 
 		case command.CommandType_ScheduleTimer:
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
