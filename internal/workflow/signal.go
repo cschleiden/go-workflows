@@ -7,5 +7,5 @@ import (
 func NewSignalChannel(ctx sync.Context, name string) sync.Channel {
 	wfState := getWfState(ctx)
 
-	return wfState.createSignalChannel(name)
+	return wfState.getSignalChannel(name)
 }
