@@ -240,7 +240,7 @@ Sometimes scheduling an activity is too much overhead for a simple side effect. 
 
 ```go
 var id string
-workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+workflow.SideEffect(ctx, func(ctx workflow.Context) interface{}) {
 	return uuid.NewString()
 }).Get(ctx, &id)
 ```
