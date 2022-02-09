@@ -243,16 +243,16 @@ func workflowWithSelector(ctx sync.Context) error {
 	f1 := ExecuteActivity(ctx, DefaultActivityOptions, activity1, 42)
 	t := ScheduleTimer(ctx, time.Millisecond*2)
 
-	s := sync.NewSelector()
-	s.AddFuture(f1, func(ctx sync.Context, f sync.Future) {
-		workflowWithSelectorHits++
-	})
+	sync.Select(
+		ctx,
+		sync.Await(f1, func(ctx sync.Context, f sync.Future) {
+			workflowWithSelectorHits++
+		}),
 
-	s.AddFuture(t, func(ctx sync.Context, t sync.Future) {
-		workflowWithSelectorHits++
-	})
-
-	s.Select(ctx)
+		sync.Await(t, func(ctx sync.Context, t sync.Future) {
+			workflowWithSelectorHits++
+		}),
+	)
 
 	workflowWithSelectorHits++
 

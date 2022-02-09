@@ -12,18 +12,16 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 	reachedEnd := false
 
 	cr := NewCoroutine(ctx, func(ctx Context) error {
-		s := NewSelector()
+		Select(
+			ctx,
+			Await(f, func(ctx Context, f Future) {
+				var r int
+				err := f.Get(ctx, &r)
+				require.Nil(t, err)
 
-		s.AddFuture(f, func(ctx Context, f Future) {
-			var r int
-			err := f.Get(ctx, &r)
-			require.Nil(t, err)
-
-			require.Equal(t, 42, r)
-		})
-
-		// Wait for result
-		s.Select(ctx)
+				require.Equal(t, 42, r)
+			}),
+		)
 
 		reachedEnd = true
 
@@ -49,27 +47,27 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	order := make([]int, 0)
 
 	cs := NewCoroutine(ctx, func(ctx Context) error {
-		s := NewSelector()
+		for i := 0; i < 2; i++ {
+			// Wait for result
+			Select(
+				ctx,
+				Await(f, func(ctx Context, f Future) {
+					var r int
+					err := f.Get(ctx, &r)
+					require.Nil(t, err)
+					require.Equal(t, 42, r)
+					order = append(order, 42)
+				}),
 
-		s.AddFuture(f, func(ctx Context, f Future) {
-			var r int
-			err := f.Get(ctx, &r)
-			require.Nil(t, err)
-			require.Equal(t, 42, r)
-			order = append(order, 42)
-		})
-
-		s.AddFuture(f2, func(ctx Context, f Future) {
-			var r int
-			err := f.Get(ctx, &r)
-			require.Nil(t, err)
-			require.Equal(t, 23, r)
-			order = append(order, 23)
-		})
-
-		// Wait for result
-		s.Select(ctx)
-		s.Select(ctx)
+				Await(f2, func(ctx Context, f Future) {
+					var r int
+					err := f.Get(ctx, &r)
+					require.Nil(t, err)
+					require.Equal(t, 23, r)
+					order = append(order, 23)
+				}),
+			)
+		}
 
 		reachedEnd = true
 
@@ -98,18 +96,18 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 	reachedEnd := false
 
 	cs := NewCoroutine(Background(), func(ctx Context) error {
-		s := NewSelector()
-
-		s.AddFuture(f, func(_ Context, _ Future) {
-			require.Fail(t, "should not be called")
-		})
-
-		s.AddDefault(func() {
-			defaultHandled = true
-		})
-
 		// Wait for result
-		s.Select(ctx)
+		Select(
+			ctx,
+
+			Await(f, func(_ Context, _ Future) {
+				require.Fail(t, "should not be called")
+			}),
+
+			Default(func(_ Context) {
+				defaultHandled = true
+			}),
+		)
 
 		reachedEnd = true
 
@@ -132,14 +130,13 @@ func Test_ChannelSelector_Select(t *testing.T) {
 	var r int
 
 	cr := NewCoroutine(ctx, func(ctx Context) error {
-		s := NewSelector()
-
-		s.AddChannelReceive(c, func(ctx Context, c Channel) {
-			c.Receive(ctx, &r)
-		})
-
 		// Wait for result
-		s.Select(ctx)
+		Select(
+			ctx,
+			ReceiveChan(c, func(ctx Context, c Channel) {
+				c.Receive(ctx, &r)
+			}),
+		)
 
 		reachedEnd = true
 

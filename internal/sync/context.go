@@ -182,15 +182,16 @@ func propagateCancel(parent Context, child canceler) {
 		return // parent is never canceled
 	}
 
-	s := NewSelector()
-	s.AddChannelReceive(done, func(ctx Context, c Channel) {
-		// Parent is already canceled
-		child.cancel(false, parent.Err())
-	})
-	s.AddDefault(func() {
-		// Ignore
-	})
-	s.Select(parent)
+	Select(
+		parent,
+		ReceiveChan(done, func(ctx Context, c Channel) {
+			// Parent is already canceled
+			child.cancel(false, parent.Err())
+		}),
+		Default(func(_ Context) {
+			// Ignore
+		}),
+	)
 
 	if p, ok := parentCancelCtx(parent); ok {
 		if p.err != nil {

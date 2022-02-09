@@ -1,71 +1,52 @@
 package sync
 
-type Selector interface {
-	AddFuture(f Future, handler func(ctx Context, f Future)) Selector
+// type Selector interface {
+// 	AddFuture(f Future, handler func(ctx Context, f Future)) Selector
 
-	AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) Selector
+// 	AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) Selector
 
-	AddDefault(handler func()) Selector
+// 	AddDefault(handler func()) Selector
 
-	Select(ctx Context)
+// 	Select(ctx Context)
+// }
+
+type SelectCase interface {
+	Ready() bool
+	Handle(ctx Context)
 }
 
-func NewSelector() Selector {
-	return &selector{
-		cases: make([]selectorCase, 0),
+func Await(f Future, handler func(Context, Future)) SelectCase {
+	return &futureCase{
+		f:  f.(*futureImpl),
+		fn: handler,
 	}
 }
 
-type selector struct {
-	cases []selectorCase
-
-	defaultFunc func()
-}
-
-func (s *selector) AddFuture(f Future, handler func(ctx Context, f Future)) Selector {
-	s.cases = append(s.cases, &futureCase{
-		f:  f.(*futureImpl),
-		fn: handler,
-	})
-
-	return s
-}
-
-func (s *selector) AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) Selector {
+func ReceiveChan(c Channel, handler func(Context, Channel)) SelectCase {
 	channel := c.(*channel)
 
-	s.cases = append(s.cases, &channelCase{
+	return &channelCase{
 		c:  channel,
 		fn: handler,
-	})
-
-	return s
+	}
 }
 
-func (s *selector) AddDefault(handler func()) Selector {
-	s.defaultFunc = handler
-
-	return s
+func Default(handler func(Context)) SelectCase {
+	return &defaultCase{
+		fn: handler,
+	}
 }
 
-func (s *selector) Select(ctx Context) {
+func Select(ctx Context, cases ...SelectCase) {
 	cs := getCoState(ctx)
 
 	for {
 		// Is any case ready?
-		for i, c := range s.cases {
+		for _, c := range cases {
 			if c.Ready() {
 				c.Handle(ctx)
-
-				// Remove handled case
-				s.cases = append(s.cases[:i], s.cases[i+1:]...)
 				return
 			}
-		}
-
-		if s.defaultFunc != nil {
-			s.defaultFunc()
-			return
 		}
 
 		// else, yield and wait for result
@@ -73,12 +54,7 @@ func (s *selector) Select(ctx Context) {
 	}
 }
 
-type selectorCase interface {
-	Ready() bool
-	Handle(ctx Context)
-}
-
-var _ = selectorCase(&futureCase{})
+var _ = SelectCase(&futureCase{})
 
 type futureCase struct {
 	f  *futureImpl
@@ -93,6 +69,8 @@ func (fc *futureCase) Handle(ctx Context) {
 	fc.fn(ctx, fc.f)
 }
 
+var _ = SelectCase(&channelCase{})
+
 type channelCase struct {
 	c  *channel
 	fn func(Context, Channel)
@@ -104,4 +82,18 @@ func (cc *channelCase) Ready() bool {
 
 func (cc *channelCase) Handle(ctx Context) {
 	cc.fn(ctx, cc.c)
+}
+
+var _ = SelectCase(&defaultCase{})
+
+type defaultCase struct {
+	fn func(Context)
+}
+
+func (dc *defaultCase) Ready() bool {
+	return true
+}
+
+func (dc *defaultCase) Handle(ctx Context) {
+	dc.fn(ctx)
 }

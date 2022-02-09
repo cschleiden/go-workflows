@@ -65,8 +65,22 @@ func Go(ctx Context, f func(ctx Context)) {
 	sync.Go(ctx, f)
 }
 
-func NewSelector() Selector {
-	return sync.NewSelector()
+type SelectCase = sync.SelectCase
+
+func Select(ctx Context, cases ...SelectCase) {
+	sync.Select(ctx, cases...)
+}
+
+func Await(f Future, handler func(Context, Future)) SelectCase {
+	return sync.Await(f, handler)
+}
+
+func ReceiveChan(c Channel, handler func(Context, Channel)) SelectCase {
+	return sync.ReceiveChan(c, handler)
+}
+
+func Default(handler func(Context)) SelectCase {
+	return sync.Default(handler)
 }
 
 func NewChannel() Channel {

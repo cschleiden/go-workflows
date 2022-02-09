@@ -76,13 +76,15 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 	defer log.Println("Leaving Workflow1")
 
 	log.Println("Waiting for first signal")
-	workflow.NewSelector().AddChannelReceive(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
-		var r int
-		c.Receive(ctx, &r)
+	workflow.Select(ctx,
+		workflow.ReceiveChan(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
+			var r int
+			c.Receive(ctx, &r)
 
-		log.Println("Received signal:", r)
-		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-	}).Select(ctx)
+			log.Println("Received signal:", r)
+			log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+		}),
+	)
 
 	log.Println("Waiting for second signal")
 	workflow.NewSignalChannel(ctx, "test2").Receive(ctx, nil)
@@ -103,11 +105,11 @@ func SubWorkflow1(ctx workflow.Context) (string, error) {
 	log.Println("Waiting for signal from sub-worflow")
 	defer log.Println("Leaving SubWorkflow1")
 
-	// workflow.NewSignalChannel(ctx, "sub-signal").Receive(ctx, nil)
-
-	workflow.NewSelector().AddChannelReceive(workflow.NewSignalChannel(ctx, "sub-signal"), func(ctx workflow.Context, c sync.Channel) {
-		c.Receive(ctx, nil)
-	}).Select(ctx)
+	workflow.Select(ctx,
+		workflow.ReceiveChan(workflow.NewSignalChannel(ctx, "sub-signal"), func(ctx workflow.Context, c sync.Channel) {
+			c.Receive(ctx, nil)
+		}),
+	)
 
 	log.Println("Received.")
 

@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -71,35 +72,33 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	results := 0
 
-	s := workflow.NewSelector()
-
-	s.AddFuture(a2, func(ctx workflow.Context, f2 workflow.Future) {
-		var r int
-		if err := f2.Get(ctx, &r); err != nil {
-			panic(err)
-		}
-
-		log.Println("A2 result", r)
-		results++
-	})
-
-	s.AddFuture(a1, func(ctx workflow.Context, f1 workflow.Future) {
-		var r int
-		if err := f1.Get(ctx, &r); err != nil {
-			panic(err)
-		}
-
-		log.Println("A1 result", r)
-
-		results++
-	})
-
 	for results < 2 {
-		log.Println("Selecting...")
-		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-		s.Select(ctx)
-		log.Println("Selected")
-		log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+		samples.Trace(ctx, "Selecting...")
+
+		workflow.Select(
+			ctx,
+			workflow.Await(a2, func(ctx workflow.Context, f2 workflow.Future) {
+				var r int
+				if err := f2.Get(ctx, &r); err != nil {
+					panic(err)
+				}
+
+				log.Println("A2 result", r)
+				results++
+			}),
+			workflow.Await(a1, func(ctx workflow.Context, f1 workflow.Future) {
+				var r int
+				if err := f1.Get(ctx, &r); err != nil {
+					panic(err)
+				}
+
+				log.Println("A1 result", r)
+
+				results++
+			}),
+		)
+
+		samples.Trace(ctx, "Selected")
 	}
 
 	return "result", nil

@@ -23,13 +23,12 @@ func TestWithCancel(t *testing.T) {
 		// Create child context, canceled when parent is canceled
 		ctx, _ = WithCancel(ctx)
 
-		s := NewSelector()
-
-		s.AddChannelReceive(ctx.Done(), func(ctx Context, c Channel) {
-			canceled = true
-		})
-
-		s.Select(ctx)
+		Select(
+			ctx,
+			ReceiveChan(ctx.Done(), func(ctx Context, c Channel) {
+				canceled = true
+			}),
+		)
 
 		return nil
 	})
