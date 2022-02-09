@@ -2,6 +2,8 @@
 
 Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as [DTFx](https://github.com/Azure/durabletask).
 
+Note no go1.18 generics: many of the `Get(...)` operations will become easier with generics, an ongoing exploration is happening in branch [go118](https://github.com/cschleiden/go-dt/tree/go118).
+
 ## Simple example
 
 ### Workflow
