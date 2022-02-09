@@ -10,7 +10,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -77,22 +76,19 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 
 	log.Println("Waiting for first signal")
 	workflow.Select(ctx,
-		workflow.Receive(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
-			var r int
-			c.Receive(ctx, &r)
-
+		workflow.Receive(workflow.NewSignalChannel[int](ctx, "test"), func(ctx workflow.Context, r int, ok bool) {
 			log.Println("Received signal:", r)
 			log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 		}),
 	)
 
 	log.Println("Waiting for second signal")
-	workflow.NewSignalChannel(ctx, "test2").Receive(ctx, nil)
+	workflow.NewSignalChannel[int](ctx, "test2").Receive(ctx)
 	log.Println("Received second signal")
 
-	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{
+	if _, err := workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
 		InstanceID: subID,
-	}, SubWorkflow1).Get(ctx, nil); err != nil {
+	}, SubWorkflow1).Get(ctx); err != nil {
 		panic(err)
 	}
 
@@ -105,11 +101,8 @@ func SubWorkflow1(ctx workflow.Context) (string, error) {
 	log.Println("Waiting for signal from sub-worflow")
 	defer log.Println("Leaving SubWorkflow1")
 
-	workflow.Select(ctx,
-		workflow.Receive(workflow.NewSignalChannel(ctx, "sub-signal"), func(ctx workflow.Context, c sync.Channel) {
-			c.Receive(ctx, nil)
-		}),
-	)
+	c := workflow.NewSignalChannel[string](ctx, "sub-signal")
+	c.Receive(ctx)
 
 	log.Println("Received.")
 

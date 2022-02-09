@@ -10,8 +10,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Activity interface{}
-
 type ActivityOptions struct {
 	RetryOptions RetryOptions
 }
@@ -21,18 +19,19 @@ var DefaultActivityOptions = ActivityOptions{
 }
 
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
-	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context) sync.Future {
-		return executeActivity(ctx, options, activity, args...)
+func ExecuteActivity[TResult any](ctx sync.Context, options ActivityOptions, activity interface{}, args ...interface{}) Future[TResult] {
+	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context) Future[TResult] {
+		return executeActivity[TResult](ctx, options, activity, args...)
 	})
 }
 
-func executeActivity(ctx sync.Context, options ActivityOptions, activity Activity, args ...interface{}) sync.Future {
-	f := sync.NewFuture()
+func executeActivity[TResult any](ctx sync.Context, options ActivityOptions, activity interface{}, args ...interface{}) Future[TResult] {
+	f := sync.NewFuture[TResult]()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		f.Set(nil, errors.Wrap(err, "failed to convert activity input"))
+		var z TResult
+		f.Set(z, errors.Wrap(err, "failed to convert activity input"))
 		return f
 	}
 
@@ -42,23 +41,21 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 	name := fn.Name(activity)
 	cmd := command.NewScheduleActivityTaskCommand(scheduleEventID, name, inputs)
 	wfState.AddCommand(&cmd)
-	wfState.TrackFuture(scheduleEventID, f)
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
-		if c, ok := d.(sync.ChannelInternal); ok {
-			c.ReceiveNonBlocking(ctx, func(_ interface{}) {
+		if c, ok := d.(sync.ChannelInternal[struct{}]); ok {
+			if _, ok := c.ReceiveNonBlocking(ctx); ok {
 				// Workflow has been canceled, check if the activity has already been scheduled
-				if cmd.State == command.CommandState_Committed {
-					// Command has already been committed, that means the activity has already been scheduled. Wait
-					// until the activity is done.
-					return
-				}
+				if cmd.State != command.CommandState_Committed {
+					wfState.RemoveFuture(scheduleEventID)
+					wfState.RemoveCommand(cmd)
 
-				wfState.RemoveFuture(scheduleEventID)
-				wfState.RemoveCommand(cmd)
-				f.Set(nil, sync.Canceled)
-			})
+					var z TResult
+					f.Set(z, sync.Canceled)
+				}
+			}
 		}
 	}
 

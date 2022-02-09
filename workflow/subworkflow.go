@@ -20,18 +20,19 @@ var DefaultSubWorkflowOptions = SubWorkflowOptions{
 	RetryOptions: DefaultRetryOptions,
 }
 
-func CreateSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) sync.Future {
-	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context) sync.Future {
-		return createSubWorkflowInstance(ctx, options, workflow, args...)
+func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
+	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context) Future[TResult] {
+		return createSubWorkflowInstance[TResult](ctx, options, workflow, args...)
 	})
 }
 
-func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, workflow Workflow, args ...interface{}) sync.Future {
-	f := sync.NewFuture()
+func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
+	f := sync.NewFuture[TResult]()
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		f.Set(nil, errors.Wrap(err, "failed to convert workflow input"))
+		var z TResult
+		f.Set(z, errors.Wrap(err, "failed to convert workflow input"))
 		return f
 	}
 
@@ -42,23 +43,21 @@ func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, wor
 	name := fn.Name(workflow)
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, options.InstanceID, name, inputs)
 	wfState.AddCommand(&cmd)
-	wfState.TrackFuture(scheduleEventID, f)
+
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
-		if c, ok := d.(sync.ChannelInternal); ok {
-			c.ReceiveNonBlocking(ctx, func(_ interface{}) {
+		if c, ok := d.(sync.ChannelInternal[struct{}]); ok {
+			if _, ok := c.ReceiveNonBlocking(ctx); ok {
 				// Workflow has been canceled, check if the sub-workflow has already been scheduled
-				if cmd.State == command.CommandState_Committed {
-					// Command has already been committed, that means the sub-workflow has already been scheduled. Wait
-					// until it is done.
-					return
+				if cmd.State != command.CommandState_Committed {
+					wfState.RemoveCommand(cmd)
+					wfState.RemoveFuture(scheduleEventID)
+					var z TResult
+					f.Set(z, sync.Canceled)
 				}
-
-				wfState.RemoveFuture(scheduleEventID)
-				wfState.RemoveCommand(cmd)
-				f.Set(nil, sync.Canceled)
-			})
+			}
 		}
 	}
 

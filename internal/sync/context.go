@@ -42,7 +42,7 @@ type Context interface {
 	//
 	// See https://blog.golang.org/pipelines for more examples of how to use
 	// a Done channel for cancellation.
-	Done() Channel
+	Done() Channel[struct{}]
 
 	// If Done is not yet closed, Err returns nil.
 	// If Done is closed, Err returns a non-nil error explaining why:
@@ -111,7 +111,7 @@ func (*emptyCtx) Deadline() (deadline time.Time, ok bool) {
 	return
 }
 
-func (*emptyCtx) Done() Channel {
+func (*emptyCtx) Done() Channel[struct{}] {
 	return nil
 }
 
@@ -171,7 +171,7 @@ func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {
 func newCancelCtx(parent Context) cancelCtx {
 	return cancelCtx{
 		Context: parent,
-		done:    NewChannel(),
+		done:    NewChannel[struct{}](),
 	}
 }
 
@@ -184,7 +184,7 @@ func propagateCancel(parent Context, child canceler) {
 
 	Select(
 		parent,
-		Receive(done, func(ctx Context, c Channel) {
+		Receive(done, func(ctx Context, _ struct{}, _ bool) {
 			// Parent is already canceled
 			child.cancel(false, parent.Err())
 		}),
@@ -256,11 +256,11 @@ func removeChild(parent Context, child canceler) {
 // implementations are *cancelCtx and *timerCtx.
 type canceler interface {
 	cancel(removeFromParent bool, err error)
-	Done() Channel
+	Done() Channel[struct{}]
 }
 
 // closedchan is a reusable closed channel.
-var closedchan = NewChannel()
+var closedchan = NewChannel[struct{}]()
 
 func init() {
 	closedchan.Close()
@@ -271,7 +271,7 @@ func init() {
 type cancelCtx struct {
 	Context
 
-	done     Channel
+	done     Channel[struct{}]
 	children map[canceler]struct{} // set to nil by the first cancel call
 	err      error                 // set to non-nil by the first cancel call
 }
@@ -283,7 +283,7 @@ func (c *cancelCtx) Value(key interface{}) interface{} {
 	return c.Context.Value(key)
 }
 
-func (c *cancelCtx) Done() Channel {
+func (c *cancelCtx) Done() Channel[struct{}] {
 	return c.done
 }
 
@@ -360,6 +360,6 @@ func (c *valueCtx) Value(key interface{}) interface{} {
 func NewDisconnectedContext(ctx Context) Context {
 	return &cancelCtx{
 		Context: ctx,
-		done:    NewChannel(),
+		done:    NewChannel[struct{}](),
 	}
 }

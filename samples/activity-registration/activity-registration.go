@@ -68,16 +68,17 @@ func Workflow1(ctx workflow.Context, msg string) error {
 
 	var a *activities
 
-	var r1, r2 int
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12, nil, "test").Get(ctx, &r1); err != nil {
+	if r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12, nil, "test").Get(ctx); err != nil {
 		return errors.New("error getting activity 1 result")
+	} else {
+		samples.Trace(ctx, "R1 result:", r1)
 	}
-	samples.Trace(ctx, "R1 result:", r1)
 
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, a.Activity2).Get(ctx, &r2); err != nil {
+	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity2).Get(ctx); err != nil {
 		return errors.New("error getting activity 2 result")
+	} else {
+		samples.Trace(ctx, "R2 result:", r2)
 	}
-	samples.Trace(ctx, "R2 result:", r2)
 
 	return nil
 }

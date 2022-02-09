@@ -67,13 +67,13 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	defer trace(ctx, "Leaving Workflow1")
 
 	// Illustrate sub workflow retries. The called workflow will fail a few times, and its execution will be retried.
-	err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{
+	_, err := workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
 		RetryOptions: workflow.RetryOptions{
 			MaxAttempts:        3,
 			FirstRetryInterval: time.Second * 3,
 			BackoffCoefficient: 1,
 		},
-	}, WorkflowWithFailures, "Hello world"+uuid.NewString()).Get(ctx, nil)
+	}, WorkflowWithFailures, "Hello world"+uuid.NewString()).Get(ctx)
 	if err != nil {
 		return errs.Wrap(err, "error starting subworkflow")
 	}
@@ -94,14 +94,13 @@ func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 	}
 
 	// Illustrate activity retries. The called activity will fail a few times, and its execution will be retried.
-	var r1 int
-	err := workflow.ExecuteActivity(ctx, workflow.ActivityOptions{
+	r1, err := workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
 		RetryOptions: workflow.RetryOptions{
 			MaxAttempts:        3,
 			FirstRetryInterval: time.Second * 3,
 			BackoffCoefficient: 2,
 		},
-	}, Activity1, 35).Get(ctx, &r1)
+	}, Activity1, 35).Get(ctx)
 	if err != nil {
 		trace(ctx, "Error from Activity 1", err)
 		return errs.Wrap(err, "error getting result from activity 1")

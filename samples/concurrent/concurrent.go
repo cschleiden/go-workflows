@@ -67,8 +67,8 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		log.Println("Leaving Workflow1")
 	}()
 
-	a1 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
-	a2 := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2)
+	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
+	a2 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2)
 
 	results := 0
 
@@ -77,18 +77,18 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 		workflow.Select(
 			ctx,
-			workflow.Await(a2, func(ctx workflow.Context, f2 workflow.Future) {
-				var r int
-				if err := f2.Get(ctx, &r); err != nil {
+			workflow.Await(a2, func(ctx workflow.Context, f2 workflow.Future[int]) {
+				r, err := f2.Get(ctx)
+				if err != nil {
 					panic(err)
 				}
 
 				log.Println("A2 result", r)
 				results++
 			}),
-			workflow.Await(a1, func(ctx workflow.Context, f1 workflow.Future) {
-				var r int
-				if err := f1.Get(ctx, &r); err != nil {
+			workflow.Await(a1, func(ctx workflow.Context, f1 workflow.Future[int]) {
+				r, err := f1.Get(ctx)
+				if err != nil {
 					panic(err)
 				}
 

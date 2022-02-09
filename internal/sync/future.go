@@ -2,28 +2,32 @@ package sync
 
 import "github.com/cschleiden/go-workflows/internal/converter"
 
-type Future interface {
-	// Set stores the value and unblocks any waiting consumers
-	Set(v interface{}, err error)
-
+type Future[T any] interface {
 	// Get returns the value if set, blocks otherwise
-	Get(ctx Context, vptr interface{}) error
+	Get(ctx Context) (T, error)
 }
 
-func NewFuture() Future {
-	return &futureImpl{
+type SettableFuture[T any] interface {
+	Future[T]
+
+	// Set stores the value and unblocks any waiting consumers
+	Set(v T, err error)
+}
+
+func NewFuture[T any]() SettableFuture[T] {
+	return &future[T]{
 		converter: converter.DefaultConverter,
 	}
 }
 
-type futureImpl struct {
+type future[T any] struct {
 	hasValue  bool
-	v         interface{}
+	v         T
 	err       error
 	converter converter.Converter
 }
 
-func (f *futureImpl) Set(v interface{}, err error) {
+func (f *future[T]) Set(v T, err error) {
 	if f.hasValue {
 		panic("future already set")
 	}
@@ -33,7 +37,7 @@ func (f *futureImpl) Set(v interface{}, err error) {
 	f.hasValue = true
 }
 
-func (f *futureImpl) Get(ctx Context, vptr interface{}) error {
+func (f *future[T]) Get(ctx Context) (T, error) {
 	for {
 		cr := getCoState(ctx)
 
@@ -41,20 +45,17 @@ func (f *futureImpl) Get(ctx Context, vptr interface{}) error {
 			cr.MadeProgress()
 
 			if f.err != nil {
-				return f.err
+				var zero T
+				return zero, f.err
 			}
 
-			if vptr != nil {
-				return converter.AssignValue(f.converter, f.v, vptr)
-			}
-
-			return nil
+			return f.v, nil
 		}
 
 		cr.Yield()
 	}
 }
 
-func (f *futureImpl) Ready() bool {
+func (f *future[T]) Ready() bool {
 	return f.hasValue
 }

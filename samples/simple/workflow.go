@@ -19,15 +19,13 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 
 	defer samples.Trace(ctx, "Leaving Workflow1")
 
-	var r1 int
-	err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
 	samples.Trace(ctx, "R1 result:", r1)
 
-	var r2 int
-	err = workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}

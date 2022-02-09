@@ -224,7 +224,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 	}
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
-	f.Set(a.Result, nil)
+	f(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -237,7 +237,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f.Set(nil, errors.New(a.Reason))
+	f(nil, errors.New(a.Reason))
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -257,7 +257,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f.Set(nil, nil)
+	f(nil, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -282,7 +282,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f.Set(nil, errors.New(a.Error))
+	f(nil, errors.New(a.Error))
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -295,15 +295,14 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f.Set(a.Result, nil)
+	f(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
 
 func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
 	// Send signal to workflow channel
-	sc := e.workflowState.GetSignalChannel(a.Name)
-	sc.SendNonblocking(e.workflowCtx, a.Arg)
+	workflowstate.ReceiveSignal(e.workflowCtx, e.workflowState, a.Name, a.Arg)
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
@@ -316,7 +315,7 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 		return errors.New("no pending future found for side effect result event")
 	}
 
-	f.Set(a.Result, nil)
+	f(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }

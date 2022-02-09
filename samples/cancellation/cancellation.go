@@ -84,36 +84,35 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 			samples.Trace(ctx, "Do cleanup")
 			ctx := workflow.NewDisconnectedContext(ctx)
-			if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, ActivityCleanup).Get(ctx, nil); err != nil {
+			if _, err := workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, ActivityCleanup).Get(ctx); err != nil {
 				panic("could not execute cleanup activity")
 			}
 			samples.Trace(ctx, "Done with cleanup")
 		}
 	}()
 
-	var r0 int
 	samples.Trace(ctx, "schedule ActivitySuccess")
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, ActivitySuccess, 1, 2).Get(ctx, &r0); err != nil {
+	if r0, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySuccess, 1, 2).Get(ctx); err != nil {
 		samples.Trace(ctx, "error getting activity success result", err)
 	} else {
 		samples.Trace(ctx, "ActivitySuccess result:", r0)
 	}
 
-	var rw string
 	samples.Trace(ctx, "schedule ActivityCancel")
-	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowOptions{
+	if rw, err := workflow.CreateSubWorkflowInstance[string](ctx, workflow.SubWorkflowOptions{
 		InstanceID: "sub-workflow",
-	}, Workflow2, "hello sub").Get(ctx, &rw); err != nil {
+	}, Workflow2, "hello sub").Get(ctx); err != nil {
 		samples.Trace(ctx, "error getting workflow2 result", err)
+	} else {
+		samples.Trace(ctx, "Workflow2 result:", rw)
 	}
-	samples.Trace(ctx, "Workflow2 result:", rw)
 
-	var r2 int
 	samples.Trace(ctx, "schedule ActivitySkip")
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, ActivitySkip, 1, 2).Get(ctx, &r2); err != nil {
+	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySkip, 1, 2).Get(ctx); err != nil {
 		samples.Trace(ctx, "error getting activity skip result", err)
+	} else {
+		samples.Trace(ctx, "ActivitySkip result:", r2)
 	}
-	samples.Trace(ctx, "ActivitySkip result:", r2)
 
 	samples.Trace(ctx, "Workflow finished")
 	return "result", nil
@@ -129,7 +128,7 @@ func Workflow2(ctx workflow.Context, msg string) (ret string, err error) {
 
 			samples.Trace(ctx, "Do cleanup")
 			ctx := workflow.NewDisconnectedContext(ctx)
-			if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, ActivityCleanup).Get(ctx, nil); err != nil {
+			if _, err := workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, ActivityCleanup).Get(ctx); err != nil {
 				panic("could not execute cleanup activity")
 			}
 			samples.Trace(ctx, "Done with cleanup")
@@ -138,12 +137,12 @@ func Workflow2(ctx workflow.Context, msg string) (ret string, err error) {
 		}
 	}()
 
-	var r1 int
 	samples.Trace(ctx, "schedule ActivityCancel")
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {
+	if r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivityCancel, 1, 2).Get(ctx); err != nil {
 		samples.Trace(ctx, "error getting activity cancel result", err)
+	} else {
+		samples.Trace(ctx, "ActivityCancel result:", r1)
 	}
-	samples.Trace(ctx, "ActivityCancel result:", r1)
 
 	return "some result", nil
 }

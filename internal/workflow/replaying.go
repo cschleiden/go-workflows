@@ -1,11 +1,11 @@
 package workflow
 
 import (
+	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 )
 
-func NewSignalChannel[T any](ctx Context, name string) Channel[T] {
+func Replaying(ctx sync.Context) bool {
 	wfState := workflowstate.WorkflowState(ctx)
-
-	return workflowstate.GetSignalChannel[T](ctx, wfState, name)
+	return wfState.Replaying()
 }

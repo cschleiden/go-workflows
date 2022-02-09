@@ -9,11 +9,11 @@ import (
 func Test_Channel_Unbuffered(t *testing.T) {
 	tests := []struct {
 		name string
-		fn   func(t *testing.T, c *channel)
+		fn   func(t *testing.T, c *channel[int])
 	}{
 		{
 			name: "Send_Blocks",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
 					c.Send(ctx, 42)
 
@@ -28,10 +28,9 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "Receive_Blocks",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
-					var r int
-					c.Receive(ctx, &r)
+					c.Receive(ctx)
 
 					return nil
 				})
@@ -44,9 +43,9 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "Receive_ToNil",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
-					c.Receive(ctx, nil)
+					c.Receive(ctx)
 					return nil
 				})
 				cr.Execute()
@@ -65,12 +64,13 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "Receive_BlocksUntilSend",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				var r int
 
 				cr := NewCoroutine(Background(), func(ctx Context) error {
-					more := c.Receive(ctx, &r)
-					require.True(t, more)
+					var ok bool
+					r, ok = c.Receive(ctx)
+					require.True(t, ok)
 
 					return nil
 				})
@@ -102,12 +102,13 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "Receive_Closed",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				r := int(42)
 
 				cr := NewCoroutine(Background(), func(ctx Context) error {
-					more := c.Receive(ctx, &r)
-					require.False(t, more)
+					var ok bool
+					r, ok = c.Receive(ctx)
+					require.False(t, ok, "expected zero element")
 
 					return nil
 				})
@@ -138,7 +139,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "Send_BlocksUntilReceive",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				crSend := NewCoroutine(Background(), func(ctx Context) error {
 					c.Send(ctx, 42)
 
@@ -150,8 +151,9 @@ func Test_Channel_Unbuffered(t *testing.T) {
 
 				var r int
 				crReceive := NewCoroutine(Background(), func(ctx Context) error {
-					more := c.Receive(ctx, &r)
-					require.True(t, more)
+					var ok bool
+					r, ok = c.Receive(ctx)
+					require.True(t, ok)
 
 					return nil
 				})
@@ -173,7 +175,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "SendNonblocking_DoesNotBlock",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
 					r := c.SendNonblocking(ctx, 42)
 
@@ -190,7 +192,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "ReceiveNonblocking_DoesNotBlock",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
 					r := c.SendNonblocking(ctx, 42)
 
@@ -207,7 +209,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		},
 		{
 			name: "MultipleReceivesSends",
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 
 				ctx := Background()
 				s := NewScheduler()
@@ -216,8 +218,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 
 				for i := 0; i < 10; i++ {
 					s.NewCoroutine(ctx, func(ctx Context) error {
-						var t int
-						c.Receive(ctx, &t)
+						c.Receive(ctx)
 						r++
 
 						return nil
@@ -245,8 +246,8 @@ func Test_Channel_Unbuffered(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewChannel()
-			tt.fn(t, c.(*channel))
+			c := NewChannel[int]()
+			tt.fn(t, c.(*channel[int]))
 		})
 	}
 }
@@ -255,12 +256,12 @@ func Test_Channel_Buffered(t *testing.T) {
 	tests := []struct {
 		name string
 		size int
-		fn   func(t *testing.T, c *channel)
+		fn   func(t *testing.T, c *channel[int])
 	}{
 		{
 			name: "Send_Blocks",
 			size: 3,
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				ctx := Background()
 
 				cs := NewCoroutine(ctx, func(ctx Context) error {
@@ -275,20 +276,18 @@ func Test_Channel_Buffered(t *testing.T) {
 				cs.Execute()
 
 				cr := NewCoroutine(ctx, func(ctx Context) error {
-					var r int
-
-					c.Receive(ctx, &r)
+					r, _ := c.Receive(ctx)
 					require.Equal(t, 1, r)
 
-					c.Receive(ctx, &r)
+					r, _ = c.Receive(ctx)
 					require.Equal(t, 2, r)
 
 					getCoState(ctx).Yield()
 
-					c.Receive(ctx, &r)
+					r, _ = c.Receive(ctx)
 					require.Equal(t, 3, r)
 
-					c.Receive(ctx, &r)
+					r, _ = c.Receive(ctx)
 					require.Equal(t, 0, r)
 
 					return nil
@@ -310,7 +309,7 @@ func Test_Channel_Buffered(t *testing.T) {
 		{
 			name: "BufferedChannel_Send",
 			size: 1,
-			fn: func(t *testing.T, cs *channel) {
+			fn: func(t *testing.T, cs *channel[int]) {
 				ctx := Background()
 
 				sentValue := false
@@ -330,7 +329,7 @@ func Test_Channel_Buffered(t *testing.T) {
 				var r int
 				crReceive := NewCoroutine(ctx, func(ctx Context) error {
 					for {
-						cs.Receive(ctx, &r)
+						r, _ = cs.Receive(ctx)
 						getCoState(ctx).Yield()
 					}
 				})
@@ -348,11 +347,11 @@ func Test_Channel_Buffered(t *testing.T) {
 		{
 			name: "BufferedChannel_Receive_ToNil",
 			size: 1,
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
 					c.Send(ctx, 42)
 
-					c.Receive(ctx, nil)
+					c.Receive(ctx)
 
 					return nil
 				})
@@ -364,7 +363,7 @@ func Test_Channel_Buffered(t *testing.T) {
 		{
 			name: "BufferedChannel_CanReceiveAfterClose",
 			size: 3,
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
 					c.Send(ctx, 1)
 					c.Send(ctx, 2)
@@ -373,10 +372,15 @@ func Test_Channel_Buffered(t *testing.T) {
 					c.Close()
 
 					for i := 0; i < 3; i++ {
-						var r int
-						c.Receive(ctx, &r)
+						r, ok := c.Receive(ctx)
+						require.True(t, ok)
 						require.Equal(t, i+1, r)
 					}
+
+					// Receive zero element once channel drained
+					r, ok := c.Receive(ctx)
+					require.Zero(t, r)
+					require.False(t, ok)
 
 					return nil
 				})
@@ -388,7 +392,7 @@ func Test_Channel_Buffered(t *testing.T) {
 		{
 			name: "BufferedChannel_CannotSendAfterClose",
 			size: 3,
-			fn: func(t *testing.T, c *channel) {
+			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
 					c.Close()
 
@@ -404,8 +408,8 @@ func Test_Channel_Buffered(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewBufferedChannel(tt.size)
-			tt.fn(t, c.(*channel))
+			c := NewBufferedChannel[int](tt.size)
+			tt.fn(t, c.(*channel[int]))
 		})
 	}
 }

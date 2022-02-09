@@ -8,6 +8,8 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 )
 
+type Activity interface{}
+
 type Registry struct {
 	sync.Mutex
 
