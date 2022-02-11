@@ -361,6 +361,46 @@ func Test_Channel_Buffered(t *testing.T) {
 				require.NoError(t, cr.Error())
 			},
 		},
+		{
+			name: "BufferedChannel_CanReceiveAfterClose",
+			size: 3,
+			fn: func(t *testing.T, c *channel) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
+					c.Send(ctx, 1)
+					c.Send(ctx, 2)
+					c.Send(ctx, 3)
+
+					c.Close()
+
+					for i := 0; i < 3; i++ {
+						var r int
+						c.Receive(ctx, &r)
+						require.Equal(t, i+1, r)
+					}
+
+					return nil
+				})
+				cr.Execute()
+
+				require.NoError(t, cr.Error())
+			},
+		},
+		{
+			name: "BufferedChannel_CannotSendAfterClose",
+			size: 3,
+			fn: func(t *testing.T, c *channel) {
+				cr := NewCoroutine(Background(), func(ctx Context) error {
+					c.Close()
+
+					c.Send(ctx, 1)
+
+					return nil
+				})
+				cr.Execute()
+
+				require.EqualError(t, cr.Error(), "panic: channel closed")
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
