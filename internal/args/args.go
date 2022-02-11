@@ -16,7 +16,7 @@ func ArgsToInputs(c converter.Converter, args ...interface{}) ([]payload.Payload
 	for _, arg := range args {
 		input, err := c.To(arg)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert activity input")
+			return nil, errors.Wrap(err, "failed to convert args to inputs")
 		}
 		inputs = append(inputs, input)
 	}

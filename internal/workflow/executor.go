@@ -86,7 +86,6 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	// Execution of this task is finished, add event to history
 	events = append(events, history.NewHistoryEvent(history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
 
-	// TODO: The finished event isn't actually executed, does this make sense?
 	e.lastEventID = events[len(events)-1].ID
 
 	return events, workflowEvents, nil
@@ -116,7 +115,7 @@ func (e *executor) executeNewEvents(newEvents []history.Event) error {
 func (e *executor) Close() {
 	if e.workflow != nil {
 		// End workflow if running to prevent leaking goroutines
-		e.workflow.Close(withWfState(sync.Background(), e.workflowState)) // TODO: Cache this context?
+		e.workflow.Close(e.workflowCtx)
 	}
 }
 
