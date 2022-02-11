@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/pkg/backend/sqlite"
 	"github.com/cschleiden/go-workflows/pkg/client"
 	"github.com/cschleiden/go-workflows/pkg/worker"
+
 	"github.com/google/uuid"
 )
 
