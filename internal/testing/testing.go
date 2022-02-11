@@ -19,7 +19,7 @@ type WorkflowTester interface {
 	Execute(args ...interface{}) error
 
 	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
-	// OnWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
+	// OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
 
 	// OnSignal() // TODO: Allow waiting
 
@@ -32,16 +32,27 @@ type WorkflowTester interface {
 
 type workflowTester struct {
 	wf               workflow.Workflow
+	wfi              core.WorkflowInstance
+	e                workflow.WorkflowExecutor
+	registry         *workflow.Registry
 	workflowFinished bool
 	result           interface{}
-	registry         *workflow.Registry
 	ma               *mock.Mock
 }
 
 func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
+	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+	registry := workflow.NewRegistry()
+	e, err := workflow.NewExecutor(registry, wfi)
+	if err != nil {
+		panic("could not create workflow executor" + err.Error())
+	}
+
 	wt := &workflowTester{
 		wf:       wf,
-		registry: workflow.NewRegistry(),
+		wfi:      wfi,
+		e:        e,
+		registry: registry,
 		ma:       &mock.Mock{},
 	}
 
@@ -57,18 +68,11 @@ func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interfa
 }
 
 func (wt *workflowTester) Execute(args ...interface{}) error {
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+	task := getInitialWorkflowTask(wt.wfi, wt.wf, args...)
 
-	e, err := workflow.NewExecutor(wt.registry, wfi)
-	if err != nil {
-		// TODO: t.Fail instead here? Or just return?
-		panic(err)
-	}
-
-	task := getInitialWorkflowTask(wfi, wt.wf, args...)
-
+	// TODO: Support continuing executions?
 	for !wt.workflowFinished {
-		executedEvents, _ /*workflowEvents*/, err := e.ExecuteTask(context.Background(), task)
+		executedEvents, _ /*workflowEvents*/, err := wt.e.ExecuteTask(context.Background(), task)
 		if err != nil {
 			panic(err)
 			//return err
@@ -96,9 +100,13 @@ func (wt *workflowTester) Execute(args ...interface{}) error {
 					},
 				))
 			}
+
+			// TODO: Timers
+			// TODO: SubWorkflows
+			// TODO: Signals?
 		}
 
-		task = getNextWorkflowTask(wfi, executedEvents, newEvents)
+		task = getNextWorkflowTask(wt.wfi, executedEvents, newEvents)
 	}
 
 	// TODO: Get and return workflow result
@@ -110,8 +118,6 @@ func (wt *workflowTester) WorkflowFinished() bool {
 }
 
 func (wt *workflowTester) AssertExpectations(t *testing.T) {
-	t.Helper()
-
 	wt.ma.AssertExpectations(t)
 }
 
