@@ -132,7 +132,7 @@ func (e *executor) executeEvent(event history.Event) error {
 	case history.EventType_WorkflowExecutionFinished:
 	// Ignore
 
-	case history.EventType_WorkflowExecutionCancelled:
+	case history.EventType_WorkflowExecutionCanceled:
 		err = e.handleWorkflowCanceled()
 
 	case history.EventType_WorkflowTaskStarted:
@@ -245,7 +245,7 @@ func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerSch
 func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
-		// Timer already cancelled ignore
+		// Timer already canceled ignore
 		return nil
 	}
 

@@ -1,3 +1,3 @@
 package history
 
-type ExecutionCancelledAttributes struct{}
+type ExecutionCanceledAttributes struct{}

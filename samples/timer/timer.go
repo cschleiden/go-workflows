@@ -76,7 +76,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	workflow.NewSelector().AddFuture(t, func(ctx workflow.Context, f workflow.Future) {
 		if err := f.Get(ctx, nil); err != nil {
-			log.Println("Timer cancelled, IsReplaying:", workflow.Replaying(ctx))
+			log.Println("Timer canceled, IsReplaying:", workflow.Replaying(ctx))
 		} else {
 			log.Println("Timer fired, IsReplaying:", workflow.Replaying(ctx))
 		}

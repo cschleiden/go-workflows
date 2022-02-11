@@ -15,7 +15,7 @@ const (
 	EventType_WorkflowExecutionStarted
 	EventType_WorkflowExecutionFinished
 	EventType_WorkflowExecutionTerminated
-	EventType_WorkflowExecutionCancelled
+	EventType_WorkflowExecutionCanceled
 
 	EventType_WorkflowTaskStarted
 	EventType_WorkflowTaskFinished
@@ -44,8 +44,8 @@ func (et EventType) String() string {
 		return "WorkflowExecutionFinished"
 	case EventType_WorkflowExecutionTerminated:
 		return "WorkflowExecutionTerminated"
-	case EventType_WorkflowExecutionCancelled:
-		return "WorkflowExecutionCancelled"
+	case EventType_WorkflowExecutionCanceled:
+		return "WorkflowExecutionCanceled"
 	case EventType_WorkflowTaskStarted:
 		return "WorkflowTaskStarted"
 	case EventType_WorkflowTaskFinished:
@@ -115,5 +115,5 @@ func NewFutureHistoryEvent(eventType EventType, eventID int, attributes interfac
 }
 
 func NewWorkflowCancellationEvent() Event {
-	return NewHistoryEvent(EventType_WorkflowExecutionCancelled, -1, &ExecutionCancelledAttributes{})
+	return NewHistoryEvent(EventType_WorkflowExecutionCanceled, -1, &ExecutionCanceledAttributes{})
 }

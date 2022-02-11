@@ -56,7 +56,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 		panic("could not cancel workflow")
 	}
 
-	log.Println("Cancelled workflow", wf.GetInstanceID())
+	log.Println("Canceled workflow", wf.GetInstanceID())
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
