@@ -137,7 +137,7 @@ The Sqlite backend implementation supports two different modes, in-memory and on
 b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 ```
 
-## Scenarios
+## Guide
 
 ### Registering workflows
 
