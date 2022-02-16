@@ -19,7 +19,8 @@ type WorkflowTester interface {
 	Execute(args ...interface{}) error
 
 	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
-	// OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
+
+	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
 
 	// OnSignal() // TODO: Allow waiting
 
@@ -31,13 +32,18 @@ type WorkflowTester interface {
 }
 
 type workflowTester struct {
-	wf               workflow.Workflow
-	wfi              core.WorkflowInstance
-	e                workflow.WorkflowExecutor
-	registry         *workflow.Registry
+	// Workflow under test
+	wf  workflow.Workflow
+	wfi core.WorkflowInstance
+
+	e workflow.WorkflowExecutor
+
 	workflowFinished bool
-	result           interface{}
-	ma               *mock.Mock
+	workflowResult   interface{}
+
+	registry *workflow.Registry
+	ma       *mock.Mock
+	mw       *mock.Mock
 }
 
 func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
@@ -53,7 +59,9 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		wfi:      wfi,
 		e:        e,
 		registry: registry,
-		ma:       &mock.Mock{},
+
+		ma: &mock.Mock{},
+		mw: &mock.Mock{},
 	}
 
 	// Always register the workflow under test
@@ -65,6 +73,11 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
 	name := fn.Name(activity)
 	return wt.ma.On(name, args...)
+}
+
+func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
+	name := fn.Name(workflow)
+	return wt.mw.On(name, args...)
 }
 
 func (wt *workflowTester) Execute(args ...interface{}) error {
@@ -85,11 +98,24 @@ func (wt *workflowTester) Execute(args ...interface{}) error {
 			switch event.Type {
 			case history.EventType_WorkflowExecutionFinished:
 				wt.workflowFinished = true
-				wt.result = event.Attributes.(*history.ExecutionCompletedAttributes).Result
+				wt.workflowResult = event.Attributes.(*history.ExecutionCompletedAttributes).Result
 
 			case history.EventType_ActivityScheduled:
 				e := event.Attributes.(*history.ActivityScheduledAttributes)
 				result := wt.ma.MethodCalled(e.Name).Get(0) // TODO: Inputs
+				// TODO: Failures
+				r, _ := converter.DefaultConverter.To(result)
+				newEvents = append(newEvents, history.NewHistoryEvent(
+					history.EventType_ActivityCompleted,
+					event.EventID,
+					&history.ActivityCompletedAttributes{
+						Result: r,
+					},
+				))
+
+			case history.EventType_SubWorkflowScheduled:
+				e := event.Attributes.(*history.SubWorkflowScheduledAttributes)
+				result := wt.mw.MethodCalled(e.Name).Get(0) // TODO: Inputs
 				// TODO: Failures
 				r, _ := converter.DefaultConverter.To(result)
 				newEvents = append(newEvents, history.NewHistoryEvent(
