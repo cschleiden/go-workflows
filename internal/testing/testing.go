@@ -2,11 +2,14 @@ package testing
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 
 	margs "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/fn"
+	"github.com/cschleiden/go-dt/internal/payload"
 	"github.com/cschleiden/go-dt/internal/workflow"
 	"github.com/cschleiden/go-dt/pkg/core"
 	"github.com/cschleiden/go-dt/pkg/core/task"
@@ -16,7 +19,9 @@ import (
 )
 
 type WorkflowTester interface {
-	Execute(args ...interface{}) error
+	Execute(args ...interface{})
+
+	Registry() *workflow.Registry
 
 	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
 
@@ -27,6 +32,8 @@ type WorkflowTester interface {
 	// SignalWorkflow( /*TODO*/ )
 
 	WorkflowFinished() bool
+
+	WorkflowResult(vtpr interface{}, err *string)
 
 	AssertExpectations(t *testing.T)
 }
@@ -39,7 +46,8 @@ type workflowTester struct {
 	e workflow.WorkflowExecutor
 
 	workflowFinished bool
-	workflowResult   interface{}
+	workflowResult   payload.Payload
+	workflowErr      string
 
 	registry *workflow.Registry
 	ma       *mock.Mock
@@ -70,25 +78,32 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 	return wt
 }
 
+func (wt *workflowTester) Registry() *workflow.Registry {
+	return wt.registry
+}
+
 func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
+	wt.registry.RegisterActivity(activity)
+
 	name := fn.Name(activity)
 	return wt.ma.On(name, args...)
 }
 
 func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
+	wt.registry.RegisterWorkflow(workflow)
+
 	name := fn.Name(workflow)
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester) Execute(args ...interface{}) error {
+func (wt *workflowTester) Execute(args ...interface{}) {
 	task := getInitialWorkflowTask(wt.wfi, wt.wf, args...)
 
-	// TODO: Support continuing executions?
 	for !wt.workflowFinished {
+		// TODO: Handle workflow events
 		executedEvents, _ /*workflowEvents*/, err := wt.e.ExecuteTask(context.Background(), task)
 		if err != nil {
-			panic(err)
-			//return err
+			panic("Error while executing workflow" + err.Error())
 		}
 
 		// Process events for next task
@@ -99,32 +114,13 @@ func (wt *workflowTester) Execute(args ...interface{}) error {
 			case history.EventType_WorkflowExecutionFinished:
 				wt.workflowFinished = true
 				wt.workflowResult = event.Attributes.(*history.ExecutionCompletedAttributes).Result
+				wt.workflowErr = event.Attributes.(*history.ExecutionCompletedAttributes).Error
 
 			case history.EventType_ActivityScheduled:
-				e := event.Attributes.(*history.ActivityScheduledAttributes)
-				result := wt.ma.MethodCalled(e.Name).Get(0) // TODO: Inputs
-				// TODO: Failures
-				r, _ := converter.DefaultConverter.To(result)
-				newEvents = append(newEvents, history.NewHistoryEvent(
-					history.EventType_ActivityCompleted,
-					event.EventID,
-					&history.ActivityCompletedAttributes{
-						Result: r,
-					},
-				))
+				newEvents = append(newEvents, wt.getActivityResultEvent(event))
 
 			case history.EventType_SubWorkflowScheduled:
-				e := event.Attributes.(*history.SubWorkflowScheduledAttributes)
-				result := wt.mw.MethodCalled(e.Name).Get(0) // TODO: Inputs
-				// TODO: Failures
-				r, _ := converter.DefaultConverter.To(result)
-				newEvents = append(newEvents, history.NewHistoryEvent(
-					history.EventType_ActivityCompleted,
-					event.EventID,
-					&history.ActivityCompletedAttributes{
-						Result: r,
-					},
-				))
+				newEvents = append(newEvents, wt.getSubWorkflowResultEvent(event))
 			}
 
 			// TODO: Timers
@@ -132,19 +128,155 @@ func (wt *workflowTester) Execute(args ...interface{}) error {
 			// TODO: Signals?
 		}
 
+		// TODO: How does this work with timers?
+		if len(newEvents) == 0 && !wt.workflowFinished {
+			panic("No new events generated during workflow execution, workflow blocked?")
+		}
+
 		task = getNextWorkflowTask(wt.wfi, executedEvents, newEvents)
 	}
-
-	// TODO: Get and return workflow result
-	return nil
 }
 
 func (wt *workflowTester) WorkflowFinished() bool {
 	return wt.workflowFinished
 }
 
+func (wt *workflowTester) WorkflowResult(vtpr interface{}, err *string) {
+	if wt.workflowErr == "" {
+		if err := converter.DefaultConverter.From(wt.workflowResult, vtpr); err != nil {
+			panic("Could not convert result to provided type" + err.Error())
+		}
+	}
+
+	if err != nil {
+		*err = wt.workflowErr
+	}
+}
+
 func (wt *workflowTester) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
+}
+
+func (wt *workflowTester) getActivityResultEvent(event history.Event) history.Event {
+	e := event.Attributes.(*history.ActivityScheduledAttributes)
+
+	afn, err := wt.registry.GetActivity(e.Name)
+	if err != nil {
+		panic("Could not find activity " + e.Name + " in registry")
+	}
+
+	argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(afn), e.Inputs)
+	if err != nil {
+		panic("Could not convert activity inputs to args: " + err.Error())
+	}
+
+	args := make([]interface{}, len(argValues))
+	for i, arg := range argValues {
+		if i == 0 && addContext {
+			args[i] = context.Background()
+			continue
+		}
+
+		args[i] = arg.Interface()
+	}
+
+	results := wt.ma.MethodCalled(e.Name, args...)
+
+	var activityErr error
+	var activityResult interface{}
+
+	switch len(results) {
+
+	case 1:
+		// Expect only error
+		activityErr = results.Error(0)
+		activityResult = nil
+	case 2:
+		activityResult = results.Get(0)
+		activityErr = results.Error(1)
+	default:
+		panic(
+			fmt.Sprintf(
+				"Unexpected number of results returned for activity %v, expected 1 or 2, got %v",
+				e.Name,
+				len(results),
+			),
+		)
+	}
+
+	if activityErr != nil {
+		return history.NewHistoryEvent(
+			history.EventType_ActivityFailed,
+			event.EventID,
+			&history.ActivityFailedAttributes{
+				Reason: activityErr.Error(),
+			},
+		)
+	} else {
+		result, err := converter.DefaultConverter.To(activityResult)
+		if err != nil {
+			panic("Could not convert result for activity " + e.Name + ": " + err.Error())
+		}
+
+		return history.NewHistoryEvent(
+			history.EventType_ActivityCompleted,
+			event.EventID,
+			&history.ActivityCompletedAttributes{
+				Result: result,
+			},
+		)
+	}
+}
+
+func (wt *workflowTester) getSubWorkflowResultEvent(event history.Event) history.Event {
+	e := event.Attributes.(*history.SubWorkflowScheduledAttributes)
+
+	// TODO: This only allows mocking and not executing the workflow
+	results := wt.mw.MethodCalled(e.Name)
+
+	var workflowErr error
+	var workflowResult interface{}
+
+	switch len(results) {
+	case 1:
+		// Expect only error
+		workflowErr = results.Error(0)
+		workflowResult = nil
+	case 2:
+		workflowResult = results.Get(0)
+		workflowErr = results.Error(1)
+	default:
+		panic(
+			fmt.Sprintf(
+				"Unexpected number of results returned for workflow %v, expected 1 or 2, got %v",
+				e.Name,
+				len(results),
+			),
+		)
+	}
+
+	if workflowErr != nil {
+		return history.NewHistoryEvent(
+			history.EventType_SubWorkflowFailed,
+			event.EventID,
+			&history.SubWorkflowCompletedAttributes{
+				Error: workflowErr.Error(),
+			},
+		)
+	} else {
+		result, err := converter.DefaultConverter.To(workflowResult)
+		if err != nil {
+			panic("Could not convert result for workflow " + e.Name + ": " + err.Error())
+		}
+
+		return history.NewHistoryEvent(
+			history.EventType_SubWorkflowCompleted,
+			event.EventID,
+			&history.SubWorkflowCompletedAttributes{
+				Result: result,
+			},
+		)
+	}
 }
 
 func getInitialWorkflowTask(wfi core.WorkflowInstance, wf workflow.Workflow, args ...interface{}) *task.Workflow {

@@ -36,12 +36,12 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		return nil, errors.New("activity not a function")
 	}
 
-	args, err := args.InputsToArgs(converter.DefaultConverter, activityFn, a.Inputs)
+	args, addContext, err := args.InputsToArgs(converter.DefaultConverter, activityFn, a.Inputs)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert activity inputs")
 	}
 
-	if !args[0].IsValid() {
+	if addContext {
 		args[0] = reflect.ValueOf(ctx)
 	}
 

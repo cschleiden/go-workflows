@@ -24,7 +24,9 @@ func ArgsToInputs(c converter.Converter, args ...interface{}) ([]payload.Payload
 	return inputs, nil
 }
 
-func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payload) ([]reflect.Value, error) {
+func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payload) ([]reflect.Value, bool, error) {
+	addContext := false
+
 	activityFnT := fn.Type()
 
 	numArgs := activityFnT.NumIn()
@@ -36,13 +38,14 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 
 		// Insert context if requested
 		if i == 0 && (isOwnContext(argT) || isContext(argT)) {
+			addContext = true
 			continue
 		}
 
 		arg := reflect.New(argT).Interface()
 		err := c.From(inputs[input], arg)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not convert inputs")
+			return nil, false, errors.Wrap(err, "could not convert inputs")
 		}
 
 		args[i] = reflect.ValueOf(arg).Elem()
@@ -50,7 +53,7 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 		input++
 	}
 
-	return args, nil
+	return args, addContext, nil
 }
 
 func isOwnContext(inType reflect.Type) bool {
