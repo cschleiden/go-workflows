@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	wtesting "github.com/cschleiden/go-dt/pkg/testing"
+	wtesting "github.com/cschleiden/go-workflows/pkg/testing"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

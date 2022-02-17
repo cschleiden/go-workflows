@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-dt/pkg/workflow"
-	"github.com/cschleiden/go-dt/samples"
+	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/samples"
 )
 
 type Inputs struct {

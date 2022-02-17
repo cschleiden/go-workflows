@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-workflows/pkg/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
