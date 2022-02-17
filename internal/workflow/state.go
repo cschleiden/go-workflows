@@ -3,9 +3,9 @@ package workflow
 import (
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/internal/sync"
-	"github.com/cschleiden/go-dt/pkg/core"
+	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/pkg/core"
 )
 
 type key int

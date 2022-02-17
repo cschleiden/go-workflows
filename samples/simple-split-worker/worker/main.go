@@ -5,10 +5,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/mysql"
-	"github.com/cschleiden/go-dt/pkg/worker"
-	simple_split_worker "github.com/cschleiden/go-dt/samples/simple-split-worker"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/backend/mysql"
+	"github.com/cschleiden/go-workflows/pkg/worker"
+	simple_split_worker "github.com/cschleiden/go-workflows/samples/simple-split-worker"
 )
 
 func main() {

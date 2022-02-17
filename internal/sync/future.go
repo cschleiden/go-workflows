@@ -1,6 +1,6 @@
 package sync
 
-import "github.com/cschleiden/go-dt/internal/converter"
+import "github.com/cschleiden/go-workflows/internal/converter"
 
 type Future interface {
 	// Set stores the value and unblocks any waiting consumers

@@ -7,11 +7,11 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/sqlite"
-	"github.com/cschleiden/go-dt/pkg/client"
-	"github.com/cschleiden/go-dt/pkg/worker"
-	"github.com/cschleiden/go-dt/pkg/workflow"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/backend/sqlite"
+	"github.com/cschleiden/go-workflows/pkg/client"
+	"github.com/cschleiden/go-workflows/pkg/worker"
+	"github.com/cschleiden/go-workflows/pkg/workflow"
 	"github.com/google/uuid"
 	errs "github.com/pkg/errors"
 )

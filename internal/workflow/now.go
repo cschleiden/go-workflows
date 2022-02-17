@@ -3,7 +3,7 @@ package workflow
 import (
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 func SetTime(ctx sync.Context, t time.Time) {

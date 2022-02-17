@@ -7,10 +7,10 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/mysql"
-	"github.com/cschleiden/go-dt/pkg/worker"
-	scale "github.com/cschleiden/go-dt/samples/scale"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/backend/mysql"
+	"github.com/cschleiden/go-workflows/pkg/worker"
+	scale "github.com/cschleiden/go-workflows/samples/scale"
 )
 
 func main() {

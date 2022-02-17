@@ -1,8 +1,8 @@
 package task
 
 import (
-	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/cschleiden/go-workflows/pkg/core"
+	"github.com/cschleiden/go-workflows/pkg/history"
 )
 
 type Kind int

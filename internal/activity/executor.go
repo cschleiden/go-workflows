@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cschleiden/go-dt/internal/args"
-	"github.com/cschleiden/go-dt/internal/converter"
-	"github.com/cschleiden/go-dt/internal/payload"
-	"github.com/cschleiden/go-dt/internal/workflow"
-	"github.com/cschleiden/go-dt/pkg/core/task"
-	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/pkg/core/task"
+	"github.com/cschleiden/go-workflows/pkg/history"
 	"github.com/pkg/errors"
 )
 

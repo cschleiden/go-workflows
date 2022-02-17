@@ -3,8 +3,8 @@ package workflow
 import (
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {

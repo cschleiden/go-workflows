@@ -1,7 +1,7 @@
 package sync
 
 import (
-	"github.com/cschleiden/go-dt/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/pkg/errors"
 )
 

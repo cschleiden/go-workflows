@@ -1,7 +1,7 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 type Future = sync.Future

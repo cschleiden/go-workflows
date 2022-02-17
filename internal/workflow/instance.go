@@ -1,8 +1,8 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-dt/internal/sync"
-	"github.com/cschleiden/go-dt/pkg/core"
+	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/pkg/core"
 )
 
 func WorkflowInstance(ctx sync.Context) core.WorkflowInstance {

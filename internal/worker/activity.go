@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/activity"
-	"github.com/cschleiden/go-dt/internal/workflow"
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/core/task"
-	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/cschleiden/go-workflows/internal/activity"
+	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/core/task"
+	"github.com/cschleiden/go-workflows/pkg/history"
 )
 
 type ActivityWorker interface {

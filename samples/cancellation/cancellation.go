@@ -8,12 +8,12 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/mysql"
-	"github.com/cschleiden/go-dt/pkg/client"
-	"github.com/cschleiden/go-dt/pkg/worker"
-	"github.com/cschleiden/go-dt/pkg/workflow"
-	"github.com/cschleiden/go-dt/samples"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/backend/mysql"
+	"github.com/cschleiden/go-workflows/pkg/client"
+	"github.com/cschleiden/go-workflows/pkg/worker"
+	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/google/uuid"
 )
 

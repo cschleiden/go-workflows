@@ -1,11 +1,11 @@
 package workflow
 
 import (
-	a "github.com/cschleiden/go-dt/internal/args"
-	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/internal/converter"
-	"github.com/cschleiden/go-dt/internal/fn"
-	"github.com/cschleiden/go-dt/internal/sync"
+	a "github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/fn"
+	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/pkg/errors"
 )
 

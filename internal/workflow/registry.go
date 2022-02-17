@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/cschleiden/go-dt/internal/fn"
+	"github.com/cschleiden/go-workflows/internal/fn"
 )
 
 type Registry struct {

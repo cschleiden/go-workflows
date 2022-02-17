@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-dt/pkg/core"
+	"github.com/cschleiden/go-workflows/pkg/core"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/internal/converter"
-	"github.com/cschleiden/go-dt/internal/payload"
-	"github.com/cschleiden/go-dt/internal/sync"
-	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/core/task"
-	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/pkg/core"
+	"github.com/cschleiden/go-workflows/pkg/core/task"
+	"github.com/cschleiden/go-workflows/pkg/history"
 	"github.com/stretchr/testify/require"
 )
 

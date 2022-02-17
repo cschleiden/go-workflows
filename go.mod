@@ -1,4 +1,4 @@
-module github.com/cschleiden/go-dt
+module github.com/cschleiden/go-workflows
 
 go 1.17
 

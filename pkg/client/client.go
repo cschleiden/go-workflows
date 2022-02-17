@@ -3,13 +3,13 @@ package client
 import (
 	"context"
 
-	a "github.com/cschleiden/go-dt/internal/args"
-	"github.com/cschleiden/go-dt/internal/converter"
-	"github.com/cschleiden/go-dt/internal/fn"
-	"github.com/cschleiden/go-dt/internal/workflow"
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/history"
+	a "github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/fn"
+	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/core"
+	"github.com/cschleiden/go-workflows/pkg/history"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )

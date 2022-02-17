@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	internal "github.com/cschleiden/go-dt/internal/worker"
-	"github.com/cschleiden/go-dt/internal/workflow"
-	"github.com/cschleiden/go-dt/pkg/backend"
+	internal "github.com/cschleiden/go-workflows/internal/worker"
+	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/pkg/backend"
 )
 
 type WorkflowRegistry interface {

@@ -1,9 +1,9 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-dt/internal/command"
-	"github.com/cschleiden/go-dt/internal/converter"
-	"github.com/cschleiden/go-dt/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Future {

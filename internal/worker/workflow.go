@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/workflow"
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/core"
-	"github.com/cschleiden/go-dt/pkg/core/task"
-	"github.com/cschleiden/go-dt/pkg/history"
+	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/core"
+	"github.com/cschleiden/go-workflows/pkg/core/task"
+	"github.com/cschleiden/go-workflows/pkg/history"
 	"github.com/pkg/errors"
 )
 

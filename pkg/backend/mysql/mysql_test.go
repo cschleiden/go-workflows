@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cschleiden/go-dt/pkg/backend"
-	"github.com/cschleiden/go-dt/pkg/backend/test"
+	"github.com/cschleiden/go-workflows/pkg/backend"
+	"github.com/cschleiden/go-workflows/pkg/backend/test"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )

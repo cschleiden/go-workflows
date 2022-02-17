@@ -3,7 +3,7 @@ package command
 import (
 	"time"
 
-	"github.com/cschleiden/go-dt/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/google/uuid"
 )
 

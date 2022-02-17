@@ -4,7 +4,7 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/cschleiden/go-dt/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
 type Converter interface {
