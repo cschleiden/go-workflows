@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"time"
-cschleiden/go-workflows
+
 	"github.com/cschleiden/go-workflows/pkg/backend"
 	"github.com/cschleiden/go-workflows/pkg/backend/sqlite"
 	"github.com/cschleiden/go-workflows/pkg/client"
