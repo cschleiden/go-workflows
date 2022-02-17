@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/benbjohnson/clock"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/pkg/backend"
@@ -65,7 +66,7 @@ func New(backend backend.Backend, options *Options) Worker {
 		wg:   &sync.WaitGroup{},
 
 		workflowWorker: internal.NewWorkflowWorker(backend, registry, options),
-		activityWorker: internal.NewActivityWorker(backend, registry, options),
+		activityWorker: internal.NewActivityWorker(backend, registry, clock.New(), options),
 
 		registry: registry,
 

@@ -98,22 +98,22 @@ func (e Event) String() string {
 	return strconv.Itoa(int(e.Type))
 }
 
-func NewHistoryEvent(eventType EventType, eventID int, attributes interface{}) Event {
+func NewHistoryEvent(timestamp time.Time, eventType EventType, eventID int, attributes interface{}) Event {
 	return Event{
 		ID:         uuid.NewString(),
 		Type:       eventType,
-		Timestamp:  time.Now().UTC(),
+		Timestamp:  timestamp,
 		EventID:    eventID,
 		Attributes: attributes,
 	}
 }
 
-func NewFutureHistoryEvent(eventType EventType, eventID int, attributes interface{}, visibleAt time.Time) Event {
-	event := NewHistoryEvent(eventType, eventID, attributes)
+func NewFutureHistoryEvent(timestamp time.Time, eventType EventType, eventID int, attributes interface{}, visibleAt time.Time) Event {
+	event := NewHistoryEvent(timestamp, eventType, eventID, attributes)
 	event.VisibleAt = &visibleAt
 	return event
 }
 
-func NewWorkflowCancellationEvent() Event {
-	return NewHistoryEvent(EventType_WorkflowExecutionCanceled, -1, &ExecutionCanceledAttributes{})
+func NewWorkflowCancellationEvent(timestamp time.Time) Event {
+	return NewHistoryEvent(timestamp, EventType_WorkflowExecutionCanceled, -1, &ExecutionCanceledAttributes{})
 }

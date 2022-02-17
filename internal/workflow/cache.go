@@ -53,7 +53,7 @@ func (c *workflowExecutorCache) Store(ctx context.Context, instance core.Workflo
 
 	c.cache[getKey(instance)] = &workflowExecutorCacheEntry{
 		executor:   executor,
-		lastAccess: time.Now().UTC(),
+		lastAccess: time.Now(),
 	}
 
 	return nil
@@ -64,7 +64,7 @@ func (c *workflowExecutorCache) Get(ctx context.Context, instance core.WorkflowI
 	defer c.mu.Unlock()
 
 	if entry, ok := c.cache[getKey(instance)]; ok {
-		entry.lastAccess = time.Now().UTC()
+		entry.lastAccess = time.Now()
 		return entry.executor, true, nil
 	}
 
@@ -77,7 +77,7 @@ func (c *workflowExecutorCache) StartEviction(ctx context.Context) {
 		case <-c.t.C:
 			c.mu.Lock()
 
-			cutoff := time.Now().UTC().Add(-c.options.CacheDuration)
+			cutoff := time.Now().Add(-c.options.CacheDuration)
 
 			// Check cache entries for eviction
 			for instance, entry := range c.cache {

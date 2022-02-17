@@ -72,7 +72,7 @@ func (s *BackendTestSuite) Test_CreateWorkflowInstance_DoesNotError() {
 
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), uuid.NewString()),
-		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
 }
@@ -83,7 +83,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_ReturnsTask() {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
 
@@ -100,7 +100,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_LocksTask() {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
 	s.Nil(err)
 
@@ -125,7 +125,7 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
 
@@ -137,9 +137,9 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 	ctx := context.Background()
 
-	startedEvent := history.NewHistoryEvent(history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{})
-	activityScheduledEvent := history.NewHistoryEvent(history.EventType_ActivityScheduled, 0, &history.ActivityScheduledAttributes{})
-	activityCompletedEvent := history.NewHistoryEvent(history.EventType_ActivityCompleted, 0, &history.ActivityCompletedAttributes{})
+	startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{})
+	activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, 0, &history.ActivityScheduledAttributes{})
+	activityCompletedEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityCompleted, 0, &history.ActivityCompletedAttributes{})
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
@@ -151,8 +151,8 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 	_, err = s.b.GetWorkflowTask(ctx)
 	s.NoError(err)
 
-	taskStartedEvent := history.NewHistoryEvent(history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})
-	taskFinishedEvent := history.NewHistoryEvent(history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{})
+	taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})
+	taskFinishedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{})
 	events := []history.Event{
 		taskStartedEvent,
 		startedEvent,

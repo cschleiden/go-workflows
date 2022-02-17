@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/pkg/backend"
@@ -29,9 +30,11 @@ type activityWorker struct {
 	logger *log.Logger
 
 	wg *sync.WaitGroup
+
+	clock clock.Clock
 }
 
-func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, options *Options) ActivityWorker {
+func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) ActivityWorker {
 	return &activityWorker{
 		backend: backend,
 
@@ -43,6 +46,8 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, opt
 		logger: log.Default(),
 
 		wg: &sync.WaitGroup{},
+
+		clock: clock,
 	}
 }
 
@@ -136,6 +141,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 
 	if err != nil {
 		event = history.NewHistoryEvent(
+			aw.clock.Now(),
 			history.EventType_ActivityFailed,
 			task.Event.EventID,
 			&history.ActivityFailedAttributes{
@@ -143,6 +149,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 			})
 	} else {
 		event = history.NewHistoryEvent(
+			aw.clock.Now(),
 			history.EventType_ActivityCompleted,
 			task.Event.EventID,
 			&history.ActivityCompletedAttributes{

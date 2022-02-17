@@ -8,6 +8,7 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
@@ -30,12 +31,13 @@ type executor struct {
 	workflowState     *workflowState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
+	clock             clock.Clock
 	logger            *log.Logger
 	lastEventID       string // TODO: Not the same as the sequence number Event ID
 }
 
-func NewExecutor(registry *Registry, instance core.WorkflowInstance) (WorkflowExecutor, error) {
-	state := newWorkflowState(instance)
+func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+	state := newWorkflowState(instance, clock)
 	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
 
 	return &executor{
@@ -43,6 +45,7 @@ func NewExecutor(registry *Registry, instance core.WorkflowInstance) (WorkflowEx
 		workflowState:     state,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
+		clock:             clock,
 		logger:            log.New(io.Discard, "", log.LstdFlags),
 		//logger: log.Default(),
 	}, nil
@@ -69,7 +72,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	}
 
 	// Always pad the received events with WorkflowTaskStarted/Finished events to indicate the execution
-	events := []history.Event{history.NewHistoryEvent(history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})}
+	events := []history.Event{history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})}
 	events = append(events, t.NewEvents...)
 
 	// Execute new events received from the backend
@@ -84,7 +87,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	events = append(events, newCommandEvents...)
 
 	// Execution of this task is finished, add event to history
-	events = append(events, history.NewHistoryEvent(history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
+	events = append(events, history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
 
 	e.lastEventID = events[len(events)-1].ID
 
@@ -332,6 +335,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_ActivityScheduled,
 				c.ID,
 				&history.ActivityScheduledAttributes{
@@ -346,6 +350,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_SubWorkflowScheduled,
 				c.ID,
 				&history.SubWorkflowScheduledAttributes{
@@ -359,6 +364,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
+					e.clock.Now(),
 					history.EventType_WorkflowExecutionStarted,
 					c.ID,
 					&history.ExecutionStartedAttributes{
@@ -371,6 +377,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 		case command.CommandType_SideEffect:
 			a := c.Attr.(*command.SideEffectCommandAttr)
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_SideEffectResult,
 				c.ID,
 				&history.SideEffectResultAttributes{
@@ -382,6 +389,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_TimerScheduled,
 				c.ID,
 				&history.TimerScheduledAttributes{
@@ -393,6 +401,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: instance,
 				HistoryEvent: history.NewFutureHistoryEvent(
+					e.clock.Now(),
 					history.EventType_TimerFired,
 					c.ID,
 					&history.TimerFiredAttributes{
@@ -406,6 +415,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_WorkflowExecutionFinished,
 				c.ID,
 				&history.ExecutionCompletedAttributes{
@@ -419,6 +429,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 				workflowEvents = append(workflowEvents, core.WorkflowEvent{
 					WorkflowInstance: instance.ParentInstance(),
 					HistoryEvent: history.NewHistoryEvent(
+						e.clock.Now(),
 						history.EventType_SubWorkflowCompleted,
 						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{

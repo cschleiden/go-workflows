@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"time"
 
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/converter"
@@ -43,6 +44,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	}
 
 	startedEvent := history.NewHistoryEvent(
+		time.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		-1,
 		&history.ExecutionStartedAttributes{
@@ -75,6 +77,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 	}
 
 	event := history.NewHistoryEvent(
+		time.Now(),
 		history.EventType_SignalReceived,
 		-1,
 		&history.SignalReceivedAttributes{

@@ -116,7 +116,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance co
 	instanceID := instance.GetInstanceID()
 
 	// Cancel workflow instance
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
 		return errors.Wrap(err, "could not insert cancellation event")
 	}
 
@@ -135,7 +135,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance co
 		}
 
 		// Cancel sub-workflow instance
-		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
+		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
 			return errors.Wrap(err, "could not insert cancellation event")
 		}
 
@@ -168,7 +168,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	// Lock next workflow task by finding an unlocked instance with new events to process
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
-	now := time.Now().UTC()
+	now := time.Now()
 	row := tx.QueryRowContext(
 		ctx,
 		`UPDATE instances
@@ -285,7 +285,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	if res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = NULL, sticky_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
-		time.Now().UTC().Add(sb.options.StickyTimeout),
+		time.Now().Add(sb.options.StickyTimeout),
 		instance.GetInstanceID(),
 		instance.GetExecutionID(),
 		sb.workerName,
@@ -362,7 +362,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		if _, err := tx.ExecContext(
 			ctx,
 			"UPDATE instances SET completed_at = ? WHERE id = ? AND execution_id = ?",
-			time.Now().UTC(),
+			time.Now(),
 			instance.GetInstanceID(),
 			instance.GetExecutionID(),
 		); err != nil {
@@ -380,7 +380,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance core.W
 	}
 	defer tx.Rollback()
 
-	until := time.Now().UTC().Add(sb.options.WorkflowLockTimeout)
+	until := time.Now().Add(sb.options.WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
@@ -411,7 +411,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 
 	// Lock next activity
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
-	now := time.Now().UTC()
+	now := time.Now()
 	row, err := tx.QueryContext(
 		ctx,
 		`UPDATE activities
@@ -497,7 +497,7 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 	}
 	defer tx.Rollback()
 
-	until := time.Now().UTC().Add(sb.options.ActivityLockTimeout)
+	until := time.Now().Add(sb.options.ActivityLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE id = ? AND worker = ?`,
