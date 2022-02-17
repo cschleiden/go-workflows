@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-dt/internal/activity"
 	margs "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
@@ -55,6 +56,8 @@ type workflowTester struct {
 	ma               *mock.Mock
 	mockedActivities map[string]bool
 	mw               *mock.Mock
+
+	clock *clock.Mock
 }
 
 func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
@@ -74,6 +77,8 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		ma:               &mock.Mock{},
 		mockedActivities: make(map[string]bool),
 		mw:               &mock.Mock{},
+
+		clock: clock.NewMock(),
 	}
 
 	// Always register the workflow under test
@@ -104,7 +109,7 @@ func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...inte
 }
 
 func (wt *workflowTester) Execute(args ...interface{}) {
-	task := getInitialWorkflowTask(wt.wfi, wt.wf, args...)
+	task := wt.getInitialWorkflowTask(wt.wfi, wt.wf, args...)
 
 	for !wt.workflowFinished {
 		// TODO: Handle workflow events
@@ -313,7 +318,7 @@ func (wt *workflowTester) getSubWorkflowResultEvent(event history.Event) history
 	}
 }
 
-func getInitialWorkflowTask(wfi core.WorkflowInstance, wf workflow.Workflow, args ...interface{}) *task.Workflow {
+func (wt *workflowTester) getInitialWorkflowTask(wfi core.WorkflowInstance, wf workflow.Workflow, args ...interface{}) *task.Workflow {
 	name := fn.Name(wf)
 
 	inputs, err := margs.ArgsToInputs(converter.DefaultConverter, args...)
@@ -321,18 +326,20 @@ func getInitialWorkflowTask(wfi core.WorkflowInstance, wf workflow.Workflow, arg
 		panic(err)
 	}
 
+	event := history.NewHistoryEvent(
+		history.EventType_WorkflowExecutionStarted,
+		-1,
+		&history.ExecutionStartedAttributes{
+			Name:   name,
+			Inputs: inputs,
+		},
+	)
+
+	event.Timestamp = wt.clock.Now()
+
 	return &task.Workflow{
 		WorkflowInstance: wfi,
-		History: []history.Event{
-			history.NewHistoryEvent(
-				history.EventType_WorkflowExecutionStarted,
-				-1,
-				&history.ExecutionStartedAttributes{
-					Name:   name,
-					Inputs: inputs,
-				},
-			),
-		},
+		History:          []history.Event{event},
 	}
 }
 

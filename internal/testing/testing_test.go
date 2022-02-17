@@ -3,14 +3,16 @@ package testing
 import (
 	"context"
 	"errors"
+	"log"
 	"testing"
+	"time"
 
 	"github.com/cschleiden/go-dt/pkg/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_ExecuteWorkflow(t *testing.T) {
+func Test_Workflow(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithoutActivity)
 
 	tester.Execute()
@@ -22,7 +24,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_ExecuteWorkflowWithActivity(t *testing.T) {
+func Test_WorkflowWithActivity(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
@@ -36,7 +38,7 @@ func Test_ExecuteWorkflowWithActivity(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_ExecuteWorkflowWithFailingActivity(t *testing.T) {
+func Test_WorkflowWithFailingActivity(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error"))
@@ -52,7 +54,7 @@ func Test_ExecuteWorkflowWithFailingActivity(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_ExecuteWorkflowWithInvalidActivityMock(t *testing.T) {
+func Test_WorkflowWithInvalidActivityMock(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	tester.OnActivity(activity1, mock.Anything).Return(1, 2, 3)
@@ -65,7 +67,7 @@ func Test_ExecuteWorkflowWithInvalidActivityMock(t *testing.T) {
 		})
 }
 
-func Test_ExecuteWorkflowWithActivity_Retries(t *testing.T) {
+func Test_WorkflowWithActivity_Retries(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	// Return two errors
@@ -79,7 +81,7 @@ func Test_ExecuteWorkflowWithActivity_Retries(t *testing.T) {
 	require.Equal(t, 42, r)
 }
 
-func Test_ExecuteWorkflowWithActivity_WithoutMock(t *testing.T) {
+func Test_WorkflowWithActivity_WithoutMock(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	tester.Registry().RegisterActivity(activity1)
@@ -109,4 +111,22 @@ func workflowWithActivity(ctx workflow.Context) (int, error) {
 
 func activity1(ctx context.Context) (int, error) {
 	panic("should not be called")
+}
+
+func Test_WorkflowWithTimer(t *testing.T) {
+	tester := NewWorkflowTester(workflowWithTimer)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+}
+
+func workflowWithTimer(ctx workflow.Context) error {
+	log.Println("workflowWithTimer-Before", workflow.Now(ctx))
+
+	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx, nil)
+
+	log.Println("workflowWithTimer-After", workflow.Now(ctx))
+
+	return nil
 }
