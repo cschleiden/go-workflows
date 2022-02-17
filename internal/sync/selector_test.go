@@ -79,14 +79,13 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 	require.False(t, reachedEnd)
 
 	f.Set(42, nil)
-
 	f2.Set(23, nil)
 
 	cs.Execute()
 
 	require.True(t, cs.Finished())
 	require.True(t, reachedEnd)
-	require.Equal(t, []int{42, 23}, order)
+	require.Equal(t, []int{42, 42}, order)
 }
 
 func Test_FutureSelector_DefaultCase(t *testing.T) {
