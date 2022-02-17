@@ -70,6 +70,8 @@ type workflowTester struct {
 
 func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 	clock := clock.NewMock()
+	clock.Set(time.Now())
+
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	registry := workflow.NewRegistry()
 	e, err := workflow.NewExecutor(registry, wfi, clock)
@@ -372,11 +374,10 @@ func (wt *workflowTester) getInitialWorkflowTask(wfi core.WorkflowInstance, wf w
 		},
 	)
 
-	event.Timestamp = wt.clock.Now()
-
 	return &task.Workflow{
 		WorkflowInstance: wfi,
-		History:          []history.Event{event},
+		History:          []history.Event{},
+		NewEvents:        []history.Event{event},
 	}
 }
 
