@@ -119,14 +119,31 @@ func Test_WorkflowWithTimer(t *testing.T) {
 	tester.Execute()
 
 	require.True(t, tester.WorkflowFinished())
+	var wr timerResult
+	tester.WorkflowResult(&wr, nil)
+	require.Equal(t, wr.T1.Add(30*time.Second), wr.T2)
 }
 
-func workflowWithTimer(ctx workflow.Context) error {
+type timerResult struct {
+	T1 time.Time
+	T2 time.Time
+}
+
+func workflowWithTimer(ctx workflow.Context) (timerResult, error) {
 	log.Println("workflowWithTimer-Before", workflow.Now(ctx))
+
+	t1 := workflow.Now(ctx)
 
 	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx, nil)
 
 	log.Println("workflowWithTimer-After", workflow.Now(ctx))
 
-	return nil
+	t2 := workflow.Now(ctx)
+
+	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx, nil)
+
+	return timerResult{
+		T1: t1,
+		T2: t2,
+	}, nil
 }
