@@ -24,6 +24,10 @@ type futureImpl struct {
 }
 
 func (f *futureImpl) Set(v interface{}, err error) {
+	if f.hasValue {
+		panic("future already set")
+	}
+
 	f.v = v
 	f.err = err
 	f.hasValue = true

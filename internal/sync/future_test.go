@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Yields(t *testing.T) {
+func Test_FutureYields(t *testing.T) {
 	f := NewFuture()
 
 	c := NewCoroutine(Background(), func(ctx Context) error {
@@ -24,7 +24,17 @@ func Test_Yields(t *testing.T) {
 	require.True(t, c.Blocked())
 }
 
-func Test_SetUnblocks(t *testing.T) {
+func Test_FutureSetPanicsWhenSetTwice(t *testing.T) {
+	f := NewFuture()
+
+	f.Set(42, nil)
+
+	require.Panics(t, func() {
+		f.Set(42, nil)
+	})
+}
+
+func Test_FutureSetUnblocks(t *testing.T) {
 	f := NewFuture()
 
 	var v int
@@ -56,7 +66,7 @@ func Test_SetUnblocks(t *testing.T) {
 	require.Equal(t, 42, v)
 }
 
-func Test_GetNil(t *testing.T) {
+func Test_FutureGetNil(t *testing.T) {
 	ctx := Background()
 	f := NewFuture()
 
@@ -74,7 +84,7 @@ func Test_GetNil(t *testing.T) {
 	require.True(t, c.Finished())
 }
 
-func Test_SetNil(t *testing.T) {
+func Test_FutureSetNil(t *testing.T) {
 	ctx := Background()
 	f := NewFuture()
 
@@ -94,7 +104,7 @@ func Test_SetNil(t *testing.T) {
 	require.True(t, c.Finished())
 }
 
-func Test_GetError(t *testing.T) {
+func Test_FutureGetError(t *testing.T) {
 	ctx := Background()
 	f := NewFuture()
 
