@@ -3,7 +3,6 @@ package testing
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/cschleiden/go-dt/pkg/workflow"
@@ -49,7 +48,7 @@ func Test_ExecuteWorkflowWithFailingActivity(t *testing.T) {
 	var werr string
 	tester.WorkflowResult(&wr, &werr)
 	require.Equal(t, 0, wr)
-	require.Equal(t, "", werr)
+	require.Equal(t, "error", werr)
 	tester.AssertExpectations(t)
 }
 
@@ -60,7 +59,7 @@ func Test_ExecuteWorkflowWithInvalidActivityMock(t *testing.T) {
 
 	require.PanicsWithValue(
 		t,
-		"Unexpected number of results returned for activity Activity1, expected 1 or 2, got 3",
+		"Unexpected number of results returned for mocked activity Activity1, expected 1 or 2, got 3",
 		func() {
 			tester.Execute()
 		})
@@ -69,13 +68,15 @@ func Test_ExecuteWorkflowWithInvalidActivityMock(t *testing.T) {
 func Test_ExecuteWorkflowWithActivity_Retries(t *testing.T) {
 	tester := NewWorkflowTester(WorkflowWithActivity)
 
-	tester.OnActivity(Activity1, mock.Anything).Return(0, errors.New("error")).Twice()
+	// Return two errors
+	tester.OnActivity(Activity1, mock.Anything).Return(0, errors.New("error")).Once()
+	tester.OnActivity(Activity1, mock.Anything).Return(42, nil)
 
 	tester.Execute()
 
-	var werr string
-	tester.WorkflowResult(nil, &werr)
-	require.Equal(t, "error", werr)
+	var r int
+	tester.WorkflowResult(&r, nil)
+	require.Equal(t, 42, r)
 }
 
 func Test_ExecuteWorkflowWithActivity_WithoutMock(t *testing.T) {
@@ -102,8 +103,6 @@ func WorkflowWithActivity(ctx workflow.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	fmt.Println(r)
 
 	return r, nil
 }

@@ -3,9 +3,11 @@ package testing
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 
+	"github.com/cschleiden/go-dt/internal/activity"
 	margs "github.com/cschleiden/go-dt/internal/args"
 	"github.com/cschleiden/go-dt/internal/converter"
 	"github.com/cschleiden/go-dt/internal/fn"
@@ -49,9 +51,10 @@ type workflowTester struct {
 	workflowResult   payload.Payload
 	workflowErr      string
 
-	registry *workflow.Registry
-	ma       *mock.Mock
-	mw       *mock.Mock
+	registry         *workflow.Registry
+	ma               *mock.Mock
+	mockedActivities map[string]bool
+	mw               *mock.Mock
 }
 
 func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
@@ -68,8 +71,9 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		e:        e,
 		registry: registry,
 
-		ma: &mock.Mock{},
-		mw: &mock.Mock{},
+		ma:               &mock.Mock{},
+		mockedActivities: make(map[string]bool),
+		mw:               &mock.Mock{},
 	}
 
 	// Always register the workflow under test
@@ -83,10 +87,13 @@ func (wt *workflowTester) Registry() *workflow.Registry {
 }
 
 func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
+	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
 
 	name := fn.Name(activity)
-	return wt.ma.On(name, args...)
+	call := wt.ma.On(name, args...)
+	wt.mockedActivities[name] = true
+	return call
 }
 
 func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
@@ -117,11 +124,16 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 				wt.workflowErr = event.Attributes.(*history.ExecutionCompletedAttributes).Error
 
 			case history.EventType_ActivityScheduled:
-				newEvents = append(newEvents, wt.getActivityResultEvent(event))
+				newEvents = append(newEvents, wt.getActivityResultEvent(task.WorkflowInstance, event))
 
 			case history.EventType_SubWorkflowScheduled:
 				newEvents = append(newEvents, wt.getSubWorkflowResultEvent(event))
+
+			case history.EventType_TimerScheduled:
+				newEvents = append(newEvents, wt.getTimerResultEvent(event))
 			}
+
+			log.Println(event.Type.String())
 
 			// TODO: Timers
 			// TODO: SubWorkflows
@@ -157,51 +169,61 @@ func (wt *workflowTester) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester) getActivityResultEvent(event history.Event) history.Event {
+func (wt *workflowTester) getActivityResultEvent(wfi core.WorkflowInstance, event history.Event) history.Event {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
-
-	afn, err := wt.registry.GetActivity(e.Name)
-	if err != nil {
-		panic("Could not find activity " + e.Name + " in registry")
-	}
-
-	argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(afn), e.Inputs)
-	if err != nil {
-		panic("Could not convert activity inputs to args: " + err.Error())
-	}
-
-	args := make([]interface{}, len(argValues))
-	for i, arg := range argValues {
-		if i == 0 && addContext {
-			args[i] = context.Background()
-			continue
-		}
-
-		args[i] = arg.Interface()
-	}
-
-	results := wt.ma.MethodCalled(e.Name, args...)
 
 	var activityErr error
 	var activityResult interface{}
 
-	switch len(results) {
+	// Execute mocked activity. If an activity is mocked once, we'll never fall back to the original implementation
+	if wt.mockedActivities[e.Name] {
+		afn, err := wt.registry.GetActivity(e.Name)
+		if err != nil {
+			panic("Could not find activity " + e.Name + " in registry")
+		}
 
-	case 1:
-		// Expect only error
-		activityErr = results.Error(0)
-		activityResult = nil
-	case 2:
-		activityResult = results.Get(0)
-		activityErr = results.Error(1)
-	default:
-		panic(
-			fmt.Sprintf(
-				"Unexpected number of results returned for activity %v, expected 1 or 2, got %v",
-				e.Name,
-				len(results),
-			),
-		)
+		argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(afn), e.Inputs)
+		if err != nil {
+			panic("Could not convert activity inputs to args: " + err.Error())
+		}
+
+		args := make([]interface{}, len(argValues))
+		for i, arg := range argValues {
+			if i == 0 && addContext {
+				args[i] = context.Background()
+				continue
+			}
+
+			args[i] = arg.Interface()
+		}
+
+		results := wt.ma.MethodCalled(e.Name, args...)
+
+		switch len(results) {
+		case 1:
+			// Expect only error
+			activityErr = results.Error(0)
+			activityResult = nil
+		case 2:
+			activityResult = results.Get(0)
+			activityErr = results.Error(1)
+		default:
+			panic(
+				fmt.Sprintf(
+					"Unexpected number of results returned for mocked activity %v, expected 1 or 2, got %v",
+					e.Name,
+					len(results),
+				),
+			)
+		}
+	} else {
+		// Execute real activity
+		executor := activity.NewExecutor(wt.registry)
+		activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
+			ID:               uuid.NewString(),
+			WorkflowInstance: wfi,
+			Event:            event,
+		})
 	}
 
 	if activityErr != nil {
@@ -228,10 +250,22 @@ func (wt *workflowTester) getActivityResultEvent(event history.Event) history.Ev
 	}
 }
 
+func (wt *workflowTester) getTimerResultEvent(event history.Event) history.Event {
+	e := event.Attributes.(*history.TimerScheduledAttributes)
+
+	// TOOD: Implement support for timers
+	return history.NewFutureHistoryEvent(
+		history.EventType_TimerFired,
+		event.EventID,
+		&history.TimerFiredAttributes{},
+		e.At,
+	)
+}
+
 func (wt *workflowTester) getSubWorkflowResultEvent(event history.Event) history.Event {
 	e := event.Attributes.(*history.SubWorkflowScheduledAttributes)
 
-	// TODO: This only allows mocking and not executing the workflow
+	// TODO: This only allows mocking and not executing the actual workflow
 	results := wt.mw.MethodCalled(e.Name)
 
 	var workflowErr error
