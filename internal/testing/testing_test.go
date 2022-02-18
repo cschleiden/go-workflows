@@ -27,7 +27,7 @@ func Test_Workflow(t *testing.T) {
 func Test_WorkflowWithActivity(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
+	tester.OnActivity(activityPanics, mock.Anything).Return(42, nil)
 
 	tester.Execute()
 
@@ -41,7 +41,7 @@ func Test_WorkflowWithActivity(t *testing.T) {
 func Test_WorkflowWithFailingActivity(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error"))
+	tester.OnActivity(activityPanics, mock.Anything).Return(0, errors.New("error"))
 
 	tester.Execute()
 
@@ -57,11 +57,11 @@ func Test_WorkflowWithFailingActivity(t *testing.T) {
 func Test_WorkflowWithInvalidActivityMock(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.OnActivity(activity1, mock.Anything).Return(1, 2, 3)
+	tester.OnActivity(activityPanics, mock.Anything).Return(1, 2, 3)
 
 	require.PanicsWithValue(
 		t,
-		"Unexpected number of results returned for mocked activity activity1, expected 1 or 2, got 3",
+		"Unexpected number of results returned for mocked activity activityPanics, expected 1 or 2, got 3",
 		func() {
 			tester.Execute()
 		})
@@ -71,8 +71,8 @@ func Test_WorkflowWithActivity_Retries(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	// Return two errors
-	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error")).Once()
-	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
+	tester.OnActivity(activityPanics, mock.Anything).Return(0, errors.New("error")).Once()
+	tester.OnActivity(activityPanics, mock.Anything).Return(42, nil)
 
 	tester.Execute()
 
@@ -84,7 +84,7 @@ func Test_WorkflowWithActivity_Retries(t *testing.T) {
 func Test_WorkflowWithActivity_WithoutMock(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.Registry().RegisterActivity(activity1)
+	tester.Registry().RegisterActivity(activityPanics)
 
 	require.PanicsWithValue(t, "should not be called", func() {
 		tester.Execute()
@@ -101,7 +101,7 @@ func workflowWithActivity(ctx workflow.Context) (int, error) {
 		RetryOptions: workflow.RetryOptions{
 			MaxAttempts: 2,
 		},
-	}, activity1).Get(ctx, &r)
+	}, activityPanics).Get(ctx, &r)
 	if err != nil {
 		return 0, err
 	}
@@ -109,7 +109,7 @@ func workflowWithActivity(ctx workflow.Context) (int, error) {
 	return r, nil
 }
 
-func activity1(ctx context.Context) (int, error) {
+func activityPanics(ctx context.Context) (int, error) {
 	panic("should not be called")
 }
 
