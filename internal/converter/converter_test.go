@@ -2,6 +2,7 @@ package converter
 
 import (
 	"testing"
+	"time"
 
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/stretchr/testify/require"
@@ -37,4 +38,14 @@ func TestAssignValue_Zero(t *testing.T) {
 	b = true
 	AssignValue(DefaultConverter, v, &b)
 	require.False(t, b)
+}
+
+func TestAssignValue_Time(t *testing.T) {
+	i := time.Now()
+	payload, _ := DefaultConverter.To(i)
+	var r time.Time
+
+	AssignValue(DefaultConverter, payload, &r)
+
+	require.True(t, i.Equal(r))
 }

@@ -23,6 +23,9 @@ import (
 )
 
 type WorkflowTester interface {
+	// Now returns the current time of the simulated clock in the tester
+	Now() time.Time
+
 	Execute(args ...interface{})
 
 	Registry() *workflow.Registry
@@ -98,6 +101,10 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 	wt.registry.RegisterWorkflow(wf)
 
 	return wt
+}
+
+func (wt *workflowTester) Now() time.Time {
+	return wt.clock.Now()
 }
 
 func (wt *workflowTester) Registry() *workflow.Registry {

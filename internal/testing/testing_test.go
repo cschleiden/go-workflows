@@ -115,13 +115,17 @@ func activityPanics(ctx context.Context) (int, error) {
 
 func Test_WorkflowWithTimer(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithTimer)
+	start := tester.Now()
 
 	tester.Execute()
 
 	require.True(t, tester.WorkflowFinished())
 	var wr timerResult
 	tester.WorkflowResult(&wr, nil)
-	require.Equal(t, wr.T1.Add(30*time.Second), wr.T2)
+	require.True(t, start.Equal(wr.T1))
+
+	e := start.Add(30 * time.Second)
+	require.True(t, e.Equal(wr.T2), "expected %v, got %v", e, wr.T2)
 }
 
 type timerResult struct {
@@ -146,4 +150,31 @@ func workflowWithTimer(ctx workflow.Context) (timerResult, error) {
 		T1: t1,
 		T2: t2,
 	}, nil
+}
+
+func Test_WorkflowWithTimerCancellation(t *testing.T) {
+	tester := NewWorkflowTester(workflowWithCancellation)
+	start := tester.Now()
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+
+	var wfR time.Time
+	tester.WorkflowResult(&wfR, nil)
+	require.True(t, start.Equal(wfR), "expected %v, got %v", start, wfR)
+}
+
+func workflowWithCancellation(ctx workflow.Context) (time.Time, error) {
+	tctx, cancel := workflow.WithCancel(ctx)
+	t := workflow.ScheduleTimer(tctx, 30*time.Second)
+	cancel()
+
+	s := workflow.NewSelector()
+	s.AddFuture(t, func(ctx workflow.Context, t workflow.Future) {
+		t.Get(ctx, nil)
+	})
+	s.Select(ctx)
+
+	return workflow.Now(ctx), nil
 }
