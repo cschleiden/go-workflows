@@ -24,10 +24,25 @@ func Test_Workflow(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_WorkflowWithActivity(t *testing.T) {
+func Test_WorkflowBlocked(t *testing.T) {
+	tester := NewWorkflowTester(workflowBlocked)
+
+	require.Panics(t, func() {
+		tester.Execute()
+	})
+}
+
+func workflowBlocked(ctx workflow.Context) error {
+	var f workflow.Future
+	f.Get(ctx, nil)
+
+	return nil
+}
+
+func Test_Activity(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.OnActivity(activityPanics, mock.Anything).Return(42, nil)
+	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
 
 	tester.Execute()
 
@@ -38,10 +53,10 @@ func Test_WorkflowWithActivity(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_WorkflowWithFailingActivity(t *testing.T) {
+func Test_FailingActivity(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.OnActivity(activityPanics, mock.Anything).Return(0, errors.New("error"))
+	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error"))
 
 	tester.Execute()
 
@@ -54,25 +69,25 @@ func Test_WorkflowWithFailingActivity(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_WorkflowWithInvalidActivityMock(t *testing.T) {
-	tester := NewWorkflowTester(workflowWithActivity)
+// func Test_InvalidActivityMock(t *testing.T) {
+// 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.OnActivity(activityPanics, mock.Anything).Return(1, 2, 3)
+// 	tester.OnActivity(activityPanics, mock.Anything).Return(1, 2, 3)
 
-	require.PanicsWithValue(
-		t,
-		"Unexpected number of results returned for mocked activity activityPanics, expected 1 or 2, got 3",
-		func() {
-			tester.Execute()
-		})
-}
+// 	require.PanicsWithValue(
+// 		t,
+// 		"Unexpected number of results returned for mocked activity activityPanics, expected 1 or 2, got 3",
+// 		func() {
+// 			tester.Execute()
+// 		})
+// }
 
-func Test_WorkflowWithActivity_Retries(t *testing.T) {
+func Test_Activity_Retries(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
 	// Return two errors
-	tester.OnActivity(activityPanics, mock.Anything).Return(0, errors.New("error")).Once()
-	tester.OnActivity(activityPanics, mock.Anything).Return(42, nil)
+	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error")).Once()
+	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
 
 	tester.Execute()
 
@@ -81,14 +96,20 @@ func Test_WorkflowWithActivity_Retries(t *testing.T) {
 	require.Equal(t, 42, r)
 }
 
-func Test_WorkflowWithActivity_WithoutMock(t *testing.T) {
+func Test_Activity_WithoutMock(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithActivity)
 
-	tester.Registry().RegisterActivity(activityPanics)
+	tester.Registry().RegisterActivity(activity1)
 
-	require.PanicsWithValue(t, "should not be called", func() {
-		tester.Execute()
-	})
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	var r int
+	var errStr string
+	tester.WorkflowResult(&r, &errStr)
+	require.Zero(t, errStr)
+	require.Equal(t, 23, r)
+	tester.AssertExpectations(t)
 }
 
 func workflowWithoutActivity(ctx workflow.Context) (int, error) {
@@ -101,7 +122,7 @@ func workflowWithActivity(ctx workflow.Context) (int, error) {
 		RetryOptions: workflow.RetryOptions{
 			MaxAttempts: 2,
 		},
-	}, activityPanics).Get(ctx, &r)
+	}, activity1).Get(ctx, &r)
 	if err != nil {
 		return 0, err
 	}
@@ -109,12 +130,33 @@ func workflowWithActivity(ctx workflow.Context) (int, error) {
 	return r, nil
 }
 
-func activityPanics(ctx context.Context) (int, error) {
-	panic("should not be called")
+func activity1(ctx context.Context) (int, error) {
+	return 23, nil
 }
 
-func Test_WorkflowWithTimer(t *testing.T) {
-	tester := NewWorkflowTester(workflowWithTimer)
+func Test_Activity_LongRunning(t *testing.T) {
+	tester := NewWorkflowTester(workflowLongRunningActivity)
+	tester.Registry().RegisterActivity(activityLongRunning)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+}
+
+func workflowLongRunningActivity(ctx workflow.Context) error {
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, activityLongRunning).Get(ctx, nil)
+
+	return nil
+}
+
+func activityLongRunning(ctx context.Context) (int, error) {
+	time.Sleep(3 * time.Second)
+
+	return 42, nil
+}
+
+func Test_Timer(t *testing.T) {
+	tester := NewWorkflowTester(workflowTimer)
 	start := tester.Now()
 
 	tester.Execute()
@@ -133,7 +175,7 @@ type timerResult struct {
 	T2 time.Time
 }
 
-func workflowWithTimer(ctx workflow.Context) (timerResult, error) {
+func workflowTimer(ctx workflow.Context) (timerResult, error) {
 	log.Println("workflowWithTimer-Before", workflow.Now(ctx))
 
 	t1 := workflow.Now(ctx)
@@ -152,8 +194,8 @@ func workflowWithTimer(ctx workflow.Context) (timerResult, error) {
 	}, nil
 }
 
-func Test_WorkflowWithTimerCancellation(t *testing.T) {
-	tester := NewWorkflowTester(workflowWithCancellation)
+func Test_TimerCancellation(t *testing.T) {
+	tester := NewWorkflowTester(workflowTimerCancellation)
 	start := tester.Now()
 
 	tester.Execute()
@@ -165,7 +207,7 @@ func Test_WorkflowWithTimerCancellation(t *testing.T) {
 	require.True(t, start.Equal(wfR), "expected %v, got %v", start, wfR)
 }
 
-func workflowWithCancellation(ctx workflow.Context) (time.Time, error) {
+func workflowTimerCancellation(ctx workflow.Context) (time.Time, error) {
 	tctx, cancel := workflow.WithCancel(ctx)
 	t := workflow.ScheduleTimer(tctx, 30*time.Second)
 	cancel()
@@ -177,4 +219,38 @@ func workflowWithCancellation(ctx workflow.Context) (time.Time, error) {
 	s.Select(ctx)
 
 	return workflow.Now(ctx), nil
+}
+
+func Test_Signals(t *testing.T) {
+	tester := NewWorkflowTester(workflowSignal)
+	tester.ScheduleCallback(time.Duration(5*time.Second), func() {
+		tester.SignalWorkflow("signal", "s42")
+	})
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+
+	var wfR string
+	tester.WorkflowResult(&wfR, nil)
+	require.Equal(t, wfR, "s42")
+	tester.AssertExpectations(t)
+}
+
+func workflowSignal(ctx workflow.Context) (string, error) {
+	sc := workflow.NewSignalChannel(ctx, "signal")
+
+	start := workflow.Now(ctx)
+
+	var val string
+	more := sc.Receive(ctx, &val)
+	if more != true {
+		panic("channel should not be closed")
+	}
+
+	if workflow.Now(ctx).Sub(start) != 5*time.Second {
+		return "", errors.New("delayed callback didn't fire at the right time")
+	}
+
+	return val, nil
 }

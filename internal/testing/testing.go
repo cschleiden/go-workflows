@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,26 +38,37 @@ type WorkflowTester interface {
 
 	// OnSignal() // TODO: Allow waiting
 
-	// SignalWorkflow( /*TODO*/ )
+	SignalWorkflow(signalName string, value interface{})
 
 	WorkflowFinished() bool
 
 	WorkflowResult(vtpr interface{}, err *string)
 
 	AssertExpectations(t *testing.T)
+
+	ScheduleCallback(delay time.Duration, callback func())
 }
 
 type testTimer struct {
-	At       time.Time
-	callback func() *history.Event
+	// At is the timer this timer is scheduled for. This will advance the mock clock
+	// to this timestamp
+	At time.Time
+
+	// Callback is called when the timer should fire. It can return a history event which
+	// will be added to the event history being executed.
+	Callback func()
+}
+
+type options struct {
+	TestTimeout time.Duration
 }
 
 type workflowTester struct {
+	options *options
+
 	// Workflow under test
 	wf  workflow.Workflow
 	wfi core.WorkflowInstance
-
-	e workflow.WorkflowExecutor
 
 	workflowFinished bool
 	workflowResult   payload.Payload
@@ -68,24 +81,27 @@ type workflowTester struct {
 
 	clock *clock.Mock
 
-	timers []*testTimer
+	timers    []*testTimer
+	callbacks chan func() *history.Event
+
+	runningActivities int32
 }
 
 func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
+	// Start with the current wall-clock tiem
 	clock := clock.NewMock()
 	clock.Set(time.Now())
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	registry := workflow.NewRegistry()
-	e, err := workflow.NewExecutor(registry, wfi, clock)
-	if err != nil {
-		panic("could not create workflow executor" + err.Error())
-	}
 
 	wt := &workflowTester{
+		options: &options{
+			TestTimeout: time.Second * 10,
+		},
+
 		wf:       wf,
 		wfi:      wfi,
-		e:        e,
 		registry: registry,
 
 		ma:               &mock.Mock{},
@@ -94,7 +110,8 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 
 		clock: clock,
 
-		timers: make([]*testTimer, 0),
+		timers:    make([]*testTimer, 0),
+		callbacks: make(chan func() *history.Event, 1024),
 	}
 
 	// Always register the workflow under test
@@ -111,6 +128,13 @@ func (wt *workflowTester) Registry() *workflow.Registry {
 	return wt.registry
 }
 
+func (wt *workflowTester) ScheduleCallback(delay time.Duration, callback func()) {
+	wt.timers = append(wt.timers, &testTimer{
+		At:       wt.clock.Now().Add(delay),
+		Callback: callback,
+	})
+}
+
 func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
@@ -118,6 +142,7 @@ func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interfa
 	name := fn.Name(activity)
 	call := wt.ma.On(name, args...)
 	wt.mockedActivities[name] = true
+	call.Return(nil)
 	return call
 }
 
@@ -131,9 +156,16 @@ func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...inte
 func (wt *workflowTester) Execute(args ...interface{}) {
 	task := wt.getInitialWorkflowTask(wt.wfi, wt.wf, args...)
 
+	h := make([]history.Event, 0)
+
 	for !wt.workflowFinished {
+		e, err := workflow.NewExecutor(wt.registry, task.WorkflowInstance, wt.clock)
+		if err != nil {
+			panic("could not create workflow executor" + err.Error())
+		}
+
 		// TODO: Handle workflow events
-		executedEvents, _ /*workflowEvents*/, err := wt.e.ExecuteTask(context.Background(), task)
+		executedEvents, _ /*workflowEvents*/, err := e.ExecuteTask(context.Background(), task)
 		if err != nil {
 			panic("Error while executing workflow" + err.Error())
 		}
@@ -149,7 +181,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 				wt.workflowErr = event.Attributes.(*history.ExecutionCompletedAttributes).Error
 
 			case history.EventType_ActivityScheduled:
-				newEvents = append(newEvents, wt.getActivityResultEvent(task.WorkflowInstance, event))
+				wt.scheduleActivity(task.WorkflowInstance, event)
 
 			case history.EventType_SubWorkflowScheduled:
 				newEvents = append(newEvents, wt.getSubWorkflowResultEvent(event))
@@ -161,29 +193,76 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			log.Println(event.Type.String())
 
 			// TODO: SubWorkflows
-			// TODO: Signals?
 		}
 
-		// TODO: How does this work with timers?
-		if len(newEvents) == 0 && !wt.workflowFinished {
-			// Take first timer and execute it
+		for len(newEvents) == 0 && !wt.workflowFinished {
+			// No new events left and the workflow isn't finished yet. Check for timers or callbacks
+
+			select {
+			case callback := <-wt.callbacks:
+				event := callback()
+				if event != nil {
+					newEvents = append(newEvents, *event)
+				}
+				continue
+			default:
+			}
+
 			if len(wt.timers) > 0 {
+				// Take first timer and execute it
+				sort.SliceStable(wt.timers, func(i, j int) bool {
+					a := wt.timers[i]
+					b := wt.timers[j]
+
+					return a.At.Before(b.At)
+				})
+
 				t := wt.timers[0]
 				wt.timers = wt.timers[1:]
 
 				// Advance clock
 				wt.clock.Set(t.At)
 
-				event := t.callback()
-				if event != nil {
-					newEvents = append(newEvents, *event)
-				}
+				t.Callback()
 			} else {
-				panic("No new events generated during workflow execution, workflow blocked?")
+				t := time.NewTimer(wt.options.TestTimeout)
+
+				select {
+				case callback := <-wt.callbacks:
+					event := callback()
+					if event != nil {
+						newEvents = append(newEvents, *event)
+					}
+				case <-t.C:
+					t.Stop()
+					panic("No new events generated during workflow execution and no pending timers, workflow blocked?")
+				}
 			}
 		}
 
-		task = getNextWorkflowTask(wt.wfi, executedEvents, newEvents)
+		h = append(h, executedEvents...)
+		task = getNextWorkflowTask(wt.wfi, h, newEvents)
+	}
+}
+
+func (wt *workflowTester) SignalWorkflow(name string, value interface{}) {
+	arg, err := converter.DefaultConverter.To(value)
+	if err != nil {
+		panic("Could not convert signal value to string" + err.Error())
+	}
+
+	wt.callbacks <- func() *history.Event {
+		e := history.NewHistoryEvent(
+			wt.clock.Now(),
+			history.EventType_SignalReceived,
+			-1,
+			&history.SignalReceivedAttributes{
+				Name: name,
+				Arg:  arg,
+			},
+		)
+
+		return &e
 	}
 }
 
@@ -207,105 +286,117 @@ func (wt *workflowTester) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester) getActivityResultEvent(wfi core.WorkflowInstance, event history.Event) history.Event {
+func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
-	var activityErr error
-	var activityResult interface{}
+	// Execute real activity
+	go func() {
+		atomic.AddInt32(&wt.runningActivities, 1)
+		defer atomic.AddInt32(&wt.runningActivities, -1)
 
-	// Execute mocked activity. If an activity is mocked once, we'll never fall back to the original implementation
-	if wt.mockedActivities[e.Name] {
-		afn, err := wt.registry.GetActivity(e.Name)
-		if err != nil {
-			panic("Could not find activity " + e.Name + " in registry")
-		}
+		var activityErr error
+		var activityResult payload.Payload
 
-		argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(afn), e.Inputs)
-		if err != nil {
-			panic("Could not convert activity inputs to args: " + err.Error())
-		}
-
-		args := make([]interface{}, len(argValues))
-		for i, arg := range argValues {
-			if i == 0 && addContext {
-				args[i] = context.Background()
-				continue
+		// Execute mocked activity. If an activity is mocked once, we'll never fall back to the original implementation
+		if wt.mockedActivities[e.Name] {
+			afn, err := wt.registry.GetActivity(e.Name)
+			if err != nil {
+				panic("Could not find activity " + e.Name + " in registry")
 			}
 
-			args[i] = arg.Interface()
+			argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(afn), e.Inputs)
+			if err != nil {
+				panic("Could not convert activity inputs to args: " + err.Error())
+			}
+
+			args := make([]interface{}, len(argValues))
+			for i, arg := range argValues {
+				if i == 0 && addContext {
+					args[i] = context.Background()
+					continue
+				}
+
+				args[i] = arg.Interface()
+			}
+
+			results := wt.ma.MethodCalled(e.Name, args...)
+
+			switch len(results) {
+			case 1:
+				// Expect only error
+				activityErr = results.Error(0)
+				activityResult = nil
+			case 2:
+				result := results.Get(0)
+				activityResult, err = converter.DefaultConverter.To(result)
+				if err != nil {
+					panic("Could not convert result for activity " + e.Name + ": " + err.Error())
+				}
+
+				activityErr = results.Error(1)
+			default:
+				panic(
+					fmt.Sprintf(
+						"Unexpected number of results returned for mocked activity %v, expected 1 or 2, got %v",
+						e.Name,
+						len(results),
+					),
+				)
+			}
+
+		} else {
+			executor := activity.NewExecutor(wt.registry)
+			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
+				ID:               uuid.NewString(),
+				WorkflowInstance: wfi,
+				Event:            event,
+			})
 		}
 
-		results := wt.ma.MethodCalled(e.Name, args...)
+		wt.callbacks <- func() *history.Event {
+			var ne history.Event
 
-		switch len(results) {
-		case 1:
-			// Expect only error
-			activityErr = results.Error(0)
-			activityResult = nil
-		case 2:
-			activityResult = results.Get(0)
-			activityErr = results.Error(1)
-		default:
-			panic(
-				fmt.Sprintf(
-					"Unexpected number of results returned for mocked activity %v, expected 1 or 2, got %v",
-					e.Name,
-					len(results),
-				),
-			)
+			if activityErr != nil {
+				ne = history.NewHistoryEvent(
+					wt.clock.Now(),
+					history.EventType_ActivityFailed,
+					event.EventID,
+					&history.ActivityFailedAttributes{
+						Reason: activityErr.Error(),
+					},
+				)
+			} else {
+				ne = history.NewHistoryEvent(
+					wt.clock.Now(),
+					history.EventType_ActivityCompleted,
+					event.EventID,
+					&history.ActivityCompletedAttributes{
+						Result: activityResult,
+					},
+				)
+			}
+
+			return &ne
 		}
-	} else {
-		// Execute real activity
-		executor := activity.NewExecutor(wt.registry)
-		activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
-			ID:               uuid.NewString(),
-			WorkflowInstance: wfi,
-			Event:            event,
-		})
-	}
-
-	if activityErr != nil {
-		return history.NewHistoryEvent(
-			wt.clock.Now(),
-			history.EventType_ActivityFailed,
-			event.EventID,
-			&history.ActivityFailedAttributes{
-				Reason: activityErr.Error(),
-			},
-		)
-	} else {
-		result, err := converter.DefaultConverter.To(activityResult)
-		if err != nil {
-			panic("Could not convert result for activity " + e.Name + ": " + err.Error())
-		}
-
-		return history.NewHistoryEvent(
-			wt.clock.Now(),
-			history.EventType_ActivityCompleted,
-			event.EventID,
-			&history.ActivityCompletedAttributes{
-				Result: result,
-			},
-		)
-	}
+	}()
 }
 
 func (wt *workflowTester) scheduleTimer(event history.Event) {
 	e := event.Attributes.(*history.TimerScheduledAttributes)
 
-	// TOOD: Implement support for timers
-	timerFiredEvent := history.NewFutureHistoryEvent(
-		wt.clock.Now(),
-		history.EventType_TimerFired,
-		event.EventID,
-		&history.TimerFiredAttributes{},
-		e.At,
-	)
-
 	wt.timers = append(wt.timers, &testTimer{
 		At: e.At,
-		callback: func() *history.Event {
-			return &timerFiredEvent
+		Callback: func() {
+			wt.callbacks <- func() *history.Event {
+				timerFiredEvent := history.NewFutureHistoryEvent(
+					wt.clock.Now(),
+					history.EventType_TimerFired,
+					event.EventID,
+					&history.TimerFiredAttributes{},
+					e.At,
+				)
+				return &timerFiredEvent
+			}
 		},
 	})
 }
