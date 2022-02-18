@@ -36,8 +36,6 @@ type WorkflowTester interface {
 
 	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
 
-	// OnSignal() // TODO: Allow waiting
-
 	SignalWorkflow(signalName string, value interface{})
 
 	WorkflowFinished() bool
@@ -46,6 +44,7 @@ type WorkflowTester interface {
 
 	AssertExpectations(t *testing.T)
 
+	// ScheduleCallback schedules the given callback after the given delay in workflow time (not wall clock).
 	ScheduleCallback(delay time.Duration, callback func())
 }
 
@@ -79,7 +78,8 @@ type workflowTester struct {
 	mockedActivities map[string]bool
 	mw               *mock.Mock
 
-	clock *clock.Mock
+	workflowHistory []history.Event
+	clock           *clock.Mock
 
 	timers    []*testTimer
 	callbacks chan func() *history.Event
@@ -108,7 +108,8 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		mockedActivities: make(map[string]bool),
 		mw:               &mock.Mock{},
 
-		clock: clock,
+		workflowHistory: make([]history.Event, 0),
+		clock:           clock,
 
 		timers:    make([]*testTimer, 0),
 		callbacks: make(chan func() *history.Event, 1024),
@@ -156,8 +157,6 @@ func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...inte
 func (wt *workflowTester) Execute(args ...interface{}) {
 	task := wt.getInitialWorkflowTask(wt.wfi, wt.wf, args...)
 
-	h := make([]history.Event, 0)
-
 	for !wt.workflowFinished {
 		e, err := workflow.NewExecutor(wt.registry, task.WorkflowInstance, wt.clock)
 		if err != nil {
@@ -169,6 +168,8 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 		if err != nil {
 			panic("Error while executing workflow" + err.Error())
 		}
+
+		e.Close()
 
 		// Process events for next task
 		newEvents := make([]history.Event, 0)
@@ -197,7 +198,6 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 
 		for len(newEvents) == 0 && !wt.workflowFinished {
 			// No new events left and the workflow isn't finished yet. Check for timers or callbacks
-
 			select {
 			case callback := <-wt.callbacks:
 				event := callback()
@@ -220,7 +220,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 				t := wt.timers[0]
 				wt.timers = wt.timers[1:]
 
-				// Advance clock
+				// Advance workflow clock to fire the timer
 				wt.clock.Set(t.At)
 
 				t.Callback()
@@ -240,8 +240,8 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			}
 		}
 
-		h = append(h, executedEvents...)
-		task = getNextWorkflowTask(wt.wfi, h, newEvents)
+		wt.workflowHistory = append(wt.workflowHistory, executedEvents...)
+		task = getNextWorkflowTask(wt.wfi, wt.workflowHistory, newEvents)
 	}
 }
 
