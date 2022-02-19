@@ -42,6 +42,7 @@ type WorkflowTester interface {
 
 	WorkflowResult(vtpr interface{}, err *string)
 
+	// AssertExpectations asserts any assertions set up for mock activities and sub-workflow
 	AssertExpectations(t *testing.T)
 
 	// ScheduleCallback schedules the given callback after the given delay in workflow time (not wall clock).
@@ -211,18 +212,16 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			if len(wt.timers) > 0 {
 				// Take first timer and execute it
 				sort.SliceStable(wt.timers, func(i, j int) bool {
-					a := wt.timers[i]
-					b := wt.timers[j]
-
-					return a.At.Before(b.At)
+					return wt.timers[i].At.Before(wt.timers[j].At)
 				})
 
 				t := wt.timers[0]
 				wt.timers = wt.timers[1:]
 
 				// Advance workflow clock to fire the timer
-				wt.clock.Set(t.At)
+				log.Println("Advancing workflow clock to fire timer")
 
+				wt.clock.Set(t.At)
 				t.Callback()
 			} else {
 				t := time.NewTimer(wt.options.TestTimeout)
@@ -289,7 +288,6 @@ func (wt *workflowTester) AssertExpectations(t *testing.T) {
 func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
-	// Execute real activity
 	go func() {
 		atomic.AddInt32(&wt.runningActivities, 1)
 		defer atomic.AddInt32(&wt.runningActivities, -1)
