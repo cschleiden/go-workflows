@@ -74,10 +74,13 @@ type workflowTester struct {
 	workflowResult   payload.Payload
 	workflowErr      string
 
-	registry         *workflow.Registry
+	registry *workflow.Registry
+
 	ma               *mock.Mock
 	mockedActivities map[string]bool
-	mw               *mock.Mock
+
+	mw              *mock.Mock
+	mockedWorkflows map[string]bool
 
 	workflowHistory []history.Event
 	clock           *clock.Mock
@@ -155,7 +158,10 @@ func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...inte
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester) Execute(args ...interface{}) {
+func (wt *workflowTester) Execute(args ...interface{}) {/
+	// histories for sub workflows
+	histories := make(map[core.WorkflowInstance][]*history.Event)
+
 	task := wt.getInitialWorkflowTask(wt.wfi, wt.wf, args...)
 
 	for !wt.workflowFinished {
