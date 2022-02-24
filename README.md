@@ -236,6 +236,27 @@ if err != nil {
 log.Println(r1)
 ```
 
+### Timers
+
+You can schedule timers to fire at any point in the future by calling `workflow.ScheduleTimer`. It returns a `Future` you can await to wait for the timer to fire.
+
+```go
+t := workflow.ScheduleTimer(ctx, 2*time.Second)
+err := t.Get(ctx, nil)
+```
+
+#### Canceling timers
+
+There is no explicit API to cancel timers. You can cancel a timer by creating a cancelable context, and canceling that:
+
+```go
+tctx, cancel := workflow.WithCancel(ctx)
+t := workflow.ScheduleTimer(tctx, 2*time.Second)
+
+// Cancel the timer
+cancel()
+```
+
 ### Executing side effects
 
 Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
