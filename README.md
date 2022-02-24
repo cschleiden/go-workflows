@@ -341,3 +341,71 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 	return "some result", nil
 }
 ```
+
+## Versioning
+
+For now, I've intentionally left our versioning. Cadence, Temporal, and DTFx all support the concept of versions for workflows as well as activities. This is mostly required when you make changes to workflows and need to keep backwards compatibility with workflows that are being executed at the time of the upgrade.
+
+**Example**: when you change a workflow from:
+
+```go
+func Workflow1(ctx workflow.Context) {
+	var r1 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	log.Println("A1 result:", r1)
+
+	var r2 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	log.Println("A2 result:", r2)
+}
+```
+
+to:
+
+```go
+func Workflow1(ctx workflow.Context) {
+	var r1 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	log.Println("A1 result:", r1)
+
+	var r3 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity3).Get(ctx, &r3)
+	log.Println("A3 result:", r3)
+
+	var r2 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	log.Println("A2 result:", r2)
+}
+```
+
+and you replay a workflow history that contains:
+
+1. `ActivitySchedule` - `Activity1`
+1. `ActivityCompleted` - `Activity1`
+1. `ActivitySchedule` - `Activity2`
+1. `ActivityCompleted` - `Activity2`
+
+the workflow will encounter an attempt to execute `Activity3` in-between event 2 and 3, for which there is no matching event. This is a non-recoverable error. The usual approach to solve is to version the workflows and every time you make a change to a workflow, you have to check that logic. For this example this could look like:
+
+
+```go
+func Workflow1(ctx workflow.Context) {
+	var r1 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	log.Println("A1 result:", r1)
+
+	if workflow.Version(ctx) >= 2 {
+		var r3 int
+		workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity3).Get(ctx, &r3)
+		log.Println("A3 result:", r3)
+	}
+
+	var r2 int
+	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	log.Println("A2 result:", r2)
+}
+```
+
+and only if a workflow instance was created with a version of `>= 2` will `Activity3` be executed. Older workflows are persisted with a version `< 2` and will not execute `Activity3`.
+
+This kind of check is understandable for simple changes, but it becomes hard and a source of bugs for more complicated workflows. Therefore for now versioning is not supported and the guidance is to rely on **side-by-side** deployments. See also Azure's [Durable Functions](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-versioning) documentation for the same topic.
