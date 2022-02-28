@@ -344,6 +344,38 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 }
 ```
 
+### Unit testing
+
+go-workflows includes support for testing workflows, a simple example using mocked activities:
+
+```go
+func TestWorkflow(t *testing.T) {
+	tester := tester.NewWorkflowTester(Workflow1)
+
+  // Mock two activities
+	tester.OnActivity(Activity1, mock.Anything, 35, 12).Return(47, nil)
+	tester.OnActivity(Activity2, mock.Anything, mock.Anything, mock.Anything).Return(12, nil)
+
+  // Run workflow with inputs
+	tester.Execute("Hello world")
+
+  // Workflows always run to completion, or time-out
+	require.True(t, tester.WorkflowFinished())
+
+	var wr int
+	var werr string
+	tester.WorkflowResult(&wr, &werr)
+	require.Equal(t, 59, wr)
+	require.Empty(t, werr)
+
+	// Ensure any expectations set for activity or sub-workflow mocks were met
+	tester.AssertExpectations(t)
+}
+```
+
+- Timers are automatically fired by advancing a mock workflow clock that is used for testing workflows
+- You can register callbacks to fire at specific times (in mock-clock time). Callbacks can send signals, cancel workflows etc.
+
 ## Versioning
 
 For now, I've intentionally left our versioning. Cadence, Temporal, and DTFx all support the concept of versions for workflows as well as activities. This is mostly required when you make changes to workflows and need to keep backwards compatibility with workflows that are being executed at the time of the upgrade.
