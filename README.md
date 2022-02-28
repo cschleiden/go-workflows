@@ -1,8 +1,10 @@
 # Experiments in building durable workflows using Go
 
+[![Build & Test](https://github.com/cschleiden/go-workflows/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/cschleiden/go-workflows/actions/workflows/go.yml)
+
 Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as [DTFx](https://github.com/Azure/durabletask).
 
-Note no go1.18 generics: many of the `Get(...)` operations will become easier with generics, an ongoing exploration is happening in branch [go118](https://github.com/cschleiden/go-workflows/tree/go118).
+Note on go1.18 generics: many of the `Get(...)` operations will become easier with generics, an ongoing exploration is happening in branch [go118](https://github.com/cschleiden/go-workflows/tree/go118).
 
 ## Simple example
 
