@@ -167,6 +167,9 @@ func (e *executor) executeEvent(event history.Event) error {
 	case history.EventType_SubWorkflowScheduled:
 		err = e.handleSubWorkflowScheduled(event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
 
+	case history.EventType_SubWorkflowFailed:
+		err = e.handleSubWorkflowFailed(event, event.Attributes.(*history.SubWorkflowFailedAttributes))
+
 	case history.EventType_SubWorkflowCompleted:
 		err = e.handleSubWorkflowCompleted(event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
 
@@ -270,6 +273,19 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 	return nil
 }
 
+func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
+	f, ok := e.workflowState.pendingFutures[event.EventID]
+	if !ok {
+		return errors.New("no pending future found for sub workflow failed event")
+	}
+
+	e.workflowState.removeCommandByEventID(event.EventID)
+
+	f.Set(nil, errors.New(a.Error))
+
+	return e.workflow.Continue(e.workflowCtx)
+}
+
 func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.SubWorkflowCompletedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
@@ -278,11 +294,7 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 	e.workflowState.removeCommandByEventID(event.EventID)
 
-	if a.Error != "" {
-		f.Set(nil, errors.New(a.Error))
-	} else {
-		f.Set(a.Result, nil)
-	}
+	f.Set(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -426,17 +438,32 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 
 			if instance.SubWorkflow() {
 				// Send completion message back to parent workflow instance
-				workflowEvents = append(workflowEvents, core.WorkflowEvent{
-					WorkflowInstance: instance.ParentInstance(),
-					HistoryEvent: history.NewHistoryEvent(
+				var historyEvent history.Event
+
+				if a.Error != "" {
+					// Sub workflow failed
+					historyEvent = history.NewHistoryEvent(
+						e.clock.Now(),
+						history.EventType_SubWorkflowFailed,
+						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
+						&history.SubWorkflowFailedAttributes{
+							Error: a.Error,
+						},
+					)
+				} else {
+					historyEvent = history.NewHistoryEvent(
 						e.clock.Now(),
 						history.EventType_SubWorkflowCompleted,
 						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
-							Error:  a.Error,
 						},
-					),
+					)
+				}
+
+				workflowEvents = append(workflowEvents, core.WorkflowEvent{
+					WorkflowInstance: instance.ParentInstance(),
+					HistoryEvent:     historyEvent,
 				})
 			}
 

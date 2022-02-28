@@ -12,20 +12,19 @@ import (
 func Test_Workflow(t *testing.T) {
 	tester := tester.NewWorkflowTester(Workflow1)
 
-	tester.OnActivity(Activity1, mock.Anything, 35, 12).Return(47, nil)
+	tester.Registry().RegisterWorkflow(Workflow2)
+
+	tester.OnActivity(Activity1, mock.Anything, mock.Anything, mock.Anything).Return(47, nil)
 	tester.OnActivity(Activity2, mock.Anything, mock.Anything, mock.Anything).Return(12, nil)
 
-	tester.Execute("Hello world"+uuid.NewString(), 42, Inputs{
-		Msg:   "",
-		Times: 0,
-	})
+	tester.Execute("Hello world" + uuid.NewString())
 
 	require.True(t, tester.WorkflowFinished())
 
 	var wr int
 	var werr string
 	tester.WorkflowResult(&wr, &werr)
-	require.Equal(t, 59, wr)
+	require.Empty(t, wr)
 	require.Empty(t, werr)
 	tester.AssertExpectations(t)
 }

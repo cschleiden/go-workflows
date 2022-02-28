@@ -101,7 +101,7 @@ func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 			FirstRetryInterval: time.Second * 3,
 			BackoffCoefficient: 2,
 		},
-	}, Activity1, 35, 12).Get(ctx, &r1)
+	}, Activity1, 35).Get(ctx, &r1)
 	if err != nil {
 		trace(ctx, "Error from Activity 1", err)
 		return errs.Wrap(err, "error getting result from activity 1")
@@ -109,7 +109,7 @@ func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 
 	trace(ctx, "R1 result:", r1)
 
-	trace(ctx, "Completing workflow 1")
+	trace(ctx, "Completing workflow with failures")
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package testing
+package tester
 
 import (
 	"context"
@@ -13,6 +13,10 @@ import (
 )
 
 func Test_Workflow(t *testing.T) {
+	workflowWithoutActivity := func(ctx workflow.Context) (int, error) {
+		return 0, nil
+	}
+
 	tester := NewWorkflowTester(workflowWithoutActivity)
 
 	tester.Execute()
@@ -110,10 +114,6 @@ func Test_Activity_WithoutMock(t *testing.T) {
 	require.Zero(t, errStr)
 	require.Equal(t, 23, r)
 	tester.AssertExpectations(t)
-}
-
-func workflowWithoutActivity(ctx workflow.Context) (int, error) {
-	return 0, nil
 }
 
 func workflowWithActivity(ctx workflow.Context) (int, error) {
