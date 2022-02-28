@@ -36,6 +36,7 @@ type WorkflowTester interface {
 
 	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
 
+	// TODO: Allow sending signals to other workflows
 	SignalWorkflow(signalName string, value interface{})
 
 	WorkflowFinished() bool
@@ -59,6 +60,12 @@ type testTimer struct {
 	Callback func()
 }
 
+type testWorkflow struct {
+	instance      core.WorkflowInstance
+	history       []history.Event
+	pendingEvents []history.Event
+}
+
 type options struct {
 	TestTimeout time.Duration
 }
@@ -69,6 +76,9 @@ type workflowTester struct {
 	// Workflow under test
 	wf  workflow.Workflow
 	wfi core.WorkflowInstance
+
+	// Workflows
+	testWorkflows []*testWorkflow
 
 	workflowFinished bool
 	workflowResult   payload.Payload
@@ -86,7 +96,7 @@ type workflowTester struct {
 	clock           *clock.Mock
 
 	timers    []*testTimer
-	callbacks chan func() *history.Event
+	callbacks chan func() *core.WorkflowEvent
 
 	runningActivities int32
 }
@@ -108,6 +118,8 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		wfi:      wfi,
 		registry: registry,
 
+		testWorkflows: make([]*testWorkflow, 0),
+
 		ma:               &mock.Mock{},
 		mockedActivities: make(map[string]bool),
 		mw:               &mock.Mock{},
@@ -116,7 +128,7 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		clock:           clock,
 
 		timers:    make([]*testTimer, 0),
-		callbacks: make(chan func() *history.Event, 1024),
+		callbacks: make(chan func() *core.WorkflowEvent, 1024),
 	}
 
 	// Always register the workflow under test
@@ -158,58 +170,84 @@ func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...inte
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester) Execute(args ...interface{}) {/
-	// histories for sub workflows
-	histories := make(map[core.WorkflowInstance][]*history.Event)
-
-	task := wt.getInitialWorkflowTask(wt.wfi, wt.wf, args...)
+func (wt *workflowTester) Execute(args ...interface{}) {
+	// Start workflow under test
+	wt.testWorkflows = append(wt.testWorkflows, &testWorkflow{
+		instance:      wt.wfi,
+		pendingEvents: []history.Event{wt.getInitialEvent(wt.wf, args)},
+		history:       make([]history.Event, 0),
+	})
 
 	for !wt.workflowFinished {
-		e, err := workflow.NewExecutor(wt.registry, task.WorkflowInstance, wt.clock)
-		if err != nil {
-			panic("could not create workflow executor" + err.Error())
-		}
+		// Execute all workflows until no more events?
+		gotNewEvents := false
 
-		// TODO: Handle workflow events
-		executedEvents, _ /*workflowEvents*/, err := e.ExecuteTask(context.Background(), task)
-		if err != nil {
-			panic("Error while executing workflow" + err.Error())
-		}
-
-		e.Close()
-
-		// Process events for next task
-		newEvents := make([]history.Event, 0)
-
-		for _, event := range executedEvents {
-			switch event.Type {
-			case history.EventType_WorkflowExecutionFinished:
-				wt.workflowFinished = true
-				wt.workflowResult = event.Attributes.(*history.ExecutionCompletedAttributes).Result
-				wt.workflowErr = event.Attributes.(*history.ExecutionCompletedAttributes).Error
-
-			case history.EventType_ActivityScheduled:
-				wt.scheduleActivity(task.WorkflowInstance, event)
-
-			case history.EventType_SubWorkflowScheduled:
-				newEvents = append(newEvents, wt.getSubWorkflowResultEvent(event))
-
-			case history.EventType_TimerScheduled:
-				wt.scheduleTimer(event)
+		for _, tw := range wt.testWorkflows {
+			if len(tw.pendingEvents) == 0 {
+				// Nothing to process
+				continue
 			}
 
-			log.Println(event.Type.String())
+			// Get task
+			t := getNextWorkflowTask(tw.instance, tw.history, tw.pendingEvents)
+			tw.pendingEvents = tw.pendingEvents[:0]
 
-			// TODO: SubWorkflows
+			// Execute task
+			e, err := workflow.NewExecutor(wt.registry, tw.instance, wt.clock)
+			if err != nil {
+				panic("could not create workflow executor" + err.Error())
+			}
+
+			executedEvents, workflowEvents, err := e.ExecuteTask(context.Background(), t)
+			if err != nil {
+				panic("Error while executing workflow" + err.Error())
+			}
+
+			e.Close()
+
+			tw.history = append(tw.history, executedEvents...)
+
+			for _, event := range executedEvents {
+				log.Println("Event", event.Type)
+
+				switch event.Type {
+				case history.EventType_WorkflowExecutionFinished:
+					// TODO: If sub-workflow, return result to calling workflow
+					if !tw.instance.SubWorkflow() {
+						wt.workflowFinished = true
+						wt.workflowResult = event.Attributes.(*history.ExecutionCompletedAttributes).Result
+						wt.workflowErr = event.Attributes.(*history.ExecutionCompletedAttributes).Error
+					} else {
+						// TODO: Send finished event to parent workflow
+					}
+
+				case history.EventType_ActivityScheduled:
+					wt.scheduleActivity(tw.instance, event)
+				}
+			}
+
+			for _, workflowEvent := range workflowEvents {
+				log.Println("Workflow event", workflowEvent.HistoryEvent.Type)
+
+				switch workflowEvent.HistoryEvent.Type {
+				case history.EventType_SubWorkflowScheduled:
+					// TODO: Mocked subworkflow, execute and add result message to parent workflow
+					// TODO: Real subworkflow, start execution
+
+				case history.EventType_TimerFired:
+					wt.scheduleTimer(workflowEvent)
+				}
+			}
 		}
 
-		for len(newEvents) == 0 && !wt.workflowFinished {
+		for !wt.workflowFinished && !gotNewEvents {
 			// No new events left and the workflow isn't finished yet. Check for timers or callbacks
 			select {
 			case callback := <-wt.callbacks:
 				event := callback()
 				if event != nil {
-					newEvents = append(newEvents, *event)
+					wt.sendEvent(event.WorkflowInstance, event.HistoryEvent)
+					gotNewEvents = true
 				}
 				continue
 			default:
@@ -226,7 +264,6 @@ func (wt *workflowTester) Execute(args ...interface{}) {/
 
 				// Advance workflow clock to fire the timer
 				log.Println("Advancing workflow clock to fire timer")
-
 				wt.clock.Set(t.At)
 				t.Callback()
 			} else {
@@ -236,7 +273,8 @@ func (wt *workflowTester) Execute(args ...interface{}) {/
 				case callback := <-wt.callbacks:
 					event := callback()
 					if event != nil {
-						newEvents = append(newEvents, *event)
+						wt.sendEvent(event.WorkflowInstance, event.HistoryEvent)
+						gotNewEvents = true
 					}
 				case <-t.C:
 					t.Stop()
@@ -244,10 +282,23 @@ func (wt *workflowTester) Execute(args ...interface{}) {/
 				}
 			}
 		}
-
-		wt.workflowHistory = append(wt.workflowHistory, executedEvents...)
-		task = getNextWorkflowTask(wt.wfi, wt.workflowHistory, newEvents)
 	}
+}
+
+func (wt *workflowTester) sendEvent(wfi core.WorkflowInstance, event history.Event) {
+	var w *testWorkflow
+	for _, tw := range wt.testWorkflows {
+		if tw.instance == wfi {
+			w = tw
+			break
+		}
+	}
+
+	if w == nil {
+		panic("TODO: Start new workflow instance")
+	}
+
+	w.pendingEvents = append(w.pendingEvents, event)
 }
 
 func (wt *workflowTester) SignalWorkflow(name string, value interface{}) {
@@ -256,7 +307,7 @@ func (wt *workflowTester) SignalWorkflow(name string, value interface{}) {
 		panic("Could not convert signal value to string" + err.Error())
 	}
 
-	wt.callbacks <- func() *history.Event {
+	wt.callbacks <- func() *core.WorkflowEvent {
 		e := history.NewHistoryEvent(
 			wt.clock.Now(),
 			history.EventType_SignalReceived,
@@ -267,7 +318,10 @@ func (wt *workflowTester) SignalWorkflow(name string, value interface{}) {
 			},
 		)
 
-		return &e
+		return &core.WorkflowEvent{
+			WorkflowInstance: wt.wfi,
+			HistoryEvent:     e,
+		}
 	}
 }
 
@@ -357,7 +411,7 @@ func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event hist
 			})
 		}
 
-		wt.callbacks <- func() *history.Event {
+		wt.callbacks <- func() *core.WorkflowEvent {
 			var ne history.Event
 
 			if activityErr != nil {
@@ -380,26 +434,22 @@ func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event hist
 				)
 			}
 
-			return &ne
+			return &core.WorkflowEvent{
+				WorkflowInstance: wfi,
+				HistoryEvent:     ne,
+			}
 		}
 	}()
 }
 
-func (wt *workflowTester) scheduleTimer(event history.Event) {
-	e := event.Attributes.(*history.TimerScheduledAttributes)
+func (wt *workflowTester) scheduleTimer(event core.WorkflowEvent) {
+	e := event.HistoryEvent.Attributes.(*history.TimerFiredAttributes)
 
 	wt.timers = append(wt.timers, &testTimer{
 		At: e.At,
 		Callback: func() {
-			wt.callbacks <- func() *history.Event {
-				timerFiredEvent := history.NewFutureHistoryEvent(
-					wt.clock.Now(),
-					history.EventType_TimerFired,
-					event.EventID,
-					&history.TimerFiredAttributes{},
-					e.At,
-				)
-				return &timerFiredEvent
+			wt.callbacks <- func() *core.WorkflowEvent {
+				return &event
 			}
 		},
 	})
@@ -458,7 +508,7 @@ func (wt *workflowTester) getSubWorkflowResultEvent(event history.Event) history
 	}
 }
 
-func (wt *workflowTester) getInitialWorkflowTask(wfi core.WorkflowInstance, wf workflow.Workflow, args ...interface{}) *task.Workflow {
+func (wt *workflowTester) getInitialEvent(wf workflow.Workflow, args []interface{}) history.Event {
 	name := fn.Name(wf)
 
 	inputs, err := margs.ArgsToInputs(converter.DefaultConverter, args...)
@@ -466,7 +516,7 @@ func (wt *workflowTester) getInitialWorkflowTask(wfi core.WorkflowInstance, wf w
 		panic(err)
 	}
 
-	event := history.NewHistoryEvent(
+	return history.NewHistoryEvent(
 		wt.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		-1,
@@ -475,12 +525,6 @@ func (wt *workflowTester) getInitialWorkflowTask(wfi core.WorkflowInstance, wf w
 			Inputs: inputs,
 		},
 	)
-
-	return &task.Workflow{
-		WorkflowInstance: wfi,
-		History:          []history.Event{},
-		NewEvents:        []history.Event{event},
-	}
 }
 
 func getNextWorkflowTask(wfi core.WorkflowInstance, history []history.Event, newEvents []history.Event) *task.Workflow {
