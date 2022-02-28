@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/pkg/backend"
 	"github.com/cschleiden/go-workflows/pkg/core"
@@ -162,7 +163,7 @@ func (ww *workflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 		return executor, nil
 	}
 
-	executor, err := workflow.NewExecutor(ww.registry, t.WorkflowInstance)
+	executor, err := workflow.NewExecutor(ww.registry, t.WorkflowInstance, clock.New())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create workflow executor")
 	}

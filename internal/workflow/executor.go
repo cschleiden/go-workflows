@@ -8,6 +8,7 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
@@ -30,12 +31,13 @@ type executor struct {
 	workflowState     *workflowState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
+	clock             clock.Clock
 	logger            *log.Logger
 	lastEventID       string // TODO: Not the same as the sequence number Event ID
 }
 
-func NewExecutor(registry *Registry, instance core.WorkflowInstance) (WorkflowExecutor, error) {
-	state := newWorkflowState(instance)
+func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+	state := newWorkflowState(instance, clock)
 	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
 
 	return &executor{
@@ -43,6 +45,7 @@ func NewExecutor(registry *Registry, instance core.WorkflowInstance) (WorkflowEx
 		workflowState:     state,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
+		clock:             clock,
 		logger:            log.New(io.Discard, "", log.LstdFlags),
 		//logger: log.Default(),
 	}, nil
@@ -69,7 +72,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	}
 
 	// Always pad the received events with WorkflowTaskStarted/Finished events to indicate the execution
-	events := []history.Event{history.NewHistoryEvent(history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})}
+	events := []history.Event{history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})}
 	events = append(events, t.NewEvents...)
 
 	// Execute new events received from the backend
@@ -84,9 +87,8 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	events = append(events, newCommandEvents...)
 
 	// Execution of this task is finished, add event to history
-	events = append(events, history.NewHistoryEvent(history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
+	events = append(events, history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
 
-	// TODO: The finished event isn't actually executed, does this make sense?
 	e.lastEventID = events[len(events)-1].ID
 
 	return events, workflowEvents, nil
@@ -116,7 +118,7 @@ func (e *executor) executeNewEvents(newEvents []history.Event) error {
 func (e *executor) Close() {
 	if e.workflow != nil {
 		// End workflow if running to prevent leaking goroutines
-		e.workflow.Close(withWfState(sync.Background(), e.workflowState)) // TODO: Cache this context?
+		e.workflow.Close(e.workflowCtx)
 	}
 }
 
@@ -164,6 +166,9 @@ func (e *executor) executeEvent(event history.Event) error {
 
 	case history.EventType_SubWorkflowScheduled:
 		err = e.handleSubWorkflowScheduled(event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
+
+	case history.EventType_SubWorkflowFailed:
+		err = e.handleSubWorkflowFailed(event, event.Attributes.(*history.SubWorkflowFailedAttributes))
 
 	case history.EventType_SubWorkflowCompleted:
 		err = e.handleSubWorkflowCompleted(event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
@@ -268,6 +273,19 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 	return nil
 }
 
+func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
+	f, ok := e.workflowState.pendingFutures[event.EventID]
+	if !ok {
+		return errors.New("no pending future found for sub workflow failed event")
+	}
+
+	e.workflowState.removeCommandByEventID(event.EventID)
+
+	f.Set(nil, errors.New(a.Error))
+
+	return e.workflow.Continue(e.workflowCtx)
+}
+
 func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.SubWorkflowCompletedAttributes) error {
 	f, ok := e.workflowState.pendingFutures[event.EventID]
 	if !ok {
@@ -276,11 +294,7 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 	e.workflowState.removeCommandByEventID(event.EventID)
 
-	if a.Error != "" {
-		f.Set(nil, errors.New(a.Error))
-	} else {
-		f.Set(a.Result, nil)
-	}
+	f.Set(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -333,6 +347,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_ActivityScheduled,
 				c.ID,
 				&history.ActivityScheduledAttributes{
@@ -347,6 +362,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_SubWorkflowScheduled,
 				c.ID,
 				&history.SubWorkflowScheduledAttributes{
@@ -360,6 +376,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
+					e.clock.Now(),
 					history.EventType_WorkflowExecutionStarted,
 					c.ID,
 					&history.ExecutionStartedAttributes{
@@ -372,6 +389,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 		case command.CommandType_SideEffect:
 			a := c.Attr.(*command.SideEffectCommandAttr)
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_SideEffectResult,
 				c.ID,
 				&history.SideEffectResultAttributes{
@@ -383,6 +401,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_TimerScheduled,
 				c.ID,
 				&history.TimerScheduledAttributes{
@@ -394,6 +413,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: instance,
 				HistoryEvent: history.NewFutureHistoryEvent(
+					e.clock.Now(),
 					history.EventType_TimerFired,
 					c.ID,
 					&history.TimerFiredAttributes{
@@ -407,6 +427,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
+				e.clock.Now(),
 				history.EventType_WorkflowExecutionFinished,
 				c.ID,
 				&history.ExecutionCompletedAttributes{
@@ -417,16 +438,32 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 
 			if instance.SubWorkflow() {
 				// Send completion message back to parent workflow instance
-				workflowEvents = append(workflowEvents, core.WorkflowEvent{
-					WorkflowInstance: instance.ParentInstance(),
-					HistoryEvent: history.NewHistoryEvent(
+				var historyEvent history.Event
+
+				if a.Error != "" {
+					// Sub workflow failed
+					historyEvent = history.NewHistoryEvent(
+						e.clock.Now(),
+						history.EventType_SubWorkflowFailed,
+						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
+						&history.SubWorkflowFailedAttributes{
+							Error: a.Error,
+						},
+					)
+				} else {
+					historyEvent = history.NewHistoryEvent(
+						e.clock.Now(),
 						history.EventType_SubWorkflowCompleted,
 						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
-							Error:  a.Error,
 						},
-					),
+					)
+				}
+
+				workflowEvents = append(workflowEvents, core.WorkflowEvent{
+					WorkflowInstance: instance.ParentInstance(),
+					HistoryEvent:     historyEvent,
 				})
 			}
 

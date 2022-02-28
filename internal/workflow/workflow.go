@@ -31,9 +31,13 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 
 func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx sync.Context) error {
-		args, err := args.InputsToArgs(converter.DefaultConverter, w.fn, inputs)
+		args, addContext, err := args.InputsToArgs(converter.DefaultConverter, w.fn, inputs)
 		if err != nil {
 			return errors.Wrap(err, "could not convert workflow inputs")
+		}
+
+		if !addContext {
+			return errors.New("workflow must accept context as first argument")
 		}
 
 		args[0] = reflect.ValueOf(ctx)

@@ -3,6 +3,7 @@ package workflow
 import (
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/pkg/core"
@@ -19,16 +20,19 @@ type workflowState struct {
 	pendingFutures map[int]sync.Future
 	signalChannels map[string]sync.Channel
 	replaying      bool
-	time           time.Time
+
+	clock clock.Clock
+	time  time.Time
 }
 
-func newWorkflowState(instance core.WorkflowInstance) *workflowState {
+func newWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *workflowState {
 	return &workflowState{
 		instance:       instance,
 		commands:       []*command.Command{},
 		eventID:        0,
 		pendingFutures: map[int]sync.Future{},
 		signalChannels: make(map[string]sync.Channel),
+		clock:          clock,
 	}
 }
 

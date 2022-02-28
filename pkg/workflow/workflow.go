@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/workflow"
 	internal "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/pkg/core"
 )
@@ -17,7 +16,7 @@ type (
 	RetryOptions       = internal.RetryOptions
 )
 
-var DefaultRetryOptions = workflow.DefaultRetryOptions
+var DefaultRetryOptions = internal.DefaultRetryOptions
 
 func Replaying(ctx Context) bool {
 	return internal.Replaying(ctx)
@@ -64,7 +63,7 @@ func Go(ctx Context, f func(ctx Context)) {
 	sync.Go(ctx, f)
 }
 
-func NewSelector() sync.Selector {
+func NewSelector() Selector {
 	return sync.NewSelector()
 }
 

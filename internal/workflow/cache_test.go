@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/pkg/core"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(r, i)
+	e, err := NewExecutor(r, i, clock.New())
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)
@@ -38,7 +39,7 @@ func Test_Cache_Evic(t *testing.T) {
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(r, i)
+	e, err := NewExecutor(r, i, clock.New())
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)

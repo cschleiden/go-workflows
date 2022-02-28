@@ -11,7 +11,7 @@ import (
 )
 
 func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]history.Event, error) {
-	now := time.Now().UTC()
+	now := time.Now()
 	events, err := tx.QueryContext(ctx, "SELECT * FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get new events")

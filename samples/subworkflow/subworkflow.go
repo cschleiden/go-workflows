@@ -103,7 +103,6 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 	log.Println("R2 result:", r2)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	// return "", errors.New("w2 error")
 	return "W2 Result", nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/payload"
@@ -19,7 +20,7 @@ import (
 )
 
 func newExecutor(r *Registry, i core.WorkflowInstance) *executor {
-	state := newWorkflowState(i)
+	state := newWorkflowState(i, clock.New())
 	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
 
 	return &executor{
@@ -29,6 +30,7 @@ func newExecutor(r *Registry, i core.WorkflowInstance) *executor {
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
 		logger:            log.Default(),
+		clock:             clock.New(),
 	}
 }
 
@@ -55,6 +57,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -108,6 +111,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -116,6 +120,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_ActivityScheduled,
 				0,
 				&history.ActivityScheduledAttributes{
@@ -124,6 +129,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_ActivityCompleted,
 				0,
 				&history.ActivityCompletedAttributes{
@@ -155,6 +161,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -210,6 +217,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -265,6 +273,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -302,6 +311,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		History:          []history.Event{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -310,6 +320,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_ActivityScheduled,
 				0,
 				&history.ActivityScheduledAttributes{
@@ -338,6 +349,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		History:          h,
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_ActivityCompleted,
 				0,
 				&history.ActivityCompletedAttributes{
@@ -378,6 +390,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				-1,
 				&history.ExecutionStartedAttributes{
@@ -386,6 +399,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				time.Now(),
 				history.EventType_SignalReceived,
 				-1,
 				&history.SignalReceivedAttributes{

@@ -90,7 +90,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core
 	instanceID := instance.GetInstanceID()
 
 	// Cancel workflow instance
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
 		return errors.Wrap(err, "could not insert cancellation event")
 	}
 
@@ -109,7 +109,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core
 		}
 
 		// Cancel sub-workflow instance
-		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent()}); err != nil {
+		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
 			return errors.Wrap(err, "could not insert cancellation event")
 		}
 
@@ -168,7 +168,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	defer tx.Rollback()
 
 	// Lock next workflow task by finding an unlocked instance with new events to process.
-	now := time.Now().UTC()
+	now := time.Now()
 	row := tx.QueryRowContext(
 		ctx,
 		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_event_id, i.sticky_until FROM instances i
@@ -374,7 +374,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = NULL, sticky_until = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
-		time.Now().UTC().Add(b.options.StickyTimeout),
+		time.Now().Add(b.options.StickyTimeout),
 		instance.GetInstanceID(),
 		instance.GetExecutionID(),
 		b.workerName,
@@ -454,7 +454,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		if _, err := tx.ExecContext(
 			ctx,
 			"UPDATE instances SET completed_at = ? WHERE instance_id = ? AND execution_id = ?",
-			time.Now().UTC(),
+			time.Now(),
 			instance.GetInstanceID(),
 			instance.GetExecutionID(),
 		); err != nil {
@@ -476,7 +476,7 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, instance core.Wor
 	}
 	defer tx.Rollback()
 
-	until := time.Now().UTC().Add(b.options.WorkflowLockTimeout)
+	until := time.Now().Add(b.options.WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
@@ -507,7 +507,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	defer tx.Rollback()
 
 	// Lock next activity
-	now := time.Now().UTC()
+	now := time.Now()
 	res := tx.QueryRowContext(
 		ctx,
 		`SELECT id, activity_id, instance_id, execution_id, event_type, timestamp, event_id, attributes, visible_at
@@ -609,7 +609,7 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	}
 	defer tx.Rollback()
 
-	until := time.Now().UTC().Add(b.options.ActivityLockTimeout)
+	until := time.Now().Add(b.options.ActivityLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE activity_id = ? AND worker = ?`,
