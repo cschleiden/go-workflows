@@ -1,4 +1,4 @@
-# Experiments in building durable workflows using Go
+# Durable workflows using Go
 
 [![Build & Test](https://github.com/cschleiden/go-workflows/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/cschleiden/go-workflows/actions/workflows/go.yml)
 
