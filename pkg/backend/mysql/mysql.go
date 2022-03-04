@@ -132,7 +132,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) 
 
 	if _, err := tx.ExecContext(
 		ctx,
-		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_event_id) VALUES (?, ?, ?, ?)",
+		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_schedule_event_id) VALUES (?, ?, ?, ?)",
 		wfi.GetInstanceID(),
 		wfi.GetExecutionID(),
 		parentInstanceID,
@@ -171,7 +171,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	now := time.Now()
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_event_id, i.sticky_until FROM instances i
+		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_schedule_event_id, i.sticky_until FROM instances i
 			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
 			WHERE
 				(i.locked_until IS NULL OR i.locked_until < ?)
@@ -242,7 +242,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	// Get new events
 	events, err := tx.QueryContext(
 		ctx,
-		"SELECT event_id, instance_id, event_type, timestamp, event_id2, attributes, visible_at FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?) ORDER BY id",
+		"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?) ORDER BY id",
 		instanceID,
 		now,
 	)
@@ -256,7 +256,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		historyEvent := history.Event{}
 
-		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.EventID, &attributes, &historyEvent.VisibleAt); err != nil {
+		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
 			return nil, errors.Wrap(err, "could not scan event")
 		}
 
@@ -279,7 +279,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	if kind != task.Continuation {
 		historyEvents, err := tx.QueryContext(
 			ctx,
-			"SELECT event_id, instance_id, event_type, timestamp, event_id2, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
+			"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
 			instanceID,
 		)
 		if err != nil {
@@ -297,7 +297,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 				&instanceID,
 				&historyEvent.Type,
 				&historyEvent.Timestamp,
-				&historyEvent.EventID,
+				&historyEvent.ScheduleEventID,
 				&attributes,
 				&historyEvent.VisibleAt,
 			); err != nil {
@@ -315,7 +315,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		}
 	} else {
 		// Get only most recent history event
-		row := tx.QueryRowContext(ctx, "SELECT event_id, instance_id, event_type, timestamp, event_id2, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id DESC LIMIT 1", instanceID)
+		row := tx.QueryRowContext(ctx, "SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id DESC LIMIT 1", instanceID)
 
 		var instanceID string
 		var attributes []byte
@@ -327,7 +327,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 			&instanceID,
 			&lastHistoryEvent.Type,
 			&lastHistoryEvent.Timestamp,
-			&lastHistoryEvent.EventID,
+			&lastHistoryEvent.ScheduleEventID,
 			&attributes,
 			&lastHistoryEvent.VisibleAt,
 		); err != nil {
@@ -510,7 +510,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	now := time.Now()
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT id, activity_id, instance_id, execution_id, event_type, timestamp, event_id, attributes, visible_at
+		`SELECT id, activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at
 			FROM activities
 			WHERE locked_until IS NULL OR locked_until < ?
 			LIMIT 1
@@ -523,7 +523,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	var attributes []byte
 	event := history.Event{}
 
-	if err := res.Scan(&id, &event.ID, &instanceID, &executionID, &event.Type, &event.Timestamp, &event.EventID, &attributes, &event.VisibleAt); err != nil {
+	if err := res.Scan(&id, &event.ID, &instanceID, &executionID, &event.Type, &event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -639,13 +639,13 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID s
 	_, err = tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
-			(activity_id, instance_id, execution_id, event_type, timestamp, event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			(activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
 		instanceID,
 		executionID,
 		event.Type,
 		event.Timestamp,
-		event.EventID,
+		event.ScheduleEventID,
 		a,
 		event.VisibleAt,
 	)

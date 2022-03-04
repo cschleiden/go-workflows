@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `id` TEXT PRIMARY KEY,
   `execution_id` TEXT NO NULL,
   `parent_instance_id` TEXT NULL,
-  `parent_event_id` INTEGER NULL,
+  `parent_schedule_event_id` INTEGER NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   `instance_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `event_id` INTEGER NOT NULL,
+  `schedule_event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL
 );
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `history` (
   `instance_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `event_id` INTEGER NOT NULL,
+  `schedule_event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL
 );
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `execution_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `event_id` INTEGER NOT NULL,
+  `schedule_event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
   `locked_until` DATETIME NULL,

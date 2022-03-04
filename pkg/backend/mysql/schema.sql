@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `instance_id` NVARCHAR(128) NOT NULL,
   `execution_id` NVARCHAR(128) NOT NULL,
   `parent_instance_id` NVARCHAR(128) NULL,
-  `parent_event_id` INT NULL,
+  `parent_schedule_event_id` INT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   `instance_id` NVARCHAR(128) NOT NULL,
   `event_type` INT NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `event_id2` INT NOT NULL,
+  `schedule_event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
 
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `history` (
   `instance_id` NVARCHAR(128) NOT NULL,
   `event_type` INT NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `event_id2` INT NOT NULL,
+  `schedule_event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL, -- Is this required?
 
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `execution_id` NVARCHAR(128) NOT NULL,
   `event_type` INT NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `event_id` INT NOT NULL,
+  `schedule_event_id` INT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
   `locked_until` DATETIME NULL,

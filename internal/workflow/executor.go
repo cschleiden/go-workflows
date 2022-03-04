@@ -72,7 +72,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	}
 
 	// Always pad the received events with WorkflowTaskStarted/Finished events to indicate the execution
-	events := []history.Event{history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})}
+	events := []history.Event{history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})}
 	events = append(events, t.NewEvents...)
 
 	// Execute new events received from the backend
@@ -87,7 +87,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 	events = append(events, newCommandEvents...)
 
 	// Execution of this task is finished, add event to history
-	events = append(events, history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{}))
+	events = append(events, history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{}))
 
 	e.lastEventID = events[len(events)-1].ID
 
@@ -204,7 +204,7 @@ func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.Wor
 }
 
 func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
-	c := e.workflowState.removeCommandByEventID(event.EventID)
+	c := e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 	if c != nil {
 		// Ensure the same activity is scheduled again
 		ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
@@ -217,24 +217,24 @@ func (e *executor) handleActivityScheduled(event history.Event, a *history.Activ
 }
 
 func (e *executor) handleActivityCompleted(event history.Event, a *history.ActivityCompletedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
 	if !ok {
 		return nil
 	}
 
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 	f.Set(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
 
 func (e *executor) handleActivityFailed(event history.Event, a *history.ActivityFailedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
 	if !ok {
 		return errors.New("no pending future found for activity failed event")
 	}
 
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 
 	f.Set(nil, errors.New(a.Reason))
 
@@ -242,19 +242,19 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 }
 
 func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerScheduledAttributes) error {
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 
 	return nil
 }
 
 func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
 	if !ok {
 		// Timer already canceled ignore
 		return nil
 	}
 
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 
 	f.Set(nil, nil)
 
@@ -262,7 +262,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 }
 
 func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
-	c := e.workflowState.removeCommandByEventID(event.EventID)
+	c := e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 	if c != nil {
 		ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 		if a.Name != ca.Name {
@@ -274,12 +274,12 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 }
 
 func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
 	if !ok {
 		return errors.New("no pending future found for sub workflow failed event")
 	}
 
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 
 	f.Set(nil, errors.New(a.Error))
 
@@ -287,12 +287,12 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 }
 
 func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.SubWorkflowCompletedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
 	if !ok {
 		return errors.New("no pending future found for sub workflow completed event")
 	}
 
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 
 	f.Set(a.Result, nil)
 
@@ -304,13 +304,13 @@ func (e *executor) handleSignalReceived(event history.Event, a *history.SignalRe
 	sc := e.workflowState.getSignalChannel(a.Name)
 	sc.SendNonblocking(e.workflowCtx, a.Arg)
 
-	e.workflowState.removeCommandByEventID(event.EventID)
+	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
 
 func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.EventID]
+	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
 	if !ok {
 		return errors.New("no pending future found for side effect result event")
 	}
@@ -321,8 +321,8 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 }
 
 func (e *executor) workflowCompleted(result payload.Payload, err error) error {
-	eventId := e.workflowState.eventID
-	e.workflowState.eventID++
+	eventId := e.workflowState.scheduleEventID
+	e.workflowState.scheduleEventID++
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, result, err)
 	e.workflowState.addCommand(&cmd)
@@ -349,11 +349,11 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_ActivityScheduled,
-				c.ID,
 				&history.ActivityScheduledAttributes{
 					Name:   a.Name,
 					Inputs: a.Inputs,
 				},
+				history.ScheduleEventID(c.ID),
 			))
 
 		case command.CommandType_ScheduleSubWorkflow:
@@ -364,12 +364,12 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_SubWorkflowScheduled,
-				c.ID,
 				&history.SubWorkflowScheduledAttributes{
 					InstanceID: subWorkflowInstance.GetInstanceID(),
 					Name:       a.Name,
 					Inputs:     a.Inputs,
 				},
+				history.ScheduleEventID(c.ID),
 			))
 
 			// Send message to new workflow instance
@@ -378,11 +378,11 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 				HistoryEvent: history.NewHistoryEvent(
 					e.clock.Now(),
 					history.EventType_WorkflowExecutionStarted,
-					c.ID,
 					&history.ExecutionStartedAttributes{
 						Name:   a.Name,
 						Inputs: a.Inputs,
 					},
+					history.ScheduleEventID(c.ID),
 				),
 			})
 
@@ -391,10 +391,10 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_SideEffectResult,
-				c.ID,
 				&history.SideEffectResultAttributes{
 					Result: a.Result,
 				},
+				history.ScheduleEventID(c.ID),
 			))
 
 		case command.CommandType_ScheduleTimer:
@@ -403,23 +403,23 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_TimerScheduled,
-				c.ID,
 				&history.TimerScheduledAttributes{
 					At: a.At,
 				},
+				history.ScheduleEventID(c.ID),
 			))
 
 			// Create timer_fired event which will become visible in the future
 			workflowEvents = append(workflowEvents, core.WorkflowEvent{
 				WorkflowInstance: instance,
-				HistoryEvent: history.NewFutureHistoryEvent(
+				HistoryEvent: history.NewHistoryEvent(
 					e.clock.Now(),
 					history.EventType_TimerFired,
-					c.ID,
 					&history.TimerFiredAttributes{
 						At: a.At,
 					},
-					a.At,
+					history.ScheduleEventID(c.ID),
+					history.VisibleAt(a.At),
 				)},
 			)
 
@@ -429,11 +429,11 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_WorkflowExecutionFinished,
-				c.ID,
 				&history.ExecutionCompletedAttributes{
 					Result: a.Result,
 					Error:  a.Error,
 				},
+				history.ScheduleEventID(c.ID),
 			))
 
 			if instance.SubWorkflow() {
@@ -445,19 +445,21 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 					historyEvent = history.NewHistoryEvent(
 						e.clock.Now(),
 						history.EventType_SubWorkflowFailed,
-						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowFailedAttributes{
 							Error: a.Error,
 						},
+						// Ensure the message gets sent back to the parent workflow with the right eventID
+						history.ScheduleEventID(instance.ParentEventID()),
 					)
 				} else {
 					historyEvent = history.NewHistoryEvent(
 						e.clock.Now(),
 						history.EventType_SubWorkflowCompleted,
-						instance.ParentEventID(), // Ensure the message gets sent back to the parent workflow with the right eventID
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
 						},
+						// Ensure the message gets sent back to the parent workflow with the right eventID
+						history.ScheduleEventID(instance.ParentEventID()),
 					)
 				}
 

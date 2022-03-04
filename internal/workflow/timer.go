@@ -10,19 +10,18 @@ import (
 func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
 	wfState := getWfState(ctx)
 
-	eventID := wfState.eventID
-	wfState.eventID++
+	scheduleEventID := wfState.getNextScheduleEventID()
 
-	timerCmd := command.NewScheduleTimerCommand(eventID, Now(ctx).Add(delay))
+	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, Now(ctx).Add(delay))
 	wfState.addCommand(&timerCmd)
 
 	t := sync.NewFuture()
-	wfState.pendingFutures[eventID] = t
+	wfState.pendingFutures[scheduleEventID] = t
 
 	if d := ctx.Done(); d != nil {
 		if c, ok := d.(sync.ChannelInternal); ok {
 			c.AddReceiveCallback(func(v interface{}) {
-				delete(wfState.pendingFutures, eventID)
+				delete(wfState.pendingFutures, scheduleEventID)
 				t.Set(nil, sync.Canceled)
 			})
 		}

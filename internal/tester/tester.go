@@ -337,7 +337,6 @@ func (wt *workflowTester) SignalWorkflowInstance(wfi core.WorkflowInstance, name
 		e := history.NewHistoryEvent(
 			wt.clock.Now(),
 			history.EventType_SignalReceived,
-			-1,
 			&history.SignalReceivedAttributes{
 				Name: name,
 				Arg:  arg,
@@ -444,19 +443,19 @@ func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event hist
 				ne = history.NewHistoryEvent(
 					wt.clock.Now(),
 					history.EventType_ActivityFailed,
-					event.EventID,
 					&history.ActivityFailedAttributes{
 						Reason: activityErr.Error(),
 					},
+					history.ScheduleEventID(event.ScheduleEventID),
 				)
 			} else {
 				ne = history.NewHistoryEvent(
 					wt.clock.Now(),
 					history.EventType_ActivityCompleted,
-					event.EventID,
 					&history.ActivityCompletedAttributes{
 						Result: activityResult,
 					},
+					history.ScheduleEventID(event.ScheduleEventID),
 				)
 			}
 
@@ -551,19 +550,19 @@ func (wt *workflowTester) scheduleSubWorkflow(event core.WorkflowEvent) {
 			he = history.NewHistoryEvent(
 				wt.clock.Now(),
 				history.EventType_SubWorkflowFailed,
-				event.WorkflowInstance.ParentEventID(),
 				&history.SubWorkflowFailedAttributes{
 					Error: workflowErr.Error(),
 				},
+				history.ScheduleEventID(event.WorkflowInstance.ParentEventID()),
 			)
 		} else {
 			he = history.NewHistoryEvent(
 				wt.clock.Now(),
 				history.EventType_SubWorkflowCompleted,
-				event.WorkflowInstance.ParentEventID(),
 				&history.SubWorkflowCompletedAttributes{
 					Result: workflowResult,
 				},
+				history.ScheduleEventID(event.WorkflowInstance.ParentEventID()),
 			)
 		}
 
@@ -585,7 +584,6 @@ func (wt *workflowTester) getInitialEvent(wf workflow.Workflow, args []interface
 	return history.NewHistoryEvent(
 		wt.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
-		-1,
 		&history.ExecutionStartedAttributes{
 			Name:   name,
 			Inputs: inputs,

@@ -76,17 +76,17 @@ func (et EventType) String() string {
 }
 
 type Event struct {
-	// ID is a unique identifier
+	// ID is a unique identifier for this event
 	ID string
 
 	Type EventType
 
 	Timestamp time.Time
 
-	// EventID is used to correlate events belonging together
-	// For example, if an activity is scheduled, EventID of the schedule event and the
+	// ScheduleEventID is used to correlate events belonging together
+	// For example, if an activity is scheduled, ScheduleEventID of the schedule event and the
 	// completion/failure event are the same.
-	EventID int
+	ScheduleEventID int
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
@@ -98,22 +98,35 @@ func (e Event) String() string {
 	return strconv.Itoa(int(e.Type))
 }
 
-func NewHistoryEvent(timestamp time.Time, eventType EventType, eventID int, attributes interface{}) Event {
-	return Event{
-		ID:         uuid.NewString(),
-		Type:       eventType,
-		Timestamp:  timestamp,
-		EventID:    eventID,
-		Attributes: attributes,
+type HistoryEventOption func(e *Event)
+
+func ScheduleEventID(scheduleEventID int) HistoryEventOption {
+	return func(e *Event) {
+		e.ScheduleEventID = scheduleEventID
 	}
 }
 
-func NewFutureHistoryEvent(timestamp time.Time, eventType EventType, eventID int, attributes interface{}, visibleAt time.Time) Event {
-	event := NewHistoryEvent(timestamp, eventType, eventID, attributes)
-	event.VisibleAt = &visibleAt
-	return event
+func VisibleAt(visibleAt time.Time) HistoryEventOption {
+	return func(e *Event) {
+		e.VisibleAt = &visibleAt
+	}
+}
+
+func NewHistoryEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
+	e := Event{
+		ID:         uuid.NewString(),
+		Type:       eventType,
+		Timestamp:  timestamp,
+		Attributes: attributes,
+	}
+
+	for _, opt := range opts {
+		opt(&e)
+	}
+
+	return e
 }
 
 func NewWorkflowCancellationEvent(timestamp time.Time) Event {
-	return NewHistoryEvent(timestamp, EventType_WorkflowExecutionCanceled, -1, &ExecutionCanceledAttributes{})
+	return NewHistoryEvent(timestamp, EventType_WorkflowExecutionCanceled, &ExecutionCanceledAttributes{})
 }

@@ -36,14 +36,13 @@ func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, wor
 
 	wfState := getWfState(ctx)
 
-	eventID := wfState.eventID
-	wfState.eventID++
+	scheduleEventID := wfState.getNextScheduleEventID()
 
 	name := fn.Name(workflow)
-	cmd := command.NewScheduleSubWorkflowCommand(eventID, options.InstanceID, name, inputs)
+	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, options.InstanceID, name, inputs)
 	wfState.addCommand(&cmd)
 
-	wfState.pendingFutures[eventID] = f
+	wfState.pendingFutures[scheduleEventID] = f
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
@@ -57,7 +56,7 @@ func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, wor
 				}
 
 				wfState.removeCommand(cmd)
-				delete(wfState.pendingFutures, eventID)
+				delete(wfState.pendingFutures, scheduleEventID)
 				f.Set(nil, sync.Canceled)
 			})
 		}

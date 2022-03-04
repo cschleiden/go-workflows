@@ -14,12 +14,12 @@ type key int
 var workflowCtxKey key
 
 type workflowState struct {
-	instance       core.WorkflowInstance
-	eventID        int
-	commands       []*command.Command
-	pendingFutures map[int]sync.Future
-	signalChannels map[string]sync.Channel
-	replaying      bool
+	instance        core.WorkflowInstance
+	scheduleEventID int
+	commands        []*command.Command
+	pendingFutures  map[int]sync.Future
+	signalChannels  map[string]sync.Channel
+	replaying       bool
 
 	clock clock.Clock
 	time  time.Time
@@ -27,12 +27,12 @@ type workflowState struct {
 
 func newWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *workflowState {
 	return &workflowState{
-		instance:       instance,
-		commands:       []*command.Command{},
-		eventID:        0,
-		pendingFutures: map[int]sync.Future{},
-		signalChannels: make(map[string]sync.Channel),
-		clock:          clock,
+		instance:        instance,
+		commands:        []*command.Command{},
+		scheduleEventID: 1,
+		pendingFutures:  map[int]sync.Future{},
+		signalChannels:  make(map[string]sync.Channel),
+		clock:           clock,
 	}
 }
 
@@ -42,6 +42,12 @@ func getWfState(ctx sync.Context) *workflowState {
 
 func withWfState(ctx sync.Context, wfState *workflowState) sync.Context {
 	return sync.WithValue(ctx, workflowCtxKey, wfState)
+}
+
+func (wf *workflowState) getNextScheduleEventID() int {
+	scheduleEventID := wf.scheduleEventID
+	wf.scheduleEventID++
+	return scheduleEventID
 }
 
 func (wf *workflowState) addCommand(cmd *command.Command) {

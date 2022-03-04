@@ -25,7 +25,7 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 		}
 		batchEvents := events[batchStart:batchEnd]
 
-		query := "INSERT INTO `" + tableName + "` (event_id, instance_id, event_type, timestamp, event_id2, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)" +
+		query := "INSERT INTO `" + tableName + "` (event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)" +
 			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
 
 		args := make([]interface{}, 0, len(batchEvents)*7)
@@ -36,7 +36,7 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 				return err
 			}
 
-			args = append(args, newEvent.ID, instanceID, newEvent.Type, newEvent.Timestamp, newEvent.EventID, a, newEvent.VisibleAt)
+			args = append(args, newEvent.ID, instanceID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
 		}
 
 		_, err := tx.ExecContext(

@@ -72,7 +72,7 @@ func (s *BackendTestSuite) Test_CreateWorkflowInstance_DoesNotError() {
 
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), uuid.NewString()),
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
 }
@@ -83,7 +83,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_ReturnsTask() {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
 
@@ -100,7 +100,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_LocksTask() {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 	})
 	s.Nil(err)
 
@@ -110,7 +110,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_LocksTask() {
 	s.NotNil(t)
 
 	// First task is locked, second call should return nil
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*10)
 	defer cancel()
 
 	t, err = s.b.GetWorkflowTask(ctx)
@@ -125,7 +125,7 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
 		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{}),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
 
@@ -137,9 +137,9 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 	ctx := context.Background()
 
-	startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, -1, &history.ExecutionStartedAttributes{})
-	activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, 0, &history.ActivityScheduledAttributes{})
-	activityCompletedEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityCompleted, 0, &history.ActivityCompletedAttributes{})
+	startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
+	activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
+	activityCompletedEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityCompleted, &history.ActivityCompletedAttributes{}, history.ScheduleEventID(1))
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := s.b.CreateWorkflowInstance(ctx, core.WorkflowEvent{
@@ -151,8 +151,8 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 	_, err = s.b.GetWorkflowTask(ctx)
 	s.NoError(err)
 
-	taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, -1, &history.WorkflowTaskStartedAttributes{})
-	taskFinishedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskFinished, -1, &history.WorkflowTaskFinishedAttributes{})
+	taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
+	taskFinishedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{})
 	events := []history.Event{
 		taskStartedEvent,
 		startedEvent,

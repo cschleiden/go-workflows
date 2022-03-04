@@ -143,18 +143,19 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 		event = history.NewHistoryEvent(
 			aw.clock.Now(),
 			history.EventType_ActivityFailed,
-			task.Event.EventID,
 			&history.ActivityFailedAttributes{
 				Reason: err.Error(),
-			})
+			},
+			history.ScheduleEventID(task.Event.ScheduleEventID),
+		)
 	} else {
 		event = history.NewHistoryEvent(
 			aw.clock.Now(),
 			history.EventType_ActivityCompleted,
-			task.Event.EventID,
 			&history.ActivityCompletedAttributes{
 				Result: result,
-			})
+			},
+			history.ScheduleEventID(task.Event.ScheduleEventID))
 	}
 
 	if err := aw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {

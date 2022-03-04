@@ -9,15 +9,14 @@ import (
 func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Future {
 	wfState := getWfState(ctx)
 
-	id := wfState.eventID
-	wfState.eventID++
+	scheduleEventID := wfState.getNextScheduleEventID()
 
 	future := sync.NewFuture()
 
 	if Replaying(ctx) {
 		// There has to be a message in the history with the result, create a new future
 		// and block on it
-		wfState.pendingFutures[id] = future
+		wfState.pendingFutures[scheduleEventID] = future
 
 		return future
 	}
@@ -31,7 +30,7 @@ func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Fut
 		future.Set(nil, err)
 	}
 
-	cmd := command.NewSideEffectCommand(id, payload)
+	cmd := command.NewSideEffectCommand(scheduleEventID, payload)
 	wfState.addCommand(&cmd)
 
 	future.Set(r, nil)

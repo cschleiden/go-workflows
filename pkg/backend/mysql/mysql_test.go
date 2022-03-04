@@ -19,9 +19,9 @@ const testPassword = "SqlPassw0rd"
 // the future consider nested transactions, or manually TRUNCATE-ing the tables in-between tests.
 
 func Test_MysqlBackend(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	// if testing.Short() {
+	// 	t.Skip()
+	// }
 
 	dbName := "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
 

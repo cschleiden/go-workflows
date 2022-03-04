@@ -59,7 +59,6 @@ func Test_ExecuteWorkflow(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflow1",
 					Inputs: []payload.Payload{},
@@ -113,7 +112,6 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflowWithActivity",
 					Inputs: []payload.Payload{inputs},
@@ -122,19 +120,19 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_ActivityScheduled,
-				0,
 				&history.ActivityScheduledAttributes{
 					Name:   "activity1",
 					Inputs: []payload.Payload{inputs},
 				},
+				history.ScheduleEventID(1),
 			),
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_ActivityCompleted,
-				0,
 				&history.ActivityCompletedAttributes{
 					Result: result,
 				},
+				history.ScheduleEventID(1),
 			),
 		},
 	}
@@ -163,7 +161,6 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflowWithActivity",
 					Inputs: []payload.Payload{},
@@ -181,7 +178,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	inputs, _ := converter.DefaultConverter.To(42)
 	require.Equal(t, command.Command{
-		ID:    0,
+		ID:    1,
 		State: command.CommandState_Committed,
 		Type:  command.CommandType_ScheduleActivityTask,
 		Attr: &command.ScheduleActivityTaskCommandAttr{
@@ -219,7 +216,6 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflowWithTimer",
 					Inputs: []payload.Payload{},
@@ -235,7 +231,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	require.Equal(t, 1, workflowTimerHits)
 	require.Len(t, e.workflowState.commands, 1)
 
-	require.Equal(t, 0, e.workflowState.commands[0].ID)
+	require.Equal(t, 1, e.workflowState.commands[0].ID)
 	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[0].Type)
 }
 
@@ -275,7 +271,6 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflowWithSelector",
 					Inputs: []payload.Payload{},
@@ -313,7 +308,6 @@ func Test_ExecuteNewEvents(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflowWithActivity",
 					Inputs: []payload.Payload{inputs},
@@ -322,11 +316,11 @@ func Test_ExecuteNewEvents(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_ActivityScheduled,
-				0,
 				&history.ActivityScheduledAttributes{
 					Name:   "activity1",
 					Inputs: []payload.Payload{inputs},
 				},
+				history.ScheduleEventID(1),
 			),
 		},
 	}
@@ -351,10 +345,10 @@ func Test_ExecuteNewEvents(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_ActivityCompleted,
-				0,
 				&history.ActivityCompletedAttributes{
 					Result: result,
 				},
+				history.ScheduleEventID(1),
 			),
 		},
 		Kind: task.Continuation,
@@ -392,7 +386,6 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
-				-1,
 				&history.ExecutionStartedAttributes{
 					Name:   "workflowWithSignal1",
 					Inputs: []payload.Payload{},
@@ -401,7 +394,6 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 			history.NewHistoryEvent(
 				time.Now(),
 				history.EventType_SignalReceived,
-				-1,
 				&history.SignalReceivedAttributes{
 					Name: "signal1",
 					Arg:  payload.Payload{},

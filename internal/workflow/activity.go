@@ -36,14 +36,13 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 	}
 
 	wfState := getWfState(ctx)
-	eventID := wfState.eventID
-	wfState.eventID++
+	scheduleEventID := wfState.getNextScheduleEventID()
 
 	name := fn.Name(activity)
-	cmd := command.NewScheduleActivityTaskCommand(eventID, name, inputs)
+	cmd := command.NewScheduleActivityTaskCommand(scheduleEventID, name, inputs)
 	wfState.addCommand(&cmd)
 
-	wfState.pendingFutures[eventID] = f
+	wfState.pendingFutures[scheduleEventID] = f
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
@@ -57,7 +56,7 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 				}
 
 				wfState.removeCommand(cmd)
-				delete(wfState.pendingFutures, eventID)
+				delete(wfState.pendingFutures, scheduleEventID)
 				f.Set(nil, sync.Canceled)
 			})
 		}
