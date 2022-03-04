@@ -30,5 +30,8 @@
     "ui.semanticTokens": true,
     "ui.navigation.symbolMatcher": "CaseSensitive",
     // "ui.navigation.symbolStyle":
-  }
+  },
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/go.yml"
+  ]
 }

@@ -21,10 +21,7 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Test
-      run: go test -short -v ./...
-
-    - name: MySQL Tests
+    - name: Tests
       run: |
         sudo /etc/init.d/mysql start
         go test -v ./...
