@@ -2,7 +2,7 @@ package testing
 
 import (
 	internal "github.com/cschleiden/go-workflows/internal/tester"
-	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 type WorkflowTester = internal.WorkflowTester

@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Workflow1(ctx workflow.Context, msg string) error {

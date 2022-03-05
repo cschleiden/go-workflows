@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/core"
-	"github.com/cschleiden/go-workflows/pkg/core/task"
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -56,7 +57,7 @@ type mysqlBackend struct {
 }
 
 // CreateWorkflowInstance creates a new workflow instance
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
+func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "could not start transaction")
@@ -80,7 +81,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.Workfl
 	return nil
 }
 
-func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -119,7 +120,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance core
 	return tx.Commit()
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) error {
 	var parentInstanceID *string
 	var parentEventID *int
 	if wfi.SubWorkflow() {
@@ -225,7 +226,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		kind = task.Continuation
 	}
 
-	var wfi core.WorkflowInstance
+	var wfi workflow.Instance
 	if parentInstanceID != nil {
 		wfi = core.NewSubWorkflowInstance(instanceID, executionID, core.NewWorkflowInstance(*parentInstanceID, ""), *parentEventID)
 	} else {
@@ -358,9 +359,9 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 // completed or other workflow instances.
 func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	instance core.WorkflowInstance,
+	instance workflow.Instance,
 	executedEvents []history.Event,
-	workflowEvents []core.WorkflowEvent,
+	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
@@ -428,7 +429,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	}
 
 	// Insert new workflow events
-	groupedEvents := make(map[core.WorkflowInstance][]history.Event)
+	groupedEvents := make(map[workflow.Instance][]history.Event)
 	for _, m := range workflowEvents {
 		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
 			groupedEvents[m.WorkflowInstance] = []history.Event{}
@@ -469,7 +470,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	return nil
 }
 
-func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
+func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, instance workflow.Instance) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -562,7 +563,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
-func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, id string, event history.Event) error {
+func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance workflow.Instance, id string, event history.Event) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

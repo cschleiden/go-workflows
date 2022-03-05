@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/core"
-	"github.com/cschleiden/go-workflows/pkg/history"
-	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
@@ -20,9 +20,9 @@ type WorkflowInstanceOptions struct {
 }
 
 type Client interface {
-	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error)
+	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (workflow.Instance, error)
 
-	CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error
+	CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error
 
 	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
 }
@@ -37,7 +37,7 @@ func New(backend backend.Backend) Client {
 	}
 }
 
-func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error) {
+func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (workflow.Instance, error) {
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert arguments")
@@ -53,7 +53,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 
-	startMessage := &core.WorkflowEvent{
+	startMessage := &history.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     startedEvent,
 	}
@@ -65,7 +65,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
-func (c *client) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (c *client) CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error {
 	return c.backend.CancelWorkflowInstance(ctx, instance)
 }
 

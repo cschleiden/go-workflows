@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/pkg/workflow"
 	"github.com/cschleiden/go-workflows/samples"
+	"github.com/cschleiden/go-workflows/workflow"
 
 	errs "github.com/pkg/errors"
 )

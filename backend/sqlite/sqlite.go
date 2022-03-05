@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/core"
-	"github.com/cschleiden/go-workflows/pkg/core/task"
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
@@ -57,7 +58,7 @@ type sqliteBackend struct {
 	options    backend.Options
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "could not start transaction")
@@ -81,7 +82,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.Work
 	return nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) error {
 	var parentInstanceID *string
 	var parentEventID *int
 	if wfi.SubWorkflow() {
@@ -106,7 +107,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi core.WorkflowInstance) 
 	return nil
 }
 
-func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -212,7 +213,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		kind = task.Continuation
 	}
 
-	var wfi core.WorkflowInstance
+	var wfi workflow.Instance
 	if parentInstanceID != nil {
 		wfi = core.NewSubWorkflowInstance(instanceID, executionID, core.NewWorkflowInstance(*parentInstanceID, ""), *parentEventID)
 	} else {
@@ -267,13 +268,13 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	return t, nil
 }
 
-// CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, executedEvents []history.Event, workflowEvents []core.WorkflowEvent) error
+// CompleteWorkflowTask(ctx context.Context, instance workflow.Instance, executedEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	instance core.WorkflowInstance,
+	instance workflow.Instance,
 	executedEvents []history.Event,
-	workflowEvents []core.WorkflowEvent,
+	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -335,7 +336,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 
 	// Insert new workflow events
-	groupedEvents := make(map[core.WorkflowInstance][]history.Event)
+	groupedEvents := make(map[workflow.Instance][]history.Event)
 	for _, m := range workflowEvents {
 		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
 			groupedEvents[m.WorkflowInstance] = []history.Event{}
@@ -373,7 +374,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
+func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance workflow.Instance) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -460,7 +461,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	return t, nil
 }
 
-func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, id string, event history.Event) error {
+func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance workflow.Instance, id string, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

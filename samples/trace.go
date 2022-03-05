@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Trace(ctx workflow.Context, v ...interface{}) {
@@ -14,7 +14,7 @@ func Trace(ctx workflow.Context, v ...interface{}) {
 		r = "[replay]"
 	}
 
-	prefix := fmt.Sprintf("[%v][%v]%v", workflow.WorkflowInstance(ctx).GetInstanceID(), workflow.Now(ctx).Format(time.StampMilli), r)
+	prefix := fmt.Sprintf("[%v][%v]%v", workflow.WorkflowInstance2(ctx).GetInstanceID(), workflow.Now(ctx).Format(time.StampMilli), r)
 	args := make([]interface{}, len(v)+1)
 	args[0] = prefix
 	copy(args[1:], v)

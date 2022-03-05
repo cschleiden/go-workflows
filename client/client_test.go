@@ -5,9 +5,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

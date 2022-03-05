@@ -7,10 +7,10 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
-	"github.com/cschleiden/go-workflows/pkg/core/task"
-	"github.com/cschleiden/go-workflows/pkg/history"
 	"github.com/pkg/errors"
 )
 

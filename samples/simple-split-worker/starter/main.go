@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/cschleiden/go-workflows/pkg/backend/mysql"
-	"github.com/cschleiden/go-workflows/pkg/client"
+	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/client"
 	simple_split_worker "github.com/cschleiden/go-workflows/samples/simple-split-worker"
 	"github.com/google/uuid"
 )
