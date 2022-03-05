@@ -7,7 +7,8 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 type WorkflowRegistry interface {
@@ -39,7 +40,7 @@ type worker struct {
 	done chan struct{}
 	wg   *sync.WaitGroup
 
-	registry *workflow.Registry
+	registry *workflowinternal.Registry
 
 	workflowWorker internal.WorkflowWorker
 	activityWorker internal.ActivityWorker
@@ -57,7 +58,7 @@ func New(backend backend.Backend, options *Options) Worker {
 		options = &internal.DefaultOptions
 	}
 
-	registry := workflow.NewRegistry()
+	registry := workflowinternal.NewRegistry()
 
 	return &worker{
 		backend: backend,
