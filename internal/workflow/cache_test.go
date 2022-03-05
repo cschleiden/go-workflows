@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/stretchr/testify/require"
 )
 

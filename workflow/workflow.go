@@ -3,12 +3,13 @@ package workflow
 import (
 	"time"
 
-	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	internal "github.com/cschleiden/go-workflows/internal/workflow"
 )
 
 type (
+	WorkflowInstance   = core.WorkflowInstance
 	Workflow           = internal.Workflow
 	SubWorkflowOptions = internal.SubWorkflowOptions
 	Activity           = internal.Activity
@@ -47,8 +48,9 @@ func NewSignalChannel(ctx Context, name string) Channel {
 	return internal.NewSignalChannel(ctx, name)
 }
 
-func WorkflowInstance(ctx Context) core.WorkflowInstance {
-	return internal.WorkflowInstance(ctx)
+// TODO: Rename
+func WorkflowInstance2(ctx Context) WorkflowInstance {
+	return internal.WorkflowInstance2(ctx)
 }
 
 func Now(ctx Context) time.Time {

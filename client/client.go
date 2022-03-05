@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/core"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -20,9 +20,9 @@ type WorkflowInstanceOptions struct {
 }
 
 type Client interface {
-	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error)
+	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (workflow.WorkflowInstance, error)
 
-	CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error
+	CancelWorkflowInstance(ctx context.Context, instance workflow.WorkflowInstance) error
 
 	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
 }
@@ -37,7 +37,7 @@ func New(backend backend.Backend) Client {
 	}
 }
 
-func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (core.WorkflowInstance, error) {
+func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (workflow.WorkflowInstance, error) {
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert arguments")
@@ -65,7 +65,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
-func (c *client) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (c *client) CancelWorkflowInstance(ctx context.Context, instance workflow.WorkflowInstance) error {
 	return c.backend.CancelWorkflowInstance(ctx, instance)
 }
 
