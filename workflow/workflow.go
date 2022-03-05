@@ -3,9 +3,9 @@ package workflow
 import (
 	"time"
 
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	internal "github.com/cschleiden/go-workflows/internal/workflow"
-	"github.com/cschleiden/go-workflows/pkg/core"
 )
 
 type (

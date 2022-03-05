@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cschleiden/go-workflows/pkg/core"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 type WorkflowExecutorCache interface {

@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/core/task"
+	"github.com/cschleiden/go-workflows/history"
 	"github.com/cschleiden/go-workflows/internal/workflow"
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/core"
-	"github.com/cschleiden/go-workflows/pkg/core/task"
-	"github.com/cschleiden/go-workflows/pkg/history"
 	"github.com/pkg/errors"
 )
 

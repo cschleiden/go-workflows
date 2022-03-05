@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-workflows/pkg/workflow"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Trace(ctx workflow.Context, v ...interface{}) {

@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	"github.com/cschleiden/go-workflows/internal/workflow"
-	"github.com/cschleiden/go-workflows/pkg/backend"
 )
 
 type WorkflowRegistry interface {

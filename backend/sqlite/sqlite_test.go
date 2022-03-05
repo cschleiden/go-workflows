@@ -3,8 +3,8 @@ package sqlite
 import (
 	"testing"
 
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/backend/test"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/test"
 )
 
 func Test_SqliteBackend(t *testing.T) {

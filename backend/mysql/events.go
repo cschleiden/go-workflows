@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/history"
 )
 
 func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {

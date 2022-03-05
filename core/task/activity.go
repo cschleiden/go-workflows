@@ -1,8 +1,8 @@
 package task
 
 import (
-	"github.com/cschleiden/go-workflows/pkg/core"
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/history"
 )
 
 type Activity struct {

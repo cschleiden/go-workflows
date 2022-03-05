@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cschleiden/go-workflows/pkg/backend"
-	"github.com/cschleiden/go-workflows/pkg/backend/sqlite"
-	"github.com/cschleiden/go-workflows/pkg/client"
-	"github.com/cschleiden/go-workflows/pkg/worker"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/sqlite"
+	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/worker"
 
 	"github.com/google/uuid"
 )

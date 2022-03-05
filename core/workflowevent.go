@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/history"
 )
 
 // WorkflowEvent is a event addressed for a specific workflow instance

@@ -3,9 +3,9 @@ package backend
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/pkg/core"
-	"github.com/cschleiden/go-workflows/pkg/core/task"
-	"github.com/cschleiden/go-workflows/pkg/history"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/core/task"
+	"github.com/cschleiden/go-workflows/history"
 )
 
 //go:generate mockery --name=Backend --inpackage

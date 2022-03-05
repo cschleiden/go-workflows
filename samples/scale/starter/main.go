@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/cschleiden/go-workflows/pkg/backend/mysql"
-	"github.com/cschleiden/go-workflows/pkg/client"
+	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/client"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/google/uuid"
 )
