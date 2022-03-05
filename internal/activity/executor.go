@@ -6,9 +6,9 @@ import (
 	"reflect"
 
 	"github.com/cschleiden/go-workflows/core/task"
-	"github.com/cschleiden/go-workflows/history"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/pkg/errors"

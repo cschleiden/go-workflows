@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cschleiden/go-workflows/history"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/pkg/errors"
 )
 

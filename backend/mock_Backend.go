@@ -6,7 +6,7 @@ import (
 	context "context"
 
 	core "github.com/cschleiden/go-workflows/core"
-	history "github.com/cschleiden/go-workflows/history"
+	history "github.com/cschleiden/go-workflows/internal/history"
 
 	mock "github.com/stretchr/testify/mock"
 
