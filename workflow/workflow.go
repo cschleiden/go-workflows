@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	WorkflowInstance   = core.WorkflowInstance
+	Instance           = core.WorkflowInstance
 	Workflow           = internal.Workflow
 	SubWorkflowOptions = internal.SubWorkflowOptions
 	Activity           = internal.Activity
@@ -49,7 +49,7 @@ func NewSignalChannel(ctx Context, name string) Channel {
 }
 
 // TODO: Rename
-func WorkflowInstance2(ctx Context) WorkflowInstance {
+func WorkflowInstance2(ctx Context) Instance {
 	return internal.WorkflowInstance2(ctx)
 }
 
