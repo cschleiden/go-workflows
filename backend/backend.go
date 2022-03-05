@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/core/task"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/task"
 )
 
 //go:generate mockery --name=Backend --inpackage

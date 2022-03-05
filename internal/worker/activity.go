@@ -8,9 +8,9 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/core/task"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 )
 

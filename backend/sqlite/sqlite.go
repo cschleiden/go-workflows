@@ -10,8 +10,8 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/core/task"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
