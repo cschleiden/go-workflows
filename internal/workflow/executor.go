@@ -20,7 +20,7 @@ import (
 )
 
 type WorkflowExecutor interface {
-	ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error)
+	ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error)
 
 	Close()
 }
@@ -51,7 +51,7 @@ func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock
 	}, nil
 }
 
-func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
+func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
 	if t.Kind == task.Continuation {
 		// Check if the current state matches the backend's history state
 		newestHistoryEvent := t.History[len(t.History)-1]
@@ -330,12 +330,12 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	return nil
 }
 
-func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
+func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
 	instance := t.WorkflowInstance
 	commands := e.workflowState.commands
 
 	newEvents := make([]history.Event, 0)
-	workflowEvents := make([]core.WorkflowEvent, 0)
+	workflowEvents := make([]history.WorkflowEvent, 0)
 
 	for _, c := range commands {
 		// TODO: Move to state machine?
@@ -373,7 +373,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			))
 
 			// Send message to new workflow instance
-			workflowEvents = append(workflowEvents, core.WorkflowEvent{
+			workflowEvents = append(workflowEvents, history.WorkflowEvent{
 				WorkflowInstance: subWorkflowInstance,
 				HistoryEvent: history.NewHistoryEvent(
 					e.clock.Now(),
@@ -410,7 +410,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			))
 
 			// Create timer_fired event which will become visible in the future
-			workflowEvents = append(workflowEvents, core.WorkflowEvent{
+			workflowEvents = append(workflowEvents, history.WorkflowEvent{
 				WorkflowInstance: instance,
 				HistoryEvent: history.NewHistoryEvent(
 					e.clock.Now(),
@@ -463,7 +463,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 					)
 				}
 
-				workflowEvents = append(workflowEvents, core.WorkflowEvent{
+				workflowEvents = append(workflowEvents, history.WorkflowEvent{
 					WorkflowInstance: instance.ParentInstance(),
 					HistoryEvent:     historyEvent,
 				})

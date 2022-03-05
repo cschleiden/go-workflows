@@ -100,7 +100,7 @@ type workflowTester struct {
 	clock           *clock.Mock
 
 	timers    []*testTimer
-	callbacks chan func() *core.WorkflowEvent
+	callbacks chan func() *history.WorkflowEvent
 
 	subWorkflowListener func(core.WorkflowInstance, string)
 
@@ -136,7 +136,7 @@ func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
 		clock:           clock,
 
 		timers:    make([]*testTimer, 0),
-		callbacks: make(chan func() *core.WorkflowEvent, 1024),
+		callbacks: make(chan func() *history.WorkflowEvent, 1024),
 	}
 
 	// Always register the workflow under test
@@ -333,7 +333,7 @@ func (wt *workflowTester) SignalWorkflowInstance(wfi core.WorkflowInstance, name
 		panic("Could not convert signal value to string" + err.Error())
 	}
 
-	wt.callbacks <- func() *core.WorkflowEvent {
+	wt.callbacks <- func() *history.WorkflowEvent {
 		e := history.NewHistoryEvent(
 			wt.clock.Now(),
 			history.EventType_SignalReceived,
@@ -343,7 +343,7 @@ func (wt *workflowTester) SignalWorkflowInstance(wfi core.WorkflowInstance, name
 			},
 		)
 
-		return &core.WorkflowEvent{
+		return &history.WorkflowEvent{
 			WorkflowInstance: wfi,
 			HistoryEvent:     e,
 		}
@@ -436,7 +436,7 @@ func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event hist
 			})
 		}
 
-		wt.callbacks <- func() *core.WorkflowEvent {
+		wt.callbacks <- func() *history.WorkflowEvent {
 			var ne history.Event
 
 			if activityErr != nil {
@@ -459,7 +459,7 @@ func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event hist
 				)
 			}
 
-			return &core.WorkflowEvent{
+			return &history.WorkflowEvent{
 				WorkflowInstance: wfi,
 				HistoryEvent:     ne,
 			}
@@ -467,20 +467,20 @@ func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event hist
 	}()
 }
 
-func (wt *workflowTester) scheduleTimer(event core.WorkflowEvent) {
+func (wt *workflowTester) scheduleTimer(event history.WorkflowEvent) {
 	e := event.HistoryEvent.Attributes.(*history.TimerFiredAttributes)
 
 	wt.timers = append(wt.timers, &testTimer{
 		At: e.At,
 		Callback: func() {
-			wt.callbacks <- func() *core.WorkflowEvent {
+			wt.callbacks <- func() *history.WorkflowEvent {
 				return &event
 			}
 		},
 	})
 }
 
-func (wt *workflowTester) scheduleSubWorkflow(event core.WorkflowEvent) {
+func (wt *workflowTester) scheduleSubWorkflow(event history.WorkflowEvent) {
 	a := event.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 
 	// TODO: Right location to call handler?
@@ -542,7 +542,7 @@ func (wt *workflowTester) scheduleSubWorkflow(event core.WorkflowEvent) {
 		)
 	}
 
-	wt.callbacks <- func() *core.WorkflowEvent {
+	wt.callbacks <- func() *history.WorkflowEvent {
 		// Ideally we'd execute the same command here, but for now duplicate the code
 		var he history.Event
 
@@ -566,7 +566,7 @@ func (wt *workflowTester) scheduleSubWorkflow(event core.WorkflowEvent) {
 			)
 		}
 
-		return &core.WorkflowEvent{
+		return &history.WorkflowEvent{
 			WorkflowInstance: event.WorkflowInstance.ParentInstance(),
 			HistoryEvent:     he,
 		}

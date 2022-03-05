@@ -53,7 +53,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 
-	startMessage := &core.WorkflowEvent{
+	startMessage := &history.WorkflowEvent{
 		WorkflowInstance: wfi,
 		HistoryEvent:     startedEvent,
 	}

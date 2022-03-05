@@ -11,7 +11,7 @@ import (
 //go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
-	CreateWorkflowInstance(ctx context.Context, event core.WorkflowEvent) error
+	CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error
 
 	// CancelWorkflowInstance cancels a running workflow instance
 	CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error
@@ -30,7 +30,7 @@ type Backend interface {
 	// This checkpoints the execution. events are new events from the last workflow execution
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
-	CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, executedEvents []history.Event, workflowEvents []core.WorkflowEvent) error
+	CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, executedEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context) (*task.Activity, error)

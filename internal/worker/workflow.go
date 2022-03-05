@@ -8,7 +8,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/core/task"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/workflow"
@@ -129,7 +128,7 @@ func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	}
 }
 
-func (ww *workflowWorker) handleTask(ctx context.Context, t *task.Workflow) ([]history.Event, []core.WorkflowEvent, error) {
+func (ww *workflowWorker) handleTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
 	executor, err := ww.getExecutor(ctx, t)
 	if err != nil {
 		return nil, nil, err

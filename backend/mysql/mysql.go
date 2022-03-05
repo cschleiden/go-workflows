@@ -56,7 +56,7 @@ type mysqlBackend struct {
 }
 
 // CreateWorkflowInstance creates a new workflow instance
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
+func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "could not start transaction")
@@ -360,7 +360,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	instance core.WorkflowInstance,
 	executedEvents []history.Event,
-	workflowEvents []core.WorkflowEvent,
+	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,

@@ -57,7 +57,7 @@ type sqliteBackend struct {
 	options    backend.Options
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m core.WorkflowEvent) error {
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "could not start transaction")
@@ -267,13 +267,13 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	return t, nil
 }
 
-// CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, executedEvents []history.Event, workflowEvents []core.WorkflowEvent) error
+// CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, executedEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	instance core.WorkflowInstance,
 	executedEvents []history.Event,
-	workflowEvents []core.WorkflowEvent,
+	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
