@@ -6,8 +6,8 @@ Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and sin
 
 Note on go1.18 generics: many of the `Get(...)` operations will become easier with generics, an ongoing exploration is happening in branch [go118](https://github.com/cschleiden/go-workflows/tree/go118).
 
-See also: 
-- https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/ 
+See also:
+- https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/
 
 ## Simple example
 
@@ -314,6 +314,90 @@ if err != nil {
 	panic("could not cancel workflow")
 }
 ```
+
+### `select`
+
+Due its non-deterministic behavior you must not use a `select` statement in workflows. Instead you can use the provided `workflow.Select` function. It blocks until one of the provided cases is ready. Cases are evaluated in the order passed to `Select.
+
+```go
+var f1 workflow.Future
+var c workflow.Channel
+
+workflow.Select(
+	ctx,
+	workflow.Await(f1, func (ctx workflow.Context, f Future) {
+		var r int
+		err := f.Get(ctx, &r)
+		// ...
+	}),
+	workflow.Receive(c, func (ctx workflow.Context, c Channel) {
+		v, _ := c.Receive(ctx)
+		// ...
+	}),
+	workflow.Default(ctx, func (ctx workflow.Context) {
+		// ...
+	})
+)
+```
+
+#### Waiting for a Future
+
+`Await` adds a case to wait for a Future to have a value
+
+```go
+var f1, f2 workflow.Future
+
+workflow.Select(
+	ctx,
+	workflow.Await(f1, func (ctx workflow.Context, f Future) {
+		var r int
+		err := f.Get(ctx, &r)
+		// ...
+	}),
+	workflow.Await(f2, func (ctx workflow.Context, f Future) {
+		var r int
+		err := f.Get(ctx, &r)
+		// ...
+	}),
+)
+```
+
+#### Waiting to receive from a Channel
+
+`Receive` adds a case to receive from a given channel
+
+```go
+var c workflow.Channel
+
+workflow.Select(
+	ctx,
+	workflow.Receive(c, func (ctx workflow.Context, c Channel) {
+		v, _ := c.Receive(ctx)
+		// ...
+	}),
+)
+```
+
+#### Default/Non-blocking
+
+A `Default` case is executed if no previous case is ready and selected:
+
+```go
+var f1 workflow.Future
+
+workflow.Select(
+	ctx,
+	workflow.Await(f1, func (ctx workflow.Context, f Future) {
+		var r int
+		err := f.Get(ctx, &r)
+		// ...
+	}),
+	workflow.Default(ctx, func (ctx workflow.Context) {
+		// ...
+	})
+)
+```
+
 
 #### Perform any cleanup
 
