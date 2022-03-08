@@ -212,11 +212,9 @@ func workflowTimerCancellation(ctx workflow.Context) (time.Time, error) {
 	t := workflow.ScheduleTimer(tctx, 30*time.Second)
 	cancel()
 
-	s := workflow.NewSelector()
-	s.AddFuture(t, func(ctx workflow.Context, t workflow.Future) {
+	workflow.Select(ctx, workflow.Await(t, func(ctx workflow.Context, t workflow.Future) {
 		t.Get(ctx, nil)
-	})
-	s.Select(ctx)
+	}))
 
 	return workflow.Now(ctx), nil
 }
