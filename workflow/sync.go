@@ -7,5 +7,6 @@ import (
 type Future = sync.Future
 type Channel = sync.Channel
 type Context = sync.Context
+type WaitGroup = sync.WaitGroup
 
 var Canceled = sync.Canceled

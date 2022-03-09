@@ -90,3 +90,7 @@ func NewChannel() Channel {
 func NewBufferedChannel(size int) Channel {
 	return sync.NewBufferedChannel(size)
 }
+
+func NewWaitGroup() WaitGroup {
+	return sync.NewWaitGroup()
+}
