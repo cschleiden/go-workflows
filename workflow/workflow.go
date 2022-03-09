@@ -75,8 +75,8 @@ func Await(f Future, handler func(Context, Future)) SelectCase {
 	return sync.Await(f, handler)
 }
 
-func ReceiveChan(c Channel, handler func(Context, Channel)) SelectCase {
-	return sync.ReceiveChan(c, handler)
+func Receive(c Channel, handler func(Context, Channel)) SelectCase {
+	return sync.Receive(c, handler)
 }
 
 func Default(handler func(Context)) SelectCase {

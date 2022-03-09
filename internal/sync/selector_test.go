@@ -132,7 +132,7 @@ func Test_ChannelSelector_Select(t *testing.T) {
 		// Wait for result
 		Select(
 			ctx,
-			ReceiveChan(c, func(ctx Context, c Channel) {
+			Receive(c, func(ctx Context, c Channel) {
 				c.Receive(ctx, &r)
 			}),
 		)

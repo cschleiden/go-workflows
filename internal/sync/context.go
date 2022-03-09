@@ -184,7 +184,7 @@ func propagateCancel(parent Context, child canceler) {
 
 	Select(
 		parent,
-		ReceiveChan(done, func(ctx Context, c Channel) {
+		Receive(done, func(ctx Context, c Channel) {
 			// Parent is already canceled
 			child.cancel(false, parent.Err())
 		}),

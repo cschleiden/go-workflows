@@ -77,7 +77,7 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 
 	log.Println("Waiting for first signal")
 	workflow.Select(ctx,
-		workflow.ReceiveChan(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
+		workflow.Receive(workflow.NewSignalChannel(ctx, "test"), func(ctx workflow.Context, c sync.Channel) {
 			var r int
 			c.Receive(ctx, &r)
 
@@ -106,7 +106,7 @@ func SubWorkflow1(ctx workflow.Context) (string, error) {
 	defer log.Println("Leaving SubWorkflow1")
 
 	workflow.Select(ctx,
-		workflow.ReceiveChan(workflow.NewSignalChannel(ctx, "sub-signal"), func(ctx workflow.Context, c sync.Channel) {
+		workflow.Receive(workflow.NewSignalChannel(ctx, "sub-signal"), func(ctx workflow.Context, c sync.Channel) {
 			c.Receive(ctx, nil)
 		}),
 	)

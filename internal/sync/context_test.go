@@ -25,7 +25,7 @@ func TestWithCancel(t *testing.T) {
 
 		Select(
 			ctx,
-			ReceiveChan(ctx.Done(), func(ctx Context, c Channel) {
+			Receive(ctx.Done(), func(ctx Context, c Channel) {
 				canceled = true
 			}),
 		)

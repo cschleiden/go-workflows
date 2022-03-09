@@ -22,7 +22,7 @@ func Await(f Future, handler func(Context, Future)) SelectCase {
 	}
 }
 
-func ReceiveChan(c Channel, handler func(Context, Channel)) SelectCase {
+func Receive(c Channel, handler func(Context, Channel)) SelectCase {
 	channel := c.(*channel)
 
 	return &channelCase{
