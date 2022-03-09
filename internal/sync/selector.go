@@ -1,15 +1,5 @@
 package sync
 
-// type Selector interface {
-// 	AddFuture(f Future, handler func(ctx Context, f Future)) Selector
-
-// 	AddChannelReceive(c Channel, handler func(ctx Context, c Channel)) Selector
-
-// 	AddDefault(handler func()) Selector
-
-// 	Select(ctx Context)
-// }
-
 type SelectCase interface {
 	Ready() bool
 	Handle(ctx Context)
