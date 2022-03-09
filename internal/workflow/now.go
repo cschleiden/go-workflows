@@ -7,6 +7,6 @@ import (
 )
 
 func Now(ctx sync.Context) time.Time {
-	wfState := getWfState(ctx)
+	wfState := WorkflowState(ctx)
 	return wfState.time
 }

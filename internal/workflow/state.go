@@ -36,25 +36,25 @@ func newWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *workfl
 	}
 }
 
-func getWfState(ctx sync.Context) *workflowState {
+func WorkflowState(ctx sync.Context) *workflowState {
 	return ctx.Value(workflowCtxKey).(*workflowState)
 }
 
-func withWfState(ctx sync.Context, wfState *workflowState) sync.Context {
+func WithWorkflowState(ctx sync.Context, wfState *workflowState) sync.Context {
 	return sync.WithValue(ctx, workflowCtxKey, wfState)
 }
 
-func (wf *workflowState) getNextScheduleEventID() int {
+func (wf *workflowState) GetNextScheduleEventID() int {
 	scheduleEventID := wf.scheduleEventID
 	wf.scheduleEventID++
 	return scheduleEventID
 }
 
-func (wf *workflowState) addCommand(cmd *command.Command) {
+func (wf *workflowState) AddCommand(cmd *command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
-func (wf *workflowState) removeCommandByEventID(eventID int) *command.Command {
+func (wf *workflowState) RemoveCommandByEventID(eventID int) *command.Command {
 	for i, c := range wf.commands {
 		if c.ID == eventID {
 			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
@@ -65,7 +65,7 @@ func (wf *workflowState) removeCommandByEventID(eventID int) *command.Command {
 	return nil
 }
 
-func (wf *workflowState) removeCommand(cmd command.Command) {
+func (wf *workflowState) RemoveCommand(cmd command.Command) {
 	for i, c := range wf.commands {
 		if *c == cmd {
 			// TODO: Move to state machines?
@@ -77,23 +77,23 @@ func (wf *workflowState) removeCommand(cmd command.Command) {
 	}
 }
 
-func (wf *workflowState) clearCommands() {
+func (wf *workflowState) ClearCommands() {
 	wf.commands = []*command.Command{}
 }
 
-func (wf *workflowState) createSignalChannel(name string) sync.Channel {
+func (wf *workflowState) CreateSignalChannel(name string) sync.Channel {
 	cs := sync.NewBufferedChannel(10_000)
 	wf.signalChannels[name] = cs
 	return cs
 }
 
-func (wf *workflowState) getSignalChannel(name string) sync.Channel {
+func (wf *workflowState) GetSignalChannel(name string) sync.Channel {
 	cs, ok := wf.signalChannels[name]
 	if ok {
 		return cs
 	}
 
-	return wf.createSignalChannel(name)
+	return wf.CreateSignalChannel(name)
 }
 
 func (wf *workflowState) setReplaying(replaying bool) {

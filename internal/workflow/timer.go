@@ -8,12 +8,12 @@ import (
 )
 
 func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
-	wfState := getWfState(ctx)
+	wfState := WorkflowState(ctx)
 
-	scheduleEventID := wfState.getNextScheduleEventID()
+	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, Now(ctx).Add(delay))
-	wfState.addCommand(&timerCmd)
+	wfState.AddCommand(&timerCmd)
 
 	t := sync.NewFuture()
 	wfState.pendingFutures[scheduleEventID] = t

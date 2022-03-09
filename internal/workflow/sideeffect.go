@@ -7,9 +7,9 @@ import (
 )
 
 func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Future {
-	wfState := getWfState(ctx)
+	wfState := WorkflowState(ctx)
 
-	scheduleEventID := wfState.getNextScheduleEventID()
+	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	future := sync.NewFuture()
 
@@ -31,7 +31,7 @@ func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Fut
 	}
 
 	cmd := command.NewSideEffectCommand(scheduleEventID, payload)
-	wfState.addCommand(&cmd)
+	wfState.AddCommand(&cmd)
 
 	future.Set(r, nil)
 

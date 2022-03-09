@@ -21,7 +21,7 @@ import (
 
 func newExecutor(r *Registry, i core.WorkflowInstance) *executor {
 	state := newWorkflowState(i, clock.New())
-	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
+	wfCtx, cancel := sync.WithCancel(WithWorkflowState(sync.Background(), state))
 
 	return &executor{
 		registry:          r,

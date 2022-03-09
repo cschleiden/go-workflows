@@ -6,6 +6,6 @@ import (
 )
 
 func WorkflowInstance2(ctx sync.Context) core.WorkflowInstance {
-	wfState := getWfState(ctx)
+	wfState := WorkflowState(ctx)
 	return wfState.instance
 }

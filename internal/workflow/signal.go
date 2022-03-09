@@ -5,7 +5,7 @@ import (
 )
 
 func NewSignalChannel(ctx sync.Context, name string) sync.Channel {
-	wfState := getWfState(ctx)
+	wfState := WorkflowState(ctx)
 
-	return wfState.getSignalChannel(name)
+	return wfState.GetSignalChannel(name)
 }

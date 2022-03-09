@@ -38,7 +38,7 @@ type executor struct {
 
 func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
 	state := newWorkflowState(instance, clock)
-	wfCtx, cancel := sync.WithCancel(withWfState(sync.Background(), state))
+	wfCtx, cancel := sync.WithCancel(WithWorkflowState(sync.Background(), state))
 
 	return &executor{
 		registry:          registry,
@@ -60,7 +60,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 		}
 
 		// Clear commands from previous executions
-		e.workflowState.clearCommands()
+		e.workflowState.ClearCommands()
 	} else {
 		// Replay history
 		e.workflowState.setReplaying(true)
@@ -204,7 +204,7 @@ func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.Wor
 }
 
 func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
-	c := e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 	if c != nil {
 		// Ensure the same activity is scheduled again
 		ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
@@ -222,7 +222,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 		return nil
 	}
 
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 	f.Set(a.Result, nil)
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -234,7 +234,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 		return errors.New("no pending future found for activity failed event")
 	}
 
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	f.Set(nil, errors.New(a.Reason))
 
@@ -242,7 +242,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 }
 
 func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerScheduledAttributes) error {
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	return nil
 }
@@ -254,7 +254,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 		return nil
 	}
 
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	f.Set(nil, nil)
 
@@ -262,7 +262,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 }
 
 func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
-	c := e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 	if c != nil {
 		ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 		if a.Name != ca.Name {
@@ -279,7 +279,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 		return errors.New("no pending future found for sub workflow failed event")
 	}
 
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	f.Set(nil, errors.New(a.Error))
 
@@ -292,7 +292,7 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 		return errors.New("no pending future found for sub workflow completed event")
 	}
 
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	f.Set(a.Result, nil)
 
@@ -301,10 +301,10 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
 	// Send signal to workflow channel
-	sc := e.workflowState.getSignalChannel(a.Name)
+	sc := e.workflowState.GetSignalChannel(a.Name)
 	sc.SendNonblocking(e.workflowCtx, a.Arg)
 
-	e.workflowState.removeCommandByEventID(event.ScheduleEventID)
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -325,7 +325,7 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	e.workflowState.scheduleEventID++
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, result, err)
-	e.workflowState.addCommand(&cmd)
+	e.workflowState.AddCommand(&cmd)
 
 	return nil
 }
