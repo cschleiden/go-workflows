@@ -5,10 +5,11 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
 )
 
 func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
-	wfState := WorkflowState(ctx)
+	wfState := workflowstate.WorkflowState(ctx)
 
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
@@ -16,12 +17,12 @@ func ScheduleTimer(ctx sync.Context, delay time.Duration) sync.Future {
 	wfState.AddCommand(&timerCmd)
 
 	t := sync.NewFuture()
-	wfState.pendingFutures[scheduleEventID] = t
+	wfState.TrackFuture(scheduleEventID, t)
 
 	if d := ctx.Done(); d != nil {
 		if c, ok := d.(sync.ChannelInternal); ok {
 			c.AddReceiveCallback(func(v interface{}) {
-				delete(wfState.pendingFutures, scheduleEventID)
+				wfState.RemoveFuture(scheduleEventID)
 				t.Set(nil, sync.Canceled)
 			})
 		}

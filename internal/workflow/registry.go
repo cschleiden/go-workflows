@@ -12,14 +12,14 @@ type Registry struct {
 	sync.Mutex
 
 	workflowMap map[string]Workflow
-	activityMap map[string]Activity
+	activityMap map[string]interface{}
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		Mutex:       sync.Mutex{},
 		workflowMap: make(map[string]Workflow),
-		activityMap: make(map[string]Activity),
+		activityMap: make(map[string]interface{}),
 	}
 }
 
@@ -33,7 +33,7 @@ func (r *Registry) RegisterWorkflow(workflow Workflow) error {
 	return nil
 }
 
-func (r *Registry) RegisterActivity(activity Activity) error {
+func (r *Registry) RegisterActivity(activity interface{}) error {
 	r.Lock()
 	defer r.Unlock()
 
@@ -82,7 +82,7 @@ func (r *Registry) GetWorkflow(name string) (Workflow, error) {
 	return nil, errors.New("workflow not found")
 }
 
-func (r *Registry) GetActivity(name string) (Activity, error) {
+func (r *Registry) GetActivity(name string) (interface{}, error) {
 	r.Lock()
 	defer r.Unlock()
 

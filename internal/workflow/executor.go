@@ -15,6 +15,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/google/uuid"
 	errs "github.com/pkg/errors"
 )
@@ -28,7 +29,7 @@ type WorkflowExecutor interface {
 type executor struct {
 	registry          *Registry
 	workflow          *workflow
-	workflowState     *workflowState
+	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
 	clock             clock.Clock
@@ -37,12 +38,12 @@ type executor struct {
 }
 
 func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
-	state := newWorkflowState(instance, clock)
-	wfCtx, cancel := sync.WithCancel(WithWorkflowState(sync.Background(), state))
+	s := workflowstate.NewWorkflowState(instance, clock)
+	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
 	return &executor{
 		registry:          registry,
-		workflowState:     state,
+		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
 		clock:             clock,
@@ -63,7 +64,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 		e.workflowState.ClearCommands()
 	} else {
 		// Replay history
-		e.workflowState.setReplaying(true)
+		e.workflowState.SetReplaying(true)
 		for _, event := range t.History {
 			if err := e.executeEvent(event); err != nil {
 				return nil, nil, errs.Wrap(err, "error while replaying event")
@@ -95,7 +96,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 }
 
 func (e *executor) executeNewEvents(newEvents []history.Event) error {
-	e.workflowState.setReplaying(false)
+	e.workflowState.SetReplaying(false)
 
 	for _, event := range newEvents {
 		if err := e.executeEvent(event); err != nil {
@@ -198,7 +199,7 @@ func (e *executor) handleWorkflowCanceled() error {
 }
 
 func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.WorkflowTaskStartedAttributes) error {
-	e.workflowState.setTime(event.Timestamp)
+	e.workflowState.SetTime(event.Timestamp)
 
 	return nil
 }
@@ -217,7 +218,7 @@ func (e *executor) handleActivityScheduled(event history.Event, a *history.Activ
 }
 
 func (e *executor) handleActivityCompleted(event history.Event, a *history.ActivityCompletedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return nil
 	}
@@ -229,7 +230,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 }
 
 func (e *executor) handleActivityFailed(event history.Event, a *history.ActivityFailedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for activity failed event")
 	}
@@ -248,7 +249,7 @@ func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerSch
 }
 
 func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		// Timer already canceled ignore
 		return nil
@@ -274,7 +275,7 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 }
 
 func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for sub workflow failed event")
 	}
@@ -287,7 +288,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 }
 
 func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.SubWorkflowCompletedAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for sub workflow completed event")
 	}
@@ -310,7 +311,7 @@ func (e *executor) handleSignalReceived(event history.Event, a *history.SignalRe
 }
 
 func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
-	f, ok := e.workflowState.pendingFutures[event.ScheduleEventID]
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for side effect result event")
 	}
@@ -321,8 +322,7 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 }
 
 func (e *executor) workflowCompleted(result payload.Payload, err error) error {
-	eventId := e.workflowState.scheduleEventID
-	e.workflowState.scheduleEventID++
+	eventId := e.workflowState.GetNextScheduleEventID()
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, result, err)
 	e.workflowState.AddCommand(&cmd)
@@ -332,7 +332,7 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 
 func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
 	instance := t.WorkflowInstance
-	commands := e.workflowState.commands
+	commands := e.workflowState.Commands()
 
 	newEvents := make([]history.Event, 0)
 	workflowEvents := make([]history.WorkflowEvent, 0)

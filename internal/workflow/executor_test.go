@@ -16,17 +16,19 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
 )
 
 func newExecutor(r *Registry, i core.WorkflowInstance) *executor {
-	state := newWorkflowState(i, clock.New())
-	wfCtx, cancel := sync.WithCancel(WithWorkflowState(sync.Background(), state))
+	s := workflowstate.NewWorkflowState(i, clock.New())
+	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
 	return &executor{
 		registry:          r,
 		workflow:          NewWorkflow(reflect.ValueOf(workflow1)),
-		workflowState:     state,
+		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
 		logger:            log.Default(),
@@ -74,7 +76,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	require.Equal(t, 1, workflowHits)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.commands, 1)
+	require.Len(t, e.workflowState.Commands(), 1)
 }
 
 var workflowActivityHit int
@@ -82,7 +84,7 @@ var workflowActivityHit int
 func workflowWithActivity(ctx sync.Context) error {
 	workflowActivityHit++
 
-	f1 := ExecuteActivity(ctx, DefaultActivityOptions, activity1, 42)
+	f1 := wf.ExecuteActivity(ctx, wf.DefaultActivityOptions, activity1, 42)
 
 	var r int
 	err := f1.Get(ctx, &r)
@@ -144,7 +146,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.commands, 1)
+	require.Len(t, e.workflowState.Commands(), 1)
 }
 
 func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
@@ -174,7 +176,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	e.ExecuteTask(context.Background(), task)
 
 	require.Equal(t, 1, workflowActivityHit)
-	require.Len(t, e.workflowState.commands, 1)
+	require.Len(t, e.workflowState.Commands(), 1)
 
 	inputs, _ := converter.DefaultConverter.To(42)
 	require.Equal(t, command.Command{
@@ -185,7 +187,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 			Name:   "activity1",
 			Inputs: []payload.Payload{inputs},
 		},
-	}, *e.workflowState.commands[0])
+	}, *e.workflowState.Commands()[0])
 }
 
 var workflowTimerHits int
@@ -194,7 +196,7 @@ func workflowWithTimer(ctx sync.Context) error {
 	workflowTimerHits++
 
 	var r bool
-	if err := ScheduleTimer(ctx, time.Millisecond*5).Get(ctx, &r); err != nil {
+	if err := wf.ScheduleTimer(ctx, time.Millisecond*5).Get(ctx, &r); err != nil {
 		panic("error getting timer future")
 	}
 
@@ -229,10 +231,10 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	e.ExecuteTask(context.Background(), task)
 
 	require.Equal(t, 1, workflowTimerHits)
-	require.Len(t, e.workflowState.commands, 1)
+	require.Len(t, e.workflowState.Commands(), 1)
 
-	require.Equal(t, 1, e.workflowState.commands[0].ID)
-	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[0].Type)
+	require.Equal(t, 1, e.workflowState.Commands()[0].ID)
+	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.Commands()[0].Type)
 }
 
 var workflowWithSelectorHits int
@@ -240,8 +242,8 @@ var workflowWithSelectorHits int
 func workflowWithSelector(ctx sync.Context) error {
 	workflowWithSelectorHits++
 
-	f1 := ExecuteActivity(ctx, DefaultActivityOptions, activity1, 42)
-	t := ScheduleTimer(ctx, time.Millisecond*2)
+	f1 := wf.ExecuteActivity(ctx, wf.DefaultActivityOptions, activity1, 42)
+	t := wf.ScheduleTimer(ctx, time.Millisecond*2)
 
 	sync.Select(
 		ctx,
@@ -284,10 +286,10 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	e.ExecuteTask(context.Background(), task)
 
 	require.Equal(t, 1, workflowWithSelectorHits)
-	require.Len(t, e.workflowState.commands, 2)
+	require.Len(t, e.workflowState.Commands(), 2)
 
-	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.commands[0].Type)
-	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.commands[1].Type)
+	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.Commands()[0].Type)
+	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.Commands()[1].Type)
 }
 
 func Test_ExecuteNewEvents(t *testing.T) {
@@ -332,7 +334,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, workflowActivityHit)
 	require.False(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.commands, 0)
+	require.Len(t, e.workflowState.Commands(), 0)
 
 	h := []history.Event{}
 	h = append(h, oldTask.NewEvents...)
@@ -360,14 +362,14 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.commands, 1)
+	require.Len(t, e.workflowState.Commands(), 1)
 }
 
 var workflowSignalHits int
 
 func workflowWithSignal1(ctx sync.Context) error {
 
-	c := NewSignalChannel(ctx, "signal1")
+	c := wf.NewSignalChannel(ctx, "signal1")
 	c.Receive(ctx, nil)
 
 	workflowSignalHits++
@@ -409,5 +411,5 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 
 	require.Equal(t, 1, workflowSignalHits)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.commands, 1)
+	require.Len(t, e.workflowState.Commands(), 1)
 }

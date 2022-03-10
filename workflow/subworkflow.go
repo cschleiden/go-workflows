@@ -6,6 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/pkg/errors"
 )
 
@@ -34,15 +35,14 @@ func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, wor
 		return f
 	}
 
-	wfState := WorkflowState(ctx)
+	wfState := workflowstate.WorkflowState(ctx)
 
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	name := fn.Name(workflow)
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, options.InstanceID, name, inputs)
 	wfState.AddCommand(&cmd)
-
-	wfState.pendingFutures[scheduleEventID] = f
+	wfState.TrackFuture(scheduleEventID, f)
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
@@ -55,8 +55,8 @@ func createSubWorkflowInstance(ctx sync.Context, options SubWorkflowOptions, wor
 					return
 				}
 
+				wfState.RemoveFuture(scheduleEventID)
 				wfState.RemoveCommand(cmd)
-				delete(wfState.pendingFutures, scheduleEventID)
 				f.Set(nil, sync.Canceled)
 			})
 		}

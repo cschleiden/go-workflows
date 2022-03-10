@@ -32,9 +32,9 @@ type WorkflowTester interface {
 
 	Registry() *workflow.Registry
 
-	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
+	OnActivity(activity interface{}, args ...interface{}) *mock.Call
 
-	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
+	OnSubWorkflow(workflow interface{}, args ...interface{}) *mock.Call
 
 	SignalWorkflow(signalName string, value interface{})
 
@@ -78,7 +78,7 @@ type workflowTester struct {
 	options *options
 
 	// Workflow under test
-	wf  workflow.Workflow
+	wf  interface{}
 	wfi core.WorkflowInstance
 
 	// Workflows
@@ -107,7 +107,7 @@ type workflowTester struct {
 	runningActivities int32
 }
 
-func NewWorkflowTester(wf workflow.Workflow) WorkflowTester {
+func NewWorkflowTester(wf interface{}) WorkflowTester {
 	// Start with the current wall-clock tiem
 	clock := clock.NewMock()
 	clock.Set(time.Now())
@@ -164,7 +164,7 @@ func (wt *workflowTester) ListenSubWorkflow(listener func(core.WorkflowInstance,
 	wt.subWorkflowListener = listener
 }
 
-func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
+func (wt *workflowTester) OnActivity(activity interface{}, args ...interface{}) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
 
@@ -173,7 +173,7 @@ func (wt *workflowTester) OnActivity(activity workflow.Activity, args ...interfa
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
+func (wt *workflowTester) OnSubWorkflow(workflow interface{}, args ...interface{}) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
 	wt.registry.RegisterWorkflow(workflow)
 
@@ -573,7 +573,7 @@ func (wt *workflowTester) scheduleSubWorkflow(event history.WorkflowEvent) {
 	}
 }
 
-func (wt *workflowTester) getInitialEvent(wf workflow.Workflow, args []interface{}) history.Event {
+func (wt *workflowTester) getInitialEvent(wf interface{}, args []interface{}) history.Event {
 	name := fn.Name(wf)
 
 	inputs, err := margs.ArgsToInputs(converter.DefaultConverter, args...)

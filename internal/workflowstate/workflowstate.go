@@ -1,4 +1,4 @@
-package workflow
+package workflowstate
 
 import (
 	"time"
@@ -13,7 +13,7 @@ type key int
 
 var workflowCtxKey key
 
-type workflowState struct {
+type WfState struct {
 	instance        core.WorkflowInstance
 	scheduleEventID int
 	commands        []*command.Command
@@ -25,8 +25,8 @@ type workflowState struct {
 	time  time.Time
 }
 
-func newWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *workflowState {
-	return &workflowState{
+func NewWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *WfState {
+	return &WfState{
 		instance:        instance,
 		commands:        []*command.Command{},
 		scheduleEventID: 1,
@@ -36,25 +36,42 @@ func newWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *workfl
 	}
 }
 
-func WorkflowState(ctx sync.Context) *workflowState {
-	return ctx.Value(workflowCtxKey).(*workflowState)
+func WorkflowState(ctx sync.Context) *WfState {
+	return ctx.Value(workflowCtxKey).(*WfState)
 }
 
-func WithWorkflowState(ctx sync.Context, wfState *workflowState) sync.Context {
+func WithWorkflowState(ctx sync.Context, wfState *WfState) sync.Context {
 	return sync.WithValue(ctx, workflowCtxKey, wfState)
 }
 
-func (wf *workflowState) GetNextScheduleEventID() int {
+func (wf *WfState) GetNextScheduleEventID() int {
 	scheduleEventID := wf.scheduleEventID
 	wf.scheduleEventID++
 	return scheduleEventID
 }
 
-func (wf *workflowState) AddCommand(cmd *command.Command) {
+func (wf *WfState) TrackFuture(scheduleEventID int, f sync.Future) {
+	wf.pendingFutures[scheduleEventID] = f
+}
+
+func (wf *WfState) FutureByScheduleEventID(scheduleEventID int) (sync.Future, bool) {
+	f, ok := wf.pendingFutures[scheduleEventID]
+	return f, ok
+}
+
+func (wf *WfState) RemoveFuture(scheduleEventID int) {
+	delete(wf.pendingFutures, scheduleEventID)
+}
+
+func (wf *WfState) Commands() []*command.Command {
+	return wf.commands
+}
+
+func (wf *WfState) AddCommand(cmd *command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
-func (wf *workflowState) RemoveCommandByEventID(eventID int) *command.Command {
+func (wf *WfState) RemoveCommandByEventID(eventID int) *command.Command {
 	for i, c := range wf.commands {
 		if c.ID == eventID {
 			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
@@ -65,7 +82,7 @@ func (wf *workflowState) RemoveCommandByEventID(eventID int) *command.Command {
 	return nil
 }
 
-func (wf *workflowState) RemoveCommand(cmd command.Command) {
+func (wf *WfState) RemoveCommand(cmd command.Command) {
 	for i, c := range wf.commands {
 		if *c == cmd {
 			// TODO: Move to state machines?
@@ -77,17 +94,17 @@ func (wf *workflowState) RemoveCommand(cmd command.Command) {
 	}
 }
 
-func (wf *workflowState) ClearCommands() {
+func (wf *WfState) ClearCommands() {
 	wf.commands = []*command.Command{}
 }
 
-func (wf *workflowState) CreateSignalChannel(name string) sync.Channel {
+func (wf *WfState) CreateSignalChannel(name string) sync.Channel {
 	cs := sync.NewBufferedChannel(10_000)
 	wf.signalChannels[name] = cs
 	return cs
 }
 
-func (wf *workflowState) GetSignalChannel(name string) sync.Channel {
+func (wf *WfState) GetSignalChannel(name string) sync.Channel {
 	cs, ok := wf.signalChannels[name]
 	if ok {
 		return cs
@@ -96,10 +113,22 @@ func (wf *workflowState) GetSignalChannel(name string) sync.Channel {
 	return wf.CreateSignalChannel(name)
 }
 
-func (wf *workflowState) setReplaying(replaying bool) {
+func (wf *WfState) SetReplaying(replaying bool) {
 	wf.replaying = replaying
 }
 
-func (wf *workflowState) setTime(t time.Time) {
+func (wf *WfState) Replaying() bool {
+	return wf.replaying
+}
+
+func (wf *WfState) SetTime(t time.Time) {
 	wf.time = t
+}
+
+func (wf *WfState) Time() time.Time {
+	return wf.time
+}
+
+func (wf *WfState) Instance() core.WorkflowInstance {
+	return wf.instance
 }

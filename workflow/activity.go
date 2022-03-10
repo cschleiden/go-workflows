@@ -6,6 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/pkg/errors"
 )
 
@@ -35,14 +36,13 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 		return f
 	}
 
-	wfState := WorkflowState(ctx)
+	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	name := fn.Name(activity)
 	cmd := command.NewScheduleActivityTaskCommand(scheduleEventID, name, inputs)
 	wfState.AddCommand(&cmd)
-
-	wfState.pendingFutures[scheduleEventID] = f
+	wfState.TrackFuture(scheduleEventID, f)
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
@@ -55,8 +55,8 @@ func executeActivity(ctx sync.Context, options ActivityOptions, activity Activit
 					return
 				}
 
+				wfState.RemoveFuture(scheduleEventID)
 				wfState.RemoveCommand(cmd)
-				delete(wfState.pendingFutures, scheduleEventID)
 				f.Set(nil, sync.Canceled)
 			})
 		}
