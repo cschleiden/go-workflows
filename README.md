@@ -4,10 +4,10 @@
 
 Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as [DTFx](https://github.com/Azure/durabletask).
 
-Note on go1.18 generics: many of the `Get(...)` operations will become easier with generics, an ongoing exploration is happening in branch [go118](https://github.com/cschleiden/go-workflows/tree/go118).
-
 See also:
 - https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/
+
+On Go support: the current version of the library requires **Go 1.18** or later. There is a version that doesn't require generics and relies more on `interface{}` instead, but I think the improved type safety is worth not supporting a version of Go before 1.18 for now.
 
 ## Simple example
 
