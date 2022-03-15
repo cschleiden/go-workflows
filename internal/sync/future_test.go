@@ -4,16 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_FutureYields(t *testing.T) {
-	f := NewFuture()
+	f := NewFuture[int]()
 
 	c := NewCoroutine(Background(), func(ctx Context) error {
-		var v int
-		f.Get(ctx, &v)
+		f.Get(ctx)
 
 		return nil
 	})
@@ -25,7 +23,7 @@ func Test_FutureYields(t *testing.T) {
 }
 
 func Test_FutureSetPanicsWhenSetTwice(t *testing.T) {
-	f := NewFuture()
+	f := NewFuture[int]()
 
 	f.Set(42, nil)
 
@@ -35,12 +33,12 @@ func Test_FutureSetPanicsWhenSetTwice(t *testing.T) {
 }
 
 func Test_FutureSetUnblocks(t *testing.T) {
-	f := NewFuture()
+	f := NewFuture[int]()
 
 	var v int
 
 	c := NewCoroutine(Background(), func(ctx Context) error {
-		f.Get(ctx, &v)
+		v, _ = f.Get(ctx)
 
 		return nil
 	})
@@ -68,15 +66,15 @@ func Test_FutureSetUnblocks(t *testing.T) {
 
 func Test_FutureGetNil(t *testing.T) {
 	ctx := Background()
-	f := NewFuture()
+	f := NewFuture[int]()
 
 	c := NewCoroutine(ctx, func(ctx Context) error {
-		f.Get(ctx, nil)
+		f.Get(ctx)
 
 		return nil
 	})
 
-	f.Set(nil, nil)
+	f.Set(0, nil)
 
 	c.Execute()
 	require.Nil(t, c.Error())
@@ -86,17 +84,15 @@ func Test_FutureGetNil(t *testing.T) {
 
 func Test_FutureSetNil(t *testing.T) {
 	ctx := Background()
-	f := NewFuture()
+	f := NewFuture[int]()
 
-	var r int
 	c := NewCoroutine(ctx, func(ctx Context) error {
-		f.Get(ctx, &r)
+		f.Get(ctx)
 
 		return nil
 	})
 
-	var v payload.Payload
-	f.Set(v, nil)
+	f.Set(0, nil)
 
 	c.Execute()
 	require.Nil(t, c.Error())
@@ -106,17 +102,17 @@ func Test_FutureSetNil(t *testing.T) {
 
 func Test_FutureGetError(t *testing.T) {
 	ctx := Background()
-	f := NewFuture()
+	f := NewFuture[int]()
 
 	var err error
 
 	c := NewCoroutine(ctx, func(ctx Context) error {
-		err = f.Get(ctx, nil)
+		_, err = f.Get(ctx)
 
 		return nil
 	})
 
-	f.Set(nil, errors.New("test"))
+	f.Set(0, errors.New("test"))
 
 	c.Execute()
 	require.Nil(t, c.Error())

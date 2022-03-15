@@ -4,8 +4,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
-type Future = sync.Future
-type Channel = sync.Channel
 type Context = sync.Context
 type WaitGroup = sync.WaitGroup
 
@@ -21,24 +19,20 @@ func Select(ctx Context, cases ...SelectCase) {
 	sync.Select(ctx, cases...)
 }
 
-func Await(f Future, handler func(Context, Future)) SelectCase {
-	return sync.Await(f, handler)
+func Await[T any](f Future[T], handler func(Context, Future[T])) SelectCase {
+	return sync.Await[T](f, func(ctx sync.Context, f sync.Future[T]) {
+		handler(ctx, f)
+	})
 }
 
-func Receive(c Channel, handler func(Context, Channel)) SelectCase {
-	return sync.Receive(c, handler)
+func Receive[T any](c Channel[T], handler func(ctx Context, v T, ok bool)) SelectCase {
+	return sync.Receive[T](c, func(ctx sync.Context, v T, ok bool) {
+		handler(ctx, v, ok)
+	})
 }
 
 func Default(handler func(Context)) SelectCase {
 	return sync.Default(handler)
-}
-
-func NewChannel() Channel {
-	return sync.NewChannel()
-}
-
-func NewBufferedChannel(size int) Channel {
-	return sync.NewBufferedChannel(size)
 }
 
 func NewWaitGroup() WaitGroup {

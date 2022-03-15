@@ -4,7 +4,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
@@ -30,18 +29,18 @@ var DefaultRetryOptions = RetryOptions{
 	BackoffCoefficient: 1,
 }
 
-func WithRetries(ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.Context) sync.Future) sync.Future {
+func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.Context) Future[T]) Future[T] {
 	if retryOptions.MaxAttempts <= 1 {
 		// Short-circuit if we don't need to retry
 		return fn(ctx)
 	}
 
-	r := sync.NewFuture()
+	r := sync.NewFuture[T]()
 
 	sync.Go(ctx, func(ctx sync.Context) {
 		firstAttempt := Now(ctx)
 
-		var result payload.Payload
+		var result T
 		var err error
 
 		var retryExpiration time.Time
@@ -55,7 +54,7 @@ func WithRetries(ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.C
 				break
 			}
 
-			err = fn(ctx).Get(ctx, &result)
+			result, err = fn(ctx).Get(ctx)
 			if err != nil {
 				backoffDuration := time.Duration(float64(retryOptions.FirstRetryInterval) * math.Pow(retryOptions.BackoffCoefficient, float64(attempt)))
 				if retryOptions.MaxRetryInterval > 0 {

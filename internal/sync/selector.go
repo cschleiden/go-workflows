@@ -2,26 +2,24 @@ package sync
 
 type SelectCase interface {
 	Ready() bool
-	Handle(ctx Context)
+	Handle(Context)
 }
 
-func Await(f Future, handler func(Context, Future)) SelectCase {
-	return &futureCase{
-		f:  f.(*futureImpl),
+func Await[T any](f Future[T], handler func(ctx Context, f Future[T])) SelectCase {
+	return &futureCase[T]{
+		f:  f.(*future[T]),
 		fn: handler,
 	}
 }
 
-func Receive(c Channel, handler func(Context, Channel)) SelectCase {
-	channel := c.(*channel)
-
-	return &channelCase{
-		c:  channel,
+func Receive[T any](c Channel[T], handler func(ctx Context, v T, ok bool)) SelectCase {
+	return &channelCase[T]{
+		c:  c.(*channel[T]),
 		fn: handler,
 	}
 }
 
-func Default(handler func(Context)) SelectCase {
+func Default(handler func(ctx Context)) SelectCase {
 	return &defaultCase{
 		fn: handler,
 	}
@@ -44,37 +42,37 @@ func Select(ctx Context, cases ...SelectCase) {
 	}
 }
 
-var _ = SelectCase(&futureCase{})
-
-type futureCase struct {
-	f  *futureImpl
-	fn func(Context, Future)
+type selectorCase interface {
+	Ready() bool
+	Handle(ctx Context)
 }
 
-func (fc *futureCase) Ready() bool {
+type futureCase[T any] struct {
+	f  *future[T]
+	fn func(Context, Future[T])
+}
+
+func (fc *futureCase[T]) Ready() bool {
 	return fc.f.Ready()
 }
 
-func (fc *futureCase) Handle(ctx Context) {
+func (fc *futureCase[T]) Handle(ctx Context) {
 	fc.fn(ctx, fc.f)
 }
 
-var _ = SelectCase(&channelCase{})
-
-type channelCase struct {
-	c  *channel
-	fn func(Context, Channel)
+type channelCase[T any] struct {
+	c  *channel[T]
+	fn func(Context, T, bool)
 }
 
-func (cc *channelCase) Ready() bool {
+func (cc *channelCase[T]) Ready() bool {
 	return cc.c.canReceive()
 }
 
-func (cc *channelCase) Handle(ctx Context) {
-	cc.fn(ctx, cc.c)
+func (cc *channelCase[T]) Handle(ctx Context) {
+	v, ok := cc.c.Receive(ctx)
+	cc.fn(ctx, v, ok)
 }
-
-var _ = SelectCase(&defaultCase{})
 
 type defaultCase struct {
 	fn func(Context)

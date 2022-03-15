@@ -17,13 +17,12 @@ func Test_SubWorkflow(t *testing.T) {
 	}
 
 	workflowWithSub := func(ctx workflow.Context, input string) (string, error) {
-		var sresult string
-		err := workflow.CreateSubWorkflowInstance(
+		sresult, err := workflow.CreateSubWorkflowInstance[string](
 			ctx,
 			workflow.DefaultSubWorkflowOptions,
 			subWorkflow,
 			input,
-		).Get(ctx, &sresult)
+		).Get(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -50,13 +49,12 @@ func Test_SubWorkflow_Mocked(t *testing.T) {
 	}
 
 	workflow := func(ctx workflow.Context, input string) (string, error) {
-		var sresult string
-		err := workflow.CreateSubWorkflowInstance(
+		sresult, err := workflow.CreateSubWorkflowInstance[string](
 			ctx,
 			workflow.DefaultSubWorkflowOptions,
 			subWorkflow,
 			input,
-		).Get(ctx, &sresult)
+		).Get(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -84,13 +82,12 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 	}
 
 	workflow := func(ctx workflow.Context, input string) (string, error) {
-		var sresult string
-		err := workflow.CreateSubWorkflowInstance(
+		sresult, err := workflow.CreateSubWorkflowInstance[string](
 			ctx,
 			workflow.DefaultSubWorkflowOptions,
 			subWorkflow,
 			input,
-		).Get(ctx, &sresult)
+		).Get(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -117,21 +114,19 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 
 func Test_SubWorkflow_Signals(t *testing.T) {
 	subWorkflow := func(ctx workflow.Context, input string) (string, error) {
-		c := workflow.NewSignalChannel(ctx, "subworkflow-signal")
-		var r string
-		c.Receive(ctx, &r)
+		c := workflow.NewSignalChannel[string](ctx, "subworkflow-signal")
+		r, _ := c.Receive(ctx)
 
 		return input + r, nil
 	}
 
 	workflowWithSub := func(ctx workflow.Context, input string) (string, error) {
-		var sresult string
-		err := workflow.CreateSubWorkflowInstance(
+		sresult, err := workflow.CreateSubWorkflowInstance[string](
 			ctx,
 			workflow.DefaultSubWorkflowOptions,
 			subWorkflow,
 			input,
-		).Get(ctx, &sresult)
+		).Get(ctx)
 		if err != nil {
 			return "", err
 		}

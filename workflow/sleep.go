@@ -7,5 +7,6 @@ import (
 )
 
 func Sleep(ctx sync.Context, d time.Duration) error {
-	return ScheduleTimer(ctx, d).Get(ctx, nil)
+	_, err := ScheduleTimer(ctx, d).Get(ctx)
+	return err
 }

@@ -16,7 +16,7 @@ type WorkflowRegistry interface {
 }
 
 type ActivityRegistry interface {
-	RegisterActivity(a workflow.Activity) error
+	RegisterActivity(a interface{}) error
 }
 
 type Registry interface {
@@ -99,6 +99,6 @@ func (w *worker) RegisterWorkflow(wf workflow.Workflow) error {
 	return w.registry.RegisterWorkflow(wf)
 }
 
-func (w *worker) RegisterActivity(a workflow.Activity) error {
+func (w *worker) RegisterActivity(a interface{}) error {
 	return w.registry.RegisterActivity(a)
 }

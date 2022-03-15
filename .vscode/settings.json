@@ -33,5 +33,9 @@
   },
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/go.yml"
-  ]
+  ],
+  "go.alternateTools": {
+    "go": "/Users/cschleiden/sdk/go1.18rc1/bin/go",
+  },
+  "go.testExplorer.showDynamicSubtestsInEditor": true,
 }

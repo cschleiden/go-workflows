@@ -4,10 +4,10 @@
 
 Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as [DTFx](https://github.com/Azure/durabletask).
 
-Note on go1.18 generics: many of the `Get(...)` operations will become easier with generics, an ongoing exploration is happening in branch [go118](https://github.com/cschleiden/go-workflows/tree/go118).
-
 See also:
 - https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/
+
+On Go support: the current version of the library requires **Go 1.18** or later. There is a version that doesn't require generics and relies more on `interface{}` instead, but I think the improved type safety is worth not supporting a version of Go before 1.18 for now.
 
 ## Simple example
 
@@ -17,15 +17,15 @@ Workflows are written in Go code. The only exception is they must not use any of
 
 ```go
 func Workflow1(ctx workflow.Context, input string) error {
-	var r1, r2 int
-
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1); err != nil {
+	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
+	if err != nil {
 		panic("error getting activity 1 result")
 	}
 
 	log.Println("A1 result:", r1)
 
-	if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2); err != nil {
+	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
+	if err != nil {
 		panic("error getting activity 1 result")
 	}
 
@@ -99,7 +99,6 @@ func main() {
 	}
 
 	c2 := make(chan os.Signal, 1)
-signal.Notify(c2, os.Interrupt)
 	signal.Notify(c2, os.Interrupt)
 	<-c2
 }
@@ -210,7 +209,8 @@ to call activities registered on a struct from a workflow:
 // ...
 var a *act
 
-if err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12).Get(ctx, &r1); err != nil {
+r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12).Get(ctx)
+if err != nil {
 	// handle error
 }
 // Output r1 = 47 + 12 (from the worker registration) = 59
@@ -232,8 +232,7 @@ if err != nil {
 From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future` you can await to get the result or any error it might return.
 
 ```go
-var r1 int
-err := workflow.ExecuteActivity(ctx, Activity1, 35, 12, nil, "test").Get(ctx, &r1)
+r1, err := workflow.ExecuteActivity[int](ctx, Activity1, 35, 12, nil, "test").Get(ctx)
 if err != nil {
 	panic("error getting activity 1 result")
 }
@@ -267,10 +266,9 @@ cancel()
 Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
 
 ```go
-var id string
-workflow.SideEffect(ctx, func(ctx workflow.Context) interface{}) {
+id, _ := workflow.SideEffect[string](ctx, func(ctx workflow.Context) string) {
 	return uuid.NewString()
-}).Get(ctx, &id)
+}).Get(ctx)
 ```
 
 ### Running sub-workflows
@@ -279,8 +277,8 @@ Call `workflow.CreateSubWorkflowInstance` to start a sub-workflow.
 
 ```go
 func Workflow1(ctx workflow.Context, msg string) error {
-	var wr int
-	if err := workflow.CreateSubWorkflowInstance(ctx, workflow.SubWorkflowInstanceOptions{}, Workflow2, "some input").Get(ctx, &wr); err != nil {
+	wr, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowInstanceOptions{}, Workflow2, "some input").Get(ctx, &wr)
+	if err != nil {
 		return errors.Wrap(err, "could not get sub workflow result")
 	}
 
@@ -289,9 +287,8 @@ func Workflow1(ctx workflow.Context, msg string) error {
 }
 
 func Workflow2(ctx workflow.Context, msg string) (int, error) {
-	var r1 int
-
-	if err := workflow.ExecuteActivity(ctx, Activity1, 35, 12).Get(ctx, &r1); err != nil {
+	r1, err := workflow.ExecuteActivity[int](ctx, Activity1, 35, 12).Get(ctx, &r1)
+	if err != nil {
 		return "", errors.Wrap(err, "could not get activity result")
 	}
 
@@ -320,19 +317,17 @@ if err != nil {
 Due its non-deterministic behavior you must not use a `select` statement in workflows. Instead you can use the provided `workflow.Select` function. It blocks until one of the provided cases is ready. Cases are evaluated in the order passed to `Select.
 
 ```go
-var f1 workflow.Future
-var c workflow.Channel
+var f1 workflow.Future[int]
+var c workflow.Channel[int]
 
 workflow.Select(
 	ctx,
-	workflow.Await(f1, func (ctx workflow.Context, f Future) {
-		var r int
-		err := f.Get(ctx, &r)
+	workflow.Await(f1, func (ctx workflow.Context, f Future[int]) {
+		r, err := f.Get(ctx)
 		// ...
 	}),
-	workflow.Receive(c, func (ctx workflow.Context, c Channel) {
-		v, _ := c.Receive(ctx)
-		// ...
+	workflow.Receive(c, func (ctx workflow.Context, v int, ok bool) {
+		// use v
 	}),
 	workflow.Default(ctx, func (ctx workflow.Context) {
 		// ...
@@ -345,18 +340,16 @@ workflow.Select(
 `Await` adds a case to wait for a Future to have a value
 
 ```go
-var f1, f2 workflow.Future
+var f1, f2 workflow.Future[int]
 
 workflow.Select(
 	ctx,
-	workflow.Await(f1, func (ctx workflow.Context, f Future) {
-		var r int
-		err := f.Get(ctx, &r)
+	workflow.Await(f1, func (ctx workflow.Context, f Future[int]) {
+		r, err := f.Get(ctx)
 		// ...
 	}),
-	workflow.Await(f2, func (ctx workflow.Context, f Future) {
-		var r int
-		err := f.Get(ctx, &r)
+	workflow.Await(f2, func (ctx workflow.Context, f Future[int]) {
+		r, err := f.Get(ctx)
 		// ...
 	}),
 )
@@ -367,12 +360,11 @@ workflow.Select(
 `Receive` adds a case to receive from a given channel
 
 ```go
-var c workflow.Channel
+var c workflow.Channel[int]
 
 workflow.Select(
 	ctx,
-	workflow.Receive(c, func (ctx workflow.Context, c Channel) {
-		v, _ := c.Receive(ctx)
+	workflow.Receive(c, func (ctx workflow.Context, v int, ok bool) {
 		// ...
 	}),
 )
@@ -383,13 +375,12 @@ workflow.Select(
 A `Default` case is executed if no previous case is ready and selected:
 
 ```go
-var f1 workflow.Future
+var f1 workflow.Future[int]
 
 workflow.Select(
 	ctx,
-	workflow.Await(f1, func (ctx workflow.Context, f Future) {
-		var r int
-		err := f.Get(ctx, &r)
+	workflow.Await(f1, func (ctx workflow.Context, f Future[int]) {
+		r, err := f.Get(ctx, &r)
 		// ...
 	}),
 	workflow.Default(ctx, func (ctx workflow.Context) {
@@ -415,15 +406,15 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 		}
 	}()
 
-	var r1 int
-	if err := workflow.ExecuteActivity(ctx, ActivityCancel, 1, 2).Get(ctx, &r1); err != nil {  // <---- Workflow is canceled while this activity is running
+	r1, err := workflow.ExecuteActivity[int](ctx, ActivityCancel, 1, 2).Get(ctx)
+	if err != nil {  // <---- Workflow is canceled while this activity is running
 		return errors.Wrap(err, "could not get ActivityCancel result")
 	}
 
 	// r1 will contain the result of ActivityCancel
 	// ⬇ ActivitySkip will be skipped immediately
-	var r2 int
-	if err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx, &r2); err != nil {
+	r2, err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx)
+	if err != nil {
 		return errors.Wrap(err, "could not get ActivitySkip result")
 	}
 
@@ -471,12 +462,10 @@ For now, I've intentionally left our versioning. Cadence, Temporal, and DTFx all
 
 ```go
 func Workflow1(ctx workflow.Context) {
-	var r1 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	r1, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	log.Println("A1 result:", r1)
 
-	var r2 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	r2, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	log.Println("A2 result:", r2)
 }
 ```
@@ -486,15 +475,13 @@ to:
 ```go
 func Workflow1(ctx workflow.Context) {
 	var r1 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	r1, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	log.Println("A1 result:", r1)
 
-	var r3 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity3).Get(ctx, &r3)
+	r3, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity3).Get(ctx)
 	log.Println("A3 result:", r3)
 
-	var r2 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	r2, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	log.Println("A2 result:", r2)
 }
 ```
@@ -511,18 +498,15 @@ the workflow will encounter an attempt to execute `Activity3` in-between event 2
 
 ```go
 func Workflow1(ctx workflow.Context) {
-	var r1 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	r1, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	log.Println("A1 result:", r1)
 
 	if workflow.Version(ctx) >= 2 {
-		var r3 int
-		workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity3).Get(ctx, &r3)
+		r3, _ := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity3).Get(ctx)
 		log.Println("A3 result:", r3)
 	}
 
-	var r2 int
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	r2, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	log.Println("A2 result:", r2)
 }
 ```

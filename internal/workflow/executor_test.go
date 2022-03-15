@@ -84,10 +84,9 @@ var workflowActivityHit int
 func workflowWithActivity(ctx sync.Context) error {
 	workflowActivityHit++
 
-	f1 := wf.ExecuteActivity(ctx, wf.DefaultActivityOptions, activity1, 42)
+	f1 := wf.ExecuteActivity[int](ctx, wf.DefaultActivityOptions, activity1, 42)
 
-	var r int
-	err := f1.Get(ctx, &r)
+	_, err := f1.Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
@@ -195,8 +194,7 @@ var workflowTimerHits int
 func workflowWithTimer(ctx sync.Context) error {
 	workflowTimerHits++
 
-	var r bool
-	if err := wf.ScheduleTimer(ctx, time.Millisecond*5).Get(ctx, &r); err != nil {
+	if _, err := wf.ScheduleTimer(ctx, time.Millisecond*5).Get(ctx); err != nil {
 		panic("error getting timer future")
 	}
 
@@ -242,16 +240,15 @@ var workflowWithSelectorHits int
 func workflowWithSelector(ctx sync.Context) error {
 	workflowWithSelectorHits++
 
-	f1 := wf.ExecuteActivity(ctx, wf.DefaultActivityOptions, activity1, 42)
+	f1 := wf.ExecuteActivity[int](ctx, wf.DefaultActivityOptions, activity1, 42)
 	t := wf.ScheduleTimer(ctx, time.Millisecond*2)
 
 	sync.Select(
 		ctx,
-		sync.Await(f1, func(ctx sync.Context, f sync.Future) {
+		sync.Await[int](f1, func(ctx sync.Context, f sync.Future[int]) {
 			workflowWithSelectorHits++
 		}),
-
-		sync.Await(t, func(ctx sync.Context, t sync.Future) {
+		sync.Await[struct{}](t, func(ctx sync.Context, _ sync.Future[struct{}]) {
 			workflowWithSelectorHits++
 		}),
 	)
@@ -368,9 +365,8 @@ func Test_ExecuteNewEvents(t *testing.T) {
 var workflowSignalHits int
 
 func workflowWithSignal1(ctx sync.Context) error {
-
-	c := wf.NewSignalChannel(ctx, "signal1")
-	c.Receive(ctx, nil)
+	c := wf.NewSignalChannel[string](ctx, "signal1")
+	c.Receive(ctx)
 
 	workflowSignalHits++
 
@@ -381,6 +377,9 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	r := NewRegistry()
 
 	r.RegisterWorkflow(workflowWithSignal1)
+
+	s, err := converter.DefaultConverter.To("")
+	require.NoError(t, err)
 
 	task := &task.Workflow{
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
@@ -398,7 +397,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 				history.EventType_SignalReceived,
 				&history.SignalReceivedAttributes{
 					Name: "signal1",
-					Arg:  payload.Payload{},
+					Arg:  s,
 				},
 			),
 		},
@@ -406,7 +405,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance)
 
-	_, _, err := e.ExecuteTask(context.Background(), task)
+	_, _, err = e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, workflowSignalHits)

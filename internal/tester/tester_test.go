@@ -37,8 +37,8 @@ func Test_WorkflowBlocked(t *testing.T) {
 }
 
 func workflowBlocked(ctx workflow.Context) error {
-	var f workflow.Future
-	f.Get(ctx, nil)
+	var f workflow.Future[int]
+	f.Get(ctx)
 
 	return nil
 }
@@ -117,12 +117,11 @@ func Test_Activity_WithoutMock(t *testing.T) {
 }
 
 func workflowWithActivity(ctx workflow.Context) (int, error) {
-	var r int
-	err := workflow.ExecuteActivity(ctx, workflow.ActivityOptions{
+	r, err := workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
 		RetryOptions: workflow.RetryOptions{
 			MaxAttempts: 2,
 		},
-	}, activity1).Get(ctx, &r)
+	}, activity1).Get(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +143,7 @@ func Test_Activity_LongRunning(t *testing.T) {
 }
 
 func workflowLongRunningActivity(ctx workflow.Context) error {
-	workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, activityLongRunning).Get(ctx, nil)
+	workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, activityLongRunning).Get(ctx)
 
 	return nil
 }
@@ -180,13 +179,13 @@ func workflowTimer(ctx workflow.Context) (timerResult, error) {
 
 	t1 := workflow.Now(ctx)
 
-	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx, nil)
+	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx)
 
 	log.Println("workflowWithTimer-After", workflow.Now(ctx))
 
 	t2 := workflow.Now(ctx)
 
-	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx, nil)
+	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx)
 
 	return timerResult{
 		T1: t1,
@@ -212,9 +211,7 @@ func workflowTimerCancellation(ctx workflow.Context) (time.Time, error) {
 	t := workflow.ScheduleTimer(tctx, 30*time.Second)
 	cancel()
 
-	workflow.Select(ctx, workflow.Await(t, func(ctx workflow.Context, t workflow.Future) {
-		t.Get(ctx, nil)
-	}))
+	_, _ = t.Get(ctx)
 
 	return workflow.Now(ctx), nil
 }
@@ -236,13 +233,12 @@ func Test_Signals(t *testing.T) {
 }
 
 func workflowSignal(ctx workflow.Context) (string, error) {
-	sc := workflow.NewSignalChannel(ctx, "signal")
+	sc := workflow.NewSignalChannel[string](ctx, "signal")
 
 	start := workflow.Now(ctx)
 
-	var val string
-	more := sc.Receive(ctx, &val)
-	if more != true {
+	val, ok := sc.Receive(ctx)
+	if !ok {
 		panic("channel should not be closed")
 	}
 

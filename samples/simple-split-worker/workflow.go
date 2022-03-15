@@ -17,8 +17,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		log.Println("Leaving Workflow1")
 	}()
 
-	var r1, r2 int
-	err := workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx, &r1)
+	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
@@ -26,7 +25,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
 
-	err = workflow.ExecuteActivity(ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx, &r2)
+	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}

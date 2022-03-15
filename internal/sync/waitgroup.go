@@ -8,20 +8,20 @@ type WaitGroup interface {
 
 type waitGroup struct {
 	n       int
-	f       Future
+	f       SettableFuture[struct{}]
 	waiting bool
 }
 
 func NewWaitGroup() WaitGroup {
 	return &waitGroup{
-		f: NewFuture(),
+		f: NewFuture[struct{}](),
 	}
 }
 
 func (wg *waitGroup) Wait(ctx Context) {
 	wg.waiting = true
 
-	if err := wg.f.Get(ctx, nil); err != nil {
+	if _, err := wg.f.Get(ctx); err != nil {
 		panic(err)
 	}
 }
@@ -42,7 +42,7 @@ func (wg *waitGroup) Add(delta int) {
 	}
 
 	if wg.n == 0 {
-		wg.f.Set(nil, nil)
+		wg.f.Set(struct{}{}, nil)
 	}
 }
 

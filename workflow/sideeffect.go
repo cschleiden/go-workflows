@@ -7,17 +7,17 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 )
 
-func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Future {
+func SideEffect[TResult any](ctx sync.Context, f func(ctx sync.Context) TResult) Future[TResult] {
 	wfState := workflowstate.WorkflowState(ctx)
 
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
-	future := sync.NewFuture()
+	future := sync.NewFuture[TResult]()
 
 	if Replaying(ctx) {
 		// There has to be a message in the history with the result, create a new future
 		// and block on it
-		wfState.TrackFuture(scheduleEventID, future)
+		wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(future))
 
 		return future
 	}
@@ -28,7 +28,8 @@ func SideEffect(ctx sync.Context, f func(ctx sync.Context) interface{}) sync.Fut
 	// Create command to add it to the history
 	payload, err := converter.DefaultConverter.To(r)
 	if err != nil {
-		future.Set(nil, err)
+		var z TResult
+		future.Set(z, err)
 	}
 
 	cmd := command.NewSideEffectCommand(scheduleEventID, payload)

@@ -5,7 +5,9 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
@@ -13,13 +15,36 @@ type key int
 
 var workflowCtxKey key
 
+type DecodingSettable func(v payload.Payload, err error)
+
+// Use this to track futures for the workflow state
+func AsDecodingSettable[T any](f sync.SettableFuture[T]) DecodingSettable {
+	return func(v payload.Payload, err error) {
+		if v != nil {
+			var t T
+			converter.DefaultConverter.From(v, &t)
+			f.Set(t, err)
+		} else {
+			var z T
+			f.Set(z, err)
+		}
+	}
+}
+
+type signalChannel struct {
+	receive func(sync.Context, payload.Payload)
+	channel interface{}
+}
+
 type WfState struct {
 	instance        core.WorkflowInstance
 	scheduleEventID int
 	commands        []*command.Command
-	pendingFutures  map[int]sync.Future
-	signalChannels  map[string]sync.Channel
+	pendingFutures  map[int]DecodingSettable
 	replaying       bool
+
+	pendingSignals map[string][]payload.Payload
+	signalChannels map[string]*signalChannel
 
 	clock clock.Clock
 	time  time.Time
@@ -27,12 +52,16 @@ type WfState struct {
 
 func NewWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *WfState {
 	return &WfState{
+
 		instance:        instance,
 		commands:        []*command.Command{},
 		scheduleEventID: 1,
-		pendingFutures:  map[int]sync.Future{},
-		signalChannels:  make(map[string]sync.Channel),
-		clock:           clock,
+		pendingFutures:  map[int]DecodingSettable{},
+
+		pendingSignals: map[string][]payload.Payload{},
+		signalChannels: make(map[string]*signalChannel),
+
+		clock: clock,
 	}
 }
 
@@ -50,11 +79,11 @@ func (wf *WfState) GetNextScheduleEventID() int {
 	return scheduleEventID
 }
 
-func (wf *WfState) TrackFuture(scheduleEventID int, f sync.Future) {
+func (wf *WfState) TrackFuture(scheduleEventID int, f DecodingSettable) {
 	wf.pendingFutures[scheduleEventID] = f
 }
 
-func (wf *WfState) FutureByScheduleEventID(scheduleEventID int) (sync.Future, bool) {
+func (wf *WfState) FutureByScheduleEventID(scheduleEventID int) (DecodingSettable, bool) {
 	f, ok := wf.pendingFutures[scheduleEventID]
 	return f, ok
 }
@@ -96,21 +125,6 @@ func (wf *WfState) RemoveCommand(cmd command.Command) {
 
 func (wf *WfState) ClearCommands() {
 	wf.commands = []*command.Command{}
-}
-
-func (wf *WfState) CreateSignalChannel(name string) sync.Channel {
-	cs := sync.NewBufferedChannel(10_000)
-	wf.signalChannels[name] = cs
-	return cs
-}
-
-func (wf *WfState) GetSignalChannel(name string) sync.Channel {
-	cs, ok := wf.signalChannels[name]
-	if ok {
-		return cs
-	}
-
-	return wf.CreateSignalChannel(name)
 }
 
 func (wf *WfState) SetReplaying(replaying bool) {
