@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
+	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
@@ -27,11 +26,7 @@ func main() {
 	// Start workflow via client
 	c := client.New(b)
 
-	startWorkflow(ctx, c)
-
-	c2 := make(chan os.Signal, 1)
-	signal.Notify(c2, os.Interrupt)
-	<-c2
+	runWorkflow(ctx, c)
 
 	cancel()
 
@@ -40,7 +35,7 @@ func main() {
 	}
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func runWorkflow(ctx context.Context, c client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world"+uuid.NewString(), 42, Inputs{
@@ -53,6 +48,13 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	}
 
 	log.Println("Started workflow", wf.GetInstanceID())
+
+	result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*10)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Workflow finished. Result:", result)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {

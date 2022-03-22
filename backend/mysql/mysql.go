@@ -120,6 +120,77 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance work
 	return tx.Commit()
 }
 
+func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance workflow.Instance) ([]history.Event, error) {
+	tx, err := b.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	historyEvents, err := tx.QueryContext(
+		ctx,
+		"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
+		instance.GetInstanceID(),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get history")
+	}
+
+	h := make([]history.Event, 0)
+
+	for historyEvents.Next() {
+		var instanceID string
+		var attributes []byte
+
+		historyEvent := history.Event{}
+
+		if err := historyEvents.Scan(
+			&historyEvent.ID,
+			&instanceID,
+			&historyEvent.Type,
+			&historyEvent.Timestamp,
+			&historyEvent.ScheduleEventID,
+			&attributes,
+			&historyEvent.VisibleAt,
+		); err != nil {
+			return nil, errors.Wrap(err, "could not scan event")
+		}
+
+		a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not deserialize attributes")
+		}
+
+		historyEvent.Attributes = a
+
+		h = append(h, historyEvent)
+	}
+
+	return h, nil
+}
+
+func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance workflow.Instance) (backend.WorkflowState, error) {
+	row := b.db.QueryRowContext(
+		ctx,
+		"SELECT completed_at FROM instances WHERE instance_id = ? AND execution_id = ?",
+		instance.GetInstanceID(),
+		instance.GetExecutionID(),
+	)
+
+	var completedAt sql.NullTime
+	if err := row.Scan(&completedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return backend.WorkflowStateActive, errors.New("could not find workflow instance")
+		}
+	}
+
+	if completedAt.Valid {
+		return backend.WorkflowStateFinished, nil
+	}
+
+	return backend.WorkflowStateActive, nil
+}
+
 func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) error {
 	var parentInstanceID *string
 	var parentEventID *int

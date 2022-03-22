@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `locked_until` DATETIME NULL,
   `sticky_until` DATETIME NULL,
   `worker` TEXT NULL
-
 );
 
 CREATE INDEX IF NOT EXISTS `idx_instances_locked_until_completed_at` ON `instances` (`locked_until`, `sticky_until`, `completed_at`, `worker`);
