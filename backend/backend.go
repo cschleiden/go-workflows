@@ -8,6 +8,13 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
+type WorkflowState int
+
+const (
+	WorkflowStateActive WorkflowState = iota
+	WorkflowStateFinished
+)
+
 //go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
@@ -15,6 +22,12 @@ type Backend interface {
 
 	// CancelWorkflowInstance cancels a running workflow instance
 	CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error
+
+	// GetWorkflowInstanceState returns the state of the given workflow instance
+	GetWorkflowInstanceState(ctx context.Context, instance workflow.Instance) (WorkflowState, error)
+
+	// GetWorkflowInstanceHistory returns the full workflow history for the given instance
+	GetWorkflowInstanceHistory(ctx context.Context, instance workflow.Instance) ([]history.Event, error)
 
 	// SignalWorkflow signals a running workflow instance
 	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error

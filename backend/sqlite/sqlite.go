@@ -146,6 +146,43 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance wo
 	return tx.Commit()
 }
 
+func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instance workflow.Instance) ([]history.Event, error) {
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	h, err := getHistory(ctx, tx, instance.GetInstanceID())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get workflow history")
+	}
+
+	return h, nil
+}
+
+func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance workflow.Instance) (backend.WorkflowState, error) {
+	row := s.db.QueryRowContext(
+		ctx,
+		"SELECT completed_at FROM instances WHERE id = ? AND execution_id = ?",
+		instance.GetInstanceID(),
+		instance.GetExecutionID(),
+	)
+
+	var completedAt sql.NullTime
+	if err := row.Scan(&completedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return backend.WorkflowStateActive, errors.New("could not find workflow instance")
+		}
+	}
+
+	if completedAt.Valid {
+		return backend.WorkflowStateFinished, nil
+	}
+
+	return backend.WorkflowStateActive, nil
+}
+
 func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
