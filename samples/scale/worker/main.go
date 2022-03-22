@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
-	"time"
+	"runtime/pprof"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/mysql"
@@ -13,11 +14,29 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 )
 
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
+var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
+
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
+
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -28,11 +47,15 @@ func main() {
 
 	log.Println("Shutting down")
 	cancel()
-	time.Sleep(5 * time.Second)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
-	w := worker.New(mb, nil)
+	w := worker.New(mb, &worker.Options{
+		WorkflowPollers:          2,
+		MaxParallelWorkflowTasks: 100,
+		ActivityPollers:          2,
+		MaxParallelActivityTasks: 100,
+	})
 
 	w.RegisterWorkflow(scale.Workflow1)
 

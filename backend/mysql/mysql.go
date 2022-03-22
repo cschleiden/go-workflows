@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -38,10 +40,14 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 		panic(err)
 	}
 
+	mysql.NewConfig()
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
+
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(10)
 
 	return &mysqlBackend{
 		db:         db,
@@ -233,6 +239,9 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+	mnow := time.Now()
+	defer log.Println("GetWorkflowTask", time.Since(mnow))
+
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -251,7 +260,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 				AND i.completed_at IS NULL
 				AND (pe.visible_at IS NULL OR pe.visible_at <= ?)
 			LIMIT 1
-			FOR UPDATE SKIP LOCKED`,
+			FOR UPDATE OF i SKIP LOCKED`,
 		now,          // locked_until
 		now,          // sticky_until
 		b.workerName, // worker
@@ -265,6 +274,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	var stickyUntil *time.Time
 	if err := row.Scan(&id, &instanceID, &executionID, &parentInstanceID, &parentEventID, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
+			log.Println("no wf task result")
 			return nil, nil
 		}
 
@@ -340,6 +350,9 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		historyEvent.Attributes = a
 
 		t.NewEvents = append(t.NewEvents, historyEvent)
+	}
+	if err := events.Err(); err != nil {
+		return nil, errors.Wrap(err, "could not iterate events")
 	}
 
 	// Return if there aren't any new events
@@ -434,6 +447,9 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	executedEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
+	mnow := time.Now()
+	defer log.Println("==> CompleteWorkflowTask", time.Since(mnow))
+
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -572,6 +588,9 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, instance workflow
 
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
 func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+	mnow := time.Now()
+	defer log.Println("GetActivityTask", time.Since(mnow))
+
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -635,6 +654,9 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
 func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance workflow.Instance, id string, event history.Event) error {
+	mnow := time.Now()
+	defer log.Println("==> CompleteActivityTask", time.Since(mnow))
+
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

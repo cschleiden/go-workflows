@@ -77,7 +77,11 @@ func (aw *activityWorker) runPoll(ctx context.Context) {
 			if err != nil {
 				log.Println("error while polling for activity task:", err)
 			} else if task != nil {
+				log.Println("Got activity task")
 				aw.activityTaskQueue <- task
+			} else {
+				// TODO: Make this a setting
+				// time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}
@@ -115,6 +119,10 @@ func (aw *activityWorker) runDispatcher(ctx context.Context) {
 }
 
 func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
+	now := time.Now()
+	log.Println("Activity handleTask:", task.WorkflowInstance.GetInstanceID())
+	defer log.Println("Leaving activity handleTask:", task.WorkflowInstance.GetInstanceID(), "took", time.Since(now))
+
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 
 	go func(ctx context.Context) {
@@ -163,28 +171,11 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	}
 }
 
-func (aw *activityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {
-	if timeout == 0 {
-		timeout = 30 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	var task *task.Activity
-	var err error
-
-	done := make(chan struct{})
-
-	go func() {
-		task, err = aw.backend.GetActivityTask(ctx)
-		close(done)
-	}()
-
+func (aw *activityWorker) poll(ctx context.Context, _ time.Duration) (*task.Activity, error) {
 	select {
 	case <-ctx.Done():
 		return nil, nil
-	case <-done:
-		return task, err
+	default:
+		return aw.backend.GetActivityTask(ctx)
 	}
 }

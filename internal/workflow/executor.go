@@ -53,6 +53,9 @@ func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
+	log.Println("ExecuteTask:", t.WorkflowInstance.GetInstanceID())
+	defer log.Println("Leaving ExecuteTask:", t.WorkflowInstance.GetInstanceID())
+
 	if t.Kind == task.Continuation {
 		// Check if the current state matches the backend's history state
 		newestHistoryEvent := t.History[len(t.History)-1]

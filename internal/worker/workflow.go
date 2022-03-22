@@ -81,7 +81,10 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 			if err != nil {
 				log.Println("error while polling for workflow task:", err)
 			} else if task != nil {
+				log.Println("Got workflow task")
 				ww.workflowTaskQueue <- task
+			} else {
+				// time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}
@@ -110,6 +113,7 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 				ww.handle(ctx, t)
 
 				if sem != nil {
+					log.Println("queue length", len(sem))
 					<-sem
 				}
 			}()
@@ -118,6 +122,10 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
+	now := time.Now()
+	log.Println("handle:", t.WorkflowInstance.GetInstanceID())
+	defer log.Println("Leaving handle:", t.WorkflowInstance.GetInstanceID(), "took", time.Since(now))
+
 	executedEvents, workflowEvents, err := ww.handleTask(ctx, t)
 	if err != nil {
 		ww.logger.Panic(err)
@@ -129,6 +137,10 @@ func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
 }
 
 func (ww *workflowWorker) handleTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
+	now := time.Now()
+	log.Println("handleTask:", t.WorkflowInstance.GetInstanceID())
+	defer log.Println("Leaving handleTask:", t.WorkflowInstance.GetInstanceID(), "took", time.Since(now))
+
 	executor, err := ww.getExecutor(ctx, t)
 	if err != nil {
 		return nil, nil, err
@@ -191,29 +203,12 @@ func (ww *workflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow
 	}
 }
 
-func (ww *workflowWorker) poll(ctx context.Context, timeout time.Duration) (*task.Workflow, error) {
-	if timeout == 0 {
-		timeout = 30 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	done := make(chan struct{})
-
-	var task *task.Workflow
-	var err error
-
-	go func() {
-		task, err = ww.backend.GetWorkflowTask(ctx)
-		close(done)
-	}()
-
+func (ww *workflowWorker) poll(ctx context.Context, _ time.Duration) (*task.Workflow, error) {
 	select {
 	case <-ctx.Done():
 		return nil, nil
 
-	case <-done:
-		return task, err
+	default:
+		return ww.backend.GetWorkflowTask(ctx)
 	}
 }
