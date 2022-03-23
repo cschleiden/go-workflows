@@ -102,9 +102,6 @@ func (e *executor) executeNewEvents(newEvents []history.Event) error {
 		if err := e.executeEvent(event); err != nil {
 			return errs.Wrap(err, "error while executing event")
 		}
-
-		// Remember that we executed this event last
-		e.lastEventID = event.ID
 	}
 
 	if e.workflow.Completed() {
