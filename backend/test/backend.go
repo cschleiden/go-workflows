@@ -129,7 +129,7 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked() {
 	})
 	s.NoError(err)
 
-	err = s.b.CompleteWorkflowTask(ctx, wfi, []history.Event{}, []history.WorkflowEvent{})
+	err = s.b.CompleteWorkflowTask(ctx, wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
 
 	s.Error(err)
 }
@@ -160,6 +160,10 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 		taskFinishedEvent,
 	}
 
+	activityEvents := []history.Event{
+		activityScheduledEvent,
+	}
+
 	workflowEvents := []history.WorkflowEvent{
 		{
 			WorkflowInstance: wfi,
@@ -167,7 +171,7 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 		},
 	}
 
-	err = s.b.CompleteWorkflowTask(ctx, wfi, events, workflowEvents)
+	err = s.b.CompleteWorkflowTask(ctx, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
 	s.NoError(err)
 
 	time.Sleep(time.Second)

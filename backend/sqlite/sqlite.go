@@ -310,7 +310,9 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	instance workflow.Instance,
+	state backend.WorkflowState,
 	executedEvents []history.Event,
+	activityEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
@@ -319,11 +321,18 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 	defer tx.Rollback()
 
+	var completedAt *time.Time
+	if state == backend.WorkflowStateFinished {
+		t := time.Now()
+		completedAt = &t
+	}
+
 	// Unlock instance, but keep it sticky to the current worker
 	if res, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = NULL, sticky_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
+		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
 		time.Now().Add(sb.options.StickyTimeout),
+		completedAt,
 		instance.GetInstanceID(),
 		instance.GetExecutionID(),
 		sb.workerName,
@@ -357,18 +366,10 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		return errors.Wrap(err, "could not insert new history events")
 	}
 
-	workflowCompleted := false
-
 	// Schedule activities
-	for _, event := range executedEvents {
-		switch event.Type {
-		case history.EventType_ActivityScheduled:
-			if err := scheduleActivity(ctx, tx, instance.GetInstanceID(), instance.GetExecutionID(), event); err != nil {
-				return errors.Wrap(err, "could not schedule activity")
-			}
-
-		case history.EventType_WorkflowExecutionFinished:
-			workflowCompleted = true
+	for _, event := range activityEvents {
+		if err := scheduleActivity(ctx, tx, instance.GetInstanceID(), instance.GetExecutionID(), event); err != nil {
+			return errors.Wrap(err, "could not schedule activity")
 		}
 	}
 
@@ -393,18 +394,6 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		// Insert pending events for target instance
 		if err := insertNewEvents(ctx, tx, targetInstance.GetInstanceID(), events); err != nil {
 			return errors.Wrap(err, "could not insert messages")
-		}
-	}
-
-	if workflowCompleted {
-		if _, err := tx.ExecContext(
-			ctx,
-			"UPDATE instances SET completed_at = ? WHERE id = ? AND execution_id = ?",
-			time.Now(),
-			instance.GetInstanceID(),
-			instance.GetExecutionID(),
-		); err != nil {
-			return errors.Wrap(err, "could not mark instance as completed")
 		}
 	}
 

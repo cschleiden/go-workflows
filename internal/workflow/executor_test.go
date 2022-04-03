@@ -71,7 +71,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance)
 
-	_, _, err := e.ExecuteTask(context.Background(), task)
+	_, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, workflowHits)
@@ -140,7 +140,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance)
 
-	_, _, err := e.ExecuteTask(context.Background(), task)
+	_, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, workflowActivityHit)
@@ -326,7 +326,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 
 	e := newExecutor(r, oldTask.WorkflowInstance)
 
-	newEvents, _, err := e.ExecuteTask(context.Background(), oldTask)
+	taskResult, err := e.ExecuteTask(context.Background(), oldTask)
 
 	require.NoError(t, err)
 	require.Equal(t, 1, workflowActivityHit)
@@ -335,7 +335,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 
 	h := []history.Event{}
 	h = append(h, oldTask.NewEvents...)
-	h = append(h, newEvents...)
+	h = append(h, taskResult.NewEvents...)
 
 	newTask := &task.Workflow{
 		WorkflowInstance: oldTask.WorkflowInstance,
@@ -354,7 +354,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	}
 
 	// Execute the workflow again with the activity completed event
-	_, _, err = e.ExecuteTask(context.Background(), newTask)
+	_, err = e.ExecuteTask(context.Background(), newTask)
 
 	require.NoError(t, err)
 	require.Equal(t, 2, workflowActivityHit)
@@ -405,7 +405,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance)
 
-	_, _, err = e.ExecuteTask(context.Background(), task)
+	_, err = e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, workflowSignalHits)

@@ -210,7 +210,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 				panic("could not create workflow executor" + err.Error())
 			}
 
-			executedEvents, workflowEvents, err := e.ExecuteTask(context.Background(), t)
+			result, err := e.ExecuteTask(context.Background(), t)
 			if err != nil {
 				panic("Error while executing workflow" + err.Error())
 			}
@@ -218,9 +218,9 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			e.Close()
 
 			// Add all executed events to history
-			tw.history = append(tw.history, executedEvents...)
+			tw.history = append(tw.history, result.NewEvents...)
 
-			for _, event := range executedEvents {
+			for _, event := range result.NewEvents {
 				log.Println("Event", event.Type)
 
 				switch event.Type {
@@ -238,7 +238,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 				}
 			}
 
-			for _, workflowEvent := range workflowEvents {
+			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
 				log.Println("Workflow event", workflowEvent.HistoryEvent.Type)
 

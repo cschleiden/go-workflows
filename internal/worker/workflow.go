@@ -8,7 +8,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/pkg/errors"
@@ -118,20 +117,29 @@ func (ww *workflowWorker) runDispatcher(ctx context.Context) {
 }
 
 func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
-	executedEvents, workflowEvents, err := ww.handleTask(ctx, t)
+	result, err := ww.handleTask(ctx, t)
 	if err != nil {
 		ww.logger.Panic(err)
 	}
 
-	if err := ww.backend.CompleteWorkflowTask(ctx, t.WorkflowInstance, executedEvents, workflowEvents); err != nil {
+	state := backend.WorkflowStateActive
+	if result.Completed {
+		state = backend.WorkflowStateFinished
+	}
+
+	if err := ww.backend.CompleteWorkflowTask(
+		ctx, t.WorkflowInstance, state, result.NewEvents, result.ActivityEvents, result.WorkflowEvents); err != nil {
 		ww.logger.Panic(err)
 	}
 }
 
-func (ww *workflowWorker) handleTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
+func (ww *workflowWorker) handleTask(
+	ctx context.Context,
+	t *task.Workflow,
+) (*workflow.ExecutionResult, error) {
 	executor, err := ww.getExecutor(ctx, t)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if ww.options.HeartbeatWorkflowTasks {
@@ -141,12 +149,12 @@ func (ww *workflowWorker) handleTask(ctx context.Context, t *task.Workflow) ([]h
 		go ww.heartbeatTask(heartbeatCtx, t)
 	}
 
-	executedEvents, workflowEvents, err := executor.ExecuteTask(ctx, t)
+	result, err := executor.ExecuteTask(ctx, t)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not execute workflow task")
+		return nil, errors.Wrap(err, "could not execute workflow task")
 	}
 
-	return executedEvents, workflowEvents, nil
+	return result, nil
 }
 
 func (ww *workflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (workflow.WorkflowExecutor, error) {

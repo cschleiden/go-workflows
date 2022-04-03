@@ -43,7 +43,9 @@ type Backend interface {
 	// This checkpoints the execution. events are new events from the last workflow execution
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
-	CompleteWorkflowTask(ctx context.Context, instance workflow.Instance, executedEvents []history.Event, workflowEvents []history.WorkflowEvent) error
+	CompleteWorkflowTask(
+		ctx context.Context, instance workflow.Instance, state WorkflowState,
+		executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context) (*task.Activity, error)

@@ -20,8 +20,15 @@ import (
 	errs "github.com/pkg/errors"
 )
 
+type ExecutionResult struct {
+	Completed      bool
+	NewEvents      []history.Event
+	ActivityEvents []history.Event
+	WorkflowEvents []history.WorkflowEvent
+}
+
 type WorkflowExecutor interface {
-	ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error)
+	ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error)
 
 	Close()
 }
@@ -34,7 +41,7 @@ type executor struct {
 	workflowCtxCancel sync.CancelFunc
 	clock             clock.Clock
 	logger            *log.Logger
-	lastEventID       string // TODO: Not the same as the sequence number Event ID
+	lastEventID       string
 }
 
 func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
@@ -52,12 +59,12 @@ func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock
 	}, nil
 }
 
-func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
+func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
 	if t.Kind == task.Continuation {
 		// Check if the current state matches the backend's history state
 		newestHistoryEvent := t.History[len(t.History)-1]
 		if newestHistoryEvent.ID != e.lastEventID {
-			return nil, nil, fmt.Errorf("mismatch in execution, last event %v not found in history, last there is %v (%v)", e.lastEventID, newestHistoryEvent.ID, newestHistoryEvent.Type)
+			return nil, fmt.Errorf("mismatch in execution, last event %v not found in history, last there is %v (%v)", e.lastEventID, newestHistoryEvent.ID, newestHistoryEvent.Type)
 		}
 
 		// Clear commands from previous executions
@@ -67,7 +74,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 		e.workflowState.SetReplaying(true)
 		for _, event := range t.History {
 			if err := e.executeEvent(event); err != nil {
-				return nil, nil, errs.Wrap(err, "error while replaying event")
+				return nil, errs.Wrap(err, "error while replaying event")
 			}
 		}
 	}
@@ -78,12 +85,12 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 
 	// Execute new events received from the backend
 	if err := e.executeNewEvents(events); err != nil {
-		return nil, nil, errs.Wrap(err, "error while executing new events")
+		return nil, errs.Wrap(err, "error while executing new events")
 	}
 
-	newCommandEvents, workflowEvents, err := e.processCommands(ctx, t)
+	completed, newCommandEvents, activityEvents, workflowEvents, err := e.processCommands(ctx, t)
 	if err != nil {
-		return nil, nil, errs.Wrap(err, "could not process commands")
+		return nil, errs.Wrap(err, "could not process commands")
 	}
 	events = append(events, newCommandEvents...)
 
@@ -92,7 +99,12 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) ([]history
 
 	e.lastEventID = events[len(events)-1].ID
 
-	return events, workflowEvents, nil
+	return &ExecutionResult{
+		Completed:      completed,
+		NewEvents:      events,
+		ActivityEvents: activityEvents,
+		WorkflowEvents: workflowEvents,
+	}, nil
 }
 
 func (e *executor) executeNewEvents(newEvents []history.Event) error {
@@ -102,6 +114,9 @@ func (e *executor) executeNewEvents(newEvents []history.Event) error {
 		if err := e.executeEvent(event); err != nil {
 			return errs.Wrap(err, "error while executing event")
 		}
+
+		// Remember that we executed this event last
+		e.lastEventID = event.ID
 	}
 
 	if e.workflow.Completed() {
@@ -326,11 +341,13 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) error {
 	return nil
 }
 
-func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]history.Event, []history.WorkflowEvent, error) {
+func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool, []history.Event, []history.Event, []history.WorkflowEvent, error) {
 	instance := t.WorkflowInstance
 	commands := e.workflowState.Commands()
 
+	completed := false
 	newEvents := make([]history.Event, 0)
+	activityEvents := make([]history.Event, 0)
 	workflowEvents := make([]history.WorkflowEvent, 0)
 
 	for _, c := range commands {
@@ -342,7 +359,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 		case command.CommandType_ScheduleActivityTask:
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
-			newEvents = append(newEvents, history.NewHistoryEvent(
+			scheduleActivityEvent := history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_ActivityScheduled,
 				&history.ActivityScheduledAttributes{
@@ -350,7 +367,10 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 					Inputs: a.Inputs,
 				},
 				history.ScheduleEventID(c.ID),
-			))
+			)
+
+			newEvents = append(newEvents, scheduleActivityEvent)
+			activityEvents = append(activityEvents, scheduleActivityEvent)
 
 		case command.CommandType_ScheduleSubWorkflow:
 			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
@@ -420,6 +440,8 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			)
 
 		case command.CommandType_CompleteWorkflow:
+			completed = true
+
 			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
@@ -466,9 +488,9 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) ([]his
 			}
 
 		default:
-			return nil, nil, fmt.Errorf("unknown command type: %v", c.Type)
+			return false, nil, nil, nil, fmt.Errorf("unknown command type: %v", c.Type)
 		}
 	}
 
-	return newEvents, workflowEvents, nil
+	return completed, newEvents, activityEvents, workflowEvents, nil
 }
