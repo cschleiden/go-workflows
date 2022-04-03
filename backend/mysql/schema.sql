@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `worker` NVARCHAR(64) NULL,
 
   UNIQUE INDEX `idx_instances_instance_id` (`instance_id`),
-  INDEX `idx_instances_locked_until_completed_at` (`locked_until`, `sticky_until`, `completed_at`, `worker`),
+  INDEX `idx_instances_locked_until_completed_at` (`completed_at`, `locked_until`, `sticky_until`, `worker`),
   INDEX `idx_instances_parent_instance_id` (`parent_instance_id`)
 );
 
@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
 
-  INDEX `idx_pending_events_instance_id` (`instance_id`)
+  INDEX `idx_pending_events_instance_id` (`instance_id`),
+  INDEX `idx_instance_id_visible_at` (`instance_id`, `visible_at`)
 );
 
 
