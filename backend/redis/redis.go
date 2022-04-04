@@ -7,13 +7,22 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/go-redis/redis/v8"
 )
 
-func NewRedisBackend() backend.Backend {
-	return &redisBackend{}
+func NewRedisBackend(address, username, password string, db int) backend.Backend {
+	return &redisBackend{
+		client: *redis.NewClient(&redis.Options{
+			Addr:     address,
+			Username: username,
+			Password: password,
+			DB:       db,
+		}),
+	}
 }
 
 type redisBackend struct {
+	client redis.Client
 }
 
 func (*redisBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
