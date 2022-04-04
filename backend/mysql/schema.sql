@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   `visible_at` DATETIME NULL,
 
   INDEX `idx_pending_events_instance_id` (`instance_id`),
-  INDEX `idx_instance_id_visible_at` (`instance_id`, `visible_at`)
+  INDEX `idx_pending_events_instance_id_visible_at` (`instance_id`, `visible_at`)
 );
 
 
@@ -58,6 +58,6 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `locked_until` DATETIME NULL,
   `worker` NVARCHAR(64) NULL,
 
-  UNIQUE INDEX `idx_activities_instance_id` (`activity_id`, `instance_id`, `execution_id`),
+  UNIQUE INDEX `idx_activities_instance_id` (`instance_id`, `activity_id`, `execution_id`, `worker`),
   INDEX `idx_activities_locked_until` (`locked_until`)
 );
