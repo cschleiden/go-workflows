@@ -70,11 +70,31 @@ func (s *BackendTestSuite) Test_GetActivityTask_ReturnNilWhenTimeout() {
 func (s *BackendTestSuite) Test_CreateWorkflowInstance_DoesNotError() {
 	ctx := context.Background()
 
+	instanceID := uuid.NewString()
+
 	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: core.NewWorkflowInstance(uuid.NewString(), uuid.NewString()),
+		WorkflowInstance: core.NewWorkflowInstance(instanceID, uuid.NewString()),
 		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 	})
 	s.NoError(err)
+}
+
+func (s *BackendTestSuite) Test_CreateWorkflowInstance_SameInstanceIDErrors() {
+	ctx := context.Background()
+
+	instanceID := uuid.NewString()
+
+	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+		WorkflowInstance: core.NewWorkflowInstance(instanceID, uuid.NewString()),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+	})
+	s.NoError(err)
+
+	err = s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+		WorkflowInstance: core.NewWorkflowInstance(instanceID, uuid.NewString()),
+		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+	})
+	s.Error(err)
 }
 
 func (s *BackendTestSuite) Test_GetWorkflowTask_ReturnsTask() {
