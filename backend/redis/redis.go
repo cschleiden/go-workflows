@@ -56,7 +56,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: eventsKey(event.WorkflowInstance.GetInstanceID()),
+		Stream: pendingEventsKey(event.WorkflowInstance.GetInstanceID()),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
@@ -146,6 +146,8 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	// Read stream
+
+	// History
 	cmd := rb.rdb.XRange(ctx, eventsKey(instanceID), "-", "+")
 	msgs, err := cmd.Result()
 	if err != nil {
@@ -153,7 +155,6 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	historyEvents := make([]history.Event, 0)
-	newEvents := make([]history.Event, 0)
 
 	for _, msg := range msgs {
 		var event history.Event
@@ -162,12 +163,30 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 			return nil, errors.Wrap(err, "could not unmarshal event")
 		}
 
-		if msg.ID < instanceState.LastMessageID {
-			historyEvents = append(historyEvents, event)
-		} else {
-			newEvents = append(newEvents, event)
-		}
+		historyEvents = append(historyEvents, event)
 	}
+
+	// New Events
+	newEvents := make([]history.Event, 0)
+
+	cmd = rb.rdb.XRange(ctx, pendingEventsKey(instanceID), "-", "+")
+	msgs, err = cmd.Result()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read event stream")
+	}
+
+	for _, msg := range msgs {
+		var event history.Event
+
+		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
+			return nil, errors.Wrap(err, "could not unmarshal event")
+		}
+
+		newEvents = append(newEvents, event)
+	}
+
+	// Remove all pending events
+	rb.rdb.XTrim(ctx, pendingEventsKey(instanceID), 0)
 
 	log.Println("Returned task for ", instanceID)
 
@@ -237,7 +256,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 			}
 
 			cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-				Stream: eventsKey(targetInstance.GetInstanceID()),
+				Stream: pendingEventsKey(targetInstance.GetInstanceID()),
 				ID:     "*",
 				Values: map[string]interface{}{
 					"event": string(eventData),
@@ -407,7 +426,7 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	}
 
 	cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: eventsKey(instance.GetInstanceID()),
+		Stream: pendingEventsKey(instance.GetInstanceID()),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
