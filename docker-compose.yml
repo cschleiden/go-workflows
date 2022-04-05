@@ -15,7 +15,7 @@ services:
     restart: always
     ports:
       - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning --requirepass RedisPassw0rd
+    command: redis-server --appendonly yes --loglevel warning --requirepass RedisPassw0rd
     volumes:
       - cache:/data
 
