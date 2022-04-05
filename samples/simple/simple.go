@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 
@@ -16,9 +16,10 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := sqlite.NewSqliteBackend("simple.sqlite")
+	//b := sqlite.NewSqliteBackend("simple.sqlite")
 	//b := sqlite.NewInMemoryBackend()
 	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
+	b := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
 
 	// Run worker
 	w := RunWorker(ctx, b)

@@ -12,15 +12,16 @@ import (
 )
 
 type instanceState struct {
-	InstanceID  string                `json:"instance_id,omitempty"`
-	ExecutionID string                `json:"execution_id,omitempty"`
-	State       backend.WorkflowState `json:"state,omitempty"`
-	CreatedAt   time.Time             `json:"created_at,omitempty"`
-	CompletedAt *time.Time            `json:"completed_at,omitempty"`
+	InstanceID    string                `json:"instance_id,omitempty"`
+	ExecutionID   string                `json:"execution_id,omitempty"`
+	State         backend.WorkflowState `json:"state,omitempty"`
+	CreatedAt     time.Time             `json:"created_at,omitempty"`
+	CompletedAt   *time.Time            `json:"completed_at,omitempty"`
+	LastMessageID string                `redis:"last_message_id"`
 }
 
-func storeInstance(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, state *instanceState) error {
-	key := instanceKey(instance)
+func createInstance(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, state *instanceState) error {
+	key := instanceKey(instance.GetInstanceID())
 
 	b, err := json.Marshal(state)
 	if err != nil {
@@ -40,16 +41,32 @@ func storeInstance(ctx context.Context, rdb redis.UniversalClient, instance core
 	return nil
 }
 
-func readInstance(ctx context.Context, p redis.Pipeliner, instance core.WorkflowInstance) (*instanceState, error) {
-	key := instanceKey(instance)
-	cmd := p.Get(ctx, key)
+func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID string, state *instanceState) error {
+	key := instanceKey(instanceID)
+
+	b, err := json.Marshal(state)
+	if err != nil {
+		return errors.Wrap(err, "could not marshal instance state")
+	}
+
+	cmd := rdb.Set(ctx, key, string(b), 0)
+	if err := cmd.Err(); err != nil {
+		return errors.Wrap(err, "could not update instance")
+	}
+
+	return nil
+}
+
+func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID string) (*instanceState, error) {
+	key := instanceKey(instanceID)
+	cmd := rdb.Get(ctx, key)
 
 	if err := cmd.Err(); err != nil {
 		return nil, errors.Wrap(err, "could not read instance")
 	}
 
 	var state instanceState
-	if err := json.Unmarshal([]byte(cmd.String()), &state); err != nil {
+	if err := json.Unmarshal([]byte(cmd.Val()), &state); err != nil {
 		return nil, errors.Wrap(err, "could not unmarshal instance state")
 	}
 

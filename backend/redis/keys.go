@@ -2,22 +2,24 @@ package redis
 
 import (
 	"fmt"
-
-	"github.com/cschleiden/go-workflows/internal/core"
 )
 
-func instanceKey(instance core.WorkflowInstance) string {
-	return fmt.Sprintf("instance-%v", instance.GetInstanceID())
+func instanceKey(instanceID string) string {
+	return fmt.Sprintf("instance-%v", instanceID)
 }
 
-func pendingEventsKey(instance core.WorkflowInstance) string {
-	return fmt.Sprintf("pending-%v", instance.GetInstanceID())
+func eventsKey(instanceID string) string {
+	return fmt.Sprintf("events-%v", instanceID)
 }
 
 func pendingInstancesKey() string {
 	return "pending-instances"
 }
 
-func lockedInstancesKey() string {
-	return "locked-instances"
+func activitiesKey() string {
+	return "activities"
+}
+
+func activityKey(activityID string) string {
+	return fmt.Sprintf("activity-%v", activityID)
 }

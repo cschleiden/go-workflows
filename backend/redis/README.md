@@ -1,10 +1,14 @@
 # Redis backend
 
-Storing:
+## Data
 
 ### Instances and their state
 
-Instances and their state are stored as STRINGS under the `instances-{instanceID}` key.
+Instances and their state are stored as HASHES under the `instances-{instanceID}` key.
+
+### Events
+
+Events are stored
 
 ### Pending events & Locked instance
 
@@ -19,3 +23,7 @@ Timer events are stored in a sorted set. Whenever a client checks for a new work
 ### History
 
 History is stored in a LIST under the `history-{instanceID}` key.
+
+## Operations
+
+When a new instance is created, its state is stored as a `HASH` under `instances-{instanceID}`. Its event is added to a new `STREAM`
