@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/google/uuid"
@@ -16,7 +16,8 @@ func main() {
 	ctx := context.Background()
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
+	b := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
 
 	// Start workflow via client
 	c := client.New(b)
@@ -44,9 +45,11 @@ func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 		panic("could not start workflow")
 	}
 
-	// log.Println("Started workflow", wf.GetInstanceID())
+	log.Println("Started workflow", wf.GetInstanceID())
 
 	c.WaitForWorkflowInstance(ctx, wf, time.Second*30)
+
+	log.Println("Finished workflow", wf.GetInstanceID())
 
 	wg.Done()
 }

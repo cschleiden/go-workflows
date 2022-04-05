@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -80,8 +81,6 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	var instanceID string
 
 	getAndLockTask := func(tx *redis.Tx) error {
-		instanceID = ""
-
 		// Find pending workflow instance from sorted set
 		now := int(time.Now().Unix())
 		cmd := tx.ZRangeByScoreWithScores(ctx, pendingInstancesKey(), &redis.ZRangeBy{
@@ -105,19 +104,24 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 			return nil
 		}
 
-		// log.Println("Member ", r[0].Member, "Score", r[0].Score)
-		instanceID = r[0].Member.(string)
+		id := r[0].Member.(string)
 
 		// Mark instance as locked
 		lockedUntil := time.Now().Add(rb.options.WorkflowLockTimeout)
 
 		_, err = tx.TxPipelined(ctx, func(p redis.Pipeliner) error {
 			// Overwrite the key with the new score
-			p.ZAdd(ctx, pendingInstancesKey(), &redis.Z{Score: float64(lockedUntil.Unix()), Member: instanceID})
+			p.ZAdd(ctx, pendingInstancesKey(), &redis.Z{Score: float64(lockedUntil.Unix()), Member: id})
 			return nil
 		})
 
-		return err
+		if err != nil {
+			return err
+		}
+
+		instanceID = id
+
+		return nil
 	}
 
 	for i := 0; i < 10; i++ {
@@ -333,17 +337,18 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 }
 
 func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance core.WorkflowInstance) (backend.WorkflowState, error) {
-	// panic("unimplemented")
-	// TODO: Implement
-	return backend.WorkflowStateActive, nil
+	instanceState, err := readInstance(ctx, rb.rdb, instance.GetInstanceID())
+	if err != nil {
+		return backend.WorkflowStateActive, err
+	}
+
+	return instanceState.State, nil
 }
 
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
 	var activityID string
 
 	getAndLockTask := func(tx *redis.Tx) error {
-		activityID = ""
-
 		// Find pending workflow instance from sorted set
 		now := int(time.Now().Unix())
 		cmd := tx.ZRangeByScoreWithScores(ctx, activitiesKey(), &redis.ZRangeBy{
@@ -367,18 +372,23 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 			return nil
 		}
 
-		activityID = r[0].Member.(string)
+		id := r[0].Member.(string)
 
 		// Mark instance as locked
 		lockedUntil := time.Now().Add(rb.options.ActivityLockTimeout)
 
 		_, err = tx.TxPipelined(ctx, func(p redis.Pipeliner) error {
 			// Overwrite the key with the new score
-			p.ZAdd(ctx, activitiesKey(), &redis.Z{Score: float64(lockedUntil.Unix()), Member: activityID})
+			p.ZAdd(ctx, activitiesKey(), &redis.Z{Score: float64(lockedUntil.Unix()), Member: id})
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 
-		return err
+		activityID = id
+
+		return nil
 	}
 
 	for i := 0; i < 10; i++ {
@@ -390,11 +400,12 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 
 		if err == redis.TxFailedErr {
 			// Optimistic lock lost. Retry.
+			log.Println("TxFailed on activity task. Retrying...")
 			continue
 		}
 
 		// Return any other error.
-		return nil, errors.Wrap(err, "could not find workflow task")
+		return nil, errors.Wrap(err, "could not find activity task")
 	}
 
 	if activityID == "" {
@@ -405,6 +416,8 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println("Returning activity task", activity.ID)
 
 	return &task.Activity{
 		// TODO: Include execution id
@@ -419,6 +432,8 @@ func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID strin
 }
 
 func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error {
+	log.Println("Completing", activityID, event.ID, instance.GetInstanceID())
+
 	// Deliver event to workflow instance
 	eventData, err := json.Marshal(event)
 	if err != nil {
@@ -434,12 +449,17 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	})
 	_, err = cmd.Result()
 	if err != nil {
-		return errors.Wrap(err, "could not create event stream")
+		return errors.Wrap(err, "could not add event to stream")
 	}
 
-	zcmd := rb.rdb.ZAdd(ctx, pendingInstancesKey(), &redis.Z{Score: float64(0), Member: instance.GetInstanceID()})
-	if err := zcmd.Err(); err != nil {
+	log.Println("Added event to stream", instance.GetInstanceID(), " event id ", event.ID)
+
+	// Mark workflow instance as ready, if not already in queue
+	zcmd := rb.rdb.ZAddNX(ctx, pendingInstancesKey(), &redis.Z{Score: float64(0), Member: instance.GetInstanceID()})
+	if added, err := zcmd.Result(); err != nil {
 		return errors.Wrap(err, "could not add instance to locked instances set")
+	} else if added == 0 {
+		log.Println("Workflow instance already pending")
 	}
 
 	// Unlock activity
@@ -449,6 +469,8 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	} else if removed == 0 {
 		return errors.Wrap(err, "activity already unlocked")
 	}
+
+	fmt.Println("Unlocked activity", activityID)
 
 	// TODO: Remove state
 
