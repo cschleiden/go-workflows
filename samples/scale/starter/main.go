@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend/redis"
@@ -11,6 +12,9 @@ import (
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/google/uuid"
 )
+
+var tostart int = 100
+var count int32 = int32(tostart)
 
 func main() {
 	ctx := context.Background()
@@ -26,7 +30,7 @@ func main() {
 
 	now := time.Now()
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < tostart; i++ {
 		wg.Add(1)
 
 		go startWorkflow(ctx, c, wg)
@@ -49,7 +53,8 @@ func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 
 	c.WaitForWorkflowInstance(ctx, wf, time.Second*30)
 
-	log.Println("Finished workflow", wf.GetInstanceID())
+	cn := atomic.AddInt32(&count, -1)
+	log.Println("Finished workflow (remaining", cn, ")", wf.GetInstanceID())
 
 	wg.Done()
 }
