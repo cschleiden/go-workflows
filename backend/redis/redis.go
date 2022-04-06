@@ -25,6 +25,14 @@ func WithBlockTimeout(timeout time.Duration) RedisBackendOption {
 	}
 }
 
+func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
+	return func(o *RedisOptions) {
+		for _, opt := range opts {
+			opt(&o.Options)
+		}
+	}
+}
+
 func NewRedisBackend(address, username, password string, db int, opts ...RedisBackendOption) (backend.Backend, error) {
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    []string{address},
