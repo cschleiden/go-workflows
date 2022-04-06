@@ -24,6 +24,10 @@ func activitiesKey() string {
 	return "activities"
 }
 
+func activitiesProcessingKey() string {
+	return "activities-processing"
+}
+
 func activityKey(activityID string) string {
 	return fmt.Sprintf("activity-%v", activityID)
 }
