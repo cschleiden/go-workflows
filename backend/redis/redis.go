@@ -2,15 +2,15 @@ package redis
 
 import (
 	"context"
-	"log"
-	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/go-redis/redis/v8"
+	"github.com/pkg/errors"
 )
 
-func NewRedisBackend(address, username, password string, db int, opts ...backend.BackendOption) backend.Backend {
+func NewRedisBackend(address, username, password string, db int, opts ...backend.BackendOption) (backend.Backend, error) {
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    []string{address},
 		Username: username,
@@ -23,40 +23,33 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 		panic(err)
 	}
 
+	workflowQueue, err := taskqueue.New(client, "workflows")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create workflow task queue")
+	}
+
+	activityQueue, err := taskqueue.New(client, "activities")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create activity task queue")
+	}
+
 	rb := &redisBackend{
 		rdb:     client,
 		options: backend.ApplyOptions(opts...),
 
-		workflowQueue: newQueue(client, "workflows"),
-		activityQueue: newQueue(client, "activities"),
+		workflowQueue: workflowQueue,
+		activityQueue: activityQueue,
 	}
 
-	// HACK: Debug recover code
-	go func() {
-		t := time.NewTicker(time.Second * 1)
-
-		for {
-			select {
-			case <-t.C:
-				res, err := rb.activityQueue.Recover(context.Background())
-				if err != nil {
-					panic(err)
-				}
-
-				log.Println(res)
-			}
-		}
-	}()
-
-	return rb
+	return rb, nil
 }
 
 type redisBackend struct {
 	rdb     redis.UniversalClient
 	options backend.Options
 
-	workflowQueue *queue
-	activityQueue *queue
+	workflowQueue taskqueue.TaskQueue
+	activityQueue taskqueue.TaskQueue
 }
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {

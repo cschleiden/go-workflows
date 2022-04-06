@@ -26,7 +26,10 @@ func main() {
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite")
 	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
-	b := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Start workflow via client
 	c := client.New(b)

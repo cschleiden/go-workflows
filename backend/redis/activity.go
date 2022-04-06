@@ -22,17 +22,17 @@ type ActivityData struct {
 
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
 	// TODO: Make timeout configurable?
-	activityID, err := rb.activityQueue.Dequeue(ctx, rb.options.ActivityLockTimeout, time.Second*5)
+	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.options.ActivityLockTimeout, time.Second*5)
 	if err != nil {
 		return nil, err
 	}
 
-	if activityID == nil {
+	if activityTask == nil {
 		return nil, nil
 	}
 
 	// Fetch activity data
-	activity, err := getActivity(ctx, rb.rdb, *activityID)
+	activity, err := getActivity(ctx, rb.rdb, activityTask.ID)
 	if err != nil {
 		return nil, err
 	}

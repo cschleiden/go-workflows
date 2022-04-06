@@ -19,7 +19,10 @@ func main() {
 	//b := sqlite.NewSqliteBackend("simple.sqlite")
 	//b := sqlite.NewInMemoryBackend()
 	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
-	b := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
 	w := RunWorker(ctx, b)

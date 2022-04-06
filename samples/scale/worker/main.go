@@ -17,7 +17,10 @@ func main() {
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
 	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
-	b := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
 	go RunWorker(ctx, b)

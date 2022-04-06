@@ -17,16 +17,16 @@ import (
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
 	// TODO: Make timeout configurable?
-	instanceID, err := rb.workflowQueue.Dequeue(ctx, rb.options.WorkflowLockTimeout, time.Second*5)
+	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.options.WorkflowLockTimeout, time.Second*5)
 	if err != nil {
 		return nil, err
 	}
 
-	if instanceID == nil {
+	if instanceTask == nil {
 		return nil, nil
 	}
 
-	instanceState, err := readInstance(ctx, rb.rdb, *instanceID)
+	instanceState, err := readInstance(ctx, rb.rdb, instanceTask.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read workflow instance")
 	}
@@ -34,7 +34,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// Read stream
 
 	// History
-	cmd := rb.rdb.XRange(ctx, historyKey(*instanceID), "-", "+")
+	cmd := rb.rdb.XRange(ctx, historyKey(instanceTask.ID), "-", "+")
 	msgs, err := cmd.Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
@@ -55,7 +55,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// New Events
 	newEvents := make([]history.Event, 0)
 
-	cmd = rb.rdb.XRange(ctx, pendingEventsKey(*instanceID), "-", "+")
+	cmd = rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", "+")
 	msgs, err = cmd.Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
@@ -72,12 +72,12 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	// Remove all pending events
-	rb.rdb.XTrim(ctx, pendingEventsKey(*instanceID), 0)
+	rb.rdb.XTrim(ctx, pendingEventsKey(instanceTask.ID), 0)
 
-	log.Println("Returned task for ", instanceID)
+	log.Println("Returned task for ", instanceTask)
 
 	return &task.Workflow{
-		WorkflowInstance: core.NewWorkflowInstance(*instanceID, instanceState.ExecutionID),
+		WorkflowInstance: core.NewWorkflowInstance(instanceTask.ID, instanceState.ExecutionID),
 		History:          historyEvents,
 		NewEvents:        newEvents,
 	}, nil

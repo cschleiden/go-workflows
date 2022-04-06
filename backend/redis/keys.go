@@ -19,19 +19,3 @@ func historyKey(instanceID string) string {
 func activityKey(activityID string) string {
 	return fmt.Sprintf("activity-%v", activityID)
 }
-
-// Queue keys
-
-type keys struct {
-	queue      string
-	processing string
-	lease      string
-}
-
-func queueKeys(t string) *keys {
-	return &keys{
-		queue:      "queue:" + t,
-		processing: "processing:" + t,
-		lease:      "lease:" + t,
-	}
-}
