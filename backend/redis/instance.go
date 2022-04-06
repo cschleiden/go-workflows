@@ -67,12 +67,11 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance cor
 }
 
 type instanceState struct {
-	InstanceID    string                `json:"instance_id,omitempty"`
-	ExecutionID   string                `json:"execution_id,omitempty"`
-	State         backend.WorkflowState `json:"state,omitempty"`
-	CreatedAt     time.Time             `json:"created_at,omitempty"`
-	CompletedAt   *time.Time            `json:"completed_at,omitempty"`
-	LastMessageID string                `redis:"last_message_id"`
+	InstanceID  string                `json:"instance_id,omitempty"`
+	ExecutionID string                `json:"execution_id,omitempty"`
+	State       backend.WorkflowState `json:"state,omitempty"`
+	CreatedAt   time.Time             `json:"created_at,omitempty"`
+	CompletedAt *time.Time            `json:"completed_at,omitempty"`
 }
 
 func createInstance(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, state *instanceState) error {

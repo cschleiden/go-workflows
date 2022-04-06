@@ -10,11 +10,12 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
 )
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+	// TODO: Check for timer events, and add them to pending events if required
+
 	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.options.WorkflowLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
@@ -70,8 +71,6 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// Remove all pending events
 	rb.rdb.XTrim(ctx, pendingEventsKey(instanceTask.ID), 0)
 
-	log.Println("Returned task for ", instanceTask)
-
 	return &task.Workflow{
 		ID:               instanceTask.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceTask.ID, instanceState.ExecutionID),
@@ -85,30 +84,11 @@ func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, taskID string, i
 }
 
 func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance, state backend.WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
-
-	// Add events to stream
-	var lastMessageID string
-
+	// Add executed events to the history
 	for _, executedEvent := range executedEvents {
-		// TODO: Use pipeline
-		eventData, err := json.Marshal(executedEvent)
-		if err != nil {
+		if err := addEventToStream(ctx, rb.rdb, historyKey(instance.GetInstanceID()), &executedEvent); err != nil {
 			return err
 		}
-
-		cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-			Stream: historyKey(instance.GetInstanceID()),
-			ID:     "*",
-			Values: map[string]interface{}{
-				"event": string(eventData),
-			},
-		})
-		id, err := cmd.Result()
-		if err != nil {
-			return errors.Wrap(err, "could not create event stream")
-		}
-
-		lastMessageID = id
 	}
 
 	// Send new events to the respective streams
@@ -130,27 +110,15 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 
 		// Insert pending events for target instance
 		for _, event := range events {
-			// TODO: Use pipeline
-			eventData, err := json.Marshal(event)
-			if err != nil {
+			if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instance.GetInstanceID()), &event); err != nil {
 				return err
-			}
-
-			cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-				Stream: pendingEventsKey(targetInstance.GetInstanceID()),
-				ID:     "*",
-				Values: map[string]interface{}{
-					"event": string(eventData),
-				},
-			})
-			_, err = cmd.Result()
-			if err != nil {
-				return errors.Wrap(err, "could not create event stream")
 			}
 		}
 
 		// TODO: Delay unlocking the current instance. Can we find a better way here?
 		if targetInstance != instance {
+			// TODO: Make sure this task is not already enqueued
+
 			if err := rb.workflowQueue.Enqueue(ctx, targetInstance.GetInstanceID(), nil); err != nil {
 				return errors.Wrap(err, "could not add instance to locked instances set")
 			}
@@ -164,7 +132,6 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	}
 
 	instanceState.State = state
-	instanceState.LastMessageID = lastMessageID // TODO: Do we need this?
 
 	if err := updateInstance(ctx, rb.rdb, instance.GetInstanceID(), instanceState); err != nil {
 		return errors.Wrap(err, "could not update workflow instance")
@@ -182,7 +149,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 		}
 	}
 
-	// Unlock instance
+	// Complete workflow task and unlock instance
 	if err := rb.workflowQueue.Complete(ctx, taskID); err != nil {
 		return errors.Wrap(err, "could not complete workflow task")
 	}
@@ -193,20 +160,9 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 }
 
 func (rb *redisBackend) addWorkflowInstanceEvent(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
-	// Add pending event
-	eventData, err := json.Marshal(event)
-	if err != nil {
+	// Add event to pending events for instance
+	if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instance.GetInstanceID()), &event); err != nil {
 		return err
-	}
-
-	if err := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(instance.GetInstanceID()),
-		ID:     "*",
-		Values: map[string]interface{}{
-			"event": string(eventData),
-		},
-	}).Err(); err != nil {
-		return errors.Wrap(err, "could not add event to stream")
 	}
 
 	// Queue workflow task
