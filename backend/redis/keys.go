@@ -5,19 +5,23 @@ import (
 )
 
 func instanceKey(instanceID string) string {
-	return fmt.Sprintf("instance-%v", instanceID)
+	return fmt.Sprintf("instance:%v", instanceID)
 }
 
 func pendingEventsKey(instanceID string) string {
-	return fmt.Sprintf("pending-events-%v", instanceID)
+	return fmt.Sprintf("pending-events:%v", instanceID)
 }
 
-func eventsKey(instanceID string) string {
-	return fmt.Sprintf("events-%v", instanceID)
+func historyKey(instanceID string) string {
+	return fmt.Sprintf("history:%v", instanceID)
 }
 
-func pendingInstancesKey() string {
-	return "pending-instances"
+func workflowsKey() string {
+	return "workflows"
+}
+
+func workflowsProcessingKey() string {
+	return "workflows-processing"
 }
 
 func activitiesKey() string {

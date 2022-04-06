@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -17,73 +16,15 @@ import (
 )
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
-	var instanceID string
-
-	getAndLockTask := func(tx *redis.Tx) error {
-		// Find pending workflow instance from sorted set
-		now := int(time.Now().Unix())
-		cmd := tx.ZRangeByScoreWithScores(ctx, workflowsKey(), &redis.ZRangeBy{
-			// Get at most one task
-			Count: 1,
-			// Unlocked tasks have a score of 0 so start at -inf
-			Min: "-inf",
-			// Abandoned tasks will have an unlock-timestap in the past, so include those as well
-			Max: strconv.Itoa(now),
-		})
-		if err := cmd.Err(); err != nil {
-			return errors.Wrap(err, "could not get pending instance")
+	// TODO: Make timeout configurable?
+	instanceID, err := rb.rdb.BLMove(ctx, workflowsKey(), workflowsProcessingKey(), "RIGHT", "LEFT", time.Second*5).Result()
+	if err != nil {
+		if err == redis.Nil {
+			log.Println("No activity tasks available")
+			return nil, nil
 		}
 
-		r, err := cmd.Result()
-		if err != nil {
-			return errors.Wrap(err, "could not get pending instance")
-		}
-
-		if len(r) == 0 {
-			return nil
-		}
-
-		id := r[0].Member.(string)
-
-		// Mark instance as locked
-		lockedUntil := time.Now().Add(rb.options.WorkflowLockTimeout)
-
-		_, err = tx.TxPipelined(ctx, func(p redis.Pipeliner) error {
-			// Overwrite the key with the new score
-			p.ZAdd(ctx, workflowsKey(), &redis.Z{
-				Score:  float64(lockedUntil.Unix()),
-				Member: id,
-			})
-			return nil
-		})
-
-		if err != nil {
-			return err
-		}
-
-		instanceID = id
-
-		return nil
-	}
-
-	for i := 0; i < 10; i++ {
-		err := rb.rdb.Watch(ctx, getAndLockTask, workflowsKey())
-		if err == nil {
-			// Success.
-			break
-		}
-
-		if err == redis.TxFailedErr {
-			// Optimistic lock lost. Retry.
-			continue
-		}
-
-		// Return any other error.
-		return nil, errors.Wrap(err, "could not find workflow task")
-	}
-
-	if instanceID == "" {
-		return nil, nil
+		return nil, errors.Wrap(err, "could not get activity task")
 	}
 
 	instanceState, err := readInstance(ctx, rb.rdb, instanceID)
@@ -216,11 +157,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 
 		// TODO: Delay unlocking the current instance. Can we find a better way here?
 		if targetInstance != instance {
-			zcmd := rb.rdb.ZAdd(ctx, workflowsKey(), &redis.Z{
-				Score:  float64(time.Now().Unix()),
-				Member: targetInstance.GetInstanceID(),
-			})
-			if err := zcmd.Err(); err != nil {
+			if err := queueWorkflow(ctx, rb.rdb, targetInstance); err != nil {
 				return errors.Wrap(err, "could not add instance to locked instances set")
 			}
 		}
@@ -248,14 +185,35 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	}
 
 	// Unlock instance
-	cmd := rb.rdb.ZRem(ctx, workflowsKey(), instance.GetInstanceID())
-	if removed, err := cmd.Result(); err != nil {
-		return errors.Wrap(err, "could not remove instance from locked instances set")
-	} else if removed == 0 {
-		return errors.Wrap(err, "instance already unlocked")
+	if err := completeWorkflowTask(ctx, rb.rdb, instance); err != nil {
+		return errors.Wrap(err, "could not complete workflow task")
 	}
 
 	log.Println("Unlocked", instance.GetInstanceID())
+
+	return nil
+}
+
+func queueWorkflow(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance) error {
+	// zcmd := rb.rdb.ZAdd(ctx, workflowsKey(), &redis.Z{
+	// 	Score:  float64(time.Now().Unix()),
+	// 	Member: event.WorkflowInstance.GetInstanceID()})
+	// if err := zcmd.Err(); err != nil {
+	// 	return errors.Wrap(err, "could not add instance to locked instances set")
+	// }
+	if err := rdb.LPush(ctx, workflowsKey(), instance.GetInstanceID()).Err(); err != nil {
+		return errors.Wrap(err, "could not queue workflow")
+	}
+
+	return nil
+}
+
+func completeWorkflowTask(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance) error {
+	if count, err := rdb.LRem(ctx, workflowsProcessingKey(), 0, instance.GetInstanceID()).Result(); err != nil {
+		return err
+	} else if count == 0 {
+		return errors.New("could not remove workflow task")
+	}
 
 	return nil
 }

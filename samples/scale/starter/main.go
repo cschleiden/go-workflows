@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -13,10 +14,14 @@ import (
 	"github.com/google/uuid"
 )
 
-var tostart int = 100
-var count int32 = int32(tostart)
+var tostart = flag.Int("count", 100, "Number of workflow instances to start")
+var count int32
 
 func main() {
+	flag.Parse()
+
+	count = int32(*tostart)
+
 	ctx := context.Background()
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite")
@@ -30,7 +35,7 @@ func main() {
 
 	now := time.Now()
 
-	for i := 0; i < tostart; i++ {
+	for i := 0; i < *tostart; i++ {
 		wg.Add(1)
 
 		go startWorkflow(ctx, c, wg)

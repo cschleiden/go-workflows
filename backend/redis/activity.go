@@ -79,11 +79,14 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	log.Println("Added event to stream", instance.GetInstanceID(), " event id ", event.ID)
 
 	// Mark workflow instance as ready, if not already in queue
-	zcmd := rb.rdb.ZAddNX(ctx, pendingInstancesKey(), &redis.Z{Score: float64(0), Member: instance.GetInstanceID()})
-	if added, err := zcmd.Result(); err != nil {
-		return errors.Wrap(err, "could not add instance to locked instances set")
-	} else if added == 0 {
-		log.Println("Workflow instance already pending")
+	// zcmd := rb.rdb.ZAddNX(ctx, workflowsKey(), &redis.Z{Score: float64(0), Member: instance.GetInstanceID()})
+	// if added, err := zcmd.Result(); err != nil {
+	// 	return errors.Wrap(err, "could not add instance to locked instances set")
+	// } else if added == 0 {
+	// 	log.Println("Workflow instance already pending")
+	// }
+	if err := queueWorkflow(ctx, rb.rdb, instance); err != nil {
+		return errors.Wrap(err, "could not queue workflow")
 	}
 
 	// Unlock activity
@@ -96,7 +99,9 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 
 	fmt.Println("Unlocked activity", activityID)
 
-	// TODO: Remove state
+	if err := removeActivity(ctx, rb.rdb, activityID); err != nil {
+		return errors.Wrap(err, "could not remove activity")
+	}
 
 	return nil
 }
@@ -146,6 +151,14 @@ func getActivity(ctx context.Context, rdb redis.UniversalClient, activityID stri
 	}
 
 	return &state, nil
+}
+
+func removeActivity(ctx context.Context, rdb redis.UniversalClient, activityID string) error {
+	if err := rdb.Del(ctx, activityKey(activityID)).Err(); err != nil {
+		return errors.Wrap(err, "could not remove activity")
+	}
+
+	return nil
 }
 
 func getActivityTask(ctx context.Context, rdb redis.UniversalClient) (*ActivityData, error) {

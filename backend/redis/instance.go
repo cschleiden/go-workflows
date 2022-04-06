@@ -42,11 +42,8 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	// Add instance to pending instances set
-	zcmd := rb.rdb.ZAdd(ctx, workflowsKey(), &redis.Z{
-		Score:  float64(time.Now().Unix()),
-		Member: event.WorkflowInstance.GetInstanceID()})
-	if err := zcmd.Err(); err != nil {
-		return errors.Wrap(err, "could not add instance to locked instances set")
+	if err := queueWorkflow(ctx, rb.rdb, event.WorkflowInstance); err != nil {
+		return errors.Wrap(err, "could not queue workflow task")
 	}
 
 	return nil
