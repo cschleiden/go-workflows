@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/core"
@@ -15,77 +14,32 @@ import (
 	"github.com/pkg/errors"
 )
 
+type ActivityData struct {
+	InstanceID string        `json:"instance_id,omitempty"`
+	ID         string        `json:"id,omitempty"`
+	Event      history.Event `json:"event,omitempty"`
+}
+
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
-	var activityID string
-
-	getAndLockTask := func(tx *redis.Tx) error {
-		// Find pending workflow instance from sorted set
-		now := int(time.Now().Unix())
-		cmd := tx.ZRangeByScoreWithScores(ctx, activitiesKey(), &redis.ZRangeBy{
-			// Get at most one task
-			Count: 1,
-			// Unlocked tasks have a score of 0 so start at -inf
-			Min: "-inf",
-			// Abandoned tasks will have an unlock-timestap in the past, so include those as well
-			Max: strconv.Itoa(now),
-		})
-		if err := cmd.Err(); err != nil {
-			return errors.Wrap(err, "could not get an activity task")
+	// TODO: Make timeout configurable?
+	cmd := rb.rdb.BLMove(ctx, activitiesKey(), activitiesProcessingKey(), "RIGHT", "LEFT", time.Second*5)
+	activityID, err := cmd.Result()
+	if err != nil {
+		if err == redis.Nil {
+			log.Println("No activity tasks available")
+			return nil, nil
 		}
 
-		r, err := cmd.Result()
-		if err != nil {
-			return errors.Wrap(err, "could not get an activity task")
-		}
-
-		if len(r) == 0 {
-			return nil
-		}
-
-		id := r[0].Member.(string)
-
-		// Mark instance as locked
-		lockedUntil := time.Now().Add(rb.options.ActivityLockTimeout)
-
-		_, err = tx.TxPipelined(ctx, func(p redis.Pipeliner) error {
-			// Overwrite the key with the new score
-			p.ZAdd(ctx, activitiesKey(), &redis.Z{Score: float64(lockedUntil.Unix()), Member: id})
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		activityID = id
-
-		return nil
+		return nil, errors.Wrap(err, "could not get activity task")
 	}
 
-	for i := 0; i < 10; i++ {
-		err := rb.rdb.Watch(ctx, getAndLockTask, activitiesKey())
-		if err == nil {
-			// Success.
-			break
-		}
-
-		if err == redis.TxFailedErr {
-			// Optimistic lock lost. Retry.
-			log.Println("TxFailed on activity task. Retrying...")
-			continue
-		}
-
-		// Return any other error.
-		return nil, errors.Wrap(err, "could not find activity task")
-	}
-
-	if activityID == "" {
-		return nil, nil
-	}
-
+	// Fetch activity data
 	activity, err := getActivity(ctx, rb.rdb, activityID)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: Update lock timeout?
 
 	log.Println("Returning activity task", activity.ID)
 
@@ -133,7 +87,7 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	}
 
 	// Unlock activity
-	rcmd := rb.rdb.ZRem(ctx, activitiesKey(), activityID)
+	rcmd := rb.rdb.LRem(ctx, activitiesProcessingKey(), 0, activityID)
 	if removed, err := rcmd.Result(); err != nil {
 		return errors.Wrap(err, "could not remove activity from locked activities set")
 	} else if removed == 0 {
@@ -147,10 +101,22 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	return nil
 }
 
-type ActivityData struct {
-	InstanceID string        `json:"instance_id,omitempty"`
-	ID         string        `json:"id,omitempty"`
-	Event      history.Event `json:"event,omitempty"`
+func queueActivity(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, event *history.Event) error {
+	// Persist activity state
+	if err := storeActivity(ctx, rdb, &ActivityData{
+		InstanceID: instance.GetInstanceID(),
+		ID:         event.ID,
+		Event:      *event,
+	}); err != nil {
+		return errors.Wrap(err, "could not store activity data")
+	}
+
+	// Queue task
+	if _, err := rdb.LPush(ctx, activitiesKey(), event.ID).Result(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func storeActivity(ctx context.Context, rdb redis.UniversalClient, data *ActivityData) error {
@@ -180,12 +146,6 @@ func getActivity(ctx context.Context, rdb redis.UniversalClient, activityID stri
 	}
 
 	return &state, nil
-}
-
-func queueActivityTask(ctx context.Context, rdb redis.UniversalClient, data *ActivityData) error {
-	rdb.LPush(ctx, activitiesKey(), data.ID)
-
-	return nil
 }
 
 func getActivityTask(ctx context.Context, rdb redis.UniversalClient) (*ActivityData, error) {

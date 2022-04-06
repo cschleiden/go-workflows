@@ -17,7 +17,9 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 	})
 
 	// TODO: Only for dev
-	client.FlushDB(context.Background())
+	if err := client.FlushDB(context.Background()).Err(); err != nil {
+		panic(err)
+	}
 
 	return &redisBackend{
 		rdb:     client,

@@ -49,12 +49,12 @@ func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.GetInstanceID())
+	// log.Println("Started workflow", wf.GetInstanceID())
 
 	c.WaitForWorkflowInstance(ctx, wf, time.Second*30)
 
 	cn := atomic.AddInt32(&count, -1)
-	log.Println("Finished workflow (remaining", cn, ")", wf.GetInstanceID())
+	log.Print(cn)
 
 	wg.Done()
 }

@@ -242,16 +242,9 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	// Store activity data
 	// TODO: Use pipeline?
 	for _, activityEvent := range activityEvents {
-		if err := storeActivity(ctx, rb.rdb, &ActivityData{
-			InstanceID: instance.GetInstanceID(),
-			ID:         activityEvent.ID,
-			Event:      activityEvent,
-		}); err != nil {
-			return errors.Wrap(err, "could not store activity data")
+		if err := queueActivity(ctx, rb.rdb, instance, &activityEvent); err != nil {
+			return errors.Wrap(err, "could not queue activity")
 		}
-
-		// Add task to queue
-		rb.rdb.ZAdd(ctx, activitiesKey(), &redis.Z{Score: float64(0), Member: activityEvent.ID})
 	}
 
 	// Unlock instance
