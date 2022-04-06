@@ -2,6 +2,8 @@ package redis
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -21,13 +23,32 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 		panic(err)
 	}
 
-	return &redisBackend{
+	rb := &redisBackend{
 		rdb:     client,
 		options: backend.ApplyOptions(opts...),
 
 		workflowQueue: newQueue(client, "workflows"),
 		activityQueue: newQueue(client, "activities"),
 	}
+
+	// HACK: Debug recover code
+	go func() {
+		t := time.NewTicker(time.Second * 1)
+
+		for {
+			select {
+			case <-t.C:
+				res, err := rb.activityQueue.Recover(context.Background())
+				if err != nil {
+					panic(err)
+				}
+
+				log.Println(res)
+			}
+		}
+	}()
+
+	return rb
 }
 
 type redisBackend struct {

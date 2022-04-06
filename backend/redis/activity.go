@@ -48,7 +48,7 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 }
 
 func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
-	panic("unimplemented")
+	return rb.activityQueue.Extend(ctx, activityID, rb.options.ActivityLockTimeout)
 }
 
 func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error {

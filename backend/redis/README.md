@@ -8,54 +8,51 @@ Instances and their state (started_at, completed_at etc.) are stored as JSON blo
 
 ### History Events
 
-Events are stored in `STREAM`s per workflow instance under `events-{instanceID}`.
+Events are stored in streams per workflow instance under `events-{instanceID}`. We could use a plain list but with streams we can do `XRANGE` queries for a subset of the history for continuation tasks.
 
-### Pending events & pending instances
+### Pending events
 
-Pending events are stored in `STREAM`s under the `pending-{instanceID}` key.
-
-Instances ready to be picked up are stored in a `ZSET`. The `SCORE` for the sorted set is the timestamp when the instance unlocks. For newly added tasks, that haven't been picked up, the `SCORE` is the current timestamp.
-
-Workers make a `ZRANGE` query to that sorted set, looking for instances where the score is in `-inf, now)`. That will get instances where the lock timestamp is in the past. Either because they have just been queued, or the lock has expired.
-
-Once a worker picks up an instance, the score is updated to `now + lock_timeout`. Query and update are done in a transaction, although that could be done as a lua script.
-
-When a worker is done with a task, it removes it from the `ZSET` (`ZREM`).
-
-_Note:_ the queue of pending items could also be another `STREAM`?
+Pending events are stored in streams under the `pending-{instanceID}` key.
 
 ### Timer events
 
 Timer events are stored in a sorted set. Whenever a client checks for a new workflow instance task, the sorted set is checked to see if any of the pending timer events is ready yet. If it is, it's added to the pending events before those are checked for pending workflow tasks.
 
-### Activities
+### Task queues
+
+We need queues for activities and workflow instances. In both cases, we have tasks being enqueued, workers polling for works, and we have to guarantee that every task is eventually processed. So if a worker has dequeued a task and crashed, for example, eventually we need another worker to pick up the task and finish it.
 
 #### Option 1: `ZSET`
 
-We need a queue of activities for workers to pick up. We also need to make sure that every activity is eventually processed. So if a worker crashes while processing an activity, we eventually want another worker to pick up the activity.
+Store keys for queue items in a `ZSET`. The score for the sorted set is the timestamp when the task is unlocked. For new tasks the `SCORE` is the current timestamp.
 
-Activity data is stored JSON serialized under `activity-{activityID}` keys. `activityID`s are added to a ZSET `activities`. The score for the sorted set is the timestamp when the activity task is unlocked. For new activities the `SCORE` is the current timestamp.
+Workers make a `ZRANGE` query to that sorted set, looking for tasks where the `SCORE` is in `-inf, now)`. That will get tasksß where the unlock timestamp is in the past. Either because they have just been queued, or the lock has expired.
 
-Workers make a `ZRANGE` query to that sorted set, looking for activities where the `SCORE` is in `-inf, now)`. That will get activites where the lock timestamp is in the past. Either because they have just been queued, or the lock has expired.
+Once a worker picks up a task, the score is updated to `now + lock_timeout`. Query and update are done in a transaction with a `WATCH` on the queue key.
 
-Once a worker picks up an activity, the score is updated to `now + lock_timeout`. Query and update are done in a transaction, although that could be done as a lua script.
-
-When a worker is done with an activity, it removes it from the `ZSET` (`ZREM`), the `actitity-{activityID}` key, adds the resulting event to the pending events `STREAM`, and marks the instance as pending - if not already pending or being processed.
+When a worker is done with a task, it removes it from the `ZSET` (`ZREM`).
 
 Pro:
-- No special handling for recovering crashed activities
+- No special handling for recovering crashed tasks, they'll automatically unlock
 
 Con:
 - Need for polling and cannot use any of the blocking redis commands
-- WAIT with transaction required
+- WAIT with transaction, or a script required
 
-####
+#### Option 2: `LISTS`
 
-Alternatively, we could use two `LIST`s, one for the _pending_ queue, one for the _processing_ queue. With a single command `BLMOVE .. RIGHT  LEFT` we could atomically move and return elements. We'd still
+Use two `LIST`s, one for the _pending_ queue, one for the _processing_ queue. To enqueue a new task, `LPUSH` it onto the _pending_ list. Also add an entry in a separate `ZSET` where the score is the unlock timestamp. Initially that timestamp will be the current timestamp. The `LPUSH` and `ZADD` are done in a transaction with a `WATCH` on the queue key, and retried if another client modified the queue in the mean time. Alternatively, the two operations can be done in a script.
 
-So get task:
-1. `BLMOVE ...` from _pending_ to _processing_ queue
+For picking up tasks, we use a blocking `BLMOVE .. RIGHT  LEFT` command to pick up the next available task from _pending_ and move it to _processing_ as a single atomic operation. Once picked up, the `SCORE` in the `ZSET` is adjusted to `now + lock_timeout`.
 
-TODO: How to track the time when an item was moved between the two? Instead of using references in the list, use fully serialized objects - including the timestamp? How can we extend that for long running activities. POP and add BACK?
+When a worker is done with a task, it removes it from the _processing_ list (`LREM`), and the `ZSET` (`ZREM`).
 
-Keep storing state externally. Use the queue only for references. Always ensure a task is _first_ stored as a KEY and _then_ added to the queue.
+To recover abandoned tasks, we periodically scan the _processing_ list
+
+Pro:
+
+Con:
+- Requires periodic scans of the _processing_ list to find tasks that have been abandoned
+
+#### Option 3: `STREAMS`s
+

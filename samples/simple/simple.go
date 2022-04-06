@@ -50,12 +50,14 @@ func runWorkflow(ctx context.Context, c client.Client) {
 
 	log.Println("Started workflow", wf.GetInstanceID())
 
-	result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*10)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*10)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	log.Println("Workflow finished. Result:", result)
+	// log.Println("Workflow finished. Result:", result)
+
+	time.Sleep(time.Minute * 5)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {

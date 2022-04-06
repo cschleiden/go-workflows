@@ -30,20 +30,8 @@ type keys struct {
 
 func queueKeys(t string) *keys {
 	return &keys{
-		queue:      queueKey(t),
-		processing: processingKey(t),
-		lease:      leaseKey(t),
+		queue:      "queue:" + t,
+		processing: "processing:" + t,
+		lease:      "lease:" + t,
 	}
-}
-
-func queueKey(t string) string {
-	return "queue:" + t
-}
-
-func processingKey(t string) string {
-	return "processing:" + t
-}
-
-func leaseKey(t string) string {
-	return "lease:" + t
 }
