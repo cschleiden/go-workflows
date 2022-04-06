@@ -10,6 +10,11 @@ import (
 )
 
 func Test_TaskQueue(t *testing.T) {
+	// These cases rely on redis being running on localhost:6379. Skip this test if `-short` is set.
+	if testing.Short() {
+		t.Skip()
+	}
+
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    []string{"localhost:6379"},
 		Username: "",
@@ -47,7 +52,7 @@ func Test_TaskQueue(t *testing.T) {
 			},
 		},
 		{
-			name: "Simple enqueue/dequeue different works",
+			name: "Simple enqueue/dequeue different worker",
 			f: func(t *testing.T) {
 				q, _ := New(client, "test")
 
@@ -62,6 +67,31 @@ func Test_TaskQueue(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
+			},
+		},
+		{
+			name: "Complete removes task",
+			f: func(t *testing.T) {
+				q, _ := New(client, "test")
+				q2, _ := New(client, "test")
+
+				err := q.Enqueue(context.Background(), "t1")
+				require.NoError(t, err)
+
+				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+
+				// Complete task
+				err = q2.Complete(context.Background(), task.ID)
+				require.NoError(t, err)
+
+				time.Sleep(time.Millisecond * 10)
+
+				// Try to recover using second worker
+				task2, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				require.NoError(t, err)
+				require.Nil(t, task2)
 			},
 		},
 		{
