@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 
+	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -36,7 +37,7 @@ type Backend interface {
 	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
 
 	// ExtendWorkflowTask extends the lock of a workflow task
-	ExtendWorkflowTask(ctx context.Context, instance workflow.Instance) error
+	ExtendWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance) error
 
 	// CompleteWorkflowTask checkpoints a workflow task retrieved using GetWorkflowTask
 	//
@@ -44,7 +45,7 @@ type Backend interface {
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
-		ctx context.Context, instance workflow.Instance, state WorkflowState,
+		ctx context.Context, taskID string, instance workflow.Instance, state WorkflowState,
 		executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities

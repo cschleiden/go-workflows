@@ -15,7 +15,3 @@ func pendingEventsKey(instanceID string) string {
 func historyKey(instanceID string) string {
 	return fmt.Sprintf("history:%v", instanceID)
 }
-
-func activityKey(activityID string) string {
-	return fmt.Sprintf("activity-%v", activityID)
-}

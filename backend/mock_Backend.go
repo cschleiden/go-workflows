@@ -47,12 +47,12 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance core.W
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, instance, state, executedEvents, activityEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
-	ret := _m.Called(ctx, instance, state, executedEvents, activityEvents, workflowEvents)
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context,taskID string, instance core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+	ret := _m.Called(ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance, WorkflowState, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
-		r0 = rf(ctx, instance, state, executedEvents, activityEvents, workflowEvents)
+	if rf, ok := ret.Get(0).(func(context.Context, string, core.WorkflowInstance, WorkflowState, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
+		r0 = rf(ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -89,12 +89,12 @@ func (_m *MockBackend) ExtendActivityTask(ctx context.Context, activityID string
 }
 
 // ExtendWorkflowTask provides a mock function with given fields: ctx, instance
-func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
+func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance) error {
 	ret := _m.Called(ctx, instance)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.WorkflowInstance) error); ok {
-		r0 = rf(ctx, instance)
+	if rf, ok := ret.Get(0).(func(context.Context, string, core.WorkflowInstance) error); ok {
+		r0 = rf(ctx, taskID, instance)
 	} else {
 		r0 = ret.Error(0)
 	}

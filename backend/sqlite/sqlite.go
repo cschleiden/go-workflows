@@ -66,7 +66,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, m.WorkflowInstance); err != nil {
+	if err := createInstance(ctx, tx, m.WorkflowInstance, false); err != nil {
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 	return nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance, ignoreDuplicate bool) error {
 	var parentInstanceID *string
 	var parentEventID *int
 	if wfi.SubWorkflow() {
@@ -93,15 +93,27 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) erro
 		parentEventID = &n
 	}
 
-	if _, err := tx.ExecContext(
+	res, err := tx.ExecContext(
 		ctx,
 		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_schedule_event_id) VALUES (?, ?, ?, ?)",
 		wfi.GetInstanceID(),
 		wfi.GetExecutionID(),
 		parentInstanceID,
 		parentEventID,
-	); err != nil {
+	)
+	if err != nil {
 		return errors.Wrap(err, "could not insert workflow instance")
+	}
+
+	if !ignoreDuplicate {
+		rows, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows != 1 {
+			return errors.New("could not insert workflow instance")
+		}
 	}
 
 	return nil
@@ -258,6 +270,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	t := &task.Workflow{
+		ID:               wfi.GetInstanceID(),
 		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
 		History:          []history.Event{},
@@ -309,6 +322,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
+	taskID string,
 	instance workflow.Instance,
 	state backend.WorkflowState,
 	executedEvents []history.Event,
@@ -386,7 +400,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	for targetInstance, events := range groupedEvents {
 		if instance.GetInstanceID() != targetInstance.GetInstanceID() {
 			// Create new instance
-			if err := createInstance(ctx, tx, targetInstance); err != nil {
+			if err := createInstance(ctx, tx, targetInstance, true); err != nil {
 				return err
 			}
 		}
@@ -400,7 +414,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, instance workflow.Instance) error {
+func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance workflow.Instance) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

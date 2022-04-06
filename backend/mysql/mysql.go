@@ -65,7 +65,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, m.WorkflowInstance); err != nil {
+	if err := createInstance(ctx, tx, m.WorkflowInstance, false); err != nil {
 		return err
 	}
 
@@ -191,7 +191,7 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance wo
 	return backend.WorkflowStateActive, nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance, ignoreDuplicate bool) error {
 	var parentInstanceID *string
 	var parentEventID *int
 	if wfi.SubWorkflow() {
@@ -202,15 +202,27 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance) erro
 		parentEventID = &n
 	}
 
-	if _, err := tx.ExecContext(
+	res, err := tx.ExecContext(
 		ctx,
 		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_schedule_event_id) VALUES (?, ?, ?, ?)",
 		wfi.GetInstanceID(),
 		wfi.GetExecutionID(),
 		parentInstanceID,
 		parentEventID,
-	); err != nil {
+	)
+	if err != nil {
 		return errors.Wrap(err, "could not insert workflow instance")
+	}
+
+	if !ignoreDuplicate {
+		rows, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows != 1 {
+			return errors.New("could not insert workflow instance")
+		}
 	}
 
 	return nil
@@ -312,6 +324,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	}
 
 	t := &task.Workflow{
+		ID:               wfi.GetInstanceID(),
 		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
 		History:          []history.Event{},
@@ -437,6 +450,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 // completed or other workflow instances.
 func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
+	taskID string,
 	instance workflow.Instance,
 	state backend.WorkflowState,
 	executedEvents []history.Event,
@@ -520,7 +534,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	for targetInstance, events := range groupedEvents {
 		if targetInstance.GetInstanceID() != instance.GetInstanceID() {
 			// Create new instance
-			if err := createInstance(ctx, tx, targetInstance); err != nil {
+			if err := createInstance(ctx, tx, targetInstance, true); err != nil {
 				return err
 			}
 		}
@@ -537,7 +551,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	return nil
 }
 
-func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, instance workflow.Instance) error {
+func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

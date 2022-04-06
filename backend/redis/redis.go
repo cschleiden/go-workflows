@@ -77,15 +77,9 @@ type redisBackend struct {
 	activityQueue taskqueue.TaskQueue[activityData]
 }
 
-func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
-	// TODO: Store signal event
-	// TODO: Queue workflow task
-
-	panic("unimplemented")
-}
-
 type activityData struct {
-	InstanceID string        `json:"instance_id,omitempty"`
-	ID         string        `json:"id,omitempty"`
-	Event      history.Event `json:"event,omitempty"`
+	InstanceID  string        `json:"instance_id,omitempty"`
+	ExecutionID string        `json:"execution_id,omitempty"`
+	ID          string        `json:"id,omitempty"`
+	Event       history.Event `json:"event,omitempty"`
 }

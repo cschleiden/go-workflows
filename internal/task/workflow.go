@@ -13,6 +13,9 @@ const (
 )
 
 type Workflow struct {
+	// ID is an identifier for this task. It's set by the backend
+	ID string
+
 	// WorkflowInstance is the workflow instance that this task is for
 	WorkflowInstance core.WorkflowInstance
 

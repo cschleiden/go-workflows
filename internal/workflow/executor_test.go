@@ -56,6 +56,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	r.RegisterWorkflow(workflow1)
 
 	task := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
@@ -108,6 +109,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	result, _ := converter.DefaultConverter.To(42)
 
 	task := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
@@ -157,6 +159,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	r.RegisterActivity(activity1)
 
 	task := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
@@ -211,6 +214,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	r.RegisterWorkflow(workflowWithTimer)
 
 	task := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
@@ -265,6 +269,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	r.RegisterActivity(activity1)
 
 	task := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
@@ -301,6 +306,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	result, _ := converter.DefaultConverter.To(42)
 
 	oldTask := &task.Workflow{
+		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History:          []history.Event{},
 		NewEvents: []history.Event{
@@ -338,6 +344,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	h = append(h, taskResult.NewEvents...)
 
 	newTask := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: oldTask.WorkflowInstance,
 		History:          h,
 		NewEvents: []history.Event{
@@ -382,6 +389,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	require.NoError(t, err)
 
 	task := &task.Workflow{
+		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(

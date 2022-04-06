@@ -73,17 +73,18 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	log.Println("Returned task for ", instanceTask)
 
 	return &task.Workflow{
+		ID:               instanceTask.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceTask.ID, instanceState.ExecutionID),
 		History:          historyEvents,
 		NewEvents:        newEvents,
 	}, nil
 }
 
-func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
-	return rb.workflowQueue.Extend(ctx, instance.GetInstanceID())
+func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance) error {
+	return rb.workflowQueue.Extend(ctx, taskID)
 }
 
-func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, state backend.WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance, state backend.WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
 
 	// Add events to stream
 	var lastMessageID string
@@ -182,7 +183,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	}
 
 	// Unlock instance
-	if err := rb.workflowQueue.Complete(ctx, instance.GetInstanceID()); err != nil {
+	if err := rb.workflowQueue.Complete(ctx, taskID); err != nil {
 		return errors.Wrap(err, "could not complete workflow task")
 	}
 

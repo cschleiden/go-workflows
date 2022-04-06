@@ -83,13 +83,12 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance cor
 		return errors.Wrap(err, "could not marshal instance state")
 	}
 
-	// TODO: Check individual error here? With pipelining this will only be available once that's set
-	cmd := rdb.SetNX(ctx, key, string(b), 0)
-	if err := cmd.Err(); err != nil {
+	ok, err := rdb.SetNX(ctx, key, string(b), 0).Result()
+	if err != nil {
 		return errors.Wrap(err, "could not store instance")
 	}
 
-	if !cmd.Val() {
+	if !ok {
 		return errors.New("workflow instance already exists")
 	}
 
