@@ -16,14 +16,6 @@ func historyKey(instanceID string) string {
 	return fmt.Sprintf("history:%v", instanceID)
 }
 
-func workflowsKey() string {
-	return "workflows"
-}
-
-func workflowsProcessingKey() string {
-	return "workflows-processing"
-}
-
 func activityKey(activityID string) string {
 	return fmt.Sprintf("activity-%v", activityID)
 }

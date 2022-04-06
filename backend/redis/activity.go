@@ -75,7 +75,7 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	log.Println("Added event to stream", instance.GetInstanceID(), " event id ", event.ID)
 
 	// Mark workflow instance as ready, if not already in queue
-	if err := queueWorkflow(ctx, rb.rdb, instance); err != nil {
+	if err := rb.workflowQueue.Enqueue(ctx, instance.GetInstanceID()); err != nil {
 		return errors.Wrap(err, "could not queue workflow")
 	}
 

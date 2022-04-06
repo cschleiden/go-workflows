@@ -17,17 +17,16 @@ import (
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
 	// TODO: Make timeout configurable?
-	instanceID, err := rb.rdb.BLMove(ctx, workflowsKey(), workflowsProcessingKey(), "RIGHT", "LEFT", time.Second*5).Result()
+	instanceID, err := rb.workflowQueue.Dequeue(ctx, rb.options.WorkflowLockTimeout, time.Second*5)
 	if err != nil {
-		if err == redis.Nil {
-			log.Println("No activity tasks available")
-			return nil, nil
-		}
-
-		return nil, errors.Wrap(err, "could not get activity task")
+		return nil, err
 	}
 
-	instanceState, err := readInstance(ctx, rb.rdb, instanceID)
+	if instanceID == nil {
+		return nil, nil
+	}
+
+	instanceState, err := readInstance(ctx, rb.rdb, *instanceID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read workflow instance")
 	}
@@ -35,7 +34,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// Read stream
 
 	// History
-	cmd := rb.rdb.XRange(ctx, historyKey(instanceID), "-", "+")
+	cmd := rb.rdb.XRange(ctx, historyKey(*instanceID), "-", "+")
 	msgs, err := cmd.Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
@@ -56,7 +55,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// New Events
 	newEvents := make([]history.Event, 0)
 
-	cmd = rb.rdb.XRange(ctx, pendingEventsKey(instanceID), "-", "+")
+	cmd = rb.rdb.XRange(ctx, pendingEventsKey(*instanceID), "-", "+")
 	msgs, err = cmd.Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
@@ -73,12 +72,12 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	// Remove all pending events
-	rb.rdb.XTrim(ctx, pendingEventsKey(instanceID), 0)
+	rb.rdb.XTrim(ctx, pendingEventsKey(*instanceID), 0)
 
 	log.Println("Returned task for ", instanceID)
 
 	return &task.Workflow{
-		WorkflowInstance: core.NewWorkflowInstance(instanceID, instanceState.ExecutionID),
+		WorkflowInstance: core.NewWorkflowInstance(*instanceID, instanceState.ExecutionID),
 		History:          historyEvents,
 		NewEvents:        newEvents,
 	}, nil
@@ -157,7 +156,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 
 		// TODO: Delay unlocking the current instance. Can we find a better way here?
 		if targetInstance != instance {
-			if err := queueWorkflow(ctx, rb.rdb, targetInstance); err != nil {
+			if err := rb.workflowQueue.Enqueue(ctx, targetInstance.GetInstanceID()); err != nil {
 				return errors.Wrap(err, "could not add instance to locked instances set")
 			}
 		}
@@ -193,35 +192,11 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	}
 
 	// Unlock instance
-	if err := completeWorkflowTask(ctx, rb.rdb, instance); err != nil {
+	if err := rb.workflowQueue.Complete(ctx, instance.GetInstanceID()); err != nil {
 		return errors.Wrap(err, "could not complete workflow task")
 	}
 
 	log.Println("Unlocked", instance.GetInstanceID())
-
-	return nil
-}
-
-func queueWorkflow(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance) error {
-	// zcmd := rb.rdb.ZAdd(ctx, workflowsKey(), &redis.Z{
-	// 	Score:  float64(time.Now().Unix()),
-	// 	Member: event.WorkflowInstance.GetInstanceID()})
-	// if err := zcmd.Err(); err != nil {
-	// 	return errors.Wrap(err, "could not add instance to locked instances set")
-	// }
-	if err := rdb.LPush(ctx, workflowsKey(), instance.GetInstanceID()).Err(); err != nil {
-		return errors.Wrap(err, "could not queue workflow")
-	}
-
-	return nil
-}
-
-func completeWorkflowTask(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance) error {
-	if count, err := rdb.LRem(ctx, workflowsProcessingKey(), 0, instance.GetInstanceID()).Result(); err != nil {
-		return err
-	} else if count == 0 {
-		return errors.New("could not remove workflow task")
-	}
 
 	return nil
 }

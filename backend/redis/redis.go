@@ -25,6 +25,7 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 		rdb:     client,
 		options: backend.ApplyOptions(opts...),
 
+		workflowQueue: newQueue(client, "workflows"),
 		activityQueue: newQueue(client, "activities"),
 	}
 }
@@ -33,6 +34,7 @@ type redisBackend struct {
 	rdb     redis.UniversalClient
 	options backend.Options
 
+	workflowQueue *queue
 	activityQueue *queue
 }
 
