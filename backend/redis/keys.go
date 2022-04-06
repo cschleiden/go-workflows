@@ -24,14 +24,34 @@ func workflowsProcessingKey() string {
 	return "workflows-processing"
 }
 
-func activitiesKey() string {
-	return "activities"
-}
-
-func activitiesProcessingKey() string {
-	return "activities-processing"
-}
-
 func activityKey(activityID string) string {
 	return fmt.Sprintf("activity-%v", activityID)
+}
+
+// Queue keys
+
+type keys struct {
+	queue      string
+	processing string
+	lease      string
+}
+
+func queueKeys(t string) *keys {
+	return &keys{
+		queue:      queueKey(t),
+		processing: processingKey(t),
+		lease:      leaseKey(t),
+	}
+}
+
+func queueKey(t string) string {
+	return "queue:" + t
+}
+
+func processingKey(t string) string {
+	return "processing:" + t
+}
+
+func leaseKey(t string) string {
+	return "lease:" + t
 }

@@ -24,12 +24,16 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 	return &redisBackend{
 		rdb:     client,
 		options: backend.ApplyOptions(opts...),
+
+		activityQueue: newQueue(client, "activities"),
 	}
 }
 
 type redisBackend struct {
 	rdb     redis.UniversalClient
 	options backend.Options
+
+	activityQueue *queue
 }
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {

@@ -22,24 +22,20 @@ type ActivityData struct {
 
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
 	// TODO: Make timeout configurable?
-	cmd := rb.rdb.BLMove(ctx, activitiesKey(), activitiesProcessingKey(), "RIGHT", "LEFT", time.Second*5)
-	activityID, err := cmd.Result()
-	if err != nil {
-		if err == redis.Nil {
-			log.Println("No activity tasks available")
-			return nil, nil
-		}
-
-		return nil, errors.Wrap(err, "could not get activity task")
-	}
-
-	// Fetch activity data
-	activity, err := getActivity(ctx, rb.rdb, activityID)
+	activityID, err := rb.activityQueue.Dequeue(ctx, rb.options.ActivityLockTimeout, time.Second*5)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Update lock timeout?
+	if activityID == nil {
+		return nil, nil
+	}
+
+	// Fetch activity data
+	activity, err := getActivity(ctx, rb.rdb, *activityID)
+	if err != nil {
+		return nil, err
+	}
 
 	log.Println("Returning activity task", activity.ID)
 
@@ -79,46 +75,19 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.
 	log.Println("Added event to stream", instance.GetInstanceID(), " event id ", event.ID)
 
 	// Mark workflow instance as ready, if not already in queue
-	// zcmd := rb.rdb.ZAddNX(ctx, workflowsKey(), &redis.Z{Score: float64(0), Member: instance.GetInstanceID()})
-	// if added, err := zcmd.Result(); err != nil {
-	// 	return errors.Wrap(err, "could not add instance to locked instances set")
-	// } else if added == 0 {
-	// 	log.Println("Workflow instance already pending")
-	// }
 	if err := queueWorkflow(ctx, rb.rdb, instance); err != nil {
 		return errors.Wrap(err, "could not queue workflow")
 	}
 
 	// Unlock activity
-	rcmd := rb.rdb.LRem(ctx, activitiesProcessingKey(), 0, activityID)
-	if removed, err := rcmd.Result(); err != nil {
-		return errors.Wrap(err, "could not remove activity from locked activities set")
-	} else if removed == 0 {
-		return errors.Wrap(err, "activity already unlocked")
+	if err := rb.activityQueue.Complete(ctx, activityID); err != nil {
+		return err
 	}
 
 	fmt.Println("Unlocked activity", activityID)
 
 	if err := removeActivity(ctx, rb.rdb, activityID); err != nil {
 		return errors.Wrap(err, "could not remove activity")
-	}
-
-	return nil
-}
-
-func queueActivity(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, event *history.Event) error {
-	// Persist activity state
-	if err := storeActivity(ctx, rdb, &ActivityData{
-		InstanceID: instance.GetInstanceID(),
-		ID:         event.ID,
-		Event:      *event,
-	}); err != nil {
-		return errors.Wrap(err, "could not store activity data")
-	}
-
-	// Queue task
-	if _, err := rdb.LPush(ctx, activitiesKey(), event.ID).Result(); err != nil {
-		return err
 	}
 
 	return nil
@@ -159,22 +128,4 @@ func removeActivity(ctx context.Context, rdb redis.UniversalClient, activityID s
 	}
 
 	return nil
-}
-
-func getActivityTask(ctx context.Context, rdb redis.UniversalClient) (*ActivityData, error) {
-	cmd := rdb.BLMove(ctx, activitiesKey(), activitiesProcessingKey(), "RIGHT", "LEFT", time.Second*5)
-	result, err := cmd.Result()
-	if err != nil {
-		if err == redis.Nil {
-			// Key does not exist or timeout, not an error
-			return nil, nil
-		}
-	}
-
-	data, err := getActivity(ctx, rdb, result)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
