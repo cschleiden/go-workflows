@@ -48,8 +48,10 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		return nil, errors.Wrap(err, "could not create activity task queue")
 	}
 
+	// Default options
 	options := &RedisOptions{
-		Options: backend.DefaultOptions,
+		Options:      backend.DefaultOptions,
+		BlockTimeout: time.Second * 5,
 	}
 
 	for _, opt := range opts {
