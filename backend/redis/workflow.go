@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
@@ -16,8 +15,7 @@ import (
 )
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
-	// TODO: Make timeout configurable?
-	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.options.WorkflowLockTimeout, time.Second*5)
+	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.options.WorkflowLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +28,6 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read workflow instance")
 	}
-
-	// Read stream
 
 	// History
 	cmd := rb.rdb.XRange(ctx, historyKey(instanceTask.ID), "-", "+")

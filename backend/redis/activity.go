@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -21,8 +20,7 @@ type ActivityData struct {
 }
 
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
-	// TODO: Make timeout configurable?
-	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.options.ActivityLockTimeout, time.Second*5)
+	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +46,7 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 }
 
 func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
-	return rb.activityQueue.Extend(ctx, activityID, rb.options.ActivityLockTimeout)
+	return rb.activityQueue.Extend(ctx, activityID)
 }
 
 func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error {

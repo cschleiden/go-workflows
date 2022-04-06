@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
@@ -10,7 +11,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewRedisBackend(address, username, password string, db int, opts ...backend.BackendOption) (backend.Backend, error) {
+type RedisOptions struct {
+	backend.Options
+
+	BlockTimeout time.Duration
+}
+
+type RedisBackendOption func(*RedisOptions)
+
+func WithBlockTimeout(timeout time.Duration) RedisBackendOption {
+	return func(o *RedisOptions) {
+		o.BlockTimeout = timeout
+	}
+}
+
+func NewRedisBackend(address, username, password string, db int, opts ...RedisBackendOption) (backend.Backend, error) {
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    []string{address},
 		Username: username,
@@ -33,9 +48,17 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 		return nil, errors.Wrap(err, "could not create activity task queue")
 	}
 
+	options := &RedisOptions{
+		Options: backend.DefaultOptions,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	rb := &redisBackend{
 		rdb:     client,
-		options: backend.ApplyOptions(opts...),
+		options: options,
 
 		workflowQueue: workflowQueue,
 		activityQueue: activityQueue,
@@ -46,7 +69,7 @@ func NewRedisBackend(address, username, password string, db int, opts ...backend
 
 type redisBackend struct {
 	rdb     redis.UniversalClient
-	options backend.Options
+	options *RedisOptions
 
 	workflowQueue taskqueue.TaskQueue
 	activityQueue taskqueue.TaskQueue
