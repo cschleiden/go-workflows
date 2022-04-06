@@ -2,6 +2,7 @@ package taskqueue
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -9,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type taskQueue struct {
+type taskQueue[T any] struct {
 	tasktype   string
 	rdb        redis.UniversalClient
 	groupName  string
@@ -17,23 +18,26 @@ type taskQueue struct {
 	streamName string
 }
 
-type TaskItem struct {
+type TaskItem[T any] struct {
 	// TaskID is the generated ID of the task item
 	TaskID string
 
 	// ID is the provided id
 	ID string
+
+	// Optional data stored with a task, needs to be serializable
+	Data T
 }
 
-type TaskQueue interface {
-	Enqueue(ctx context.Context, id string) error
-	Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem, error)
+type TaskQueue[T any] interface {
+	Enqueue(ctx context.Context, id string, data *T) error
+	Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem[T], error)
 	Extend(ctx context.Context, taskID string) error
 	Complete(ctx context.Context, id string) error
 }
 
-func New(rdb redis.UniversalClient, tasktype string) (TaskQueue, error) {
-	tq := &taskQueue{
+func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error) {
+	tq := &taskQueue[T]{
 		tasktype:   tasktype,
 		rdb:        rdb,
 		groupName:  "task-workers",
@@ -54,11 +58,17 @@ func New(rdb redis.UniversalClient, tasktype string) (TaskQueue, error) {
 	return tq, nil
 }
 
-func (q *taskQueue) Enqueue(ctx context.Context, id string) error {
-	_, err := q.rdb.XAdd(ctx, &redis.XAddArgs{
+func (q *taskQueue[T]) Enqueue(ctx context.Context, id string, data *T) error {
+	ds, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	_, err = q.rdb.XAdd(ctx, &redis.XAddArgs{
 		Stream: q.streamName,
-		Values: map[string]interface{}{ // TODO: Allow additional data
-			"id": id,
+		Values: map[string]interface{}{
+			"id":   id,
+			"data": string(ds),
 		},
 	}).Result()
 	if err != nil {
@@ -68,7 +78,7 @@ func (q *taskQueue) Enqueue(ctx context.Context, id string) error {
 	return nil
 }
 
-func (q *taskQueue) Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem, error) {
+func (q *taskQueue[T]) Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
 	// Try to recover abandoned messages
 	task, err := q.recover(ctx, lockTimeout)
 	if err != nil {
@@ -96,11 +106,10 @@ func (q *taskQueue) Dequeue(ctx context.Context, lockTimeout, timeout time.Durat
 	}
 
 	msg := ids[0].Messages[0]
-
-	return msgToTaskItem(&msg), nil
+	return msgToTaskItem[T](&msg)
 }
 
-func (q *taskQueue) Extend(ctx context.Context, taskID string) error {
+func (q *taskQueue[T]) Extend(ctx context.Context, taskID string) error {
 	// Claiming a message resets the idle timer. Don't use the `JUSTID` variant, we
 	// want to increase the retry counter.
 	_, err := q.rdb.XClaim(ctx, &redis.XClaimArgs{
@@ -117,7 +126,7 @@ func (q *taskQueue) Extend(ctx context.Context, taskID string) error {
 	return nil
 }
 
-func (q *taskQueue) Complete(ctx context.Context, id string) error {
+func (q *taskQueue[T]) Complete(ctx context.Context, id string) error {
 	// c, err := q.rdb.XAck(ctx, q.streamName, q.groupName, id).Result()
 	// if err != nil {
 	// 	return errors.Wrap(nil, "could not complete task")
@@ -141,7 +150,7 @@ func (q *taskQueue) Complete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (q *taskQueue) recover(ctx context.Context, idleTimeout time.Duration) (*TaskItem, error) {
+func (q *taskQueue[T]) recover(ctx context.Context, idleTimeout time.Duration) (*TaskItem[T], error) {
 	// Ignore the start argument, we are deleting tasks as they are completed, so we'll always
 	// start this scan from the beginning.
 	msgs, _, err := q.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
@@ -161,14 +170,21 @@ func (q *taskQueue) recover(ctx context.Context, idleTimeout time.Duration) (*Ta
 		return nil, nil
 	}
 
-	return msgToTaskItem(&msgs[0]), nil
+	return msgToTaskItem[T](&msgs[0])
 }
 
-func msgToTaskItem(msg *redis.XMessage) *TaskItem {
+func msgToTaskItem[T any](msg *redis.XMessage) (*TaskItem[T], error) {
 	id := msg.Values["id"].(string)
+	data := msg.Values["data"].(string)
 
-	return &TaskItem{
+	var t T
+	if err := json.Unmarshal([]byte(data), &t); err != nil {
+		return nil, err
+	}
+
+	return &TaskItem[T]{
 		TaskID: msg.ID,
 		ID:     id,
-	}
+		Data:   t,
+	}, nil
 }

@@ -31,7 +31,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Create queue",
 			f: func(t *testing.T) {
-				q, err := New(client, "test")
+				q, err := New[any](client, "test")
 				require.NoError(t, err)
 				require.NotNil(t, q)
 			},
@@ -39,10 +39,10 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue",
 			f: func(t *testing.T) {
-				q, err := New(client, "test")
+				q, err := New[any](client, "test")
 				require.NoError(t, err)
 
-				err = q.Enqueue(context.Background(), "t1")
+				err = q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
@@ -52,14 +52,39 @@ func Test_TaskQueue(t *testing.T) {
 			},
 		},
 		{
-			name: "Simple enqueue/dequeue different worker",
+			name: "Store custom data",
 			f: func(t *testing.T) {
-				q, _ := New(client, "test")
+				type foo struct {
+					Count int
+					Name  string
+				}
 
-				err := q.Enqueue(context.Background(), "t1")
+				q, err := New[foo](client, "test")
 				require.NoError(t, err)
 
-				q2, _ := New(client, "test")
+				err = q.Enqueue(context.Background(), "t1", &foo{
+					Count: 1,
+					Name:  "bar",
+				})
+				require.NoError(t, err)
+
+				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, "t1", task.ID)
+				require.Equal(t, 1, task.Data.Count)
+				require.Equal(t, "bar", task.Data.Name)
+			},
+		},
+		{
+			name: "Simple enqueue/dequeue different worker",
+			f: func(t *testing.T) {
+				q, _ := New[any](client, "test")
+
+				err := q.Enqueue(context.Background(), "t1", nil)
+				require.NoError(t, err)
+
+				q2, _ := New[any](client, "test")
 				require.NoError(t, err)
 
 				// Dequeue using second worker
@@ -72,10 +97,10 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Complete removes task",
 			f: func(t *testing.T) {
-				q, _ := New(client, "test")
-				q2, _ := New(client, "test")
+				q, _ := New[any](client, "test")
+				q2, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1")
+				err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
@@ -83,7 +108,7 @@ func Test_TaskQueue(t *testing.T) {
 				require.NotNil(t, task)
 
 				// Complete task
-				err = q2.Complete(context.Background(), task.ID)
+				err = q2.Complete(context.Background(), task.TaskID)
 				require.NoError(t, err)
 
 				time.Sleep(time.Millisecond * 10)
@@ -97,12 +122,12 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Recover task",
 			f: func(t *testing.T) {
-				q, _ := New(client, "test")
+				q, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1")
+				err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
-				q2, _ := New(client, "test")
+				q2, _ := New[any](client, "test")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
@@ -122,12 +147,12 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Extending task prevents recovering",
 			f: func(t *testing.T) {
-				q, _ := New(client, "test")
+				q, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1")
+				err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
-				q2, _ := New(client, "test")
+				q2, _ := New[any](client, "test")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)

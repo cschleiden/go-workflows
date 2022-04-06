@@ -80,9 +80,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 }
 
 func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, instance core.WorkflowInstance) error {
-	// TODO: Extend lock for instance
-
-	panic("unimplemented")
+	return rb.workflowQueue.Extend(ctx, instance.GetInstanceID())
 }
 
 func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.WorkflowInstance, state backend.WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
@@ -152,7 +150,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 
 		// TODO: Delay unlocking the current instance. Can we find a better way here?
 		if targetInstance != instance {
-			if err := rb.workflowQueue.Enqueue(ctx, targetInstance.GetInstanceID()); err != nil {
+			if err := rb.workflowQueue.Enqueue(ctx, targetInstance.GetInstanceID(), nil); err != nil {
 				return errors.Wrap(err, "could not add instance to locked instances set")
 			}
 		}
@@ -165,7 +163,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	}
 
 	instanceState.State = state
-	instanceState.LastMessageID = lastMessageID
+	instanceState.LastMessageID = lastMessageID // TODO: Do we need this?
 
 	if err := updateInstance(ctx, rb.rdb, instance.GetInstanceID(), instanceState); err != nil {
 		return errors.Wrap(err, "could not update workflow instance")
@@ -174,16 +172,12 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	// Store activity data
 	// TODO: Use pipeline?
 	for _, activityEvent := range activityEvents {
-		if err := storeActivity(ctx, rb.rdb, &ActivityData{
+		if err := rb.activityQueue.Enqueue(ctx, activityEvent.ID, &activityData{
 			InstanceID: instance.GetInstanceID(),
 			ID:         activityEvent.ID,
 			Event:      activityEvent,
 		}); err != nil {
-			return errors.Wrap(err, "could not store activity data")
-		}
-
-		if err := rb.activityQueue.Enqueue(ctx, activityEvent.ID); err != nil {
-			return errors.Wrap(err, "could not queue activity")
+			return errors.Wrap(err, "could not queue activity task")
 		}
 	}
 
@@ -193,6 +187,32 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	}
 
 	log.Println("Unlocked", instance.GetInstanceID())
+
+	return nil
+}
+
+func (rb *redisBackend) addWorkflowInstanceEvent(ctx context.Context, instance core.WorkflowInstance, event history.Event) error {
+	// Add pending event
+	eventData, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	if err := rb.rdb.XAdd(ctx, &redis.XAddArgs{
+		Stream: pendingEventsKey(instance.GetInstanceID()),
+		ID:     "*",
+		Values: map[string]interface{}{
+			"event": string(eventData),
+		},
+	}).Err(); err != nil {
+		return errors.Wrap(err, "could not add event to stream")
+	}
+
+	// Queue workflow task
+	// TODO: Ensure this can only be queued once
+	if err := rb.workflowQueue.Enqueue(ctx, instance.GetInstanceID(), nil); err != nil {
+		return errors.Wrap(err, "could not queue workflow")
+	}
 
 	return nil
 }

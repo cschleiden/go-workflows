@@ -42,7 +42,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	// Add instance to pending instances set
-	if err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.GetInstanceID()); err != nil {
+	if err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.GetInstanceID(), nil); err != nil {
 		return errors.Wrap(err, "could not queue workflow task")
 	}
 

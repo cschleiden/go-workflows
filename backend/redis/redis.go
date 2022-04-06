@@ -38,12 +38,12 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		panic(err)
 	}
 
-	workflowQueue, err := taskqueue.New(client, "workflows")
+	workflowQueue, err := taskqueue.New[any](client, "workflows")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create workflow task queue")
 	}
 
-	activityQueue, err := taskqueue.New(client, "activities")
+	activityQueue, err := taskqueue.New[activityData](client, "activities")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create activity task queue")
 	}
@@ -73,12 +73,19 @@ type redisBackend struct {
 	rdb     redis.UniversalClient
 	options *RedisOptions
 
-	workflowQueue taskqueue.TaskQueue
-	activityQueue taskqueue.TaskQueue
+	workflowQueue taskqueue.TaskQueue[any]
+	activityQueue taskqueue.TaskQueue[activityData]
 }
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 	// TODO: Store signal event
+	// TODO: Queue workflow task
 
 	panic("unimplemented")
+}
+
+type activityData struct {
+	InstanceID string        `json:"instance_id,omitempty"`
+	ID         string        `json:"id,omitempty"`
+	Event      history.Event `json:"event,omitempty"`
 }
