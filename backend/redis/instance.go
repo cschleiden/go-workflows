@@ -42,7 +42,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	// Add instance to pending instances set
-	zcmd := rb.rdb.ZAdd(ctx, pendingInstancesKey(), &redis.Z{
+	zcmd := rb.rdb.ZAdd(ctx, workflowsKey(), &redis.Z{
 		Score:  float64(time.Now().Unix()),
 		Member: event.WorkflowInstance.GetInstanceID()})
 	if err := zcmd.Err(); err != nil {

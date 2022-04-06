@@ -22,7 +22,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	getAndLockTask := func(tx *redis.Tx) error {
 		// Find pending workflow instance from sorted set
 		now := int(time.Now().Unix())
-		cmd := tx.ZRangeByScoreWithScores(ctx, pendingInstancesKey(), &redis.ZRangeBy{
+		cmd := tx.ZRangeByScoreWithScores(ctx, workflowsKey(), &redis.ZRangeBy{
 			// Get at most one task
 			Count: 1,
 			// Unlocked tasks have a score of 0 so start at -inf
@@ -50,7 +50,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 
 		_, err = tx.TxPipelined(ctx, func(p redis.Pipeliner) error {
 			// Overwrite the key with the new score
-			p.ZAdd(ctx, pendingInstancesKey(), &redis.Z{
+			p.ZAdd(ctx, workflowsKey(), &redis.Z{
 				Score:  float64(lockedUntil.Unix()),
 				Member: id,
 			})
@@ -67,7 +67,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	for i := 0; i < 10; i++ {
-		err := rb.rdb.Watch(ctx, getAndLockTask, pendingInstancesKey())
+		err := rb.rdb.Watch(ctx, getAndLockTask, workflowsKey())
 		if err == nil {
 			// Success.
 			break
@@ -94,7 +94,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// Read stream
 
 	// History
-	cmd := rb.rdb.XRange(ctx, eventsKey(instanceID), "-", "+")
+	cmd := rb.rdb.XRange(ctx, historyKey(instanceID), "-", "+")
 	msgs, err := cmd.Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
@@ -162,7 +162,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 		}
 
 		cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
-			Stream: eventsKey(instance.GetInstanceID()),
+			Stream: historyKey(instance.GetInstanceID()),
 			ID:     "*",
 			Values: map[string]interface{}{
 				"event": string(eventData),
@@ -216,7 +216,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 
 		// TODO: Delay unlocking the current instance. Can we find a better way here?
 		if targetInstance != instance {
-			zcmd := rb.rdb.ZAdd(ctx, pendingInstancesKey(), &redis.Z{
+			zcmd := rb.rdb.ZAdd(ctx, workflowsKey(), &redis.Z{
 				Score:  float64(time.Now().Unix()),
 				Member: targetInstance.GetInstanceID(),
 			})
@@ -248,7 +248,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, instance core.
 	}
 
 	// Unlock instance
-	cmd := rb.rdb.ZRem(ctx, pendingInstancesKey(), instance.GetInstanceID())
+	cmd := rb.rdb.ZRem(ctx, workflowsKey(), instance.GetInstanceID())
 	if removed, err := cmd.Result(); err != nil {
 		return errors.Wrap(err, "could not remove instance from locked instances set")
 	} else if removed == 0 {
