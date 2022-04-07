@@ -72,7 +72,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 
 	return &task.Workflow{
 		ID:               instanceTask.TaskID,
-		WorkflowInstance: core.NewWorkflowInstance(instanceTask.ID, instanceState.ExecutionID),
+		WorkflowInstance: instanceState.Instance,
 		History:          historyEvents,
 		NewEvents:        newEvents,
 	}, nil

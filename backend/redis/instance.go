@@ -78,21 +78,19 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
-	InstanceID  string                `json:"instance_id,omitempty"`
-	ExecutionID string                `json:"execution_id,omitempty"`
-	State       backend.WorkflowState `json:"state,omitempty"`
-	CreatedAt   time.Time             `json:"created_at,omitempty"`
-	CompletedAt *time.Time            `json:"completed_at,omitempty"`
+	Instance    *core.WorkflowInstance `json:"instance,omitempty"`
+	State       backend.WorkflowState  `json:"state,omitempty"`
+	CreatedAt   time.Time              `json:"created_at,omitempty"`
+	CompletedAt *time.Time             `json:"completed_at,omitempty"`
 }
 
 func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, ignoreDuplicate bool) error {
 	key := instanceKey(instance.InstanceID)
 
 	b, err := json.Marshal(&instanceState{
-		InstanceID:  instance.InstanceID,
-		ExecutionID: instance.ExecutionID,
-		State:       backend.WorkflowStateActive,
-		CreatedAt:   time.Now(),
+		Instance:  instance,
+		State:     backend.WorkflowStateActive,
+		CreatedAt: time.Now(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "could not marshal instance state")
