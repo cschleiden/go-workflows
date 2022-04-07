@@ -51,6 +51,11 @@ func (c *workflowExecutorCache) Store(ctx context.Context, instance core.Workflo
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if instance, ok := c.cache[getKey(instance)]; ok {
+		// Close existing executor to prevent leaks
+		instance.executor.Close()
+	}
+
 	c.cache[getKey(instance)] = &workflowExecutorCacheEntry{
 		executor:   executor,
 		lastAccess: time.Now(),
