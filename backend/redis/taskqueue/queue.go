@@ -37,6 +37,7 @@ type TaskQueue[T any] interface {
 	Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem[T], error)
 	Extend(ctx context.Context, taskID string) error
 	Complete(ctx context.Context, taskID string) error
+	Data(ctx context.Context, taskID string) (*TaskItem[T], error)
 }
 
 func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error) {
@@ -170,6 +171,15 @@ func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 	}
 
 	return nil
+}
+
+func (q *taskQueue[T]) Data(ctx context.Context, taskID string) (*TaskItem[T], error) {
+	msg, err := q.rdb.XRange(ctx, q.streamKey, taskID, taskID).Result()
+	if err != nil && err != redis.Nil {
+		return nil, errors.Wrap(nil, "could not find task")
+	}
+
+	return msgToTaskItem[T](&msg[0])
 }
 
 func (q *taskQueue[T]) recover(ctx context.Context, idleTimeout time.Duration) (*TaskItem[T], error) {

@@ -24,7 +24,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 		return err
 	}
 
-	_, err = rb.rdb.XAdd(ctx, &redis.XAddArgs{
+	msgID, err := rb.rdb.XAdd(ctx, &redis.XAddArgs{
 		Stream: pendingEventsKey(event.WorkflowInstance.InstanceID),
 		ID:     "*",
 		Values: map[string]interface{}{
@@ -36,7 +36,9 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	// Queue workflow instance task
-	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.InstanceID, nil); err != nil {
+	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.InstanceID, &workflowTaskData{
+		LastPendingEventMessageID: msgID,
+	}); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return errors.Wrap(err, "could not queue workflow task")
 		}

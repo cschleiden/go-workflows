@@ -9,11 +9,14 @@ import (
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
-	if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instanceID), &event); err != nil {
+	msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instanceID), &event)
+	if err != nil {
 		return errors.Wrap(err, "could not add event to stream")
 	}
 
-	if _, err := rb.workflowQueue.Enqueue(ctx, instanceID, nil); err != nil {
+	if _, err := rb.workflowQueue.Enqueue(ctx, instanceID, &workflowTaskData{
+		LastPendingEventMessageID: *msgID,
+	}); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return errors.Wrap(err, "could not queue workflow task")
 		}

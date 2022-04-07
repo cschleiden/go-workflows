@@ -46,7 +46,7 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		panic(err)
 	}
 
-	workflowQueue, err := taskqueue.New[any](client, "workflows")
+	workflowQueue, err := taskqueue.New[workflowTaskData](client, "workflows")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create workflow task queue")
 	}
@@ -81,7 +81,7 @@ type redisBackend struct {
 	rdb     redis.UniversalClient
 	options *RedisOptions
 
-	workflowQueue taskqueue.TaskQueue[any]
+	workflowQueue taskqueue.TaskQueue[workflowTaskData]
 	activityQueue taskqueue.TaskQueue[activityData]
 }
 
@@ -90,4 +90,8 @@ type activityData struct {
 	ExecutionID string        `json:"execution_id,omitempty"`
 	ID          string        `json:"id,omitempty"`
 	Event       history.Event `json:"event,omitempty"`
+}
+
+type workflowTaskData struct {
+	LastPendingEventMessageID string `json:"last_pending_event_message_id,omitempty"`
 }
