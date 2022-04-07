@@ -16,10 +16,10 @@ func pendingEventsKey(instanceID string) string {
 	return fmt.Sprintf("pending-events:%v", instanceID)
 }
 
-func futureEventsKey() string {
-	return "future-events"
-}
-
 func historyKey(instanceID string) string {
 	return fmt.Sprintf("history:%v", instanceID)
+}
+
+func futureEventsKey() string {
+	return "future-events"
 }
