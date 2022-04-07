@@ -19,12 +19,12 @@ type MockBackend struct {
 }
 
 // CancelWorkflowInstance provides a mock function with given fields: ctx, instance
-func (_m *MockBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
-	ret := _m.Called(ctx, instance)
+func (_m *MockBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
+	ret := _m.Called(ctx, instance, event)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance) error); ok {
-		r0 = rf(ctx, instance)
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *history.Event) error); ok {
+		r0 = rf(ctx, instance, event)
 	} else {
 		r0 = ret.Error(0)
 	}

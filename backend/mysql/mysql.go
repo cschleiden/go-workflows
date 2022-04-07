@@ -81,7 +81,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	return nil
 }
 
-func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
+func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 	instanceID := instance.InstanceID
 
 	// Cancel workflow instance
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
 		return errors.Wrap(err, "could not insert cancellation event")
 	}
 
@@ -110,7 +110,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 		}
 
 		// Cancel sub-workflow instance
-		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
+		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{*event}); err != nil {
 			return errors.Wrap(err, "could not insert cancellation event")
 		}
 

@@ -119,7 +119,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ign
 	return nil
 }
 
-func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
+func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 	instanceID := instance.InstanceID
 
 	// Cancel workflow instance
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
+	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
 		return errors.Wrap(err, "could not insert cancellation event")
 	}
 
@@ -148,7 +148,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 		}
 
 		// Cancel sub-workflow instance
-		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
+		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{*event}); err != nil {
 			return errors.Wrap(err, "could not insert cancellation event")
 		}
 

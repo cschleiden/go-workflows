@@ -131,7 +131,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_LocksTask() {
 	s.NotNil(t)
 
 	// First task is locked, second call should return nil
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*10)
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
 	defer cancel()
 
 	t, err = s.b.GetWorkflowTask(ctx)
@@ -169,7 +169,7 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 	})
 	s.NoError(err)
 
-	_, err = s.b.GetWorkflowTask(ctx)
+	t, err := s.b.GetWorkflowTask(ctx)
 	s.NoError(err)
 
 	taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
@@ -192,12 +192,12 @@ func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
 		},
 	}
 
-	err = s.b.CompleteWorkflowTask(ctx, "taskID", wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
+	err = s.b.CompleteWorkflowTask(ctx, t.ID, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
 	s.NoError(err)
 
 	time.Sleep(time.Second)
 
-	t, err := s.b.GetWorkflowTask(ctx)
+	t, err = s.b.GetWorkflowTask(ctx)
 	s.NotEqual(task.Continuation, t.Kind, "Expect full task")
 	s.NoError(err)
 	s.NotNil(t)

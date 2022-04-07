@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
@@ -23,7 +23,11 @@ func main() {
 
 	//b := sqlite.NewInMemoryBackend()
 	//b := sqlite.NewSqliteBackend("cancellation.sqlite")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
 	go RunWorker(ctx, b)

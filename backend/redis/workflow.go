@@ -172,9 +172,9 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	return nil
 }
 
-func (rb *redisBackend) addWorkflowInstanceEvent(ctx context.Context, instance *core.WorkflowInstance, event history.Event) error {
+func (rb *redisBackend) addWorkflowInstanceEvent(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
-	if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instance.InstanceID), &event); err != nil {
+	if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instance.InstanceID), event); err != nil {
 		return err
 	}
 

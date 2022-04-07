@@ -22,7 +22,7 @@ type Backend interface {
 	CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error
 
 	// CancelWorkflowInstance cancels a running workflow instance
-	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
+	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error
 
 	// GetWorkflowInstanceState returns the state of the given workflow instance
 	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (WorkflowState, error)

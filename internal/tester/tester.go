@@ -303,7 +303,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 func (wt *workflowTester) sendEvent(wfi *core.WorkflowInstance, event history.Event) {
 	var w *testWorkflow
 	for _, tw := range wt.testWorkflows {
-		if tw.instance == wfi {
+		if tw.instance.InstanceID == wfi.InstanceID {
 			w = tw
 			break
 		}
