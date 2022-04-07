@@ -153,8 +153,12 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	}
 
 	// If there are pending events, enqueue the instance again
-	// TODO: Check for pending events
-	if state != backend.WorkflowStateFinished {
+	pendingCount, err := rb.rdb.XLen(ctx, pendingEventsKey(instance.GetInstanceID())).Result()
+	if err != nil {
+		return errors.Wrap(err, "could not read event stream")
+	}
+
+	if state != backend.WorkflowStateFinished && pendingCount > 0 {
 		if _, err := rb.workflowQueue.Enqueue(ctx, instance.GetInstanceID(), nil); err != nil {
 			if err != taskqueue.ErrTaskAlreadyInQueue {
 				return errors.Wrap(err, "could not queue workflow")

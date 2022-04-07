@@ -30,19 +30,18 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 		return err
 	}
 
-	cmd := rb.rdb.XAdd(ctx, &redis.XAddArgs{
+	_, err = rb.rdb.XAdd(ctx, &redis.XAddArgs{
 		Stream: pendingEventsKey(event.WorkflowInstance.GetInstanceID()),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
 		},
-	})
-	_, err = cmd.Result()
+	}).Result()
 	if err != nil {
 		return errors.Wrap(err, "could not create event stream")
 	}
 
-	// Add instance to pending instances set
+	// Queue workflow instance task
 	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.GetInstanceID(), nil); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return errors.Wrap(err, "could not queue workflow task")
@@ -53,7 +52,22 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 }
 
 func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance core.WorkflowInstance) ([]history.Event, error) {
-	panic("unimplemented")
+	msgs, err := rb.rdb.XRange(ctx, historyKey(instance.GetInstanceID()), "-", "+").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var events []history.Event
+	for _, msg := range msgs {
+		var event history.Event
+		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
+			return nil, errors.Wrap(err, "could not unmarshal event")
+		}
+
+		events = append(events, event)
+	}
+
+	return events, nil
 }
 
 func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance core.WorkflowInstance) (backend.WorkflowState, error) {

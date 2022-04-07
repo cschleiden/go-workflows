@@ -3,7 +3,6 @@ package taskqueue
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -169,8 +168,6 @@ func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 	if c.(int64) == 0 || err == redis.Nil {
 		return errors.New("could find task to complete")
 	}
-
-	log.Println("Completing activity task", taskID)
 
 	return nil
 }
