@@ -77,12 +77,16 @@ func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 	return s
 }
 
+// var i = 0
+
 func newState() *coState {
+	// i++
+
 	return &coState{
 		blocking: make(chan bool, 1),
 		unblock:  make(chan bool),
 		logger:   log.New(io.Discard, "[co]", log.LstdFlags),
-		//logger: log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
+		// logger:            log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
 		deadlockDetection: DeadlockDetection,
 	}
 }
@@ -90,6 +94,8 @@ func newState() *coState {
 func (s *coState) finish() {
 	s.finished.Store(true)
 	s.blocking <- true
+
+	s.logger.Println("finish")
 }
 
 func (s *coState) SetScheduler(scheduler Scheduler) {
@@ -137,8 +143,10 @@ func (s *coState) yield(markBlocking bool) {
 
 	<-s.unblock
 	if s.shouldExit.Load() != nil {
+		s.logger.Println("shouldExit")
+		s.blocking <- true
+		s.logger.Println("goexit")
 		runtime.Goexit()
-		s.logger.Println("exit")
 	}
 
 	s.blocked.Store(false)
@@ -171,6 +179,8 @@ func (s *coState) Execute() {
 }
 
 func (s *coState) Exit() {
+	s.logger.Println("exit")
+
 	if s.Finished() {
 		return
 	}
