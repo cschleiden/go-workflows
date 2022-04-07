@@ -3,6 +3,7 @@ package taskqueue
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -72,8 +73,7 @@ var enqueueCmd = redis.NewScript(`
 		return nil
 	end
 
-	local task_id = redis.call("xadd", KEYS[2], "*", "id", ARGV[1], "data", ARGV[2])
-	return task_id
+	return redis.call("xadd", KEYS[2], "*", "id", ARGV[1], "data", ARGV[2])
 `)
 
 func (q *taskQueue[T]) Enqueue(ctx context.Context, id string, data *T) (*string, error) {
@@ -148,17 +148,20 @@ func (q *taskQueue[T]) Extend(ctx context.Context, taskID string) error {
 // KEYS[1] = set
 // KEYS[2] = stream
 // ARGV[1] = task id
+// ARGV[2] = group
+// We have to XACK _and_ XDEL here. See https://github.com/redis/redis/issues/5754
 var completeCmd = redis.NewScript(`
 	local task = redis.call("XRANGE", KEYS[2], ARGV[1], ARGV[1])
 	local id = task[1][2][2]
 	redis.call("SREM", KEYS[1], id)
+	redis.call("XACK", KEYS[2], ARGV[2], ARGV[1])
 	return redis.call("XDEL", KEYS[2], ARGV[1])
 `)
 
 func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 	// Delete the task here. Overall we'll keep the stream at a small size, so fragmentation
 	// is not an issue for us.
-	c, err := completeCmd.Run(ctx, q.rdb, []string{q.setKey, q.streamKey}, taskID).Result()
+	c, err := completeCmd.Run(ctx, q.rdb, []string{q.setKey, q.streamKey}, taskID, q.groupName).Result()
 	if err != nil && err != redis.Nil {
 		return errors.Wrap(err, "could not complete task")
 	}
@@ -166,6 +169,8 @@ func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 	if c.(int64) == 0 || err == redis.Nil {
 		return errors.New("could find task to complete")
 	}
+
+	log.Println("Completing activity task", taskID)
 
 	return nil
 }
