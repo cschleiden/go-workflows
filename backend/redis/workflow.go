@@ -98,7 +98,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// New Events
 	newEvents := make([]history.Event, 0)
 
-	msgs, err = rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", "+").Result()
+	msgs, err = rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", instanceTask.Data.LastPendingEventMessageID).Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
 	}
