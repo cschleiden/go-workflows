@@ -5,6 +5,28 @@ import (
 	"errors"
 )
 
+func (e *Event) UnmarshalJSON(data []byte) error {
+	type Aevent Event
+	a := &struct {
+		Attributes json.RawMessage
+		*Aevent
+	}{}
+
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+
+	*e = *(*Event)(a.Aevent)
+	attributes, err := DeserializeAttributes(e.Type, a.Attributes)
+	if err != nil {
+		return err
+	}
+
+	e.Attributes = attributes
+
+	return nil
+}
+
 func SerializeAttributes(attributes interface{}) ([]byte, error) {
 	return json.Marshal(attributes)
 }

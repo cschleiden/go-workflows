@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 
+	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -21,13 +22,13 @@ type Backend interface {
 	CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error
 
 	// CancelWorkflowInstance cancels a running workflow instance
-	CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error
+	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error
 
 	// GetWorkflowInstanceState returns the state of the given workflow instance
-	GetWorkflowInstanceState(ctx context.Context, instance workflow.Instance) (WorkflowState, error)
+	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (WorkflowState, error)
 
 	// GetWorkflowInstanceHistory returns the full workflow history for the given instance
-	GetWorkflowInstanceHistory(ctx context.Context, instance workflow.Instance) ([]history.Event, error)
+	GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance) ([]history.Event, error)
 
 	// SignalWorkflow signals a running workflow instance
 	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error
@@ -36,7 +37,7 @@ type Backend interface {
 	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
 
 	// ExtendWorkflowTask extends the lock of a workflow task
-	ExtendWorkflowTask(ctx context.Context, instance workflow.Instance) error
+	ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error
 
 	// CompleteWorkflowTask checkpoints a workflow task retrieved using GetWorkflowTask
 	//
@@ -44,14 +45,14 @@ type Backend interface {
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
-		ctx context.Context, instance workflow.Instance, state WorkflowState,
+		ctx context.Context, taskID string, instance *workflow.Instance, state WorkflowState,
 		executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context) (*task.Activity, error)
 
 	// CompleteActivityTask completes a activity task retrieved using GetActivityTask
-	CompleteActivityTask(ctx context.Context, instance workflow.Instance, activityID string, event history.Event) error
+	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event history.Event) error
 
 	// ExtendActivityTask extends the lock of an activity task
 	ExtendActivityTask(ctx context.Context, activityID string) error

@@ -21,6 +21,14 @@ jobs:
     - name: Build
       run: go build -v ./...
 
+    - name: Start Redis
+      uses: shogo82148/actions-setup-redis@v1
+      with:
+        auto-start: true
+        redis-port: 6379
+        redis-version: latest
+        redis-conf: 'requirepass RedisPassw0rd'
+
     - name: Tests
       run: |
         sudo /etc/init.d/mysql start

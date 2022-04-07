@@ -8,7 +8,7 @@ import (
 type Activity struct {
 	ID string
 
-	WorkflowInstance core.WorkflowInstance
+	WorkflowInstance *core.WorkflowInstance
 
 	Event history.Event
 }

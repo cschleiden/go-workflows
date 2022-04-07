@@ -137,9 +137,9 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 	tester := NewWorkflowTester(workflowWithSub)
 	tester.Registry().RegisterWorkflow(subWorkflow)
 
-	var subWorkflowInstance core.WorkflowInstance
+	var subWorkflowInstance *core.WorkflowInstance
 
-	tester.ListenSubWorkflow(func(instance core.WorkflowInstance, name string) {
+	tester.ListenSubWorkflow(func(instance *core.WorkflowInstance, name string) {
 		subWorkflowInstance = instance
 	})
 

@@ -7,7 +7,7 @@ import (
 	"os/signal"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/cschleiden/go-workflows/worker"
 )
@@ -16,7 +16,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -31,9 +35,9 @@ func main() {
 
 func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb, &worker.Options{
-		WorkflowPollers:          2,
+		WorkflowPollers:          1,
 		MaxParallelWorkflowTasks: 100,
-		ActivityPollers:          2,
+		ActivityPollers:          1,
 		MaxParallelActivityTasks: 100,
 		HeartbeatWorkflowTasks:   false,
 	})

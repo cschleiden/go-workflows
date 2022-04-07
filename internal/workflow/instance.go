@@ -6,7 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 )
 
-func WorkflowInstance2(ctx sync.Context) core.WorkflowInstance {
+func WorkflowInstance2(ctx sync.Context) *core.WorkflowInstance {
 	wfState := workflowstate.WorkflowState(ctx)
 	return wfState.Instance()
 }

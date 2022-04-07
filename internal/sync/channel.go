@@ -59,7 +59,7 @@ func (c *channel[T]) Close() {
 		panic("send on closed channel")
 	}
 
-	// TODO: Drain buffered values
+	// Drain buffered values
 	for len(c.receivers) > 0 {
 		r := c.receivers[0]
 		c.receivers[0] = nil
