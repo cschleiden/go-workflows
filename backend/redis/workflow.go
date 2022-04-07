@@ -137,7 +137,6 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	}
 
 	// Store activity data
-	// TODO: Use pipeline?
 	for _, activityEvent := range activityEvents {
 		if _, err := rb.activityQueue.Enqueue(ctx, activityEvent.ID, &activityData{
 			InstanceID: instance.GetInstanceID(),
@@ -153,7 +152,17 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 		return errors.Wrap(err, "could not complete workflow task")
 	}
 
-	log.Println("Unlocked", instance.GetInstanceID())
+	// If there are pending events, enqueue the instance again
+	// TODO: Check for pending events
+	if state != backend.WorkflowStateFinished {
+		if _, err := rb.workflowQueue.Enqueue(ctx, instance.GetInstanceID(), nil); err != nil {
+			if err != taskqueue.ErrTaskAlreadyInQueue {
+				return errors.Wrap(err, "could not queue workflow")
+			}
+		}
+	}
+
+	log.Println("Unlocked workflow task", instance.GetInstanceID())
 
 	return nil
 }
