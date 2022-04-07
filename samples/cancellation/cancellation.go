@@ -23,7 +23,7 @@ func main() {
 
 	//b := sqlite.NewInMemoryBackend()
 	//b := sqlite.NewSqliteBackend("cancellation.sqlite")
-	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "cancellation")
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "cancellation")
 	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
 	if err != nil {
 		panic(err)

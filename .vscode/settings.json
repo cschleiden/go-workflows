@@ -1,5 +1,5 @@
 {
-  "go.testFlags": ["-race", "-timeout", "20s", "-count", "1", "-short"],
+  "go.testFlags": ["-race", "-timeout", "20s", "-count", "1"], // , "-short"],
   "peacock.color": "#007fff",
   "workbench.colorCustomizations": {
     "sash.hoverBorder": "#3399ff",

@@ -25,7 +25,7 @@ func main() {
 	ctx := context.Background()
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite")
-	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "scale")
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "scale")
 	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
 	if err != nil {
 		panic(err)

@@ -14,7 +14,7 @@ func main() {
 	ctx := context.Background()
 
 	//b := sqlite.NewSqliteBackend("../simple-split.sqlite")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
 
 	// Start workflow via client
 	c := client.New(b)

@@ -21,7 +21,7 @@ func main() {
 	ctx := context.Background()
 
 	b := sqlite.NewInMemoryBackend()
-	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
 
 	go RunWorker(ctx, b)
 

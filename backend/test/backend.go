@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	ta "github.com/cschleiden/go-workflows/internal/task"
@@ -179,6 +180,14 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				}
 				require.Len(t, task.NewEvents, 1)
 				require.Equal(t, activityCompletedEvent.Type, task.NewEvents[0].Type, "Expected new events to be returned")
+			},
+		},
+		{
+			name: "SignalWorkflow_ErrorWhenInstanceDoesNotExist",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				c := client.New(b)
+				err := c.SignalWorkflow(ctx, "does-not-exist", "signal", "value")
+				require.Error(t, err)
 			},
 		},
 	}
