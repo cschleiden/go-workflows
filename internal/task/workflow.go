@@ -17,7 +17,7 @@ type Workflow struct {
 	ID string
 
 	// WorkflowInstance is the workflow instance that this task is for
-	WorkflowInstance core.WorkflowInstance
+	WorkflowInstance *core.WorkflowInstance
 
 	// Kind defines what kind of task this is. A Continuation task only contains
 	// new events and not the full history. By default the history is included.

@@ -29,7 +29,7 @@ func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID strin
 	return rb.activityQueue.Extend(ctx, activityID)
 }
 
-func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance core.WorkflowInstance, activityID string, event history.Event) error {
+func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event history.Event) error {
 	if err := rb.addWorkflowInstanceEvent(ctx, instance, event); err != nil {
 		return err
 	}

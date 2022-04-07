@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newExecutor(r *Registry, i core.WorkflowInstance) *executor {
+func newExecutor(r *Registry, i *core.WorkflowInstance) *executor {
 	s := workflowstate.NewWorkflowState(i, clock.New())
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 

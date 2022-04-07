@@ -44,7 +44,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.GetInstanceID())
+	log.Println("Started workflow", wf.InstanceID)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {

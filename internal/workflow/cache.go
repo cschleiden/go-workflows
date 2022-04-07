@@ -10,8 +10,8 @@ import (
 )
 
 type WorkflowExecutorCache interface {
-	Store(ctx context.Context, instance core.WorkflowInstance, workflow WorkflowExecutor) error
-	Get(ctx context.Context, instance core.WorkflowInstance) (WorkflowExecutor, bool, error)
+	Store(ctx context.Context, instance *core.WorkflowInstance, workflow WorkflowExecutor) error
+	Get(ctx context.Context, instance *core.WorkflowInstance) (WorkflowExecutor, bool, error)
 	StartEviction(ctx context.Context)
 }
 
@@ -47,7 +47,7 @@ func NewWorkflowExecutorCache(options WorkflowExecutorCacheOptions) WorkflowExec
 	return &c
 }
 
-func (c *workflowExecutorCache) Store(ctx context.Context, instance core.WorkflowInstance, executor WorkflowExecutor) error {
+func (c *workflowExecutorCache) Store(ctx context.Context, instance *core.WorkflowInstance, executor WorkflowExecutor) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -64,7 +64,7 @@ func (c *workflowExecutorCache) Store(ctx context.Context, instance core.Workflo
 	return nil
 }
 
-func (c *workflowExecutorCache) Get(ctx context.Context, instance core.WorkflowInstance) (WorkflowExecutor, bool, error) {
+func (c *workflowExecutorCache) Get(ctx context.Context, instance *core.WorkflowInstance) (WorkflowExecutor, bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -101,6 +101,6 @@ func (c *workflowExecutorCache) StartEviction(ctx context.Context) {
 	}
 }
 
-func getKey(instance core.WorkflowInstance) string {
-	return fmt.Sprintf("%s-%s", instance.GetInstanceID(), instance.GetExecutionID())
+func getKey(instance *core.WorkflowInstance) string {
+	return fmt.Sprintf("%s-%s", instance.InstanceID, instance.ExecutionID)
 }

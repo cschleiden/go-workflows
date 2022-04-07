@@ -112,7 +112,7 @@ func (s *BackendTestSuite) Test_GetWorkflowTask_ReturnsTask() {
 
 	s.NoError(err)
 	s.NotNil(t)
-	s.Equal(wfi.GetInstanceID(), t.WorkflowInstance.GetInstanceID())
+	s.Equal(wfi.InstanceID, t.WorkflowInstance.InstanceID)
 }
 
 func (s *BackendTestSuite) Test_GetWorkflowTask_LocksTask() {

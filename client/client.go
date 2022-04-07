@@ -24,11 +24,11 @@ type WorkflowInstanceOptions struct {
 }
 
 type Client interface {
-	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (workflow.Instance, error)
+	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error)
 
-	CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error
+	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
 
-	WaitForWorkflowInstance(ctx context.Context, instance workflow.Instance, timeout time.Duration) error
+	WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error
 
 	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
 }
@@ -45,7 +45,7 @@ func New(backend backend.Backend) Client {
 	}
 }
 
-func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (workflow.Instance, error) {
+func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not convert arguments")
@@ -73,7 +73,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
-func (c *client) CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error {
+func (c *client) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
 	return c.backend.CancelWorkflowInstance(ctx, instance)
 }
 
@@ -95,7 +95,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 	return c.backend.SignalWorkflow(ctx, instanceID, event)
 }
 
-func (c *client) WaitForWorkflowInstance(ctx context.Context, instance workflow.Instance, timeout time.Duration) error {
+func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error {
 	if timeout == 0 {
 		timeout = time.Second * 20
 	}
@@ -127,7 +127,7 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance workflow.
 	}
 }
 
-func GetWorkflowResult[T any](ctx context.Context, c Client, instance workflow.Instance, timeout time.Duration) (T, error) {
+func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.Instance, timeout time.Duration) (T, error) {
 	// Zero result
 	var z T
 

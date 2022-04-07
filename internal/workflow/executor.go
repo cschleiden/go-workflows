@@ -44,7 +44,7 @@ type executor struct {
 	lastEventID       string
 }
 
-func NewExecutor(registry *Registry, instance core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+func NewExecutor(registry *Registry, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, clock)
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
@@ -375,13 +375,13 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 		case command.CommandType_ScheduleSubWorkflow:
 			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 
-			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance, c.ID)
+			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance.InstanceID, c.ID)
 
 			newEvents = append(newEvents, history.NewHistoryEvent(
 				e.clock.Now(),
 				history.EventType_SubWorkflowScheduled,
 				&history.SubWorkflowScheduledAttributes{
-					InstanceID: subWorkflowInstance.GetInstanceID(),
+					InstanceID: subWorkflowInstance.InstanceID,
 					Name:       a.Name,
 					Inputs:     a.Inputs,
 				},
@@ -467,7 +467,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 							Error: a.Error,
 						},
 						// Ensure the message gets sent back to the parent workflow with the right eventID
-						history.ScheduleEventID(instance.ParentEventID()),
+						history.ScheduleEventID(instance.ParentEventID),
 					)
 				} else {
 					historyEvent = history.NewHistoryEvent(
@@ -477,12 +477,12 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 							Result: a.Result,
 						},
 						// Ensure the message gets sent back to the parent workflow with the right eventID
-						history.ScheduleEventID(instance.ParentEventID()),
+						history.ScheduleEventID(instance.ParentEventID),
 					)
 				}
 
 				workflowEvents = append(workflowEvents, history.WorkflowEvent{
-					WorkflowInstance: instance.ParentInstance(),
+					WorkflowInstance: core.NewWorkflowInstance(instance.ParentInstanceID, ""), // TODO: Do we need execution id here?
 					HistoryEvent:     historyEvent,
 				})
 			}

@@ -70,7 +70,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	}
 
 	// Initial history is empty, store only new events
-	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.GetInstanceID(), []history.Event{m.HistoryEvent}); err != nil {
+	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
 		return errors.Wrap(err, "could not insert new event")
 	}
 
@@ -81,14 +81,14 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	return nil
 }
 
-func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance workflow.Instance) error {
+func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	instanceID := instance.GetInstanceID()
+	instanceID := instance.InstanceID
 
 	// Cancel workflow instance
 	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{history.NewWorkflowCancellationEvent(time.Now())}); err != nil {
@@ -120,7 +120,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance work
 	return tx.Commit()
 }
 
-func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance workflow.Instance) ([]history.Event, error) {
+func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance) ([]history.Event, error) {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	historyEvents, err := tx.QueryContext(
 		ctx,
 		"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
-		instance.GetInstanceID(),
+		instance.InstanceID,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get history")
@@ -169,12 +169,12 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	return h, nil
 }
 
-func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance workflow.Instance) (backend.WorkflowState, error) {
+func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (backend.WorkflowState, error) {
 	row := b.db.QueryRowContext(
 		ctx,
 		"SELECT completed_at FROM instances WHERE instance_id = ? AND execution_id = ?",
-		instance.GetInstanceID(),
-		instance.GetExecutionID(),
+		instance.InstanceID,
+		instance.ExecutionID,
 	)
 
 	var completedAt sql.NullTime
@@ -191,22 +191,22 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance wo
 	return backend.WorkflowStateActive, nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi workflow.Instance, ignoreDuplicate bool) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ignoreDuplicate bool) error {
 	var parentInstanceID *string
 	var parentEventID *int
 	if wfi.SubWorkflow() {
-		i := wfi.ParentInstance().GetInstanceID()
+		i := wfi.ParentInstanceID
 		parentInstanceID = &i
 
-		n := wfi.ParentEventID()
+		n := wfi.ParentEventID
 		parentEventID = &n
 	}
 
 	res, err := tx.ExecContext(
 		ctx,
 		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_schedule_event_id) VALUES (?, ?, ?, ?)",
-		wfi.GetInstanceID(),
-		wfi.GetExecutionID(),
+		wfi.InstanceID,
+		wfi.ExecutionID,
 		parentInstanceID,
 		parentEventID,
 	)
@@ -316,15 +316,15 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		kind = task.Continuation
 	}
 
-	var wfi workflow.Instance
+	var wfi *workflow.Instance
 	if parentInstanceID != nil {
-		wfi = core.NewSubWorkflowInstance(instanceID, executionID, core.NewWorkflowInstance(*parentInstanceID, ""), *parentEventID)
+		wfi = core.NewSubWorkflowInstance(instanceID, executionID, *parentInstanceID, *parentEventID)
 	} else {
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
 	t := &task.Workflow{
-		ID:               wfi.GetInstanceID(),
+		ID:               wfi.InstanceID,
 		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
 		History:          []history.Event{},
@@ -451,7 +451,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	taskID string,
-	instance workflow.Instance,
+	instance *workflow.Instance,
 	state backend.WorkflowState,
 	executedEvents []history.Event,
 	activityEvents []history.Event,
@@ -477,8 +477,8 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
 		time.Now().Add(b.options.StickyTimeout),
 		completedAt,
-		instance.GetInstanceID(),
-		instance.GetExecutionID(),
+		instance.InstanceID,
+		instance.ExecutionID,
 		b.workerName,
 	)
 	if err != nil {
@@ -495,7 +495,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	// Remove handled events from task
 	if len(executedEvents) > 0 {
 		args := make([]interface{}, 0, len(executedEvents)+1)
-		args = append(args, instance.GetInstanceID())
+		args = append(args, instance.InstanceID)
 		for _, e := range executedEvents {
 			args = append(args, e.ID)
 		}
@@ -510,19 +510,19 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	}
 
 	// Insert new events generated during this workflow execution to the history
-	if err := insertHistoryEvents(ctx, tx, instance.GetInstanceID(), executedEvents); err != nil {
+	if err := insertHistoryEvents(ctx, tx, instance.InstanceID, executedEvents); err != nil {
 		return errors.Wrap(err, "could not insert new history events")
 	}
 
 	// Schedule activities
 	for _, e := range activityEvents {
-		if err := scheduleActivity(ctx, tx, instance.GetInstanceID(), instance.GetExecutionID(), e); err != nil {
+		if err := scheduleActivity(ctx, tx, instance.InstanceID, instance.ExecutionID, e); err != nil {
 			return errors.Wrap(err, "could not schedule activity")
 		}
 	}
 
 	// Insert new workflow events
-	groupedEvents := make(map[workflow.Instance][]history.Event)
+	groupedEvents := make(map[*workflow.Instance][]history.Event)
 	for _, m := range workflowEvents {
 		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
 			groupedEvents[m.WorkflowInstance] = []history.Event{}
@@ -532,14 +532,14 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	}
 
 	for targetInstance, events := range groupedEvents {
-		if targetInstance.GetInstanceID() != instance.GetInstanceID() {
+		if targetInstance.InstanceID != instance.InstanceID {
 			// Create new instance
 			if err := createInstance(ctx, tx, targetInstance, true); err != nil {
 				return err
 			}
 		}
 
-		if err := insertNewEvents(ctx, tx, targetInstance.GetInstanceID(), events); err != nil {
+		if err := insertNewEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
 			return errors.Wrap(err, "could not insert messages")
 		}
 	}
@@ -551,7 +551,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	return nil
 }
 
-func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance core.WorkflowInstance) error {
+func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -563,8 +563,8 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
 		until,
-		instance.GetInstanceID(),
-		instance.GetExecutionID(),
+		instance.InstanceID,
+		instance.ExecutionID,
 		b.workerName,
 	)
 	if err != nil {
@@ -646,7 +646,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
-func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance workflow.Instance, id string, event history.Event) error {
+func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workflow.Instance, id string, event history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -660,8 +660,8 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance workfl
 		ctx,
 		`DELETE FROM activities WHERE activity_id = ? AND instance_id = ? AND execution_id = ? AND worker = ?`,
 		id,
-		instance.GetInstanceID(),
-		instance.GetExecutionID(),
+		instance.InstanceID,
+		instance.ExecutionID,
 		b.workerName,
 	); err != nil {
 		return errors.Wrap(err, "could not complete activity")
@@ -677,7 +677,7 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance workfl
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertNewEvents(ctx, tx, instance.GetInstanceID(), []history.Event{event}); err != nil {
+	if err := insertNewEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return errors.Wrap(err, "could not insert new events for completed activity")
 	}
 

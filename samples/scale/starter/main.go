@@ -57,11 +57,11 @@ func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 		panic("could not start workflow")
 	}
 
-	// log.Println("Started workflow", wf.GetInstanceID())
+	// log.Println("Started workflow", wf.InstanceID)
 
 	err = c.WaitForWorkflowInstance(ctx, wf, time.Second*30)
 	if err != nil {
-		log.Println("Received error while waiting for workflow", wf.GetInstanceID(), err)
+		log.Println("Received error while waiting for workflow", wf.InstanceID, err)
 	}
 
 	cn := atomic.AddInt32(&count, -1)

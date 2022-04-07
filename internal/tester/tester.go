@@ -38,7 +38,7 @@ type WorkflowTester interface {
 
 	SignalWorkflow(signalName string, value interface{})
 
-	SignalWorkflowInstance(wfi core.WorkflowInstance, signalName string, value interface{})
+	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{})
 
 	WorkflowFinished() bool
 
@@ -51,7 +51,7 @@ type WorkflowTester interface {
 	ScheduleCallback(delay time.Duration, callback func())
 
 	// ListenSubWorkflow registers a handler to be called when a sub-workflow is started.
-	ListenSubWorkflow(listener func(instance core.WorkflowInstance, name string))
+	ListenSubWorkflow(listener func(instance *core.WorkflowInstance, name string))
 }
 
 type testTimer struct {
@@ -65,7 +65,7 @@ type testTimer struct {
 }
 
 type testWorkflow struct {
-	instance      core.WorkflowInstance
+	instance      *core.WorkflowInstance
 	history       []history.Event
 	pendingEvents []history.Event
 }
@@ -79,7 +79,7 @@ type workflowTester struct {
 
 	// Workflow under test
 	wf  interface{}
-	wfi core.WorkflowInstance
+	wfi *core.WorkflowInstance
 
 	// Workflows
 	testWorkflows []*testWorkflow
@@ -102,7 +102,7 @@ type workflowTester struct {
 	timers    []*testTimer
 	callbacks chan func() *history.WorkflowEvent
 
-	subWorkflowListener func(core.WorkflowInstance, string)
+	subWorkflowListener func(*core.WorkflowInstance, string)
 
 	runningActivities int32
 }
@@ -160,7 +160,7 @@ func (wt *workflowTester) ScheduleCallback(delay time.Duration, callback func())
 	})
 }
 
-func (wt *workflowTester) ListenSubWorkflow(listener func(core.WorkflowInstance, string)) {
+func (wt *workflowTester) ListenSubWorkflow(listener func(*core.WorkflowInstance, string)) {
 	wt.subWorkflowListener = listener
 }
 
@@ -300,7 +300,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 	}
 }
 
-func (wt *workflowTester) sendEvent(wfi core.WorkflowInstance, event history.Event) {
+func (wt *workflowTester) sendEvent(wfi *core.WorkflowInstance, event history.Event) {
 	var w *testWorkflow
 	for _, tw := range wt.testWorkflows {
 		if tw.instance == wfi {
@@ -327,7 +327,7 @@ func (wt *workflowTester) SignalWorkflow(name string, value interface{}) {
 	wt.SignalWorkflowInstance(wt.wfi, name, value)
 }
 
-func (wt *workflowTester) SignalWorkflowInstance(wfi core.WorkflowInstance, name string, value interface{}) {
+func (wt *workflowTester) SignalWorkflowInstance(wfi *core.WorkflowInstance, name string, value interface{}) {
 	arg, err := converter.DefaultConverter.To(value)
 	if err != nil {
 		panic("Could not convert signal value to string" + err.Error())
@@ -370,7 +370,7 @@ func (wt *workflowTester) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester) scheduleActivity(wfi core.WorkflowInstance, event history.Event) {
+func (wt *workflowTester) scheduleActivity(wfi *core.WorkflowInstance, event history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
 	go func() {
@@ -553,7 +553,7 @@ func (wt *workflowTester) scheduleSubWorkflow(event history.WorkflowEvent) {
 				&history.SubWorkflowFailedAttributes{
 					Error: workflowErr.Error(),
 				},
-				history.ScheduleEventID(event.WorkflowInstance.ParentEventID()),
+				history.ScheduleEventID(event.WorkflowInstance.ParentEventID),
 			)
 		} else {
 			he = history.NewHistoryEvent(
@@ -562,12 +562,12 @@ func (wt *workflowTester) scheduleSubWorkflow(event history.WorkflowEvent) {
 				&history.SubWorkflowCompletedAttributes{
 					Result: workflowResult,
 				},
-				history.ScheduleEventID(event.WorkflowInstance.ParentEventID()),
+				history.ScheduleEventID(event.WorkflowInstance.ParentEventID),
 			)
 		}
 
 		return &history.WorkflowEvent{
-			WorkflowInstance: event.WorkflowInstance.ParentInstance(),
+			WorkflowInstance: core.NewWorkflowInstance(event.WorkflowInstance.ParentInstanceID, ""),
 			HistoryEvent:     he,
 		}
 	}
@@ -591,7 +591,7 @@ func (wt *workflowTester) getInitialEvent(wf interface{}, args []interface{}) hi
 	)
 }
 
-func getNextWorkflowTask(wfi core.WorkflowInstance, history []history.Event, newEvents []history.Event) *task.Workflow {
+func getNextWorkflowTask(wfi *core.WorkflowInstance, history []history.Event, newEvents []history.Event) *task.Workflow {
 	return &task.Workflow{
 		WorkflowInstance: wfi,
 		History:          history,

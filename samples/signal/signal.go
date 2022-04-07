@@ -48,18 +48,18 @@ func startWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.GetInstanceID())
+	log.Println("Started workflow", wf.InstanceID)
 
 	time.Sleep(2 * time.Second)
-	c.SignalWorkflow(ctx, wf.GetInstanceID(), "test", 42)
+	c.SignalWorkflow(ctx, wf.InstanceID, "test", 42)
 
 	time.Sleep(2 * time.Second)
-	c.SignalWorkflow(ctx, wf.GetInstanceID(), "test2", 42)
+	c.SignalWorkflow(ctx, wf.InstanceID, "test2", 42)
 
 	time.Sleep(2 * time.Second)
 	c.SignalWorkflow(ctx, subID, "sub-signal", 42)
 
-	log.Println("Signaled workflow", wf.GetInstanceID())
+	log.Println("Signaled workflow", wf.InstanceID)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {

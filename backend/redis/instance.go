@@ -25,7 +25,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	_, err = rb.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(event.WorkflowInstance.GetInstanceID()),
+		Stream: pendingEventsKey(event.WorkflowInstance.InstanceID),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
@@ -36,7 +36,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	// Queue workflow instance task
-	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.GetInstanceID(), nil); err != nil {
+	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.InstanceID, nil); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return errors.Wrap(err, "could not queue workflow task")
 		}
@@ -45,8 +45,8 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	return nil
 }
 
-func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance core.WorkflowInstance) ([]history.Event, error) {
-	msgs, err := rb.rdb.XRange(ctx, historyKey(instance.GetInstanceID()), "-", "+").Result()
+func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance) ([]history.Event, error) {
+	msgs, err := rb.rdb.XRange(ctx, historyKey(instance.InstanceID), "-", "+").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +64,8 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 	return events, nil
 }
 
-func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance core.WorkflowInstance) (backend.WorkflowState, error) {
-	instanceState, err := readInstance(ctx, rb.rdb, instance.GetInstanceID())
+func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (backend.WorkflowState, error) {
+	instanceState, err := readInstance(ctx, rb.rdb, instance.InstanceID)
 	if err != nil {
 		return backend.WorkflowStateActive, err
 	}
@@ -73,7 +73,7 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance c
 	return instanceState.State, nil
 }
 
-func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance core.WorkflowInstance) error {
+func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
 	panic("unimplemented")
 }
 
@@ -85,12 +85,12 @@ type instanceState struct {
 	CompletedAt *time.Time            `json:"completed_at,omitempty"`
 }
 
-func createInstance(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, ignoreDuplicate bool) error {
-	key := instanceKey(instance.GetInstanceID())
+func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, ignoreDuplicate bool) error {
+	key := instanceKey(instance.InstanceID)
 
 	b, err := json.Marshal(&instanceState{
-		InstanceID:  instance.GetInstanceID(),
-		ExecutionID: instance.GetExecutionID(),
+		InstanceID:  instance.InstanceID,
+		ExecutionID: instance.ExecutionID,
 		State:       backend.WorkflowStateActive,
 		CreatedAt:   time.Now(),
 	})

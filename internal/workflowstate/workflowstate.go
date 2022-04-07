@@ -37,7 +37,7 @@ type signalChannel struct {
 }
 
 type WfState struct {
-	instance        core.WorkflowInstance
+	instance        *core.WorkflowInstance
 	scheduleEventID int
 	commands        []*command.Command
 	pendingFutures  map[int]DecodingSettable
@@ -50,7 +50,7 @@ type WfState struct {
 	time  time.Time
 }
 
-func NewWorkflowState(instance core.WorkflowInstance, clock clock.Clock) *WfState {
+func NewWorkflowState(instance *core.WorkflowInstance, clock clock.Clock) *WfState {
 	return &WfState{
 
 		instance:        instance,
@@ -143,6 +143,6 @@ func (wf *WfState) Time() time.Time {
 	return wf.time
 }
 
-func (wf *WfState) Instance() core.WorkflowInstance {
+func (wf *WfState) Instance() *core.WorkflowInstance {
 	return wf.instance
 }

@@ -1,54 +1,29 @@
 package core
 
-type WorkflowInstance interface {
-	GetInstanceID() string
-	GetExecutionID() string
+type WorkflowInstance struct {
+	InstanceID  string `json:"instance_id,omitempty"`
+	ExecutionID string `json:"execution_id,omitempty"`
 
-	ParentInstance() WorkflowInstance
-	ParentEventID() int
-	SubWorkflow() bool
+	ParentInstanceID string `json:"parent_instance,omitempty"`
+	ParentEventID    int    `json:"parent_event_id,omitempty"`
 }
 
-type workflowInstance struct {
-	instanceID  string
-	executionID string
-
-	parentInstance WorkflowInstance
-	parentEventID  int
-}
-
-func NewWorkflowInstance(instanceID, executionID string) WorkflowInstance {
-	return &workflowInstance{
-		instanceID:  instanceID,
-		executionID: executionID,
+func NewWorkflowInstance(instanceID, executionID string) *WorkflowInstance {
+	return &WorkflowInstance{
+		InstanceID:  instanceID,
+		ExecutionID: executionID,
 	}
 }
 
-func NewSubWorkflowInstance(instanceID, executionID string, parentInstance WorkflowInstance, parentEventID int) WorkflowInstance {
-	return &workflowInstance{
-		instanceID:     instanceID,
-		executionID:    executionID,
-		parentInstance: parentInstance,
-		parentEventID:  parentEventID,
+func NewSubWorkflowInstance(instanceID, executionID string, parentInstanceID string, parentEventID int) *WorkflowInstance {
+	return &WorkflowInstance{
+		InstanceID:       instanceID,
+		ExecutionID:      executionID,
+		ParentInstanceID: parentInstanceID,
+		ParentEventID:    parentEventID,
 	}
 }
 
-func (wi *workflowInstance) GetInstanceID() string {
-	return wi.instanceID
-}
-
-func (wi *workflowInstance) GetExecutionID() string {
-	return wi.executionID
-}
-
-func (wi *workflowInstance) ParentInstance() WorkflowInstance {
-	return wi.parentInstance
-}
-
-func (wi *workflowInstance) ParentEventID() int {
-	return wi.parentEventID
-}
-
-func (wi *workflowInstance) SubWorkflow() bool {
-	return wi.parentInstance != nil
+func (wi *WorkflowInstance) SubWorkflow() bool {
+	return wi.ParentInstanceID != ""
 }

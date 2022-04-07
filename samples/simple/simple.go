@@ -51,7 +51,7 @@ func runWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.GetInstanceID())
+	log.Println("Started workflow", wf.InstanceID)
 
 	// result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*10)
 	// if err != nil {
