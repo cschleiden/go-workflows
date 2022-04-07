@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -20,6 +22,10 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 
 	b := sqlite.NewInMemoryBackend()
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -60,27 +66,25 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	samples.Trace(ctx, "Entering Workflow1, input: ", msg)
 
 	defer func() {
-		log.Println("Leaving Workflow1")
+		samples.Trace(ctx, "Leaving Workflow1")
 	}()
 
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
-	tctx, cancel := workflow.WithCancel(ctx)
+	tctx, _ := workflow.WithCancel(ctx)
 	t := workflow.ScheduleTimer(tctx, 2*time.Second)
-	cancel()
+	// cancel()
 
 	workflow.Select(
 		ctx,
 		workflow.Await(t, func(ctx workflow.Context, f workflow.Future[struct{}]) {
 			if _, err := f.Get(ctx); err != nil {
-				log.Println("Timer canceled, IsReplaying:", workflow.Replaying(ctx))
+				samples.Trace(ctx, "Timer canceled")
 			} else {
-				log.Println("Timer fired, IsReplaying:", workflow.Replaying(ctx))
+				samples.Trace(ctx, "Timer fired")
 			}
 		}),
 		workflow.Await(a1, func(ctx workflow.Context, f workflow.Future[int]) {
@@ -89,7 +93,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 				panic(err)
 			}
 
-			log.Println("Activity result", r, ", IsReplaying:", workflow.Replaying(ctx))
+			samples.Trace(ctx, "Activity result", r)
 
 			// Cancel timer
 			// cancel()
@@ -102,7 +106,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 func Activity1(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering Activity1")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	defer func() {
 		log.Println("Leaving Activity1")
