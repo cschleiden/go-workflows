@@ -14,14 +14,8 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error {
-	// Store instance with its state
-	if err := createInstance(ctx, rb.rdb, event.WorkflowInstance, &instanceState{
-		InstanceID:  event.WorkflowInstance.GetInstanceID(),
-		ExecutionID: event.WorkflowInstance.GetExecutionID(),
-		State:       backend.WorkflowStateActive,
-		CreatedAt:   time.Now(),
-	}); err != nil {
-		return errors.Wrap(err, "could not create workflow instance")
+	if err := createInstance(ctx, rb.rdb, event.WorkflowInstance, false); err != nil {
+		return err
 	}
 
 	// Create event stream
@@ -91,10 +85,15 @@ type instanceState struct {
 	CompletedAt *time.Time            `json:"completed_at,omitempty"`
 }
 
-func createInstance(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, state *instanceState) error {
+func createInstance(ctx context.Context, rdb redis.UniversalClient, instance core.WorkflowInstance, ignoreDuplicate bool) error {
 	key := instanceKey(instance.GetInstanceID())
 
-	b, err := json.Marshal(state)
+	b, err := json.Marshal(&instanceState{
+		InstanceID:  instance.GetInstanceID(),
+		ExecutionID: instance.GetExecutionID(),
+		State:       backend.WorkflowStateActive,
+		CreatedAt:   time.Now(),
+	})
 	if err != nil {
 		return errors.Wrap(err, "could not marshal instance state")
 	}
@@ -104,7 +103,7 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance cor
 		return errors.Wrap(err, "could not store instance")
 	}
 
-	if !ok {
+	if !ignoreDuplicate && !ok {
 		return errors.New("workflow instance already exists")
 	}
 

@@ -101,7 +101,7 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 func SubWorkflow1(ctx workflow.Context) (string, error) {
 	samples.Trace(ctx, "Waiting for signal from sub-worflow")
 
-	c := workflow.NewSignalChannel[string](ctx, "sub-signal")
+	c := workflow.NewSignalChannel[int](ctx, "sub-signal")
 	c.Receive(ctx)
 
 	samples.Trace(ctx, "Received sub-workflow signal")

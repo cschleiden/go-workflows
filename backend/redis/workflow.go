@@ -103,13 +103,14 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	for targetInstance, events := range groupedEvents {
 		if instance.GetInstanceID() != targetInstance.GetInstanceID() {
 			// Create new instance
-			// TODO: Support creating sub-workflows
-			panic("not implemented")
+			if err := createInstance(ctx, rb.rdb, targetInstance, true); err != nil {
+				return err
+			}
 		}
 
 		// Insert pending events for target instance
 		for _, event := range events {
-			if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instance.GetInstanceID()), &event); err != nil {
+			if err := addEventToStream(ctx, rb.rdb, pendingEventsKey(targetInstance.GetInstanceID()), &event); err != nil {
 				return err
 			}
 		}
