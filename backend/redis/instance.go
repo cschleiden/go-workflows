@@ -134,13 +134,8 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 			return err
 		}
 
-		c, err := rdb.RPush(ctx, subInstanceKey(instance.ParentInstanceID), instanceStr).Result()
-		if err != nil {
+		if err := rdb.RPush(ctx, subInstanceKey(instance.ParentInstanceID), instanceStr).Err(); err != nil {
 			return errors.Wrap(err, "could not track sub-workflow")
-		}
-
-		if c != 1 {
-			return errors.New("could not track sub-workflow")
 		}
 	}
 
