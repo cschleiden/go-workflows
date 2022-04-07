@@ -25,37 +25,33 @@ func Test_MysqlBackend(t *testing.T) {
 
 	dbName := "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
 
-	test.TestBackend(t, test.Tester{
-		New: func() backend.Backend {
-			db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
-			if err != nil {
-				panic(err)
-			}
+	test.BackendTest(t, func() backend.Backend {
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			panic(err)
+		}
 
-			if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
-				panic(errors.Wrap(err, "could not create database"))
-			}
+		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
+			panic(errors.Wrap(err, "could not create database"))
+		}
 
-			if err := db.Close(); err != nil {
-				panic(err)
-			}
+		if err := db.Close(); err != nil {
+			panic(err)
+		}
 
-			return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
-		},
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
+	}, func(b backend.Backend) {
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			panic(err)
+		}
 
-		Teardown: func() {
-			db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
-			if err != nil {
-				panic(err)
-			}
+		if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
+			panic(errors.Wrap(err, "could not drop database"))
+		}
 
-			if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
-				panic(errors.Wrap(err, "could not drop database"))
-			}
-
-			if err := db.Close(); err != nil {
-				panic(err)
-			}
-		},
+		if err := db.Close(); err != nil {
+			panic(err)
+		}
 	})
 }

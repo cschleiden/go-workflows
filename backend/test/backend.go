@@ -8,204 +8,189 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
+	ta "github.com/cschleiden/go-workflows/internal/task"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
-type Tester struct {
-	New func() backend.Backend
-
-	Teardown func()
-}
-
-func TestBackend(t *testing.T, tester Tester) {
-	s := new(BackendTestSuite)
-	s.Tester = tester
-	s.Assertions = require.New(t)
-	suite.Run(t, s)
-}
-
-type BackendTestSuite struct {
-	suite.Suite
-	*require.Assertions
-
-	Tester Tester
-	b      backend.Backend
-}
-
-func (s *BackendTestSuite) SetupTest() {
-	s.b = s.Tester.New()
-}
-
-func (s *BackendTestSuite) TearDownTest() {
-	if s.Tester.Teardown != nil {
-		s.Tester.Teardown()
-	}
-}
-
-func (s *BackendTestSuite) TestTester() {
-	s.NotNil(s.b)
-}
-
-func (s *BackendTestSuite) Test_GetWorkflowTask_ReturnsNilWhenTimeout() {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
-	defer cancel()
-
-	task, _ := s.b.GetWorkflowTask(ctx)
-	s.Nil(task)
-}
-
-func (s *BackendTestSuite) Test_GetActivityTask_ReturnNilWhenTimeout() {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
-	defer cancel()
-
-	task, _ := s.b.GetActivityTask(ctx)
-	s.Nil(task)
-}
-
-func (s *BackendTestSuite) Test_CreateWorkflowInstance_DoesNotError() {
-	ctx := context.Background()
-
-	instanceID := uuid.NewString()
-
-	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: core.NewWorkflowInstance(instanceID, uuid.NewString()),
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-	})
-	s.NoError(err)
-}
-
-func (s *BackendTestSuite) Test_CreateWorkflowInstance_SameInstanceIDErrors() {
-	ctx := context.Background()
-
-	instanceID := uuid.NewString()
-	executionID := uuid.NewString()
-
-	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-	})
-	s.NoError(err)
-
-	err = s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-	})
-	s.Error(err)
-}
-
-func (s *BackendTestSuite) Test_GetWorkflowTask_ReturnsTask() {
-	ctx := context.Background()
-
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-	})
-	s.NoError(err)
-
-	t, err := s.b.GetWorkflowTask(ctx)
-
-	s.NoError(err)
-	s.NotNil(t)
-	s.Equal(wfi.InstanceID, t.WorkflowInstance.InstanceID)
-}
-
-func (s *BackendTestSuite) Test_GetWorkflowTask_LocksTask() {
-	ctx := context.Background()
-
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-	})
-	s.Nil(err)
-
-	// Get and lock only task
-	t, err := s.b.GetWorkflowTask(ctx)
-	s.NoError(err)
-	s.NotNil(t)
-
-	// First task is locked, second call should return nil
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
-	defer cancel()
-
-	t, err = s.b.GetWorkflowTask(ctx)
-
-	s.NoError(err)
-	s.Nil(t)
-}
-
-func (s *BackendTestSuite) Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked() {
-	ctx := context.Background()
-
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: wfi,
-		HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-	})
-	s.NoError(err)
-
-	err = s.b.CompleteWorkflowTask(ctx, "taskID", wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
-
-	s.Error(err)
-}
-
-func (s *BackendTestSuite) Test_CompleteWorkflowTask_AddsNewEventsToHistory() {
-	ctx := context.Background()
-
-	startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
-	activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
-	activityCompletedEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityCompleted, &history.ActivityCompletedAttributes{}, history.ScheduleEventID(1))
-
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	err := s.b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
-		WorkflowInstance: wfi,
-		HistoryEvent:     startedEvent,
-	})
-	s.NoError(err)
-
-	t, err := s.b.GetWorkflowTask(ctx)
-	s.NoError(err)
-
-	taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
-	taskFinishedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{})
-	events := []history.Event{
-		taskStartedEvent,
-		startedEvent,
-		activityScheduledEvent,
-		taskFinishedEvent,
-	}
-
-	activityEvents := []history.Event{
-		activityScheduledEvent,
-	}
-
-	workflowEvents := []history.WorkflowEvent{
+func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b backend.Backend)) {
+	tests := []struct {
+		name string
+		f    func(t *testing.T, ctx context.Context, b backend.Backend)
+	}{
 		{
-			WorkflowInstance: wfi,
-			HistoryEvent:     activityCompletedEvent,
+			name: "Test_GetWorkflowTask_ReturnsNilWhenTimeout",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
+				defer cancel()
+
+				task, _ := b.GetWorkflowTask(ctx)
+				require.Nil(t, task)
+			},
+		},
+		{
+			name: "Test_GetActivityTask_ReturnsNilWhenTimeout",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
+				defer cancel()
+
+				task, _ := b.GetActivityTask(ctx)
+				require.Nil(t, task)
+			},
+		},
+		{
+			name: "Test_CreateWorkflowInstance_DoesNotError",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				instanceID := uuid.NewString()
+
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: core.NewWorkflowInstance(instanceID, uuid.NewString()),
+					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "Test_CreateWorkflowInstance_SameInstanceIDErrors",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				instanceID := uuid.NewString()
+				executionID := uuid.NewString()
+
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
+					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				})
+				require.NoError(t, err)
+
+				err = b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
+					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				})
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "Test_GetWorkflowTask_ReturnsTask",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: wfi,
+					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				})
+				require.NoError(t, err)
+
+				task, err := b.GetWorkflowTask(ctx)
+
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, wfi.InstanceID, task.WorkflowInstance.InstanceID)
+			},
+		},
+		{
+			name: "Test_GetWorkflowTask_LocksTask",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: wfi,
+					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				})
+				require.Nil(t, err)
+
+				// Get and lock only task
+				task, err := b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+
+				// First task is locked, second call should return nil
+				ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
+				defer cancel()
+
+				task, err = b.GetWorkflowTask(ctx)
+
+				require.NoError(t, err)
+				require.Nil(t, task)
+			},
+		},
+		{
+			name: "Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: wfi,
+					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				})
+				require.NoError(t, err)
+
+				err = b.CompleteWorkflowTask(ctx, "taskID", wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
+
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "Test_CompleteWorkflowTask_AddsNewEventsToHistory",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
+				activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
+				activityCompletedEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityCompleted, &history.ActivityCompletedAttributes{}, history.ScheduleEventID(1))
+
+				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: wfi,
+					HistoryEvent:     startedEvent,
+				})
+				require.NoError(t, err)
+
+				task, err := b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+
+				taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
+				taskFinishedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{})
+				events := []history.Event{
+					taskStartedEvent,
+					startedEvent,
+					activityScheduledEvent,
+					taskFinishedEvent,
+				}
+
+				activityEvents := []history.Event{
+					activityScheduledEvent,
+				}
+
+				workflowEvents := []history.WorkflowEvent{
+					{
+						WorkflowInstance: wfi,
+						HistoryEvent:     activityCompletedEvent,
+					},
+				}
+
+				err = b.CompleteWorkflowTask(ctx, task.ID, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
+				require.NoError(t, err)
+
+				time.Sleep(time.Second)
+
+				task, err = b.GetWorkflowTask(ctx)
+				require.NotEqual(t, ta.Continuation, task.Kind, "Expect full task")
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, len(events), len(task.History))
+				// Only compare event types
+				for i, expected := range events {
+					require.Equal(t, expected.Type, task.History[i].Type)
+				}
+				require.Len(t, task.NewEvents, 1)
+				require.Equal(t, activityCompletedEvent.Type, task.NewEvents[0].Type, "Expected new events to be returned")
+			},
 		},
 	}
 
-	err = s.b.CompleteWorkflowTask(ctx, t.ID, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
-	s.NoError(err)
-
-	time.Sleep(time.Second)
-
-	t, err = s.b.GetWorkflowTask(ctx)
-	s.NotEqual(task.Continuation, t.Kind, "Expect full task")
-	s.NoError(err)
-	s.NotNil(t)
-	s.Equal(len(events), len(t.History))
-	// Only compare event types
-	for i, expected := range events {
-		s.Equal(expected.Type, t.History[i].Type)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := setup()
+			ctx := context.Background()
+			tt.f(t, ctx, b)
+			if teardown != nil {
+				teardown(b)
+			}
+		})
 	}
-	s.Len(t.NewEvents, 1)
-	s.Equal(activityCompletedEvent.Type, t.NewEvents[0].Type, "Expected new events to be returned")
 }
