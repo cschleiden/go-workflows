@@ -42,13 +42,36 @@ func Test_TaskQueue(t *testing.T) {
 				q, err := New[any](client, "test")
 				require.NoError(t, err)
 
-				err = q.Enqueue(context.Background(), "t1", nil)
+				_, err = q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
+			},
+		},
+		{
+			name: "Guarantee uniqueness",
+			f: func(t *testing.T) {
+				q, err := New[any](client, "test")
+				require.NoError(t, err)
+
+				_, err = q.Enqueue(context.Background(), "t1", nil)
+				require.NoError(t, err)
+
+				_, err = q.Enqueue(context.Background(), "t1", nil)
+				require.Error(t, ErrTaskAlreadyInQueue, err)
+
+				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+
+				err = q.Complete(context.Background(), task.TaskID)
+				require.NoError(t, err)
+
+				_, err = q.Enqueue(context.Background(), "t1", nil)
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -62,7 +85,7 @@ func Test_TaskQueue(t *testing.T) {
 				q, err := New[foo](client, "test")
 				require.NoError(t, err)
 
-				err = q.Enqueue(context.Background(), "t1", &foo{
+				_, err = q.Enqueue(context.Background(), "t1", &foo{
 					Count: 1,
 					Name:  "bar",
 				})
@@ -81,7 +104,7 @@ func Test_TaskQueue(t *testing.T) {
 			f: func(t *testing.T) {
 				q, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1", nil)
+				_, err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				q2, _ := New[any](client, "test")
@@ -100,7 +123,7 @@ func Test_TaskQueue(t *testing.T) {
 				q, _ := New[any](client, "test")
 				q2, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1", nil)
+				_, err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
@@ -124,7 +147,7 @@ func Test_TaskQueue(t *testing.T) {
 			f: func(t *testing.T) {
 				q, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1", nil)
+				_, err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				q2, _ := New[any](client, "test")
@@ -149,7 +172,7 @@ func Test_TaskQueue(t *testing.T) {
 			f: func(t *testing.T) {
 				q, _ := New[any](client, "test")
 
-				err := q.Enqueue(context.Background(), "t1", nil)
+				_, err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
 				q2, _ := New[any](client, "test")

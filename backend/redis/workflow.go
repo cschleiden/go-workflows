@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -31,8 +32,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	// History
-	cmd := rb.rdb.XRange(ctx, historyKey(instanceTask.ID), "-", "+")
-	msgs, err := cmd.Result()
+	msgs, err := rb.rdb.XRange(ctx, historyKey(instanceTask.ID), "-", "+").Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
 	}
@@ -52,8 +52,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	// New Events
 	newEvents := make([]history.Event, 0)
 
-	cmd = rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", "+")
-	msgs, err = cmd.Result()
+	msgs, err = rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", "+").Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
 	}
@@ -72,7 +71,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	rb.rdb.XTrim(ctx, pendingEventsKey(instanceTask.ID), 0)
 
 	return &task.Workflow{
-		ID:               instanceTask.ID,
+		ID:               instanceTask.TaskID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceTask.ID, instanceState.ExecutionID),
 		History:          historyEvents,
 		NewEvents:        newEvents,
@@ -117,10 +116,10 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 
 		// TODO: Delay unlocking the current instance. Can we find a better way here?
 		if targetInstance != instance {
-			// TODO: Make sure this task is not already enqueued
-
-			if err := rb.workflowQueue.Enqueue(ctx, targetInstance.GetInstanceID(), nil); err != nil {
-				return errors.Wrap(err, "could not add instance to locked instances set")
+			if _, err := rb.workflowQueue.Enqueue(ctx, targetInstance.GetInstanceID(), nil); err != nil {
+				if err != taskqueue.ErrTaskAlreadyInQueue {
+					return errors.Wrap(err, "could not add instance to locked instances set")
+				}
 			}
 		}
 	}
@@ -140,7 +139,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	// Store activity data
 	// TODO: Use pipeline?
 	for _, activityEvent := range activityEvents {
-		if err := rb.activityQueue.Enqueue(ctx, activityEvent.ID, &activityData{
+		if _, err := rb.activityQueue.Enqueue(ctx, activityEvent.ID, &activityData{
 			InstanceID: instance.GetInstanceID(),
 			ID:         activityEvent.ID,
 			Event:      activityEvent,
@@ -166,9 +165,10 @@ func (rb *redisBackend) addWorkflowInstanceEvent(ctx context.Context, instance c
 	}
 
 	// Queue workflow task
-	// TODO: Ensure this can only be queued once
-	if err := rb.workflowQueue.Enqueue(ctx, instance.GetInstanceID(), nil); err != nil {
-		return errors.Wrap(err, "could not queue workflow")
+	if _, err := rb.workflowQueue.Enqueue(ctx, instance.GetInstanceID(), nil); err != nil {
+		if err != taskqueue.ErrTaskAlreadyInQueue {
+			return errors.Wrap(err, "could not queue workflow")
+		}
 	}
 
 	return nil

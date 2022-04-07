@@ -4,23 +4,19 @@
 
 Instances and their state (started_at, completed_at etc.) are stored as JSON blobs under the `instances-{instanceID}` keys.
 
-## History Events
+## History and pending events
 
-Events are stored in streams per workflow instance under `events-{instanceID}`. We could use a plain list but with streams we can do `XRANGE` queries for a subset of the history for continuation tasks.
-
-## Pending events
-
-Pending events are stored in streams under the `pending-{instanceID}` key.
+Events are stored in streams per workflow instance under the `events-{instanceID}` key. We maintain a cursor in the instance state, that indicates the last event that has been executed. Every event after that in the stream, is a pending event and will be returned to the worker in the next workflow task.
 
 ## Timer events
 
-Timer events are stored in a sorted set. Whenever a client checks for a new workflow instance task, the sorted set is checked to see if any of the pending timer events is ready yet. If it is, it's added to the pending events before those are checked for pending workflow tasks.
+Timer events are stored in a sorted set (`ZSET`). Whenever a worker checks for a new workflow instance task, the sorted set is checked to see if any of the pending timer events is ready yet. If it is, it's added to the pending events before those are returned for pending workflow tasks.
 
 ## Task queues
 
 We need queues for activities and workflow instances. In both cases, we have tasks being enqueued, workers polling for works, and we have to guarantee that every task is eventually processed. So if a worker has dequeued a task and crashed, for example, eventually we need another worker to pick up the task and finish it.
 
-Task queues are implemented using Redis STREAMs.
+Task queues are implemented using Redis STREAMs. In addition for queues where we only want a single instance of a task to be in the queue, we maintain an additional `SET`.
 
 <details>
   <summary>Alternatives considered</summary>

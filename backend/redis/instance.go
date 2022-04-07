@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/go-redis/redis/v8"
@@ -42,8 +43,10 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	}
 
 	// Add instance to pending instances set
-	if err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.GetInstanceID(), nil); err != nil {
-		return errors.Wrap(err, "could not queue workflow task")
+	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.GetInstanceID(), nil); err != nil {
+		if err != taskqueue.ErrTaskAlreadyInQueue {
+			return errors.Wrap(err, "could not queue workflow task")
+		}
 	}
 
 	return nil

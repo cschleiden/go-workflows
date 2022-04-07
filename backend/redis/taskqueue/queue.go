@@ -13,9 +13,10 @@ import (
 type taskQueue[T any] struct {
 	tasktype   string
 	rdb        redis.UniversalClient
+	setKey     string
+	streamKey  string
 	groupName  string
 	workerName string
-	streamName string
 }
 
 type TaskItem[T any] struct {
@@ -29,24 +30,27 @@ type TaskItem[T any] struct {
 	Data T
 }
 
+var ErrTaskAlreadyInQueue = errors.New("task already in queue")
+
 type TaskQueue[T any] interface {
-	Enqueue(ctx context.Context, id string, data *T) error
+	Enqueue(ctx context.Context, id string, data *T) (*string, error)
 	Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem[T], error)
 	Extend(ctx context.Context, taskID string) error
-	Complete(ctx context.Context, id string) error
+	Complete(ctx context.Context, taskID string) error
 }
 
 func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error) {
 	tq := &taskQueue[T]{
 		tasktype:   tasktype,
 		rdb:        rdb,
+		setKey:     "task-set:" + tasktype,
+		streamKey:  "task-stream:" + tasktype,
 		groupName:  "task-workers",
 		workerName: uuid.NewString(),
-		streamName: "task-stream:" + tasktype,
 	}
 
 	// Create the consumer group
-	_, err := tq.rdb.XGroupCreateMkStream(context.Background(), tq.streamName, tq.groupName, "0").Result()
+	_, err := tq.rdb.XGroupCreateMkStream(context.Background(), tq.streamKey, tq.groupName, "0").Result()
 	if err != nil {
 		// Ugly, check since there is no UPSERT for consumer groups. Might replace with a script
 		// using XINFO & XGROUP CREATE atomically
@@ -58,24 +62,37 @@ func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error
 	return tq, nil
 }
 
-func (q *taskQueue[T]) Enqueue(ctx context.Context, id string, data *T) error {
+// KEYS[1] = stream
+// KEYS[2] = stream
+// ARGV[1] = caller provided id of the task
+// ARGV[2] = additional data to store with the task
+var enqueueCmd = redis.NewScript(`
+	local exists = redis.call("sadd", KEYS[1], ARGV[1])
+	if exists == 0 then
+		return nil
+	end
+
+	local task_id = redis.call("xadd", KEYS[2], "*", "id", ARGV[1], "data", ARGV[2])
+	return task_id
+`)
+
+func (q *taskQueue[T]) Enqueue(ctx context.Context, id string, data *T) (*string, error) {
 	ds, err := json.Marshal(data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = q.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: q.streamName,
-		Values: map[string]interface{}{
-			"id":   id,
-			"data": string(ds),
-		},
-	}).Result()
-	if err != nil {
-		return errors.Wrap(err, "could not enqueue task")
+	taskID, err := enqueueCmd.Run(ctx, q.rdb, []string{q.setKey, q.streamKey}, id, string(ds)).Result()
+	if err != nil && err != redis.Nil {
+		return nil, errors.Wrap(err, "could not enqueue task")
 	}
 
-	return nil
+	if taskID == nil {
+		return nil, ErrTaskAlreadyInQueue
+	}
+
+	tidStr := taskID.(string)
+	return &tidStr, nil
 }
 
 func (q *taskQueue[T]) Dequeue(ctx context.Context, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
@@ -91,7 +108,7 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, lockTimeout, timeout time.Du
 
 	// Check for new tasks
 	ids, err := q.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
-		Streams:  []string{q.streamName, ">"},
+		Streams:  []string{q.streamKey, ">"},
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		Count:    1,
@@ -113,7 +130,7 @@ func (q *taskQueue[T]) Extend(ctx context.Context, taskID string) error {
 	// Claiming a message resets the idle timer. Don't use the `JUSTID` variant, we
 	// want to increase the retry counter.
 	_, err := q.rdb.XClaim(ctx, &redis.XClaimArgs{
-		Stream:   q.streamName,
+		Stream:   q.streamKey,
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		Messages: []string{taskID},
@@ -126,24 +143,27 @@ func (q *taskQueue[T]) Extend(ctx context.Context, taskID string) error {
 	return nil
 }
 
-func (q *taskQueue[T]) Complete(ctx context.Context, id string) error {
-	// c, err := q.rdb.XAck(ctx, q.streamName, q.groupName, id).Result()
-	// if err != nil {
-	// 	return errors.Wrap(nil, "could not complete task")
-	// }
+// We need TaskIDs for the stream and caller provided IDs for the set. So first look up
+// the ID in the stream using the TaskID, then remove from the set and the stream
+// KEYS[1] = set
+// KEYS[2] = stream
+// ARGV[1] = task id
+var completeCmd = redis.NewScript(`
+	local task = redis.call("XRANGE", KEYS[2], ARGV[1], ARGV[1])
+	local id = task[1][2][2]
+	redis.call("SREM", KEYS[1], id)
+	return redis.call("XDEL", KEYS[2], ARGV[1])
+`)
 
-	// if c != 1 {
-	// 	return errors.New("could find task to complete")
-	// }
-
+func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 	// Delete the task here. Overall we'll keep the stream at a small size, so fragmentation
 	// is not an issue for us.
-	c, err := q.rdb.XDel(ctx, q.streamName, id).Result()
-	if err != nil {
-		return errors.Wrap(nil, "could not complete task")
+	c, err := completeCmd.Run(ctx, q.rdb, []string{q.setKey, q.streamKey}, taskID).Result()
+	if err != nil && err != redis.Nil {
+		return errors.Wrap(err, "could not complete task")
 	}
 
-	if c != 1 {
+	if c.(int64) == 0 || err == redis.Nil {
 		return errors.New("could find task to complete")
 	}
 
@@ -154,7 +174,7 @@ func (q *taskQueue[T]) recover(ctx context.Context, idleTimeout time.Duration) (
 	// Ignore the start argument, we are deleting tasks as they are completed, so we'll always
 	// start this scan from the beginning.
 	msgs, _, err := q.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
-		Stream:   q.streamName,
+		Stream:   q.streamKey,
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		MinIdle:  idleTimeout,
