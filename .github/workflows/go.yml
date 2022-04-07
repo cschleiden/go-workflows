@@ -22,7 +22,12 @@ jobs:
       run: go build -v ./...
 
     - name: Start Redis
-      uses: supercharge/redis-github-action@1.4.0
+      uses: shogo82148/actions-setup-redis@v1
+      with:
+        auto-start: true
+        redis-port: 6379
+        redis-version: latest
+        redis-conf: 'requirepass RedisPassw0rd'
 
     - name: Tests
       run: |
