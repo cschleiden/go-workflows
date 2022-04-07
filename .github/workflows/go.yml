@@ -21,6 +21,9 @@ jobs:
     - name: Build
       run: go build -v ./...
 
+    - name: Start Redis
+      uses: supercharge/redis-github-action@1.4.0
+
     - name: Tests
       run: |
         sudo /etc/init.d/mysql start
