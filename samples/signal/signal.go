@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -18,7 +19,11 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := sqlite.NewInMemoryBackend()
+	// b := sqlite.NewInMemoryBackend()
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -69,22 +74,18 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-	defer log.Println("Leaving Workflow1")
+	samples.Trace(ctx, "Entering Workflow1")
 
-	log.Println("Waiting for first signal")
+	samples.Trace(ctx, "Waiting for first signal")
 	workflow.Select(ctx,
 		workflow.Receive(workflow.NewSignalChannel[int](ctx, "test"), func(ctx workflow.Context, r int, ok bool) {
-			log.Println("Received signal:", r)
-			log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+			samples.Trace(ctx, "Received signal:", r)
 		}),
 	)
 
-	log.Println("Waiting for second signal")
+	samples.Trace(ctx, "Waiting for second signal")
 	workflow.NewSignalChannel[int](ctx, "test2").Receive(ctx)
-	log.Println("Received second signal")
+	samples.Trace(ctx, "Received second signal")
 
 	if _, err := workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
 		InstanceID: subID,
@@ -92,19 +93,18 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 		panic(err)
 	}
 
-	log.Println("Sub workflow finished")
+	samples.Trace(ctx, "Sub workflow finished")
 
 	return "result", nil
 }
 
 func SubWorkflow1(ctx workflow.Context) (string, error) {
-	log.Println("Waiting for signal from sub-worflow")
-	defer log.Println("Leaving SubWorkflow1")
+	samples.Trace(ctx, "Waiting for signal from sub-worflow")
 
 	c := workflow.NewSignalChannel[string](ctx, "sub-signal")
 	c.Receive(ctx)
 
-	log.Println("Received.")
+	samples.Trace(ctx, "Received sub-workflow signal")
 
 	return "World", nil
 }
