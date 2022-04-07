@@ -20,7 +20,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 		f    func(t *testing.T, ctx context.Context, b backend.Backend)
 	}{
 		{
-			name: "Test_GetWorkflowTask_ReturnsNilWhenTimeout",
+			name: "GetWorkflowTask_ReturnsNilWhenTimeout",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
 				defer cancel()
@@ -30,7 +30,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_GetActivityTask_ReturnsNilWhenTimeout",
+			name: "GetActivityTask_ReturnsNilWhenTimeout",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
 				defer cancel()
@@ -40,7 +40,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_CreateWorkflowInstance_DoesNotError",
+			name: "CreateWorkflowInstance_DoesNotError",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				instanceID := uuid.NewString()
 
@@ -52,7 +52,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_CreateWorkflowInstance_SameInstanceIDErrors",
+			name: "CreateWorkflowInstance_SameInstanceIDErrors",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				instanceID := uuid.NewString()
 				executionID := uuid.NewString()
@@ -71,7 +71,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_GetWorkflowTask_ReturnsTask",
+			name: "GetWorkflowTask_ReturnsTask",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
@@ -88,7 +88,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_GetWorkflowTask_LocksTask",
+			name: "GetWorkflowTask_LocksTask",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
@@ -113,7 +113,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_CompleteWorkflowTask_ReturnsErrorIfNotLocked",
+			name: "CompleteWorkflowTask_ReturnsErrorIfNotLocked",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
@@ -128,7 +128,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "Test_CompleteWorkflowTask_AddsNewEventsToHistory",
+			name: "CompleteWorkflowTask_AddsNewEventsToHistory",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
 				activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
@@ -188,6 +188,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				c := client.New(b)
 				err := c.SignalWorkflow(ctx, "does-not-exist", "signal", "value")
 				require.Error(t, err)
+				require.Equal(t, backend.ErrInstanceNotFound, err)
 			},
 		},
 	}

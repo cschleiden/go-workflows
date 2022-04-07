@@ -9,6 +9,11 @@ import (
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
+	_, err := readInstance(ctx, rb.rdb, instanceID)
+	if err != nil {
+		return err
+	}
+
 	msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instanceID), &event)
 	if err != nil {
 		return errors.Wrap(err, "could not add event to stream")

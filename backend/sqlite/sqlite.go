@@ -202,6 +202,12 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	}
 	defer tx.Rollback()
 
+	// TODO: Combine this with the event insertion
+	res := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? LIMIT 1", instanceID)
+	if err := res.Scan(nil); err == sql.ErrNoRows {
+		return backend.ErrInstanceNotFound
+	}
+
 	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
 		return errors.Wrap(err, "could not insert signal event")
 	}

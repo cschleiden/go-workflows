@@ -160,14 +160,18 @@ func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID s
 
 func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID string) (*instanceState, error) {
 	key := instanceKey(instanceID)
-	cmd := rdb.Get(ctx, key)
 
-	if err := cmd.Err(); err != nil {
+	val, err := rdb.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, backend.ErrInstanceNotFound
+		}
+
 		return nil, errors.Wrap(err, "could not read instance")
 	}
 
 	var state instanceState
-	if err := json.Unmarshal([]byte(cmd.Val()), &state); err != nil {
+	if err := json.Unmarshal([]byte(val), &state); err != nil {
 		return nil, errors.Wrap(err, "could not unmarshal instance state")
 	}
 

@@ -2,12 +2,15 @@ package backend
 
 import (
 	"context"
+	"errors"
 
 	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/workflow"
 )
+
+var ErrInstanceNotFound = errors.New("workflow instance not found")
 
 type WorkflowState int
 
