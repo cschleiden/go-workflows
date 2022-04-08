@@ -1,8 +1,15 @@
 package backend
 
-import "time"
+import (
+	"time"
+
+	"github.com/cschleiden/go-workflows/internal/logger"
+	"github.com/cschleiden/go-workflows/log"
+)
 
 type Options struct {
+	Logger log.Logger
+
 	StickyTimeout time.Duration
 
 	WorkflowLockTimeout time.Duration
@@ -24,11 +31,21 @@ func WithStickyTimeout(timeout time.Duration) BackendOption {
 	}
 }
 
+func WithLogger(logger log.Logger) BackendOption {
+	return func(o *Options) {
+		o.Logger = logger
+	}
+}
+
 func ApplyOptions(opts ...BackendOption) Options {
 	options := DefaultOptions
 
 	for _, opt := range opts {
 		opt(&options)
+	}
+
+	if options.Logger == nil {
+		options.Logger = logger.NewDefaultLogger()
 	}
 
 	return options

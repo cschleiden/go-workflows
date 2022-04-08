@@ -9,7 +9,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -65,34 +64,36 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
-	samples.Trace(ctx, "Entering Workflow1")
-	samples.Trace(ctx, "\tWorkflow instance input:", msg)
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1")
+	logger.Debug("\tWorkflow instance input:", "msg", msg)
 
 	wr, err := workflow.CreateSubWorkflowInstance[string](ctx, workflow.DefaultSubWorkflowOptions, Workflow2, "some input").Get(ctx)
 	if err != nil {
 		return errors.Wrap(err, "could not get sub workflow result")
 	}
 
-	samples.Trace(ctx, "Sub workflow result:", wr)
+	logger.Debug("Sub workflow result:", wr)
 
 	return nil
 }
 
 func Workflow2(ctx workflow.Context, msg string) (string, error) {
-	samples.Trace(ctx, "Entering Workflow2")
-	samples.Trace(ctx, "\tWorkflow instance input:", msg)
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow2")
+	logger.Debug("\tWorkflow instance input:", "msg", msg)
 
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	samples.Trace(ctx, "R1 result:", r1)
+	logger.Debug("R1 result:", r1)
 
 	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	samples.Trace(ctx, "R2 result:", r2)
+	logger.Debug("R2 result:", r2)
 
 	return "W2 Result", nil
 }

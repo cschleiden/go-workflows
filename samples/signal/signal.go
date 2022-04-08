@@ -10,7 +10,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -74,18 +73,19 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
-	samples.Trace(ctx, "Entering Workflow1")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1")
 
-	samples.Trace(ctx, "Waiting for first signal")
+	logger.Debug("Waiting for first signal")
 	workflow.Select(ctx,
 		workflow.Receive(workflow.NewSignalChannel[int](ctx, "test"), func(ctx workflow.Context, r int, ok bool) {
-			samples.Trace(ctx, "Received signal:", r)
+			logger.Debug("Received signal:", r)
 		}),
 	)
 
-	samples.Trace(ctx, "Waiting for second signal")
+	logger.Debug("Waiting for second signal")
 	workflow.NewSignalChannel[int](ctx, "test2").Receive(ctx)
-	samples.Trace(ctx, "Received second signal")
+	logger.Debug("Received second signal")
 
 	if _, err := workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
 		InstanceID: subID,
@@ -93,18 +93,19 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 		panic(err)
 	}
 
-	samples.Trace(ctx, "Sub workflow finished")
+	logger.Debug("Sub workflow finished")
 
 	return "result", nil
 }
 
 func SubWorkflow1(ctx workflow.Context) (string, error) {
-	samples.Trace(ctx, "Waiting for signal from sub-worflow")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Waiting for signal from sub-worflow")
 
 	c := workflow.NewSignalChannel[int](ctx, "sub-signal")
 	c.Receive(ctx)
 
-	samples.Trace(ctx, "Received sub-workflow signal")
+	logger.Debug("Received sub-workflow signal")
 
 	return "World", nil
 }

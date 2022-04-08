@@ -11,16 +11,19 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/pkg/errors"
 )
 
 type Executor struct {
-	r *workflow.Registry
+	logger log.Logger
+	r      *workflow.Registry
 }
 
-func NewExecutor(r *workflow.Registry) Executor {
+func NewExecutor(logger log.Logger, r *workflow.Registry) Executor {
 	return Executor{
-		r: r,
+		logger: logger,
+		r:      r,
 	}
 }
 func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (payload.Payload, error) {
@@ -41,8 +44,14 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		return nil, errors.Wrap(err, "could not convert activity inputs")
 	}
 
+	as := NewActivityState(
+		task.Event.ID,
+		task.WorkflowInstance,
+		e.logger)
+	activityCtx := WithActivityState(ctx, as)
+
 	if addContext {
-		args[0] = reflect.ValueOf(ctx)
+		args[0] = reflect.ValueOf(activityCtx)
 	}
 
 	r := activityFn.Call(args)

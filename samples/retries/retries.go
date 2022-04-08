@@ -11,7 +11,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -63,8 +62,9 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
-	trace(ctx, "Entering Workflow1", msg)
-	defer trace(ctx, "Leaving Workflow1")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1", msg)
+	defer logger.Debug("Leaving Workflow1")
 
 	// Illustrate sub workflow retries. The called workflow will fail a few times, and its execution will be retried.
 	_, err := workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
@@ -78,15 +78,16 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		return errs.Wrap(err, "error starting subworkflow")
 	}
 
-	trace(ctx, "Completing workflow 1")
+	logger.Debug("Completing workflow 1")
 	return nil
 }
 
 var workflowCalls = 0
 
 func WorkflowWithFailures(ctx workflow.Context, msg string) error {
-	trace(ctx, "Entering WorkflowWithFailures", msg)
-	defer trace(ctx, "Leaving WorkflowWithFailures")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering WorkflowWithFailures", msg)
+	defer logger.Debug("Leaving WorkflowWithFailures")
 
 	workflowCalls++
 	if workflowCalls < 3 {
@@ -102,13 +103,13 @@ func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 		},
 	}, Activity1, 35).Get(ctx)
 	if err != nil {
-		trace(ctx, "Error from Activity 1", err)
+		logger.Debug("Error from Activity 1", err)
 		return errs.Wrap(err, "error getting result from activity 1")
 	}
 
-	trace(ctx, "R1 result:", r1)
+	logger.Debug("R1 result", "r1", r1)
 
-	trace(ctx, "Completing workflow with failures")
+	logger.Debug("Completing workflow with failures")
 	return nil
 }
 
@@ -127,8 +128,4 @@ func Activity1(ctx context.Context, a int) (int, error) {
 	}
 
 	return a, nil
-}
-
-func trace(ctx workflow.Context, args ...interface{}) {
-	samples.Trace(ctx, args...)
 }

@@ -7,6 +7,7 @@ import (
 	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
@@ -59,4 +60,7 @@ type Backend interface {
 
 	// ExtendActivityTask extends the lock of an activity task
 	ExtendActivityTask(ctx context.Context, activityID string) error
+
+	// Logger returns the configured logger for the backend
+	Logger() log.Logger
 }

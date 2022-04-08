@@ -11,7 +11,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -79,73 +78,75 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	samples.Trace(ctx, "Entering Workflow1", msg)
-	defer samples.Trace(ctx, "Leaving Workflow1")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1", msg)
+	defer logger.Debug("Leaving Workflow1")
 
 	defer func() {
 		if errors.Is(ctx.Err(), workflow.Canceled) {
-			samples.Trace(ctx, "Workflow1 was canceled")
+			logger.Debug("Workflow1 was canceled")
 
-			samples.Trace(ctx, "Do cleanup")
+			logger.Debug("Do cleanup")
 			ctx := workflow.NewDisconnectedContext(ctx)
 			if _, err := workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, ActivityCleanup).Get(ctx); err != nil {
 				panic("could not execute cleanup activity")
 			}
-			samples.Trace(ctx, "Done with cleanup")
+			logger.Debug("Done with cleanup")
 		}
 	}()
 
-	samples.Trace(ctx, "schedule ActivitySuccess")
+	logger.Debug("schedule ActivitySuccess")
 	if r0, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySuccess, 1, 2).Get(ctx); err != nil {
-		samples.Trace(ctx, "error getting activity success result", err)
+		logger.Debug("error getting activity success result", err)
 	} else {
-		samples.Trace(ctx, "ActivitySuccess result:", r0)
+		logger.Debug("ActivitySuccess result:", r0)
 	}
 
-	samples.Trace(ctx, "schedule ActivityCancel")
+	logger.Debug("schedule ActivityCancel")
 	if rw, err := workflow.CreateSubWorkflowInstance[string](ctx, workflow.SubWorkflowOptions{
 		InstanceID: "sub-workflow",
 	}, Workflow2, "hello sub").Get(ctx); err != nil {
-		samples.Trace(ctx, "error getting workflow2 result", err)
+		logger.Debug("error getting workflow2 result", err)
 	} else {
-		samples.Trace(ctx, "Workflow2 result:", rw)
+		logger.Debug("Workflow2 result:", rw)
 	}
 
-	samples.Trace(ctx, "schedule ActivitySkip")
+	logger.Debug("schedule ActivitySkip")
 	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySkip, 1, 2).Get(ctx); err != nil {
-		samples.Trace(ctx, "error getting activity skip result", err)
+		logger.Debug("error getting activity skip result", err)
 	} else {
-		samples.Trace(ctx, "ActivitySkip result:", r2)
+		logger.Debug("ActivitySkip result:", r2)
 	}
 
-	samples.Trace(ctx, "Workflow finished")
+	logger.Debug("Workflow finished")
 	return "result", nil
 }
 
 func Workflow2(ctx workflow.Context, msg string) (ret string, err error) {
-	samples.Trace(ctx, "Entering Workflow2", msg)
-	defer samples.Trace(ctx, "Leaving Workflow2")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow2", msg)
+	defer logger.Debug("Leaving Workflow2")
 
 	defer func() {
 		if errors.Is(ctx.Err(), workflow.Canceled) {
-			samples.Trace(ctx, "Workflow2 was canceled")
+			logger.Debug("Workflow2 was canceled")
 
-			samples.Trace(ctx, "Do cleanup")
+			logger.Debug("Do cleanup")
 			ctx := workflow.NewDisconnectedContext(ctx)
 			if _, err := workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, ActivityCleanup).Get(ctx); err != nil {
 				panic("could not execute cleanup activity")
 			}
-			samples.Trace(ctx, "Done with cleanup")
+			logger.Debug("Done with cleanup")
 
 			ret = "cleanup result"
 		}
 	}()
 
-	samples.Trace(ctx, "schedule ActivityCancel")
+	logger.Debug("schedule ActivityCancel")
 	if r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivityCancel, 1, 2).Get(ctx); err != nil {
-		samples.Trace(ctx, "error getting activity cancel result", err)
+		logger.Debug("error getting activity cancel result", err)
 	} else {
-		samples.Trace(ctx, "ActivityCancel result:", r1)
+		logger.Debug("ActivityCancel result:", r1)
 	}
 
 	return "some result", nil

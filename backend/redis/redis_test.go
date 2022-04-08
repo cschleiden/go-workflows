@@ -12,6 +12,10 @@ import (
 )
 
 func Test_RedisBackend(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	test.BackendTest(t, func() backend.Backend {
 		address := "localhost:6379"
 		user := ""

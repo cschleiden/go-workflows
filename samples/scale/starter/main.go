@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend/redis"
+	"github.com/cschleiden/go-workflows/backend/mysql"
 	"github.com/cschleiden/go-workflows/client"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/google/uuid"
@@ -25,11 +25,11 @@ func main() {
 	ctx := context.Background()
 
 	//b := sqlite.NewSqliteBackend("../scale.sqlite")
-	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "scale")
-	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-	if err != nil {
-		panic(err)
-	}
+	b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "scale")
+	// b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// Start workflow via client
 	c := client.New(b)

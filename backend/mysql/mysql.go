@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -81,6 +82,10 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	}
 
 	return nil
+}
+
+func (b *mysqlBackend) Logger() log.Logger {
+	return b.options.Logger
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {

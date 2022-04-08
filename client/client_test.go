@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -75,6 +76,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
+	b.On("Logger").Return(logger.NewDefaultLogger())
 	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
@@ -101,6 +103,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	input, _ := converter.DefaultConverter.To(arg)
 
 	b := &backend.MockBackend{}
+	b.On("Logger").Return(logger.NewDefaultLogger())
 	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test" &&

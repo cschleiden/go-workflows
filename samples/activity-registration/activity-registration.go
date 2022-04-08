@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+
 	"os"
 	"os/signal"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -63,21 +63,22 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
-	samples.Trace(ctx, "Entering Workflow1")
-	defer samples.Trace(ctx, "Leaving Workflow1")
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1")
+	defer logger.Debug("Leaving Workflow1")
 
 	var a *activities
 
 	if r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12, nil, "test").Get(ctx); err != nil {
 		return errors.New("error getting activity 1 result")
 	} else {
-		samples.Trace(ctx, "R1 result:", r1)
+		logger.Debug("R1 result:", r1)
 	}
 
 	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity2).Get(ctx); err != nil {
 		return errors.New("error getting activity 2 result")
 	} else {
-		samples.Trace(ctx, "R2 result:", r2)
+		logger.Debug("R2 result:", r2)
 	}
 
 	return nil

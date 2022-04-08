@@ -3,7 +3,6 @@ package tester
 import (
 	"context"
 	"fmt"
-	"log"
 	"reflect"
 	"sort"
 	"sync/atomic"
@@ -17,9 +16,11 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 )
@@ -72,6 +73,7 @@ type testWorkflow struct {
 
 type options struct {
 	TestTimeout time.Duration
+	Logger      log.Logger
 }
 
 type workflowTester struct {
@@ -105,9 +107,19 @@ type workflowTester struct {
 	subWorkflowListener func(*core.WorkflowInstance, string)
 
 	runningActivities int32
+
+	logger log.Logger
 }
 
-func NewWorkflowTester(wf interface{}) WorkflowTester {
+type WorkflowTesterOption func(*options)
+
+func WithLogger(logger log.Logger) WorkflowTesterOption {
+	return func(o *options) {
+		o.Logger = logger
+	}
+}
+
+func NewWorkflowTester(wf interface{}, opts ...WorkflowTesterOption) WorkflowTester {
 	// Start with the current wall-clock tiem
 	clock := clock.NewMock()
 	clock.Set(time.Now())
@@ -115,10 +127,20 @@ func NewWorkflowTester(wf interface{}) WorkflowTester {
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	registry := workflow.NewRegistry()
 
+	options := &options{
+		TestTimeout: time.Second * 10,
+	}
+
+	for _, o := range opts {
+		o(options)
+	}
+
+	if options.Logger == nil {
+		options.Logger = logger.NewDefaultLogger()
+	}
+
 	wt := &workflowTester{
-		options: &options{
-			TestTimeout: time.Second * 10,
-		},
+		options: options,
 
 		wf:       wf,
 		wfi:      wfi,
@@ -137,6 +159,8 @@ func NewWorkflowTester(wf interface{}) WorkflowTester {
 
 		timers:    make([]*testTimer, 0),
 		callbacks: make(chan func() *history.WorkflowEvent, 1024),
+
+		logger: options.Logger,
 	}
 
 	// Always register the workflow under test
@@ -205,7 +229,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := workflow.NewExecutor(wt.registry, tw.instance, wt.clock)
+			e, err := workflow.NewExecutor(wt.logger, wt.registry, tw.instance, wt.clock)
 			if err != nil {
 				panic("could not create workflow executor" + err.Error())
 			}
@@ -221,7 +245,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			tw.history = append(tw.history, result.NewEvents...)
 
 			for _, event := range result.NewEvents {
-				log.Println("Event", event.Type)
+				wt.logger.Debug("Event", "event_type", event.Type)
 
 				switch event.Type {
 				case history.EventType_WorkflowExecutionFinished:
@@ -240,7 +264,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 
 			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
-				log.Println("Workflow event", workflowEvent.HistoryEvent.Type)
+				wt.logger.Debug("Workflow event", "event_type", workflowEvent.HistoryEvent.Type)
 
 				switch workflowEvent.HistoryEvent.Type {
 				case history.EventType_WorkflowExecutionStarted:
@@ -278,7 +302,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 				wt.timers = wt.timers[1:]
 
 				// Advance workflow clock to fire the timer
-				log.Println("Advancing workflow clock to fire timer")
+				wt.logger.Debug("Advancing workflow clock to fire timer")
 				wt.clock.Set(t.At)
 				t.Callback()
 			} else {
@@ -428,7 +452,7 @@ func (wt *workflowTester) scheduleActivity(wfi *core.WorkflowInstance, event his
 			}
 
 		} else {
-			executor := activity.NewExecutor(wt.registry)
+			executor := activity.NewExecutor(wt.logger, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
 				WorkflowInstance: wfi,

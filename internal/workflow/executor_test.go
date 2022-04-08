@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -22,7 +22,8 @@ import (
 )
 
 func newExecutor(r *Registry, i *core.WorkflowInstance) *executor {
-	s := workflowstate.NewWorkflowState(i, clock.New())
+	logger := logger.NewDefaultLogger()
+	s := workflowstate.NewWorkflowState(i, logger, clock.New())
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
 	return &executor{
@@ -31,7 +32,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance) *executor {
 		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
-		logger:            log.Default(),
+		logger:            logger,
 		clock:             clock.New(),
 	}
 }
