@@ -141,6 +141,7 @@ The Sqlite backend implementation supports two different modes, in-memory and on
 b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 ```
 
+
 ## Guide
 
 ### Registering workflows
@@ -453,6 +454,43 @@ func TestWorkflow(t *testing.T) {
 
 - Timers are automatically fired by advancing a mock workflow clock that is used for testing workflows
 - You can register callbacks to fire at specific times (in mock-clock time). Callbacks can send signals, cancel workflows etc.
+
+### Logging
+
+For logging, you can pass a type to the backend via the `WithLogger` option to set a custom logger. The type has to implement this simple interface:
+
+```go
+type Logger interface {
+	Debug(msg string, fields ...interface{})
+	Warn(msg string, fields ...interface{})
+	Error(msg string, fields ...interface{})
+	Panic(msg string, fields ...interface{})
+
+	With(fields ...interface{}) Logger
+}
+```
+
+If you don't pass a logger, a very simple, unoptimized default logger is used. For production use it is strongly recommended to pass another logger.
+
+#### Workflows
+
+For logging in workflows, you can get a logger using
+
+```go
+logger := workflow.Logger(ctx)
+```
+
+The returned `logger` implements the `Logger` interface, and already has the workflow instance and execution IDs set as default fields.
+
+#### Activities
+
+For logging in activities, you can get a logger using
+
+```go
+logger := activity.Logger(ctx)
+```
+
+The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance and execution IDs set as default fields.
 
 ## Versioning
 

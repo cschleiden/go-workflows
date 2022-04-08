@@ -44,6 +44,8 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 		}
 	}
 
+	rb.options.Logger.Debug("Created new workflow instance")
+
 	return nil
 }
 

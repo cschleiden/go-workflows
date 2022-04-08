@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -56,6 +57,10 @@ type sqliteBackend struct {
 	db         *sql.DB
 	workerName string
 	options    backend.Options
+}
+
+func (sb *sqliteBackend) Logger() log.Logger {
+	return sb.options.Logger
 }
 
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {

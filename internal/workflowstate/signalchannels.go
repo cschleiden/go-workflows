@@ -19,7 +19,7 @@ func ReceiveSignal(ctx sync.Context, wf *WfState, name string, arg payload.Paylo
 		wf.pendingSignals[name] = ps
 	}
 
-	ps = append(ps, arg)
+	wf.pendingSignals[name] = append(ps, arg)
 }
 
 func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Channel[T] {

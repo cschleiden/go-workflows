@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log"
 	"reflect"
 
 	"github.com/benbjohnson/clock"
@@ -16,6 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/google/uuid"
 	errs "github.com/pkg/errors"
 )
@@ -40,12 +39,12 @@ type executor struct {
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
 	clock             clock.Clock
-	logger            *log.Logger
+	logger            log.Logger
 	lastEventID       string
 }
 
-func NewExecutor(registry *Registry, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
-	s := workflowstate.NewWorkflowState(instance, clock)
+func NewExecutor(logger log.Logger, registry *Registry, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+	s := workflowstate.NewWorkflowState(instance, logger, clock)
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
 	return &executor{
@@ -54,8 +53,7 @@ func NewExecutor(registry *Registry, instance *core.WorkflowInstance, clock cloc
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
 		clock:             clock,
-		logger:            log.New(io.Discard, "", log.LstdFlags),
-		//logger: log.Default(),
+		logger:            logger,
 	}, nil
 }
 
@@ -136,7 +134,7 @@ func (e *executor) Close() {
 }
 
 func (e *executor) executeEvent(event history.Event) error {
-	e.logger.Println("Handling:", event.Type)
+	e.logger.Debug("Handling:", event.Type)
 
 	var err error
 

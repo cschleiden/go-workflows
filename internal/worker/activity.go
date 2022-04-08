@@ -41,7 +41,7 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 		options: options,
 
 		activityTaskQueue:    make(chan *task.Activity),
-		activityTaskExecutor: activity.NewExecutor(registry),
+		activityTaskExecutor: activity.NewExecutor(backend.Logger(), registry),
 
 		logger: log.Default(),
 

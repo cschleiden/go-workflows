@@ -70,6 +70,8 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, errors.Wrap(err, "could not create workflow instance")
 	}
 
+	c.backend.Logger().Debug("Created workflow instance", "instance_id", wfi.InstanceID, "execution_id", wfi.ExecutionID)
+
 	return wfi, nil
 }
 
@@ -93,7 +95,14 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 		},
 	)
 
-	return c.backend.SignalWorkflow(ctx, instanceID, event)
+	err = c.backend.SignalWorkflow(ctx, instanceID, event)
+	if err != nil {
+		return err
+	}
+
+	c.backend.Logger().Debug("Canceled workflow instance", "instance_id", instanceID)
+
+	return nil
 }
 
 func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error {

@@ -8,6 +8,8 @@ import (
 	core "github.com/cschleiden/go-workflows/internal/core"
 	history "github.com/cschleiden/go-workflows/internal/history"
 
+	log "github.com/cschleiden/go-workflows/log"
+
 	mock "github.com/stretchr/testify/mock"
 
 	task "github.com/cschleiden/go-workflows/internal/task"
@@ -18,7 +20,7 @@ type MockBackend struct {
 	mock.Mock
 }
 
-// CancelWorkflowInstance provides a mock function with given fields: ctx, instance
+// CancelWorkflowInstance provides a mock function with given fields: ctx, instance, event
 func (_m *MockBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	ret := _m.Called(ctx, instance, event)
 
@@ -46,8 +48,8 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.
 	return r0
 }
 
-// CompleteWorkflowTask provides a mock function with given fields: ctx, instance, state, executedEvents, activityEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context,taskID string, instance *core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+// CompleteWorkflowTask provides a mock function with given fields: ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
 	ret := _m.Called(ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents)
 
 	var r0 error
@@ -88,9 +90,9 @@ func (_m *MockBackend) ExtendActivityTask(ctx context.Context, activityID string
 	return r0
 }
 
-// ExtendWorkflowTask provides a mock function with given fields: ctx, instance
+// ExtendWorkflowTask provides a mock function with given fields: ctx, taskID, instance
 func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error {
-	ret := _m.Called(ctx, instance)
+	ret := _m.Called(ctx, taskID, instance)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, *core.WorkflowInstance) error); ok {
@@ -190,6 +192,22 @@ func (_m *MockBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	}
 
 	return r0, r1
+}
+
+// Logger provides a mock function with given fields:
+func (_m *MockBackend) Logger() log.Logger {
+	ret := _m.Called()
+
+	var r0 log.Logger
+	if rf, ok := ret.Get(0).(func() log.Logger); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(log.Logger)
+		}
+	}
+
+	return r0
 }
 
 // SignalWorkflow provides a mock function with given fields: ctx, instanceID, event

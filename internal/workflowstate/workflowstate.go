@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/log"
 )
 
 type key int
@@ -46,13 +47,14 @@ type WfState struct {
 	pendingSignals map[string][]payload.Payload
 	signalChannels map[string]*signalChannel
 
+	logger log.Logger
+
 	clock clock.Clock
 	time  time.Time
 }
 
-func NewWorkflowState(instance *core.WorkflowInstance, clock clock.Clock) *WfState {
-	return &WfState{
-
+func NewWorkflowState(instance *core.WorkflowInstance, logger log.Logger, clock clock.Clock) *WfState {
+	state := &WfState{
 		instance:        instance,
 		commands:        []*command.Command{},
 		scheduleEventID: 1,
@@ -63,6 +65,12 @@ func NewWorkflowState(instance *core.WorkflowInstance, clock clock.Clock) *WfSta
 
 		clock: clock,
 	}
+
+	state.logger = NewReplayLogger(state, logger.With(
+		"instance_id", instance.InstanceID,
+		"execution_id", instance.ExecutionID))
+
+	return state
 }
 
 func WorkflowState(ctx sync.Context) *WfState {
@@ -145,4 +153,8 @@ func (wf *WfState) Time() time.Time {
 
 func (wf *WfState) Instance() *core.WorkflowInstance {
 	return wf.instance
+}
+
+func (wf *WfState) Logger() log.Logger {
+	return wf.logger
 }

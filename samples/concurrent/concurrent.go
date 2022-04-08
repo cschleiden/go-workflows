@@ -10,7 +10,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -59,12 +58,12 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1")
+	logger.Debug("\tWorkflow instance input:", msg)
 
 	defer func() {
-		log.Println("Leaving Workflow1")
+		logger.Debug("Leaving Workflow1")
 	}()
 
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
@@ -73,7 +72,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	results := 0
 
 	for results < 2 {
-		samples.Trace(ctx, "Selecting...")
+		logger.Debug("Selecting...")
 
 		workflow.Select(
 			ctx,
@@ -98,7 +97,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 			}),
 		)
 
-		samples.Trace(ctx, "Selected")
+		logger.Debug("Selected")
 	}
 
 	return "result", nil

@@ -6,6 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
 )
@@ -93,4 +94,8 @@ type activityData struct {
 
 type workflowTaskData struct {
 	LastPendingEventMessageID string `json:"last_pending_event_message_id,omitempty"`
+}
+
+func (rb *redisBackend) Logger() log.Logger {
+	return rb.options.Logger
 }

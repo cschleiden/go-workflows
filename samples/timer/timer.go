@@ -11,7 +11,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -66,11 +65,9 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
-	samples.Trace(ctx, "Entering Workflow1, input: ", msg)
-
-	defer func() {
-		samples.Trace(ctx, "Leaving Workflow1")
-	}()
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1, input: ", msg)
+	defer logger.Debug("Leaving Workflow1")
 
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
@@ -82,9 +79,9 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		ctx,
 		workflow.Await(t, func(ctx workflow.Context, f workflow.Future[struct{}]) {
 			if _, err := f.Get(ctx); err != nil {
-				samples.Trace(ctx, "Timer canceled")
+				logger.Debug("Timer canceled")
 			} else {
-				samples.Trace(ctx, "Timer fired")
+				logger.Debug("Timer fired")
 			}
 		}),
 		workflow.Await(a1, func(ctx workflow.Context, f workflow.Future[int]) {
@@ -93,7 +90,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 				panic(err)
 			}
 
-			samples.Trace(ctx, "Activity result", r)
+			logger.Debug("Activity result", r)
 
 			// Cancel timer
 			// cancel()

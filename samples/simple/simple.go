@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/redis"
+	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 
@@ -16,13 +16,13 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	//b := sqlite.NewSqliteBackend("simple.sqlite")
+	b := sqlite.NewSqliteBackend("simple.sqlite")
 	//b := sqlite.NewInMemoryBackend()
 	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
-	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-	if err != nil {
-		panic(err)
-	}
+	// b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// Run worker
 	w := RunWorker(ctx, b)
@@ -51,14 +51,12 @@ func runWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.InstanceID)
+	result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*10)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*10)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// log.Println("Workflow finished. Result:", result)
+	log.Println("Workflow finished. Result:", result)
 
 	time.Sleep(time.Minute * 5)
 }
