@@ -58,7 +58,7 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 
 	// Default options
 	options := &RedisOptions{
-		Options:      backend.DefaultOptions,
+		Options:      backend.ApplyOptions(),
 		BlockTimeout: time.Second * 5,
 	}
 
