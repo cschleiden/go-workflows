@@ -26,6 +26,10 @@ type ExecutionResult struct {
 	WorkflowEvents []history.WorkflowEvent
 }
 
+type WorkflowHistoryProvider interface {
+	GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error)
+}
+
 type WorkflowExecutor interface {
 	ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error)
 
@@ -34,6 +38,7 @@ type WorkflowExecutor interface {
 
 type executor struct {
 	registry          *Registry
+	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
 	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
@@ -43,12 +48,13 @@ type executor struct {
 	lastSequenceID    int64
 }
 
-func NewExecutor(logger log.Logger, registry *Registry, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+func NewExecutor(logger log.Logger, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
 	return &executor{
 		registry:          registry,
+		historyProvider:   historyProvider,
 		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
@@ -58,25 +64,23 @@ func NewExecutor(logger log.Logger, registry *Registry, instance *core.WorkflowI
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
-	if t.Kind == task.Continuation {
-		// Check if the current state matches the backend's history state
-		newestHistoryEvent := t.History[len(t.History)-1]
-		if newestHistoryEvent.SequenceID != e.lastSequenceID {
-			return nil, fmt.Errorf("mismatch in execution, last event %v not found in history, last there is %v (%v)", e.lastSequenceID, newestHistoryEvent.SequenceID, newestHistoryEvent.Type)
+	if t.LastSequenceID > e.lastSequenceID {
+		e.logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
+
+		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
+		if err != nil {
+			return nil, errs.Wrap(err, "could not get workflow history")
 		}
 
-		// Clear commands from previous executions
-		e.workflowState.ClearCommands()
-	} else {
-		// Replay history
-		e.workflowState.SetReplaying(true)
-		for _, event := range t.History {
-			if err := e.executeEvent(event); err != nil {
-				return nil, errs.Wrap(err, "error while replaying event")
-			}
-
-			e.lastSequenceID = event.SequenceID
+		if err := e.replayHistory(h); err != nil {
+			return nil, errs.Wrap(err, "could not replay history")
 		}
+
+		if t.LastSequenceID != e.lastSequenceID {
+			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
+		}
+	} else if t.LastSequenceID < e.lastSequenceID {
+		return nil, fmt.Errorf("task has older history than current state, cannot execute")
 	}
 
 	// Always pad the received events with WorkflowTaskStarted/Finished evnets to indicate the execution
@@ -110,6 +114,19 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		ActivityEvents: activityEvents,
 		WorkflowEvents: workflowEvents,
 	}, nil
+}
+
+func (e *executor) replayHistory(history []history.Event) error {
+	e.workflowState.SetReplaying(true)
+	for _, event := range history {
+		if err := e.executeEvent(event); err != nil {
+			return errs.Wrap(err, "could not execute history event")
+		}
+
+		e.lastSequenceID = event.SequenceID
+	}
+
+	return nil
 }
 
 func (e *executor) executeNewEvents(newEvents []history.Event) error {

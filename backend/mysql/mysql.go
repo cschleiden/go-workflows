@@ -127,18 +127,28 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 	return tx.Commit()
 }
 
-func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance) ([]history.Event, error) {
+func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error) {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	historyEvents, err := tx.QueryContext(
-		ctx,
-		"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
-		instance.InstanceID,
-	)
+	var historyEvents *sql.Rows
+	if lastSequenceID != nil {
+		historyEvents, err = tx.QueryContext(
+			ctx,
+			"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? AND sequence_id > ? ORDER BY sequence_id",
+			instance.InstanceID,
+			*lastSequenceID,
+		)
+	} else {
+		historyEvents, err = tx.QueryContext(
+			ctx,
+			"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY sequence_id",
+			instance.InstanceID,
+		)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get history")
 	}
@@ -324,12 +334,6 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		return nil, nil
 	}
 
-	// Check if this task is using a dedicated queue and should be returned as a continuation
-	var kind task.Kind
-	if stickyUntil != nil && stickyUntil.After(now) {
-		kind = task.Continuation
-	}
-
 	var wfi *workflow.Instance
 	if parentInstanceID != nil {
 		wfi = core.NewSubWorkflowInstance(instanceID, executionID, *parentInstanceID, *parentEventID)
@@ -341,8 +345,6 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		ID:               wfi.InstanceID,
 		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
-		History:          []history.Event{},
-		Kind:             kind,
 	}
 
 	// Get new events
@@ -390,75 +392,14 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		return nil, nil
 	}
 
-	// Get historyEvents
-	if kind != task.Continuation {
-		historyEvents, err := tx.QueryContext(
-			ctx,
-			"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
-			instanceID,
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get history")
+	// Get most recent sequence id
+	row = tx.QueryRowContext(ctx, "SELECT sequence_id FROM `history` WHERE instance_id = ? ORDER BY id DESC LIMIT 1", instanceID)
+	if err := row.Scan(
+		&t.LastSequenceID,
+	); err != nil {
+		if err != sql.ErrNoRows {
+			return nil, errors.Wrap(err, "could not get most recent sequence id")
 		}
-
-		for historyEvents.Next() {
-			var instanceID string
-			var attributes []byte
-
-			historyEvent := history.Event{}
-
-			if err := historyEvents.Scan(
-				&historyEvent.ID,
-				&historyEvent.SequenceID,
-				&instanceID,
-				&historyEvent.Type,
-				&historyEvent.Timestamp,
-				&historyEvent.ScheduleEventID,
-				&attributes,
-				&historyEvent.VisibleAt,
-			); err != nil {
-				return nil, errors.Wrap(err, "could not scan event")
-			}
-
-			a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
-			if err != nil {
-				return nil, errors.Wrap(err, "could not deserialize attributes")
-			}
-
-			historyEvent.Attributes = a
-
-			t.History = append(t.History, historyEvent)
-		}
-	} else {
-		// Get only most recent history event
-		row := tx.QueryRowContext(ctx, "SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id DESC LIMIT 1", instanceID)
-
-		var instanceID string
-		var attributes []byte
-
-		lastHistoryEvent := history.Event{}
-
-		if err := row.Scan(
-			&lastHistoryEvent.ID,
-			&lastHistoryEvent.SequenceID,
-			&instanceID,
-			&lastHistoryEvent.Type,
-			&lastHistoryEvent.Timestamp,
-			&lastHistoryEvent.ScheduleEventID,
-			&attributes,
-			&lastHistoryEvent.VisibleAt,
-		); err != nil {
-			return nil, errors.Wrap(err, "could not scan event")
-		}
-
-		a, err := history.DeserializeAttributes(lastHistoryEvent.Type, attributes)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not deserialize attributes")
-		}
-
-		lastHistoryEvent.Attributes = a
-
-		t.History = []history.Event{lastHistoryEvent}
 	}
 
 	if err := tx.Commit(); err != nil {

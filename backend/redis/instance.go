@@ -49,7 +49,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	return nil
 }
 
-func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance) ([]history.Event, error) {
+func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
 	msgs, err := rb.rdb.XRange(ctx, historyKey(instance.InstanceID), "-", "+").Result()
 	if err != nil {
 		return nil, err
@@ -103,10 +103,11 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
-	Instance    *core.WorkflowInstance `json:"instance,omitempty"`
-	State       backend.WorkflowState  `json:"state,omitempty"`
-	CreatedAt   time.Time              `json:"created_at,omitempty"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
+	Instance       *core.WorkflowInstance `json:"instance,omitempty"`
+	State          backend.WorkflowState  `json:"state,omitempty"`
+	CreatedAt      time.Time              `json:"created_at,omitempty"`
+	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
+	LastSequenceID int64                  `json:"last_sequence_id,omitempty"`
 }
 
 func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, ignoreDuplicate bool) error {

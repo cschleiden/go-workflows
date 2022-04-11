@@ -2,25 +2,42 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/redis"
+	"github.com/cschleiden/go-workflows/backend/sqlite"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/cschleiden/go-workflows/worker"
 )
 
+var backendType = flag.String("backend", "redis", "backend to use: sqlite, mysql, redis")
+
 func main() {
+	flag.Parse()
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	//b := sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "scale")
-	// b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	var b backend.Backend
+
+	switch *backendType {
+	case "sqlite":
+		b = sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
+
+	case "mysql":
+		b = mysql.NewMysqlBackend("localhost", 3306, "root", "root", "scale")
+
+	case "redis":
+		var err error
+		b, err = redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	// Run worker
 	go RunWorker(ctx, b)

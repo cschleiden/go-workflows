@@ -128,12 +128,12 @@ func (_m *MockBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 }
 
 // GetWorkflowInstanceHistory provides a mock function with given fields: ctx, instance
-func (_m *MockBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance) ([]history.Event, error) {
+func (_m *MockBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
 	ret := _m.Called(ctx, instance)
 
 	var r0 []history.Event
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance) []history.Event); ok {
-		r0 = rf(ctx, instance)
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *int64) []history.Event); ok {
+		r0 = rf(ctx, instance, lastSequenceID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]history.Event)
@@ -141,8 +141,8 @@ func (_m *MockBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *core.WorkflowInstance) error); ok {
-		r1 = rf(ctx, instance)
+	if rf, ok := ret.Get(1).(func(context.Context, *core.WorkflowInstance, *int64) error); ok {
+		r1 = rf(ctx, instance, lastSequenceID)
 	} else {
 		r1 = ret.Error(1)
 	}

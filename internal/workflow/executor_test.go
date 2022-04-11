@@ -21,7 +21,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newExecutor(r *Registry, i *core.WorkflowInstance) *executor {
+type testHistoryProvider struct {
+	history []history.Event
+}
+
+func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
+	return t.history, nil
+}
+
+func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) *executor {
 	logger := logger.NewDefaultLogger()
 	s := workflowstate.NewWorkflowState(i, logger, clock.New())
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
@@ -29,6 +37,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance) *executor {
 	return &executor{
 		registry:          r,
 		workflow:          NewWorkflow(reflect.ValueOf(workflow1)),
+		historyProvider:   historyProvider,
 		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
@@ -59,7 +68,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
+		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
 				time.Now(),
@@ -72,7 +81,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance)
+	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
 
 	_, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
@@ -113,39 +122,39 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
-			history.NewHistoryEvent(
-				1,
-				time.Now(),
-				history.EventType_WorkflowExecutionStarted,
-				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithActivity",
-					Inputs: []payload.Payload{inputs},
-				},
-			),
-			history.NewHistoryEvent(
-				2,
-				time.Now(),
-				history.EventType_ActivityScheduled,
-				&history.ActivityScheduledAttributes{
-					Name:   "activity1",
-					Inputs: []payload.Payload{inputs},
-				},
-				history.ScheduleEventID(1),
-			),
-			history.NewHistoryEvent(
-				3,
-				time.Now(),
-				history.EventType_ActivityCompleted,
-				&history.ActivityCompletedAttributes{
-					Result: result,
-				},
-				history.ScheduleEventID(1),
-			),
-		},
+		LastSequenceID:   3,
 	}
 
-	e := newExecutor(r, task.WorkflowInstance)
+	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{[]history.Event{
+		history.NewHistoryEvent(
+			1,
+			time.Now(),
+			history.EventType_WorkflowExecutionStarted,
+			&history.ExecutionStartedAttributes{
+				Name:   "workflowWithActivity",
+				Inputs: []payload.Payload{inputs},
+			},
+		),
+		history.NewHistoryEvent(
+			2,
+			time.Now(),
+			history.EventType_ActivityScheduled,
+			&history.ActivityScheduledAttributes{
+				Name:   "activity1",
+				Inputs: []payload.Payload{inputs},
+			},
+			history.ScheduleEventID(1),
+		),
+		history.NewHistoryEvent(
+			3,
+			time.Now(),
+			history.EventType_ActivityCompleted,
+			&history.ActivityCompletedAttributes{
+				Result: result,
+			},
+			history.ScheduleEventID(1),
+		),
+	}})
 
 	_, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
@@ -166,7 +175,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
+		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
 				time.Now(),
@@ -179,7 +188,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance)
+	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -222,7 +231,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
+		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
 				time.Now(),
@@ -235,7 +244,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance)
+	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -278,7 +287,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
+		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
 				time.Now(),
@@ -291,7 +300,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance)
+	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -316,10 +325,8 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	oldTask := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History:          []history.Event{},
 		NewEvents: []history.Event{
-			history.NewHistoryEvent(
-				1,
+			history.NewPendingEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -327,8 +334,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 					Inputs: []payload.Payload{inputs},
 				},
 			),
-			history.NewHistoryEvent(
-				2,
+			history.NewPendingEvent(
 				time.Now(),
 				history.EventType_ActivityScheduled,
 				&history.ActivityScheduledAttributes{
@@ -340,7 +346,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, oldTask.WorkflowInstance)
+	e := newExecutor(r, oldTask.WorkflowInstance, &testHistoryProvider{[]history.Event{}})
 
 	taskResult, err := e.ExecuteTask(context.Background(), oldTask)
 
@@ -356,7 +362,6 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	newTask := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: oldTask.WorkflowInstance,
-		History:          h,
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -368,7 +373,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 				history.ScheduleEventID(1),
 			),
 		},
-		Kind: task.Continuation,
+		LastSequenceID: 4,
 	}
 
 	// Execute the workflow again with the activity completed event
@@ -402,9 +407,8 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		History: []history.Event{
-			history.NewHistoryEvent(
-				1,
+		NewEvents: []history.Event{
+			history.NewPendingEvent(
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -412,8 +416,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 					Inputs: []payload.Payload{},
 				},
 			),
-			history.NewHistoryEvent(
-				2,
+			history.NewPendingEvent(
 				time.Now(),
 				history.EventType_SignalReceived,
 				&history.SignalReceivedAttributes{
@@ -424,7 +427,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance)
+	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
 
 	_, err = e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)

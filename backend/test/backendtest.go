@@ -168,7 +168,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 
 				time.Sleep(time.Second)
 
-				h, err := b.GetWorkflowInstanceHistory(ctx, wfi)
+				h, err := b.GetWorkflowInstanceHistory(ctx, wfi, nil)
 				require.NoError(t, err)
 				require.Equal(t, len(events), len(h))
 				for i, event := range events {

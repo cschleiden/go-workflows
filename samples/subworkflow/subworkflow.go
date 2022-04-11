@@ -3,11 +3,10 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
+	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -16,27 +15,29 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// b := sqlite.NewInMemoryBackend()
 	// b := sqlite.NewSqliteBackend("subworkflow.sqlite")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "root", "simple")
-	// b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "root", "simple")
+	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
+	if err != nil {
+		panic(err)
+	}
 
 	// Run worker
-	go RunWorker(ctx, b)
+	w := RunWorker(ctx, b)
 
 	// Start workflow via client
 	c := client.New(b)
 
 	startWorkflow(ctx, c)
 
-	c2 := make(chan os.Signal, 1)
-	signal.Notify(c2, os.Interrupt)
-	<-c2
+	cancel()
+
+	if err := w.Stop(); err != nil {
+		panic("could not stop worker" + err.Error())
+	}
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
@@ -48,9 +49,16 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	}
 
 	log.Println("Started workflow", wf.InstanceID)
+
+	result, err := client.GetWorkflowResult[any](ctx, c, wf, time.Second*10)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Workflow finished. Result:", result)
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) {
+func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
@@ -62,6 +70,8 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
+
+	return w
 }
 
 func Workflow1(ctx workflow.Context, msg string) error {
