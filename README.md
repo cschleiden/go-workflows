@@ -71,7 +71,7 @@ func runWorker(ctx context.Context, mb backend.Backend) {
 
 ### Backend
 
-The backend is responsible for persisting the workflow events. Currently there is an in-memory backend implementation for testing, one using [SQLite](http://sqlite.org), and one for MySql.
+The backend is responsible for persisting the workflow events. Currently there is an in-memory backend implementation for testing, one using [SQLite](http://sqlite.org), one using MySql, and one using Redis.
 
 ```go
 b := sqlite.NewSqliteBackend("simple.sqlite")
@@ -141,6 +141,15 @@ The Sqlite backend implementation supports two different modes, in-memory and on
 b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 ```
 
+#### Redis
+
+```go
+b, err := redis.NewRedisBackend("localhost:6379", "user", "RedisPassw0rd", 0)
+if err != nil {
+	panic(err)
+}
+
+```
 
 ## Guide
 
