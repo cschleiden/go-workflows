@@ -148,7 +148,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 	ic := c.(*client)
 	b := ic.backend
 
-	h, err := b.GetWorkflowInstanceHistory(ctx, instance)
+	h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
 	if err != nil {
 		return z, errors.Wrap(err, "could not get workflow history")
 	}

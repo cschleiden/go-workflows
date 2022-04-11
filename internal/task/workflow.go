@@ -5,13 +5,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-type Kind int
-
-const (
-	_ Kind = iota
-	Continuation
-)
-
 type Workflow struct {
 	// ID is an identifier for this task. It's set by the backend
 	ID string
@@ -19,12 +12,8 @@ type Workflow struct {
 	// WorkflowInstance is the workflow instance that this task is for
 	WorkflowInstance *core.WorkflowInstance
 
-	// Kind defines what kind of task this is. A Continuation task only contains
-	// new events and not the full history. By default the history is included.
-	Kind Kind
-
-	// History are the events that have been executed so far
-	History []history.Event
+	// LastSequenceID is the sequence ID of the newest event in the workflow instances's history
+	LastSequenceID int64
 
 	// NewEvents are new events since the last task execution
 	NewEvents []history.Event

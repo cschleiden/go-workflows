@@ -79,28 +79,10 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, errors.Wrap(err, "could not read workflow instance")
 	}
 
-	// History
-	msgs, err := rb.rdb.XRange(ctx, historyKey(instanceTask.ID), "-", "+").Result()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not read event stream")
-	}
-
-	historyEvents := make([]history.Event, 0)
-
-	for _, msg := range msgs {
-		var event history.Event
-
-		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
-			return nil, errors.Wrap(err, "could not unmarshal event")
-		}
-
-		historyEvents = append(historyEvents, event)
-	}
-
 	// New Events
 	newEvents := make([]history.Event, 0)
 
-	msgs, err = rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", instanceTask.Data.LastPendingEventMessageID).Result()
+	msgs, err := rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", instanceTask.Data.LastPendingEventMessageID).Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read event stream")
 	}
@@ -118,7 +100,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	return &task.Workflow{
 		ID:               instanceTask.TaskID,
 		WorkflowInstance: instanceState.Instance,
-		History:          historyEvents,
+		LastSequenceID:   instanceState.LastSequenceID,
 		NewEvents:        newEvents,
 	}, nil
 }
@@ -207,6 +189,7 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	}
 
 	instanceState.State = state
+	instanceState.LastSequenceID = executedEvents[len(executedEvents)-1].SequenceID
 
 	if err := updateInstance(ctx, rb.rdb, instance.InstanceID, instanceState); err != nil {
 		return errors.Wrap(err, "could not update workflow instance")

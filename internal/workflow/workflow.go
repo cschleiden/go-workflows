@@ -58,6 +58,11 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 			if err != nil {
 				return errors.Wrap(err, "could not convert workflow result")
 			}
+		} else {
+			result, err = converter.DefaultConverter.To(nil)
+			if err != nil {
+				return errors.Wrap(err, "could not convert workflow result")
+			}
 		}
 
 		errResult := r[len(r)-1]

@@ -19,7 +19,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(logger.NewDefaultLogger(), r, i, clock.New())
+	e, err := NewExecutor(logger.NewDefaultLogger(), r, &testHistoryProvider{}, i, clock.New())
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)
@@ -40,7 +40,7 @@ func Test_Cache_Evic(t *testing.T) {
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(logger.NewDefaultLogger(), r, i, clock.New())
+	e, err := NewExecutor(logger.NewDefaultLogger(), r, &testHistoryProvider{}, i, clock.New())
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)

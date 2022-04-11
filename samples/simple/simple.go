@@ -16,8 +16,8 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := sqlite.NewSqliteBackend("simple.sqlite")
-	//b := sqlite.NewInMemoryBackend()
+	// b := sqlite.NewSqliteBackend("simple.sqlite")
+	b := sqlite.NewInMemoryBackend()
 	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
 	// b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
 	// if err != nil {
@@ -57,8 +57,6 @@ func runWorkflow(ctx context.Context, c client.Client) {
 	}
 
 	log.Println("Workflow finished. Result:", result)
-
-	time.Sleep(time.Minute * 5)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {

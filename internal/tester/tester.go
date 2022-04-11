@@ -25,6 +25,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type testHistoryProvider struct {
+	history []history.Event
+}
+
+func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
+	return t.history, nil
+}
+
 type WorkflowTester interface {
 	// Now returns the current time of the simulated clock in the tester
 	Now() time.Time
@@ -229,7 +237,7 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := workflow.NewExecutor(wt.logger, wt.registry, tw.instance, wt.clock)
+			e, err := workflow.NewExecutor(wt.logger, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
 			if err != nil {
 				panic("could not create workflow executor" + err.Error())
 			}
@@ -617,9 +625,14 @@ func (wt *workflowTester) getInitialEvent(wf interface{}, args []interface{}) hi
 }
 
 func getNextWorkflowTask(wfi *core.WorkflowInstance, history []history.Event, newEvents []history.Event) *task.Workflow {
+	var lastSequenceID int64
+	if len(history) > 0 {
+		lastSequenceID = history[len(history)-1].SequenceID
+	}
+
 	return &task.Workflow{
 		WorkflowInstance: wfi,
-		History:          history,
+		LastSequenceID:   lastSequenceID,
 		NewEvents:        newEvents,
 	}
 }

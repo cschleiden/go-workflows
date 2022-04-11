@@ -31,8 +31,9 @@ type Backend interface {
 	// GetWorkflowInstanceState returns the state of the given workflow instance
 	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (WorkflowState, error)
 
-	// GetWorkflowInstanceHistory returns the full workflow history for the given instance
-	GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance) ([]history.Event, error)
+	// GetWorkflowInstanceHistory returns the workflow history for the given instance. When lastSequenceID
+	// is given, only events after that event are returned. Otherwise the full history is returned.
+	GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error)
 
 	// SignalWorkflow signals a running workflow instance
 	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error

@@ -163,14 +163,14 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance) ([]history.Event, error) {
+func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	h, err := getHistory(ctx, tx, instance.InstanceID)
+	h, err := getHistory(ctx, tx, instance.InstanceID, lastSequenceID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get workflow history")
 	}
@@ -267,12 +267,6 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		return nil, errors.Wrap(err, "could not lock workflow task")
 	}
 
-	// Check if this task is using a dedicated queue and should be returned as a continuation
-	var kind task.Kind
-	if stickyUntil != nil && stickyUntil.After(now) {
-		kind = task.Continuation
-	}
-
 	var wfi *workflow.Instance
 	if parentInstanceID != nil {
 		wfi = core.NewSubWorkflowInstance(instanceID, executionID, *parentInstanceID, *parentEventID)
@@ -284,8 +278,6 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		ID:               wfi.InstanceID,
 		WorkflowInstance: wfi,
 		NewEvents:        []history.Event{},
-		History:          []history.Event{},
-		Kind:             kind,
 	}
 
 	// Get new events
@@ -301,25 +293,13 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	t.NewEvents = pendingEvents
 
-	// Get workflow history
-	if kind != task.Continuation {
-		// Retrieve full history
-		h, err := getHistory(ctx, tx, instanceID)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get workflow history")
+	// Get only most recent sequence ID
+	// TODO: Denormalize to instances table
+	row = tx.QueryRowContext(ctx, "SELECT sequence_id FROM `history` WHERE instance_id = ? ORDER BY rowid DESC LIMIT 1", instanceID)
+	if err := row.Scan(&t.LastSequenceID); err != nil {
+		if err != sql.ErrNoRows {
+			return nil, errors.Wrap(err, "could not get most recent sequence id")
 		}
-
-		t.History = h
-	} else {
-		// Get only most recent history event
-		row := tx.QueryRowContext(ctx, "SELECT * FROM `history` WHERE instance_id = ? ORDER BY rowid DESC LIMIT 1", instanceID)
-
-		lastHistoryEvent, err := scanEvent(row)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get workflow history")
-		}
-
-		t.History = []history.Event{lastHistoryEvent}
 	}
 
 	if err := tx.Commit(); err != nil {

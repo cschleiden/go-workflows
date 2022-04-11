@@ -31,8 +31,14 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]his
 	return pendingEvents, nil
 }
 
-func getHistory(ctx context.Context, tx *sql.Tx, instanceID string) ([]history.Event, error) {
-	historyEvents, err := tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ?", instanceID)
+func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequenceID *int64) ([]history.Event, error) {
+	var historyEvents *sql.Rows
+	var err error
+	if lastSequenceID != nil {
+		historyEvents, err = tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ? AND sequence_id > ?", instanceID, *lastSequenceID)
+	} else {
+		historyEvents, err = tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ?", instanceID)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get history")
 	}
