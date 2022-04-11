@@ -52,8 +52,8 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 	})
 	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(backend.WorkflowStateFinished, nil)
 	b.On("GetWorkflowInstanceHistory", mock.Anything, instance).Return([]history.Event{
-		history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
-		history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{
+		history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+		history.NewHistoryEvent(2, time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{
 			Result: r,
 			Error:  "",
 		}),

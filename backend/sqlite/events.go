@@ -61,7 +61,7 @@ func scanEvent(row Scanner) (history.Event, error) {
 
 	historyEvent := history.Event{}
 
-	if err := row.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
+	if err := row.Scan(&historyEvent.ID, &historyEvent.SequenceID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
 		return historyEvent, errors.Wrap(err, "could not scan event")
 	}
 
@@ -92,8 +92,8 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 		}
 		batchEvents := events[batchStart:batchEnd]
 
-		query := "INSERT INTO `" + tableName + "` (id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)" +
-			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+		query := "INSERT INTO `" + tableName + "` (id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
+			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
 
 		args := make([]interface{}, 0, len(batchEvents)*7)
 
@@ -103,7 +103,7 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 				return err
 			}
 
-			args = append(args, newEvent.ID, instanceID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
+			args = append(args, newEvent.ID, newEvent.SequenceID, instanceID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
 		}
 
 		_, err := tx.ExecContext(

@@ -61,6 +61,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -114,6 +115,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -122,6 +124,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				2,
 				time.Now(),
 				history.EventType_ActivityScheduled,
 				&history.ActivityScheduledAttributes{
@@ -131,6 +134,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 				history.ScheduleEventID(1),
 			),
 			history.NewHistoryEvent(
+				3,
 				time.Now(),
 				history.EventType_ActivityCompleted,
 				&history.ActivityCompletedAttributes{
@@ -164,6 +168,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -219,6 +224,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -236,7 +242,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	require.Equal(t, 1, workflowTimerHits)
 	require.Len(t, e.workflowState.Commands(), 1)
 
-	require.Equal(t, 1, e.workflowState.Commands()[0].ID)
+	require.Equal(t, int64(1), e.workflowState.Commands()[0].ID)
 	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.Commands()[0].Type)
 }
 
@@ -274,6 +280,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -312,6 +319,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		History:          []history.Event{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -320,6 +328,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				2,
 				time.Now(),
 				history.EventType_ActivityScheduled,
 				&history.ActivityScheduledAttributes{
@@ -342,7 +351,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 
 	h := []history.Event{}
 	h = append(h, oldTask.NewEvents...)
-	h = append(h, taskResult.NewEvents...)
+	h = append(h, taskResult.Executed...)
 
 	newTask := &task.Workflow{
 		ID:               "taskID",
@@ -350,6 +359,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		History:          h,
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_ActivityCompleted,
 				&history.ActivityCompletedAttributes{
@@ -394,6 +404,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 		History: []history.Event{
 			history.NewHistoryEvent(
+				1,
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
@@ -402,6 +413,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 				},
 			),
 			history.NewHistoryEvent(
+				2,
 				time.Now(),
 				history.EventType_SignalReceived,
 				&history.SignalReceivedAttributes{

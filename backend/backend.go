@@ -55,7 +55,7 @@ type Backend interface {
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context) (*task.Activity, error)
 
-	// CompleteActivityTask completes a activity task retrieved using GetActivityTask
+	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
 	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event history.Event) error
 
 	// ExtendActivityTask extends the lock of an activity task

@@ -136,7 +136,7 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 
 	historyEvents, err := tx.QueryContext(
 		ctx,
-		"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
+		"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
 		instance.InstanceID,
 	)
 	if err != nil {
@@ -153,6 +153,7 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 
 		if err := historyEvents.Scan(
 			&historyEvent.ID,
+			&historyEvent.SequenceID,
 			&instanceID,
 			&historyEvent.Type,
 			&historyEvent.Timestamp,
@@ -347,7 +348,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	// Get new events
 	events, err := tx.QueryContext(
 		ctx,
-		"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?) ORDER BY id",
+		"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?) ORDER BY id",
 		instanceID,
 		now,
 	)
@@ -361,7 +362,16 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		historyEvent := history.Event{}
 
-		if err := events.Scan(&historyEvent.ID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
+		if err := events.Scan(
+			&historyEvent.ID,
+			&historyEvent.SequenceID,
+			&instanceID,
+			&historyEvent.Type,
+			&historyEvent.Timestamp,
+			&historyEvent.ScheduleEventID,
+			&attributes,
+			&historyEvent.VisibleAt,
+		); err != nil {
 			return nil, errors.Wrap(err, "could not scan event")
 		}
 
@@ -384,7 +394,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	if kind != task.Continuation {
 		historyEvents, err := tx.QueryContext(
 			ctx,
-			"SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
+			"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id",
 			instanceID,
 		)
 		if err != nil {
@@ -399,6 +409,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 			if err := historyEvents.Scan(
 				&historyEvent.ID,
+				&historyEvent.SequenceID,
 				&instanceID,
 				&historyEvent.Type,
 				&historyEvent.Timestamp,
@@ -420,7 +431,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		}
 	} else {
 		// Get only most recent history event
-		row := tx.QueryRowContext(ctx, "SELECT event_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id DESC LIMIT 1", instanceID)
+		row := tx.QueryRowContext(ctx, "SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? ORDER BY id DESC LIMIT 1", instanceID)
 
 		var instanceID string
 		var attributes []byte
@@ -429,6 +440,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		if err := row.Scan(
 			&lastHistoryEvent.ID,
+			&lastHistoryEvent.SequenceID,
 			&instanceID,
 			&lastHistoryEvent.Type,
 			&lastHistoryEvent.Timestamp,
@@ -529,7 +541,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	// Schedule activities
 	for _, e := range activityEvents {
-		if err := scheduleActivity(ctx, tx, instance.InstanceID, instance.ExecutionID, e); err != nil {
+		if err := scheduleActivity(ctx, tx, instance, e); err != nil {
 			return errors.Wrap(err, "could not schedule activity")
 		}
 	}
@@ -615,7 +627,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 		now,
 	)
 
-	var id int
+	var id int64
 	var instanceID, executionID string
 	var attributes []byte
 	event := history.Event{}
@@ -729,7 +741,7 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	return tx.Commit()
 }
 
-func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event history.Event) error {
+func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event history.Event) error {
 	a, err := history.SerializeAttributes(event.Attributes)
 	if err != nil {
 		return err
@@ -740,8 +752,8 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID s
 		`INSERT INTO activities
 			(activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
-		instanceID,
-		executionID,
+		instance.InstanceID,
+		instance.ExecutionID,
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,

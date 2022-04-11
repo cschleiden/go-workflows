@@ -85,11 +85,13 @@ type Event struct {
 	// ID is a unique identifier for this event
 	ID string
 
+	// SequenceID is a monotonically increasing sequence number this event. It's only set for events that have
+	// been executed and are in the history
+	SequenceID int64
+
 	Type EventType
 
 	Timestamp time.Time
-
-	SequenceID int64
 
 	// ScheduleEventID is used to correlate events belonging together
 	// For example, if an activity is scheduled, ScheduleEventID of the schedule event and the
@@ -120,9 +122,10 @@ func VisibleAt(visibleAt time.Time) HistoryEventOption {
 	}
 }
 
-func NewHistoryEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
+func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
 	e := Event{
 		ID:         uuid.NewString(),
+		SequenceID: sequenceID,
 		Type:       eventType,
 		Timestamp:  timestamp,
 		Attributes: attributes,
@@ -135,6 +138,10 @@ func NewHistoryEvent(timestamp time.Time, eventType EventType, attributes interf
 	return e
 }
 
+func NewPendingEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
+	return NewHistoryEvent(0, timestamp, eventType, attributes, opts...)
+}
+
 func NewWorkflowCancellationEvent(timestamp time.Time) Event {
-	return NewHistoryEvent(timestamp, EventType_WorkflowExecutionCanceled, &ExecutionCanceledAttributes{})
+	return NewPendingEvent(timestamp, EventType_WorkflowExecutionCanceled, &ExecutionCanceledAttributes{})
 }
