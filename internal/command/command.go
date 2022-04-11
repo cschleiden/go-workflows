@@ -35,7 +35,7 @@ const (
 type Command struct {
 	State CommandState
 
-	ID int
+	ID int64
 
 	Type CommandType
 
@@ -47,7 +47,7 @@ type ScheduleActivityTaskCommandAttr struct {
 	Inputs []payload.Payload
 }
 
-func NewScheduleActivityTaskCommand(id int, name string, inputs []payload.Payload) Command {
+func NewScheduleActivityTaskCommand(id int64, name string, inputs []payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleActivityTask,
@@ -64,7 +64,7 @@ type ScheduleSubWorkflowCommandAttr struct {
 	Inputs     []payload.Payload
 }
 
-func NewScheduleSubWorkflowCommand(id int, instanceID, name string, inputs []payload.Payload) Command {
+func NewScheduleSubWorkflowCommand(id int64, instanceID, name string, inputs []payload.Payload) Command {
 	if instanceID == "" {
 		instanceID = uuid.New().String()
 	}
@@ -84,7 +84,7 @@ type ScheduleTimerCommandAttr struct {
 	At time.Time
 }
 
-func NewScheduleTimerCommand(id int, at time.Time) Command {
+func NewScheduleTimerCommand(id int64, at time.Time) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleTimer,
@@ -98,7 +98,7 @@ type CancelTimerCommandAttr struct {
 	TimerID int
 }
 
-func NewCancelTimerCommand(id, timerID int) Command {
+func NewCancelTimerCommand(id int64, timerID int) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_CancelTimer,
@@ -112,7 +112,7 @@ type SideEffectCommandAttr struct {
 	Result payload.Payload
 }
 
-func NewSideEffectCommand(id int, result payload.Payload) Command {
+func NewSideEffectCommand(id int64, result payload.Payload) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_SideEffect,
@@ -127,7 +127,7 @@ type CompleteWorkflowCommandAttr struct {
 	Error  string
 }
 
-func NewCompleteWorkflowCommand(id int, result payload.Payload, err error) Command {
+func NewCompleteWorkflowCommand(id int64, result payload.Payload, err error) Command {
 	var error string
 	if err != nil {
 		error = err.Error()

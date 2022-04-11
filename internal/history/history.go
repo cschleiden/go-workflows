@@ -46,28 +46,34 @@ func (et EventType) String() string {
 		return "WorkflowExecutionTerminated"
 	case EventType_WorkflowExecutionCanceled:
 		return "WorkflowExecutionCanceled"
+
 	case EventType_WorkflowTaskStarted:
 		return "WorkflowTaskStarted"
 	case EventType_WorkflowTaskFinished:
 		return "WorkflowTaskFinished"
+
 	case EventType_SubWorkflowScheduled:
 		return "SubWorkflowScheduled"
 	case EventType_SubWorkflowCompleted:
 		return "SubWorkflowCompleted"
 	case EventType_SubWorkflowFailed:
 		return "SubWorkflowFailed"
+
 	case EventType_ActivityScheduled:
 		return "ActivityScheduled"
 	case EventType_ActivityCompleted:
 		return "ActivityCompleted"
 	case EventType_ActivityFailed:
 		return "ActivityFailed"
+
 	case EventType_TimerScheduled:
 		return "TimerScheduled"
 	case EventType_TimerFired:
 		return "TimerFired"
+
 	case EventType_SignalReceived:
 		return "SignalReceived"
+
 	case EventType_SideEffectResult:
 		return "SideEffectResult"
 	default:
@@ -83,10 +89,12 @@ type Event struct {
 
 	Timestamp time.Time
 
+	SequenceID int64
+
 	// ScheduleEventID is used to correlate events belonging together
 	// For example, if an activity is scheduled, ScheduleEventID of the schedule event and the
 	// completion/failure event are the same.
-	ScheduleEventID int
+	ScheduleEventID int64
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
@@ -100,7 +108,7 @@ func (e Event) String() string {
 
 type HistoryEventOption func(e *Event)
 
-func ScheduleEventID(scheduleEventID int) HistoryEventOption {
+func ScheduleEventID(scheduleEventID int64) HistoryEventOption {
 	return func(e *Event) {
 		e.ScheduleEventID = scheduleEventID
 	}

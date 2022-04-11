@@ -200,7 +200,7 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ignoreDuplicate bool) error {
 	var parentInstanceID *string
-	var parentEventID *int
+	var parentEventID *int64
 	if wfi.SubWorkflow() {
 		i := wfi.ParentInstanceID
 		parentInstanceID = &i
@@ -291,7 +291,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	var id int
 	var instanceID, executionID string
 	var parentInstanceID *string
-	var parentEventID *int
+	var parentEventID *int64
 	var stickyUntil *time.Time
 	if err := row.Scan(&id, &instanceID, &executionID, &parentInstanceID, &parentEventID, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
