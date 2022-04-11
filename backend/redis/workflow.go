@@ -26,7 +26,9 @@ type futureEvent struct {
 // ARGV[1] - current timestamp for zrange
 var futureEventsCmd = redis.NewScript(`
 	local events = redis.call("ZRANGEBYSCORE", KEYS[1], "-inf", ARGV[1])
-	redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", ARGV[1])
+	if events ~= false and #events ~= 0 then
+		redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", ARGV[1])
+	end
 	return events
 `)
 
