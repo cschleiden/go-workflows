@@ -8,7 +8,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/pkg/errors"
@@ -171,7 +170,7 @@ func (ww *workflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 		return executor, nil
 	}
 
-	executor, err := workflow.NewExecutor(logger.NewDefaultLogger(), ww.registry, t.WorkflowInstance, clock.New())
+	executor, err := workflow.NewExecutor(ww.backend.Logger(), ww.registry, t.WorkflowInstance, clock.New())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create workflow executor")
 	}
