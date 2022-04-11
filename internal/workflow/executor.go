@@ -21,7 +21,7 @@ import (
 
 type ExecutionResult struct {
 	Completed      bool
-	NewEvents      []history.Event
+	Executed       []history.Event
 	ActivityEvents []history.Event
 	WorkflowEvents []history.WorkflowEvent
 }
@@ -40,7 +40,7 @@ type executor struct {
 	workflowCtxCancel sync.CancelFunc
 	clock             clock.Clock
 	logger            log.Logger
-	lastEventID       string
+	lastSequenceID    int64
 }
 
 func NewExecutor(logger log.Logger, registry *Registry, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
@@ -61,8 +61,8 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	if t.Kind == task.Continuation {
 		// Check if the current state matches the backend's history state
 		newestHistoryEvent := t.History[len(t.History)-1]
-		if newestHistoryEvent.ID != e.lastEventID {
-			return nil, fmt.Errorf("mismatch in execution, last event %v not found in history, last there is %v (%v)", e.lastEventID, newestHistoryEvent.ID, newestHistoryEvent.Type)
+		if newestHistoryEvent.SequenceID != e.lastSequenceID {
+			return nil, fmt.Errorf("mismatch in execution, last event %v not found in history, last there is %v (%v)", e.lastSequenceID, newestHistoryEvent.SequenceID, newestHistoryEvent.Type)
 		}
 
 		// Clear commands from previous executions
@@ -74,32 +74,39 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			if err := e.executeEvent(event); err != nil {
 				return nil, errs.Wrap(err, "error while replaying event")
 			}
+
+			e.lastSequenceID = event.SequenceID
 		}
 	}
 
-	// Always pad the received events with WorkflowTaskStarted/Finished events to indicate the execution
-	events := []history.Event{history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})}
-	events = append(events, t.NewEvents...)
+	// Always pad the received events with WorkflowTaskStarted/Finished evnets to indicate the execution
+	toExecute := []history.Event{e.createNewEvent(history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})}
+	toExecute = append(toExecute, t.NewEvents...)
 
 	// Execute new events received from the backend
-	if err := e.executeNewEvents(events); err != nil {
+	if err := e.executeNewEvents(toExecute); err != nil {
 		return nil, errs.Wrap(err, "error while executing new events")
 	}
+
+	executedEvents := toExecute
 
 	completed, newCommandEvents, activityEvents, workflowEvents, err := e.processCommands(ctx, t)
 	if err != nil {
 		return nil, errs.Wrap(err, "could not process commands")
 	}
-	events = append(events, newCommandEvents...)
+	executedEvents = append(executedEvents, newCommandEvents...)
 
-	// Execution of this task is finished, add event to history
-	events = append(events, history.NewHistoryEvent(e.clock.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{}))
+	// Execution of this task is finished, add event to history. We didn't actually execute this event but treat it like it
+	// had been.
+	executedEvents = append(executedEvents, e.createNewEvent(history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{}))
 
-	e.lastEventID = events[len(events)-1].ID
+	for i := range executedEvents {
+		executedEvents[i].SequenceID = e.nextSequenceID()
+	}
 
 	return &ExecutionResult{
 		Completed:      completed,
-		NewEvents:      events,
+		Executed:       executedEvents,
 		ActivityEvents: activityEvents,
 		WorkflowEvents: workflowEvents,
 	}, nil
@@ -112,9 +119,6 @@ func (e *executor) executeNewEvents(newEvents []history.Event) error {
 		if err := e.executeEvent(event); err != nil {
 			return errs.Wrap(err, "error while executing event")
 		}
-
-		// Remember that we executed this event last
-		e.lastEventID = event.ID
 	}
 
 	if e.workflow.Completed() {
@@ -134,7 +138,7 @@ func (e *executor) Close() {
 }
 
 func (e *executor) executeEvent(event history.Event) error {
-	e.logger.Debug("Handling:", event.Type)
+	e.logger.Debug("Handling:", "event_id", event.ID, "seq_id", event.SequenceID, "event_type", event.Type)
 
 	var err error
 
@@ -217,7 +221,7 @@ func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.Wor
 func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
 	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 	if c != nil {
-		// Ensure the same activity is scheduled again
+		// Ensure the same activity was scheduled again
 		ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 		if a.Name != ca.Name {
 			return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
@@ -357,8 +361,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 		case command.CommandType_ScheduleActivityTask:
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
-			scheduleActivityEvent := history.NewHistoryEvent(
-				e.clock.Now(),
+			scheduleActivityEvent := e.createNewEvent(
 				history.EventType_ActivityScheduled,
 				&history.ActivityScheduledAttributes{
 					Name:   a.Name,
@@ -375,8 +378,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 
 			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance.InstanceID, c.ID)
 
-			newEvents = append(newEvents, history.NewHistoryEvent(
-				e.clock.Now(),
+			newEvents = append(newEvents, e.createNewEvent(
 				history.EventType_SubWorkflowScheduled,
 				&history.SubWorkflowScheduledAttributes{
 					InstanceID: subWorkflowInstance.InstanceID,
@@ -389,8 +391,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 			// Send message to new workflow instance
 			workflowEvents = append(workflowEvents, history.WorkflowEvent{
 				WorkflowInstance: subWorkflowInstance,
-				HistoryEvent: history.NewHistoryEvent(
-					e.clock.Now(),
+				HistoryEvent: e.createNewEvent(
 					history.EventType_WorkflowExecutionStarted,
 					&history.ExecutionStartedAttributes{
 						Name:   a.Name,
@@ -402,8 +403,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 
 		case command.CommandType_SideEffect:
 			a := c.Attr.(*command.SideEffectCommandAttr)
-			newEvents = append(newEvents, history.NewHistoryEvent(
-				e.clock.Now(),
+			newEvents = append(newEvents, e.createNewEvent(
 				history.EventType_SideEffectResult,
 				&history.SideEffectResultAttributes{
 					Result: a.Result,
@@ -414,8 +414,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 		case command.CommandType_ScheduleTimer:
 			a := c.Attr.(*command.ScheduleTimerCommandAttr)
 
-			newEvents = append(newEvents, history.NewHistoryEvent(
-				e.clock.Now(),
+			newEvents = append(newEvents, e.createNewEvent(
 				history.EventType_TimerScheduled,
 				&history.TimerScheduledAttributes{
 					At: a.At,
@@ -426,8 +425,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 			// Create timer_fired event which will become visible in the future
 			workflowEvents = append(workflowEvents, history.WorkflowEvent{
 				WorkflowInstance: instance,
-				HistoryEvent: history.NewHistoryEvent(
-					e.clock.Now(),
+				HistoryEvent: e.createNewEvent(
 					history.EventType_TimerFired,
 					&history.TimerFiredAttributes{
 						At: a.At,
@@ -442,8 +440,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 
 			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
 
-			newEvents = append(newEvents, history.NewHistoryEvent(
-				e.clock.Now(),
+			newEvents = append(newEvents, e.createNewEvent(
 				history.EventType_WorkflowExecutionFinished,
 				&history.ExecutionCompletedAttributes{
 					Result: a.Result,
@@ -458,8 +455,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 
 				if a.Error != "" {
 					// Sub workflow failed
-					historyEvent = history.NewHistoryEvent(
-						e.clock.Now(),
+					historyEvent = e.createNewEvent(
 						history.EventType_SubWorkflowFailed,
 						&history.SubWorkflowFailedAttributes{
 							Error: a.Error,
@@ -468,8 +464,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 						history.ScheduleEventID(instance.ParentEventID),
 					)
 				} else {
-					historyEvent = history.NewHistoryEvent(
-						e.clock.Now(),
+					historyEvent = e.createNewEvent(
 						history.EventType_SubWorkflowCompleted,
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
@@ -491,4 +486,18 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 	}
 
 	return completed, newEvents, activityEvents, workflowEvents, nil
+}
+
+func (e *executor) nextSequenceID() int64 {
+	e.lastSequenceID++
+	return e.lastSequenceID
+}
+
+func (e *executor) createNewEvent(eventType history.EventType, attributes interface{}, opts ...history.HistoryEventOption) history.Event {
+	return history.NewPendingEvent(
+		e.clock.Now(),
+		eventType,
+		attributes,
+		opts...,
+	)
 }

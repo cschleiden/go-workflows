@@ -242,9 +242,9 @@ func (wt *workflowTester) Execute(args ...interface{}) {
 			e.Close()
 
 			// Add all executed events to history
-			tw.history = append(tw.history, result.NewEvents...)
+			tw.history = append(tw.history, result.Executed...)
 
-			for _, event := range result.NewEvents {
+			for _, event := range result.Executed {
 				wt.logger.Debug("Event", "event_type", event.Type)
 
 				switch event.Type {
@@ -358,7 +358,7 @@ func (wt *workflowTester) SignalWorkflowInstance(wfi *core.WorkflowInstance, nam
 	}
 
 	wt.callbacks <- func() *history.WorkflowEvent {
-		e := history.NewHistoryEvent(
+		e := history.NewPendingEvent(
 			wt.clock.Now(),
 			history.EventType_SignalReceived,
 			&history.SignalReceivedAttributes{
@@ -464,7 +464,7 @@ func (wt *workflowTester) scheduleActivity(wfi *core.WorkflowInstance, event his
 			var ne history.Event
 
 			if activityErr != nil {
-				ne = history.NewHistoryEvent(
+				ne = history.NewPendingEvent(
 					wt.clock.Now(),
 					history.EventType_ActivityFailed,
 					&history.ActivityFailedAttributes{
@@ -473,7 +473,7 @@ func (wt *workflowTester) scheduleActivity(wfi *core.WorkflowInstance, event his
 					history.ScheduleEventID(event.ScheduleEventID),
 				)
 			} else {
-				ne = history.NewHistoryEvent(
+				ne = history.NewPendingEvent(
 					wt.clock.Now(),
 					history.EventType_ActivityCompleted,
 					&history.ActivityCompletedAttributes{
@@ -571,7 +571,7 @@ func (wt *workflowTester) scheduleSubWorkflow(event history.WorkflowEvent) {
 		var he history.Event
 
 		if workflowErr != nil {
-			he = history.NewHistoryEvent(
+			he = history.NewPendingEvent(
 				wt.clock.Now(),
 				history.EventType_SubWorkflowFailed,
 				&history.SubWorkflowFailedAttributes{
@@ -580,7 +580,7 @@ func (wt *workflowTester) scheduleSubWorkflow(event history.WorkflowEvent) {
 				history.ScheduleEventID(event.WorkflowInstance.ParentEventID),
 			)
 		} else {
-			he = history.NewHistoryEvent(
+			he = history.NewPendingEvent(
 				wt.clock.Now(),
 				history.EventType_SubWorkflowCompleted,
 				&history.SubWorkflowCompletedAttributes{
@@ -606,6 +606,7 @@ func (wt *workflowTester) getInitialEvent(wf interface{}, args []interface{}) hi
 	}
 
 	return history.NewHistoryEvent(
+		1,
 		wt.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{

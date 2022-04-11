@@ -51,7 +51,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, errors.Wrap(err, "could not convert arguments")
 	}
 
-	startedEvent := history.NewHistoryEvent(
+	startedEvent := history.NewPendingEvent(
 		c.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
@@ -86,7 +86,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 		return errors.Wrap(err, "could not convert arguments")
 	}
 
-	event := history.NewHistoryEvent(
+	signalEvent := history.NewPendingEvent(
 		c.clock.Now(),
 		history.EventType_SignalReceived,
 		&history.SignalReceivedAttributes{
@@ -95,7 +95,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 		},
 	)
 
-	err = c.backend.SignalWorkflow(ctx, instanceID, event)
+	err = c.backend.SignalWorkflow(ctx, instanceID, signalEvent)
 	if err != nil {
 		return err
 	}

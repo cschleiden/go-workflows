@@ -46,28 +46,34 @@ func (et EventType) String() string {
 		return "WorkflowExecutionTerminated"
 	case EventType_WorkflowExecutionCanceled:
 		return "WorkflowExecutionCanceled"
+
 	case EventType_WorkflowTaskStarted:
 		return "WorkflowTaskStarted"
 	case EventType_WorkflowTaskFinished:
 		return "WorkflowTaskFinished"
+
 	case EventType_SubWorkflowScheduled:
 		return "SubWorkflowScheduled"
 	case EventType_SubWorkflowCompleted:
 		return "SubWorkflowCompleted"
 	case EventType_SubWorkflowFailed:
 		return "SubWorkflowFailed"
+
 	case EventType_ActivityScheduled:
 		return "ActivityScheduled"
 	case EventType_ActivityCompleted:
 		return "ActivityCompleted"
 	case EventType_ActivityFailed:
 		return "ActivityFailed"
+
 	case EventType_TimerScheduled:
 		return "TimerScheduled"
 	case EventType_TimerFired:
 		return "TimerFired"
+
 	case EventType_SignalReceived:
 		return "SignalReceived"
+
 	case EventType_SideEffectResult:
 		return "SideEffectResult"
 	default:
@@ -79,6 +85,10 @@ type Event struct {
 	// ID is a unique identifier for this event
 	ID string
 
+	// SequenceID is a monotonically increasing sequence number this event. It's only set for events that have
+	// been executed and are in the history
+	SequenceID int64
+
 	Type EventType
 
 	Timestamp time.Time
@@ -86,7 +96,7 @@ type Event struct {
 	// ScheduleEventID is used to correlate events belonging together
 	// For example, if an activity is scheduled, ScheduleEventID of the schedule event and the
 	// completion/failure event are the same.
-	ScheduleEventID int
+	ScheduleEventID int64
 
 	// Attributes are event type specific attributes
 	Attributes interface{}
@@ -100,7 +110,7 @@ func (e Event) String() string {
 
 type HistoryEventOption func(e *Event)
 
-func ScheduleEventID(scheduleEventID int) HistoryEventOption {
+func ScheduleEventID(scheduleEventID int64) HistoryEventOption {
 	return func(e *Event) {
 		e.ScheduleEventID = scheduleEventID
 	}
@@ -112,9 +122,10 @@ func VisibleAt(visibleAt time.Time) HistoryEventOption {
 	}
 }
 
-func NewHistoryEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
+func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
 	e := Event{
 		ID:         uuid.NewString(),
+		SequenceID: sequenceID,
 		Type:       eventType,
 		Timestamp:  timestamp,
 		Attributes: attributes,
@@ -127,6 +138,10 @@ func NewHistoryEvent(timestamp time.Time, eventType EventType, attributes interf
 	return e
 }
 
+func NewPendingEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
+	return NewHistoryEvent(0, timestamp, eventType, attributes, opts...)
+}
+
 func NewWorkflowCancellationEvent(timestamp time.Time) Event {
-	return NewHistoryEvent(timestamp, EventType_WorkflowExecutionCanceled, &ExecutionCanceledAttributes{})
+	return NewPendingEvent(timestamp, EventType_WorkflowExecutionCanceled, &ExecutionCanceledAttributes{})
 }

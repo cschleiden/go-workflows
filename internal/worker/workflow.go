@@ -129,7 +129,7 @@ func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	}
 
 	if err := ww.backend.CompleteWorkflowTask(
-		ctx, t.ID, t.WorkflowInstance, state, result.NewEvents, result.ActivityEvents, result.WorkflowEvents); err != nil {
+		ctx, t.ID, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.WorkflowEvents); err != nil {
 		ww.logger.Panic(err)
 	}
 }

@@ -39,9 +39,9 @@ type signalChannel struct {
 
 type WfState struct {
 	instance        *core.WorkflowInstance
-	scheduleEventID int
+	scheduleEventID int64
 	commands        []*command.Command
-	pendingFutures  map[int]DecodingSettable
+	pendingFutures  map[int64]DecodingSettable
 	replaying       bool
 
 	pendingSignals map[string][]payload.Payload
@@ -58,7 +58,7 @@ func NewWorkflowState(instance *core.WorkflowInstance, logger log.Logger, clock 
 		instance:        instance,
 		commands:        []*command.Command{},
 		scheduleEventID: 1,
-		pendingFutures:  map[int]DecodingSettable{},
+		pendingFutures:  map[int64]DecodingSettable{},
 
 		pendingSignals: map[string][]payload.Payload{},
 		signalChannels: make(map[string]*signalChannel),
@@ -81,22 +81,22 @@ func WithWorkflowState(ctx sync.Context, wfState *WfState) sync.Context {
 	return sync.WithValue(ctx, workflowCtxKey, wfState)
 }
 
-func (wf *WfState) GetNextScheduleEventID() int {
+func (wf *WfState) GetNextScheduleEventID() int64 {
 	scheduleEventID := wf.scheduleEventID
 	wf.scheduleEventID++
 	return scheduleEventID
 }
 
-func (wf *WfState) TrackFuture(scheduleEventID int, f DecodingSettable) {
+func (wf *WfState) TrackFuture(scheduleEventID int64, f DecodingSettable) {
 	wf.pendingFutures[scheduleEventID] = f
 }
 
-func (wf *WfState) FutureByScheduleEventID(scheduleEventID int) (DecodingSettable, bool) {
+func (wf *WfState) FutureByScheduleEventID(scheduleEventID int64) (DecodingSettable, bool) {
 	f, ok := wf.pendingFutures[scheduleEventID]
 	return f, ok
 }
 
-func (wf *WfState) RemoveFuture(scheduleEventID int) {
+func (wf *WfState) RemoveFuture(scheduleEventID int64) {
 	delete(wf.pendingFutures, scheduleEventID)
 }
 
@@ -108,7 +108,7 @@ func (wf *WfState) AddCommand(cmd *command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
-func (wf *WfState) RemoveCommandByEventID(eventID int) *command.Command {
+func (wf *WfState) RemoveCommandByEventID(eventID int64) *command.Command {
 	for i, c := range wf.commands {
 		if c.ID == eventID {
 			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)

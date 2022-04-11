@@ -140,7 +140,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	var event history.Event
 
 	if err != nil {
-		event = history.NewHistoryEvent(
+		event = history.NewPendingEvent(
 			aw.clock.Now(),
 			history.EventType_ActivityFailed,
 			&history.ActivityFailedAttributes{
@@ -149,7 +149,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 			history.ScheduleEventID(task.Event.ScheduleEventID),
 		)
 	} else {
-		event = history.NewHistoryEvent(
+		event = history.NewPendingEvent(
 			aw.clock.Now(),
 			history.EventType_ActivityCompleted,
 			&history.ActivityCompletedAttributes{

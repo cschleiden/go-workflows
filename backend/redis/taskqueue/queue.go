@@ -152,6 +152,9 @@ func (q *taskQueue[T]) Extend(ctx context.Context, taskID string) error {
 // We have to XACK _and_ XDEL here. See https://github.com/redis/redis/issues/5754
 var completeCmd = redis.NewScript(`
 	local task = redis.call("XRANGE", KEYS[2], ARGV[1], ARGV[1])
+	if task == nil then
+		return nil
+	end
 	local id = task[1][2][2]
 	redis.call("SREM", KEYS[1], id)
 	redis.call("XACK", KEYS[2], ARGV[2], ARGV[1])

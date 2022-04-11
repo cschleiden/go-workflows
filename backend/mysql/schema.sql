@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS `instances` (
-  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `instance_id` NVARCHAR(128) NOT NULL,
   `execution_id` NVARCHAR(128) NOT NULL,
   `parent_instance_id` NVARCHAR(128) NULL,
-  `parent_schedule_event_id` INT NULL,
+  `parent_schedule_event_id` BIGINT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,
@@ -17,12 +17,13 @@ CREATE TABLE IF NOT EXISTS `instances` (
 
 
 CREATE TABLE IF NOT EXISTS `pending_events` (
-  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `event_id` NVARCHAR(128) NOT NULL,
+  `sequence_id` BIGINT NOT NULL, -- Not used, but keep for now for query compat
   `instance_id` NVARCHAR(128) NOT NULL,
   `event_type` INT NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `schedule_event_id` INT NOT NULL,
+  `schedule_event_id` BIGINT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
 
@@ -32,12 +33,13 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
 
 
 CREATE TABLE IF NOT EXISTS `history` (
-  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `event_id` NVARCHAR(64) NOT NULL,
+  `sequence_id` BIGINT NOT NULL,
   `instance_id` NVARCHAR(128) NOT NULL,
   `event_type` INT NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `schedule_event_id` INT NOT NULL,
+  `schedule_event_id` BIGINT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL, -- Is this required?
 
@@ -46,13 +48,13 @@ CREATE TABLE IF NOT EXISTS `history` (
 
 
 CREATE TABLE IF NOT EXISTS `activities` (
-  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `activity_id` NVARCHAR(64) NOT NULL,
   `instance_id` NVARCHAR(128) NOT NULL,
   `execution_id` NVARCHAR(128) NOT NULL,
   `event_type` INT NOT NULL,
   `timestamp` DATETIME NOT NULL,
-  `schedule_event_id` INT NOT NULL,
+  `schedule_event_id` BIGINT NOT NULL,
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL,
   `locked_until` DATETIME NULL,

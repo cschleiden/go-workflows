@@ -41,7 +41,7 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		DB:       db,
 	})
 
-	// // TODO: Only for dev
+	// // // TODO: Only for dev
 	// if err := client.FlushDB(context.Background()).Err(); err != nil {
 	// 	panic(err)
 	// }

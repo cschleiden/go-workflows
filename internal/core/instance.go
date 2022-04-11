@@ -5,7 +5,7 @@ type WorkflowInstance struct {
 	ExecutionID string `json:"execution_id,omitempty"`
 
 	ParentInstanceID string `json:"parent_instance,omitempty"`
-	ParentEventID    int    `json:"parent_event_id,omitempty"`
+	ParentEventID    int64  `json:"parent_event_id,omitempty"`
 }
 
 func NewWorkflowInstance(instanceID, executionID string) *WorkflowInstance {
@@ -15,7 +15,7 @@ func NewWorkflowInstance(instanceID, executionID string) *WorkflowInstance {
 	}
 }
 
-func NewSubWorkflowInstance(instanceID, executionID string, parentInstanceID string, parentEventID int) *WorkflowInstance {
+func NewSubWorkflowInstance(instanceID, executionID string, parentInstanceID string, parentEventID int64) *WorkflowInstance {
 	return &WorkflowInstance{
 		InstanceID:       instanceID,
 		ExecutionID:      executionID,

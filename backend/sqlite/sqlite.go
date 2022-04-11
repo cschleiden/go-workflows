@@ -89,7 +89,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ignoreDuplicate bool) error {
 	var parentInstanceID *string
-	var parentEventID *int
+	var parentEventID *int64
 	if wfi.SubWorkflow() {
 		i := wfi.ParentInstanceID
 		parentInstanceID = &i
@@ -257,7 +257,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	var instanceID, executionID string
 	var parentInstanceID *string
-	var parentEventID *int
+	var parentEventID *int64
 	var stickyUntil *time.Time
 	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {

@@ -23,6 +23,7 @@ func Test_TaskQueue(t *testing.T) {
 	})
 
 	lockTimeout := time.Millisecond * 10
+	blockTimeout := time.Millisecond * 10
 
 	tests := []struct {
 		name string
@@ -45,7 +46,7 @@ func Test_TaskQueue(t *testing.T) {
 				_, err = q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -63,7 +64,7 @@ func Test_TaskQueue(t *testing.T) {
 				_, err = q.Enqueue(context.Background(), "t1", nil)
 				require.Error(t, ErrTaskAlreadyInQueue, err)
 
-				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -91,7 +92,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -111,7 +112,7 @@ func Test_TaskQueue(t *testing.T) {
 				require.NoError(t, err)
 
 				// Dequeue using second worker
-				task, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -126,7 +127,7 @@ func Test_TaskQueue(t *testing.T) {
 				_, err := q.Enqueue(context.Background(), "t1", nil)
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -137,7 +138,7 @@ func Test_TaskQueue(t *testing.T) {
 				time.Sleep(time.Millisecond * 10)
 
 				// Try to recover using second worker
-				task2, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task2, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, task2)
 			},
@@ -153,7 +154,7 @@ func Test_TaskQueue(t *testing.T) {
 				q2, _ := New[any](client, "test")
 				require.NoError(t, err)
 
-				task, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -161,7 +162,7 @@ func Test_TaskQueue(t *testing.T) {
 				time.Sleep(time.Millisecond * 10)
 
 				// Assume q2 crashed, recover from other worker
-				recoveredTask, err := q.Dequeue(context.Background(), time.Millisecond*1, time.Millisecond*10)
+				recoveredTask, err := q.Dequeue(context.Background(), time.Millisecond*1, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, task, recoveredTask)
@@ -178,17 +179,17 @@ func Test_TaskQueue(t *testing.T) {
 				q2, _ := New[any](client, "test")
 				require.NoError(t, err)
 
-				task, err := q2.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				task, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
 
-				time.Sleep(time.Millisecond * 10)
+				time.Sleep(time.Millisecond * 5)
 
 				err = q2.Extend(context.Background(), task.TaskID)
 				require.NoError(t, err)
 
-				recoveredTask, err := q.Dequeue(context.Background(), lockTimeout, time.Millisecond*10)
+				recoveredTask, err := q.Dequeue(context.Background(), lockTimeout*2, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, recoveredTask)
 			},

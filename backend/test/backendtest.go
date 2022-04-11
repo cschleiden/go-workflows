@@ -9,7 +9,6 @@ import (
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	ta "github.com/cschleiden/go-workflows/internal/task"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +45,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
 					WorkflowInstance: core.NewWorkflowInstance(instanceID, uuid.NewString()),
-					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.NoError(t, err)
 			},
@@ -59,13 +58,13 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
 					WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.NoError(t, err)
 
 				err = b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
 					WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.Error(t, err)
 			},
@@ -76,7 +75,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
 					WorkflowInstance: wfi,
-					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.NoError(t, err)
 
@@ -93,7 +92,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
 					WorkflowInstance: wfi,
-					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.Nil(t, err)
 
@@ -118,7 +117,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
 					WorkflowInstance: wfi,
-					HistoryEvent:     history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.NoError(t, err)
 
@@ -130,9 +129,8 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 		{
 			name: "CompleteWorkflowTask_AddsNewEventsToHistory",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
-				startedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
-				activityScheduledEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
-				activityCompletedEvent := history.NewHistoryEvent(time.Now(), history.EventType_ActivityCompleted, &history.ActivityCompletedAttributes{}, history.ScheduleEventID(1))
+				startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
+				activityScheduledEvent := history.NewPendingEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
 
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
@@ -144,8 +142,8 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				task, err := b.GetWorkflowTask(ctx)
 				require.NoError(t, err)
 
-				taskStartedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
-				taskFinishedEvent := history.NewHistoryEvent(time.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{})
+				taskStartedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
+				taskFinishedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{})
 				events := []history.Event{
 					taskStartedEvent,
 					startedEvent,
@@ -153,33 +151,31 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 					taskFinishedEvent,
 				}
 
+				sequenceID := int64(1)
+				for i := range events {
+					sequenceID++
+					events[i].SequenceID = sequenceID
+				}
+
 				activityEvents := []history.Event{
 					activityScheduledEvent,
 				}
 
-				workflowEvents := []history.WorkflowEvent{
-					{
-						WorkflowInstance: wfi,
-						HistoryEvent:     activityCompletedEvent,
-					},
-				}
+				workflowEvents := []history.WorkflowEvent{}
 
 				err = b.CompleteWorkflowTask(ctx, task.ID, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
 				require.NoError(t, err)
 
 				time.Sleep(time.Second)
 
-				task, err = b.GetWorkflowTask(ctx)
-				require.NotEqual(t, ta.Continuation, task.Kind, "Expect full task")
+				h, err := b.GetWorkflowInstanceHistory(ctx, wfi)
 				require.NoError(t, err)
-				require.NotNil(t, task)
-				require.Equal(t, len(events), len(task.History))
-				// Only compare event types
-				for i, expected := range events {
-					require.Equal(t, expected.Type, task.History[i].Type)
+				require.Equal(t, len(events), len(h))
+				for i, event := range events {
+					require.Equal(t, event.ID, h[i].ID)
+					require.Equal(t, event.Type, h[i].Type)
+					require.Equal(t, event.Attributes, h[i].Attributes)
 				}
-				require.Len(t, task.NewEvents, 1)
-				require.Equal(t, activityCompletedEvent.Type, task.NewEvents[0].Type, "Expected new events to be returned")
 			},
 		},
 		{
