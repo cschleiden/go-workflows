@@ -215,9 +215,9 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 	// Store activity data
 	for _, activityEvent := range activityEvents {
 		if _, err := rb.activityQueue.Enqueue(ctx, activityEvent.ID, &activityData{
-			InstanceID: instance.InstanceID,
-			ID:         activityEvent.ID,
-			Event:      activityEvent,
+			Instance: instance,
+			ID:       activityEvent.ID,
+			Event:    activityEvent,
 		}); err != nil {
 			return errors.Wrap(err, "could not queue activity task")
 		}

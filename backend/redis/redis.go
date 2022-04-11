@@ -5,6 +5,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/go-redis/redis/v8"
@@ -86,10 +87,9 @@ type redisBackend struct {
 }
 
 type activityData struct {
-	InstanceID  string        `json:"instance_id,omitempty"`
-	ExecutionID string        `json:"execution_id,omitempty"`
-	ID          string        `json:"id,omitempty"`
-	Event       history.Event `json:"event,omitempty"`
+	Instance *core.WorkflowInstance `json:"instance,omitempty"`
+	ID       string                 `json:"id,omitempty"`
+	Event    history.Event          `json:"event,omitempty"`
 }
 
 type workflowTaskData struct {

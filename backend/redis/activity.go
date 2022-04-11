@@ -19,7 +19,7 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 	}
 
 	return &task.Activity{
-		WorkflowInstance: core.NewWorkflowInstance(activityTask.Data.InstanceID, activityTask.Data.ExecutionID),
+		WorkflowInstance: activityTask.Data.Instance,
 		ID:               activityTask.TaskID, // Use the queue generated ID here
 		Event:            activityTask.Data.Event,
 	}, nil
