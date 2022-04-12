@@ -53,6 +53,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		if err != nil {
 			if err == backend.ErrInstanceNotFound {
 				rb.options.Logger.Debug("Ignoring future event for non-existing instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
+				continue
 			} else {
 				return nil, errors.Wrap(err, "could not read instance")
 			}
@@ -60,6 +61,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 
 		if instanceState.State != backend.WorkflowStateActive {
 			rb.options.Logger.Debug("Ignoring future event for already completed instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
+			continue
 		}
 
 		msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(futureEvent.Instance.InstanceID), futureEvent.Event)
