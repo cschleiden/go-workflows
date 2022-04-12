@@ -64,6 +64,8 @@ func NewExecutor(logger log.Logger, registry *Registry, historyProvider Workflow
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
+	e.logger.Debug("Executing workflow task", "task_id", t.ID, "instance_id", t.WorkflowInstance.InstanceID)
+
 	e.workflowState.ClearCommands()
 
 	if t.LastSequenceID > e.lastSequenceID {
@@ -109,6 +111,12 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	for i := range executedEvents {
 		executedEvents[i].SequenceID = e.nextSequenceID()
 	}
+
+	e.logger.Debug("Finished workflow task",
+		"task_id", t.ID,
+		"instance_id", t.WorkflowInstance.InstanceID,
+		"executed", len(executedEvents),
+	)
 
 	return &ExecutionResult{
 		Completed:      completed,
