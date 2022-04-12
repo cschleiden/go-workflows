@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -27,18 +25,16 @@ func main() {
 	}
 
 	// Run worker
-	go RunWorker(ctx, b)
+	w := RunWorker(ctx, b)
 
 	// Start workflow via client
 	c := client.New(b)
 
 	startWorkflow(ctx, c)
 
-	c2 := make(chan os.Signal, 1)
-	signal.Notify(c2, os.Interrupt)
-	<-c2
-
 	cancel()
+
+	w.Stop()
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
@@ -49,10 +45,20 @@ func startWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.InstanceID)
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond * 200)
+		c.SignalWorkflow(ctx, wf.InstanceID, "Hello world", "value")
+	}
+
+	result, err := client.GetWorkflowResult[string](ctx, c, wf, time.Second*10)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Workflow finished. Result:", result)
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) {
+func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
@@ -62,6 +68,8 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
+
+	return w
 }
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
@@ -72,12 +80,11 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
 	tctx, _ := workflow.WithCancel(ctx)
-	t := workflow.ScheduleTimer(tctx, 2*time.Second)
 	// cancel()
 
 	workflow.Select(
 		ctx,
-		workflow.Await(t, func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[struct{}]) {
 			if _, err := f.Get(ctx); err != nil {
 				logger.Debug("Timer canceled")
 			} else {

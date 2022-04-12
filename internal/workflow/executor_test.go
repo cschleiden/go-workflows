@@ -436,3 +436,61 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
 }
+
+func Test_ClearCommandsBetweenRuns(t *testing.T) {
+	r := NewRegistry()
+
+	workflowActivityHit = 0
+
+	r.RegisterWorkflow(workflowWithActivity)
+	r.RegisterActivity(activity1)
+
+	task1 := &task.Workflow{
+		ID:               "oldtaskid",
+		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		NewEvents: []history.Event{
+			history.NewPendingEvent(
+				time.Now(),
+				history.EventType_WorkflowExecutionStarted,
+				&history.ExecutionStartedAttributes{
+					Name:   "workflowWithActivity",
+					Inputs: []payload.Payload{},
+				},
+			),
+		},
+	}
+
+	historyProvider := &testHistoryProvider{[]history.Event{}}
+	e := newExecutor(r, task1.WorkflowInstance, historyProvider)
+
+	r1, err := e.ExecuteTask(context.Background(), task1)
+	require.NoError(t, err)
+	require.Equal(t, 1, workflowActivityHit)
+	require.False(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.Commands(), 1)
+
+	historyProvider.history = r1.Executed
+
+	task2 := &task.Workflow{
+		ID:               "oldtaskid",
+		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		NewEvents: []history.Event{
+			history.NewPendingEvent(
+				time.Now(),
+				history.EventType_SignalReceived,
+				&history.SignalReceivedAttributes{
+					Name: "signalr`",
+					Arg:  []byte("arg"),
+				},
+			),
+		},
+		LastSequenceID: 4,
+	}
+
+	r2, err := e.ExecuteTask(context.Background(), task2)
+	require.NoError(t, err)
+	require.Equal(t, 1, workflowActivityHit)
+	require.False(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.Commands(), 0)
+	require.Len(t, r2.Executed, 3)
+}
