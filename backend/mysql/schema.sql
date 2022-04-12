@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS `history` (
   `attributes` BLOB NOT NULL,
   `visible_at` DATETIME NULL, -- Is this required?
 
-  INDEX `idx_history_instance_id` (`instance_id`)
+  INDEX `idx_history_instance_id` (`instance_id`),
+  INDEX `idx_history_instance_id_sequence_id` (`instance_id`, `sequence_id`)
 );
 
 
