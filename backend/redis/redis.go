@@ -1,7 +1,6 @@
 package redis
 
 import (
-	"context"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
