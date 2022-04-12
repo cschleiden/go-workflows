@@ -44,18 +44,31 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 
 	for _, eventR := range result.([]interface{}) {
 		eventStr := eventR.(string)
-		var event futureEvent
-		if err := json.Unmarshal([]byte(eventStr), &event); err != nil {
+		var futureEvent futureEvent
+		if err := json.Unmarshal([]byte(eventStr), &futureEvent); err != nil {
 			return nil, errors.Wrap(err, "could not unmarshal event")
 		}
 
-		msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(event.Instance.InstanceID), event.Event)
+		instanceState, err := readInstance(ctx, rb.rdb, futureEvent.Instance.InstanceID)
+		if err != nil {
+			if err == backend.ErrInstanceNotFound {
+				rb.options.Logger.Debug("Ignoring future event for non-existing instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
+			} else {
+				return nil, errors.Wrap(err, "could not read instance")
+			}
+		}
+
+		if instanceState.State != backend.WorkflowStateActive {
+			rb.options.Logger.Debug("Ignoring future event for already completed instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
+		}
+
+		msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(futureEvent.Instance.InstanceID), futureEvent.Event)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not add future event to stream")
 		}
 
 		// Instance now has at least one pending event, try to queue task
-		if _, err := rb.workflowQueue.Enqueue(ctx, event.Instance.InstanceID, &workflowTaskData{
+		if _, err := rb.workflowQueue.Enqueue(ctx, futureEvent.Instance.InstanceID, &workflowTaskData{
 			LastPendingEventMessageID: *msgID,
 		}); err != nil {
 			if err != taskqueue.ErrTaskAlreadyInQueue {
