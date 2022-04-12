@@ -16,19 +16,22 @@ type key int
 
 var workflowCtxKey key
 
-type DecodingSettable func(v payload.Payload, err error)
+type DecodingSettable func(v payload.Payload, err error) error
 
 // Use this to track futures for the workflow state
 func AsDecodingSettable[T any](f sync.SettableFuture[T]) DecodingSettable {
-	return func(v payload.Payload, err error) {
+	return func(v payload.Payload, err error) error {
+		var ferr error
 		if v != nil {
 			var t T
 			converter.DefaultConverter.From(v, &t)
-			f.Set(t, err)
+			ferr = f.Set(t, err)
 		} else {
 			var z T
-			f.Set(z, err)
+			ferr = f.Set(z, err)
 		}
+
+		return ferr
 	}
 }
 

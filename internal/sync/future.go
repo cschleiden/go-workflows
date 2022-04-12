@@ -1,6 +1,10 @@
 package sync
 
-import "github.com/cschleiden/go-workflows/internal/converter"
+import (
+	"errors"
+
+	"github.com/cschleiden/go-workflows/internal/converter"
+)
 
 type Future[T any] interface {
 	// Get returns the value if set, blocks otherwise
@@ -11,7 +15,7 @@ type SettableFuture[T any] interface {
 	Future[T]
 
 	// Set stores the value and unblocks any waiting consumers
-	Set(v T, err error)
+	Set(v T, err error) error
 }
 
 func NewFuture[T any]() SettableFuture[T] {
@@ -27,14 +31,16 @@ type future[T any] struct {
 	converter converter.Converter
 }
 
-func (f *future[T]) Set(v T, err error) {
+func (f *future[T]) Set(v T, err error) error {
 	if f.hasValue {
-		panic("future already set")
+		return errors.New("future already set")
 	}
 
 	f.v = v
 	f.err = err
 	f.hasValue = true
+
+	return nil
 }
 
 func (f *future[T]) Get(ctx Context) (T, error) {

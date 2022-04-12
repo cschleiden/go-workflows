@@ -77,6 +77,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		}
 
 		if err := e.replayHistory(h); err != nil {
+			e.logger.Error("Error while replaying history", "error", err)
 			return nil, errs.Wrap(err, "could not replay history")
 		}
 
@@ -93,6 +94,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	// Execute new events received from the backend
 	if err := e.executeNewEvents(toExecute); err != nil {
+		e.logger.Error("Error while executing new events", "error", err)
 		return nil, errs.Wrap(err, "error while executing new events")
 	}
 
@@ -270,7 +272,10 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 	}
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
-	f(a.Result, nil)
+	err := f(a.Result, nil)
+	if err != nil {
+		return errs.Wrap(err, "error while setting result")
+	}
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -283,7 +288,9 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f(nil, errors.New(a.Reason))
+	if err := f(nil, errors.New(a.Reason)); err != nil {
+		return errs.Wrap(err, "error while setting result")
+	}
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -303,7 +310,9 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f(nil, nil)
+	if err := f(nil, nil); err != nil {
+		return errs.Wrap(err, "error while setting result")
+	}
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -328,7 +337,9 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f(nil, errors.New(a.Error))
+	if err := f(nil, errors.New(a.Error)); err != nil {
+		return errs.Wrap(err, "error while setting result")
+	}
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -341,7 +352,9 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
-	f(a.Result, nil)
+	if err := f(a.Result, nil); err != nil {
+		return errs.Wrap(err, "error while setting result")
+	}
 
 	return e.workflow.Continue(e.workflowCtx)
 }
