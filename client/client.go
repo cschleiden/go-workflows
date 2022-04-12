@@ -100,7 +100,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 		return err
 	}
 
-	c.backend.Logger().Debug("Canceled workflow instance", "instance_id", instanceID)
+	c.backend.Logger().Debug("Signaled workflow instance", "instance_id", instanceID)
 
 	return nil
 }
