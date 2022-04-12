@@ -64,6 +64,8 @@ func NewExecutor(logger log.Logger, registry *Registry, historyProvider Workflow
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
+	e.workflowState.ClearCommands()
+
 	if t.LastSequenceID > e.lastSequenceID {
 		e.logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
 
