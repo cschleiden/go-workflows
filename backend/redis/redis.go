@@ -43,11 +43,6 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		DB:       db,
 	})
 
-	// // // TODO: Only for dev
-	if err := client.FlushDB(context.Background()).Err(); err != nil {
-		panic(err)
-	}
-
 	workflowQueue, err := taskqueue.New[workflowTaskData](client, "workflows")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create workflow task queue")
