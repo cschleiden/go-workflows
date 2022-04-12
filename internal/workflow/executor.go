@@ -157,7 +157,12 @@ func (e *executor) Close() {
 }
 
 func (e *executor) executeEvent(event history.Event) error {
-	e.logger.Debug("Handling:", "event_id", event.ID, "seq_id", event.SequenceID, "event_type", event.Type)
+	e.logger.Debug("Executing event",
+		"instance_id", e.workflowState.Instance().InstanceID,
+		"event_id", event.ID,
+		"seq_id", event.SequenceID,
+		"event_type", event.Type,
+	)
 
 	var err error
 
