@@ -444,7 +444,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	// Lock next activity
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
 	now := time.Now()
-	row, err := tx.QueryContext(
+	row := tx.QueryRowContext(
 		ctx,
 		`UPDATE activities
 			SET locked_until = ?, worker = ?
@@ -459,16 +459,16 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		return nil, err
 	}
 
-	if !row.Next() {
-		// No activity locked, abort
-		return nil, nil
-	}
-
 	var instanceID, executionID string
 	var attributes []byte
 	event := history.Event{}
 
 	if err := row.Scan(&event.ID, &instanceID, &executionID, &event.Type, &event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
+		if err == sql.ErrNoRows {
+			// No rows locked, just return
+			return nil, nil
+		}
+
 		return nil, errors.Wrap(err, "could not scan event")
 	}
 

@@ -13,6 +13,8 @@ import (
 func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]history.Event, error) {
 	now := time.Now()
 	events, err := tx.QueryContext(ctx, "SELECT * FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
+	defer events.Close()
+
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get new events")
 	}
@@ -39,6 +41,7 @@ func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequence
 	} else {
 		historyEvents, err = tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ?", instanceID)
 	}
+	defer historyEvents.Close()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get history")
 	}
