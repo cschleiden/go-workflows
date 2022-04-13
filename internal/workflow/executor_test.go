@@ -373,7 +373,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 				history.ScheduleEventID(1),
 			),
 		},
-		LastSequenceID: 4,
+		LastSequenceID: taskResult.Executed[len(taskResult.Executed)-1].SequenceID,
 	}
 
 	// Execute the workflow again with the activity completed event
@@ -484,7 +484,7 @@ func Test_ClearCommandsBetweenRuns(t *testing.T) {
 				},
 			),
 		},
-		LastSequenceID: 4,
+		LastSequenceID: r1.Executed[len(r1.Executed)-1].SequenceID,
 	}
 
 	r2, err := e.ExecuteTask(context.Background(), task2)
@@ -492,5 +492,5 @@ func Test_ClearCommandsBetweenRuns(t *testing.T) {
 	require.Equal(t, 1, workflowActivityHit)
 	require.False(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 0)
-	require.Len(t, r2.Executed, 3)
+	require.Len(t, r2.Executed, 2)
 }

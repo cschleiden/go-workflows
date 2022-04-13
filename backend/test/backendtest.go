@@ -143,12 +143,10 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				require.NoError(t, err)
 
 				taskStartedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
-				taskFinishedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{})
 				events := []history.Event{
 					taskStartedEvent,
 					startedEvent,
 					activityScheduledEvent,
-					taskFinishedEvent,
 				}
 
 				sequenceID := int64(1)

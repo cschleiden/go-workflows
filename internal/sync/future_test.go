@@ -22,14 +22,14 @@ func Test_FutureYields(t *testing.T) {
 	require.True(t, c.Blocked())
 }
 
-func Test_FutureSetPanicsWhenSetTwice(t *testing.T) {
+func Test_FutureSetErrorsWhenSetTwice(t *testing.T) {
 	f := NewFuture[int]()
 
-	f.Set(42, nil)
+	err := f.Set(42, nil)
+	require.NoError(t, err)
 
-	require.Panics(t, func() {
-		f.Set(42, nil)
-	})
+	err = f.Set(42, nil)
+	require.Error(t, err)
 }
 
 func Test_FutureSetUnblocks(t *testing.T) {

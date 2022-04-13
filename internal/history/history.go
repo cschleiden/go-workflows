@@ -18,7 +18,6 @@ const (
 	EventType_WorkflowExecutionCanceled
 
 	EventType_WorkflowTaskStarted
-	EventType_WorkflowTaskFinished
 
 	EventType_SubWorkflowScheduled
 	EventType_SubWorkflowCompleted
@@ -49,8 +48,6 @@ func (et EventType) String() string {
 
 	case EventType_WorkflowTaskStarted:
 		return "WorkflowTaskStarted"
-	case EventType_WorkflowTaskFinished:
-		return "WorkflowTaskFinished"
 
 	case EventType_SubWorkflowScheduled:
 		return "SubWorkflowScheduled"

@@ -104,12 +104,10 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	if err != nil {
 		return nil, errs.Wrap(err, "could not process commands")
 	}
+
 	executedEvents = append(executedEvents, newCommandEvents...)
 
-	// Execution of this task is finished, add event to history. We didn't actually execute this event but treat it like it
-	// had been.
-	executedEvents = append(executedEvents, e.createNewEvent(history.EventType_WorkflowTaskFinished, &history.WorkflowTaskFinishedAttributes{}))
-
+	// Set SequenceIDs for all executed events
 	for i := range executedEvents {
 		executedEvents[i].SequenceID = e.nextSequenceID()
 	}
@@ -188,9 +186,6 @@ func (e *executor) executeEvent(event history.Event) error {
 
 	case history.EventType_WorkflowTaskStarted:
 		err = e.handleWorkflowTaskStarted(event, event.Attributes.(*history.WorkflowTaskStartedAttributes))
-
-	case history.EventType_WorkflowTaskFinished:
-		// Ignore
 
 	case history.EventType_ActivityScheduled:
 		err = e.handleActivityScheduled(event, event.Attributes.(*history.ActivityScheduledAttributes))
