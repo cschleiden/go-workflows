@@ -25,7 +25,6 @@
     "**/Thumbs.db": true,
     "**/vendor": true,
   },
-
   "gopls": {
     "ui.semanticTokens": true,
     "ui.navigation.symbolMatcher": "CaseSensitive",
@@ -34,8 +33,6 @@
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/go.yml"
   ],
-  "go.alternateTools": {
-    "go": "/Users/cschleiden/sdk/go1.18rc1/bin/go",
-  },
   "go.testExplorer.showDynamicSubtestsInEditor": true,
+  "go.lintTool": "golangci-lint"
 }

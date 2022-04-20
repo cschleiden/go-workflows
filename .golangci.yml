@@ -1,0 +1,10 @@
+linters:
+  enable:
+  - goworkflows
+
+linters-settings:
+  custom:
+    goworkflows:
+      path: ./plugin.so
+      description: go-workflows
+      original-url: github.com/cschleiden/go-workflows/analyzer
