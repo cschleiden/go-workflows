@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -66,7 +66,7 @@ func (sb *sqliteBackend) Logger() log.Logger {
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "could not start transaction")
+		return fmt.Errorf("starting transaction: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -77,11 +77,11 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 
 	// Initial history is empty, store only new events
 	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
-		return errors.Wrap(err, "could not insert new event")
+		return fmt.Errorf("inserting new event: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return errors.Wrap(err, "could not create workflow instance")
+		return fmt.Errorf("creating workflow instance: %w", err)
 	}
 
 	return nil
@@ -107,7 +107,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ign
 		parentEventID,
 	)
 	if err != nil {
-		return errors.Wrap(err, "could not insert workflow instance")
+		return fmt.Errorf("inserting workflow instance: %w", err)
 	}
 
 	if !ignoreDuplicate {
@@ -135,7 +135,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 
 	// Cancel workflow instance
 	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
-		return errors.Wrap(err, "could not insert cancellation event")
+		return fmt.Errorf("inserting cancellation event: %w", err)
 	}
 
 	// Recursively, find any sub-workflow instance to cancel
@@ -149,12 +149,12 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 				break
 			}
 
-			return errors.Wrap(err, "could not get workflow instance for cancelling")
+			return fmt.Errorf("geting workflow instance for cancelling: %w", err)
 		}
 
 		// Cancel sub-workflow instance
 		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{*event}); err != nil {
-			return errors.Wrap(err, "could not insert cancellation event")
+			return fmt.Errorf("inserting cancellation event: %w", err)
 		}
 
 		instanceID = subWorkflowInstanceID
@@ -172,7 +172,7 @@ func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 
 	h, err := getHistory(ctx, tx, instance.InstanceID, lastSequenceID)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get workflow history")
+		return nil, fmt.Errorf("getting workflow history: %w", err)
 	}
 
 	return h, nil
@@ -214,7 +214,7 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	}
 
 	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
-		return errors.Wrap(err, "could not insert signal event")
+		return fmt.Errorf("inserting signal event: %w", err)
 	}
 
 	return tx.Commit()
@@ -264,7 +264,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 			return nil, nil
 		}
 
-		return nil, errors.Wrap(err, "could not lock workflow task")
+		return nil, fmt.Errorf("locking workflow task: %w", err)
 	}
 
 	var wfi *workflow.Instance
@@ -283,7 +283,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	// Get new events
 	pendingEvents, err := getPendingEvents(ctx, tx, instanceID)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get pending events")
+		return nil, fmt.Errorf("getting pending events: %w", err)
 	}
 
 	// Return if there aren't any new events
@@ -298,7 +298,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	row = tx.QueryRowContext(ctx, "SELECT sequence_id FROM `history` WHERE instance_id = ? ORDER BY rowid DESC LIMIT 1", instanceID)
 	if err := row.Scan(&t.LastSequenceID); err != nil {
 		if err != sql.ErrNoRows {
-			return nil, errors.Wrap(err, "could not get most recent sequence id")
+			return nil, fmt.Errorf("getting most recent sequence id: %w", err)
 		}
 	}
 
@@ -342,9 +342,9 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		instance.ExecutionID,
 		sb.workerName,
 	); err != nil {
-		return errors.Wrap(err, "could not unlock workflow instance")
+		return fmt.Errorf("unlocking workflow instance: %w", err)
 	} else if n, err := res.RowsAffected(); err != nil {
-		return errors.Wrap(err, "could not check for unlocked workflow instances")
+		return fmt.Errorf("checking for unlocked workflow instances: %w", err)
 	} else if n != 1 {
 		return errors.New("could not find workflow instance to unlock")
 	}
@@ -362,19 +362,19 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(executedEvents)-1)),
 			args...,
 		); err != nil {
-			return errors.Wrap(err, "could not delete handled new events")
+			return fmt.Errorf("deleting handled new events: %w", err)
 		}
 	}
 
 	// Add events from last execution to history
 	if err := insertHistoryEvents(ctx, tx, instance.InstanceID, executedEvents); err != nil {
-		return errors.Wrap(err, "could not insert new history events")
+		return fmt.Errorf("inserting new history events: %w", err)
 	}
 
 	// Schedule activities
 	for _, event := range activityEvents {
 		if err := scheduleActivity(ctx, tx, instance.InstanceID, instance.ExecutionID, event); err != nil {
-			return errors.Wrap(err, "could not schedule activity")
+			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}
 
@@ -398,7 +398,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 
 		// Insert pending events for target instance
 		if err := insertNewEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
-			return errors.Wrap(err, "could not insert messages")
+			return fmt.Errorf("inserting messages: %w", err)
 		}
 	}
 
@@ -422,11 +422,11 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 		sb.workerName,
 	)
 	if err != nil {
-		return errors.Wrap(err, "could not extend workflow task lock")
+		return fmt.Errorf("extending workflow task lock: %w", err)
 	}
 
 	if rowsAffected, err := res.RowsAffected(); err != nil {
-		return errors.Wrap(err, "could not determine if workflow task was extended")
+		return fmt.Errorf("determining if workflow task was extended: %w", err)
 	} else if rowsAffected == 0 {
 		return errors.New("could not extend workflow task")
 	}
@@ -469,12 +469,12 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 			return nil, nil
 		}
 
-		return nil, errors.Wrap(err, "could not scan event")
+		return nil, fmt.Errorf("scanning event: %w", err)
 	}
 
 	a, err := history.DeserializeAttributes(event.Type, attributes)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not deserialize attributes")
+		return nil, fmt.Errorf("deserializing attributes: %w", err)
 	}
 
 	event.Attributes = a
@@ -507,16 +507,16 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 		id,
 		sb.workerName,
 	); err != nil {
-		return errors.Wrap(err, "could not unlock instance")
+		return fmt.Errorf("unlocking instance: %w", err)
 	} else if n, err := res.RowsAffected(); err != nil {
-		return errors.Wrap(err, "could not check for deleted activities")
+		return fmt.Errorf("checking for deleted activities: %w", err)
 	} else if n != 1 {
 		return errors.New("could not find activity to delete")
 	}
 
 	// Insert new event generated during this workflow execution
 	if err := insertNewEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
-		return errors.Wrap(err, "could not insert new events for completed activity")
+		return fmt.Errorf("inserting new events for completed activity: %w", err)
 	}
 
 	return tx.Commit()
@@ -538,11 +538,11 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 		sb.workerName,
 	)
 	if err != nil {
-		return errors.Wrap(err, "could not extend activity lock")
+		return fmt.Errorf("extending activity lock: %w", err)
 	}
 
 	if rowsAffected, err := res.RowsAffected(); err != nil {
-		return errors.Wrap(err, "could not determine if activity was extended")
+		return fmt.Errorf("determining if activity was extended: %w", err)
 	} else if rowsAffected == 0 {
 		return errors.New("could not extend activity")
 	}

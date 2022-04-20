@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/pkg/errors"
 )
 
 type Workflow interface{}
@@ -33,7 +33,7 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx sync.Context) error {
 		args, addContext, err := args.InputsToArgs(converter.DefaultConverter, w.fn, inputs)
 		if err != nil {
-			return errors.Wrap(err, "could not convert workflow inputs")
+			return fmt.Errorf("converting workflow inputs: %w", err)
 		}
 
 		if !addContext {
@@ -56,12 +56,12 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 			var err error
 			result, err = converter.DefaultConverter.To(r[0].Interface())
 			if err != nil {
-				return errors.Wrap(err, "could not convert workflow result")
+				return fmt.Errorf("converting workflow result: %w", err)
 			}
 		} else {
 			result, err = converter.DefaultConverter.To(nil)
 			if err != nil {
-				return errors.Wrap(err, "could not convert workflow result")
+				return fmt.Errorf("converting workflow result: %w", err)
 			}
 		}
 

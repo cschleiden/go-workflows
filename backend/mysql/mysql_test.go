@@ -9,7 +9,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 )
 
 const testUser = "root"
@@ -32,7 +31,7 @@ func Test_MysqlBackend(t *testing.T) {
 		}
 
 		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
-			panic(errors.Wrap(err, "could not create database"))
+			panic(fmt.Errorf("creating database: %w", err))
 		}
 
 		if err := db.Close(); err != nil {
@@ -47,7 +46,7 @@ func Test_MysqlBackend(t *testing.T) {
 		}
 
 		if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
-			panic(errors.Wrap(err, "could not drop database"))
+			panic(fmt.Errorf("dropping database: %w", err))
 		}
 
 		if err := db.Close(); err != nil {

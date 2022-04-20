@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -9,7 +10,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/go-redis/redis/v8"
-	"github.com/pkg/errors"
 )
 
 type RedisOptions struct {
@@ -44,12 +44,12 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 
 	workflowQueue, err := taskqueue.New[workflowTaskData](client, "workflows")
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create workflow task queue")
+		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
 	activityQueue, err := taskqueue.New[activityData](client, "activities")
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create activity task queue")
+		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
 
 	// Default options

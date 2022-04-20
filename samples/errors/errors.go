@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -13,7 +14,6 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
-	errs "github.com/pkg/errors"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	r1, err := a1.Get(ctx)
 	if err != nil {
 		log.Println("Error from Activity 1", err)
-		return errs.Wrap(err, "error getting result from activity 1")
+		return fmt.Errorf("getting results from activity 1: %w", err)
 	}
 	log.Println("R1 result:", r1)
 	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
