@@ -59,7 +59,10 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/scale/worker/main.go"
+      "program": "${workspaceFolder}/samples/scale/worker/main.go",
+      "args": [
+        "-backend", "mysql",
+      ]
     },
   ]
 }
