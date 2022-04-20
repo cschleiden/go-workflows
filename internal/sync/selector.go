@@ -42,11 +42,6 @@ func Select(ctx Context, cases ...SelectCase) {
 	}
 }
 
-type selectorCase interface {
-	Ready() bool
-	Handle(ctx Context)
-}
-
 type futureCase[T any] struct {
 	f  *future[T]
 	fn func(Context, Future[T])
