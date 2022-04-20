@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/log"
-	"github.com/pkg/errors"
 )
 
 type WorkflowWorker interface {
@@ -151,7 +151,7 @@ func (ww *workflowWorker) handleTask(
 
 	result, err := executor.ExecuteTask(ctx, t)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not execute workflow task")
+		return nil, fmt.Errorf("executing workflow task: %w", err)
 	}
 
 	return result, nil
@@ -168,7 +168,7 @@ func (ww *workflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 		executor, err = workflow.NewExecutor(
 			ww.backend.Logger(), ww.registry, ww.backend, t.WorkflowInstance, clock.New())
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create workflow executor")
+			return nil, fmt.Errorf("creating workflow executor: %w", err)
 		}
 	}
 

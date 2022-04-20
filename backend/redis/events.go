@@ -3,11 +3,11 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/go-redis/redis/v8"
-	"github.com/pkg/errors"
 )
 
 func addEventToStream(ctx context.Context, rdb redis.UniversalClient, streamKey string, event *history.Event) (*string, error) {
@@ -24,7 +24,7 @@ func addEventToStream(ctx context.Context, rdb redis.UniversalClient, streamKey 
 		},
 	}).Result()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not add event to stream")
+		return nil, fmt.Errorf("adding event to stream: %w", err)
 	}
 
 	return &msgID, nil
@@ -45,7 +45,7 @@ func addFutureEvent(ctx context.Context, rdb redis.UniversalClient, instance *co
 		Member: eventData,
 		Score:  float64(event.VisibleAt.Unix()),
 	}).Err(); err != nil {
-		return errors.Wrap(err, "could not add future event")
+		return fmt.Errorf("adding future event: %w", err)
 	}
 
 	return nil

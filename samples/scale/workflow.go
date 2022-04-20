@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/cschleiden/go-workflows/workflow"
-
-	errs "github.com/pkg/errors"
 )
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
@@ -16,13 +14,13 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
-		return "", errs.Wrap(err, "error getting activity 1 result")
+		return "", fmt.Errorf("getting activity 1 result: %w", err)
 	}
 	// logger.Debug("R1 result", "r1", r1)
 
 	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
-		return "", errs.Wrap(err, "error getting activity 2 result")
+		return "", fmt.Errorf("getting activity 2 result: %w", err)
 	}
 	// logger.Debug("R2 result", "r2", r2)
 

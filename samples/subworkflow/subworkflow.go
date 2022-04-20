@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 )
 
 func main() {
@@ -81,7 +81,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 
 	wr, err := workflow.CreateSubWorkflowInstance[string](ctx, workflow.DefaultSubWorkflowOptions, Workflow2, "some input").Get(ctx)
 	if err != nil {
-		return errors.Wrap(err, "could not get sub workflow result")
+		return fmt.Errorf("getting sub workflow result: %w", err)
 	}
 
 	logger.Debug("Sub workflow result:", wr)

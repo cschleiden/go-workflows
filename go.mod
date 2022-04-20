@@ -8,7 +8,6 @@ require (
 	github.com/golangci/golangci-lint v1.45.2
 	github.com/google/uuid v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.12
-	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/tools v0.1.10
 )
@@ -107,6 +106,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/polyfloyd/go-errorlint v0.0.0-20211125173453-6d6d39c5bb8b // indirect
 	github.com/prometheus/client_golang v1.7.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect

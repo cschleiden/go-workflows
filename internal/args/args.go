@@ -2,12 +2,12 @@ package args
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/pkg/errors"
 )
 
 func ArgsToInputs(c converter.Converter, args ...interface{}) ([]payload.Payload, error) {
@@ -16,7 +16,7 @@ func ArgsToInputs(c converter.Converter, args ...interface{}) ([]payload.Payload
 	for _, arg := range args {
 		input, err := c.To(arg)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert args to inputs")
+			return nil, fmt.Errorf("converting args to inputs: %w", err)
 		}
 		inputs = append(inputs, input)
 	}
@@ -45,7 +45,7 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 		arg := reflect.New(argT).Interface()
 		err := c.From(inputs[input], arg)
 		if err != nil {
-			return nil, false, errors.Wrap(err, "could not convert inputs")
+			return nil, false, fmt.Errorf("converting inputs: %w", err)
 		}
 
 		args[i] = reflect.ValueOf(arg).Elem()

@@ -1,13 +1,14 @@
 package workflow
 
 import (
+	"fmt"
+
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/pkg/errors"
 )
 
 type SubWorkflowOptions struct {
@@ -32,7 +33,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		var z TResult
-		f.Set(z, errors.Wrap(err, "failed to convert workflow input"))
+		f.Set(z, fmt.Errorf("converting workflow input: %w", err))
 		return f
 	}
 

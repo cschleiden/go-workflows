@@ -3,11 +3,11 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/pkg/errors"
 )
 
 func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]history.Event, error) {
@@ -16,7 +16,7 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]his
 	defer events.Close()
 
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get new events")
+		return nil, fmt.Errorf("getting new events: %w", err)
 	}
 
 	pendingEvents := make([]history.Event, 0)
@@ -24,7 +24,7 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]his
 	for events.Next() {
 		pendingEvent, err := scanEvent(events)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not read event")
+			return nil, fmt.Errorf("reading event: %w", err)
 		}
 
 		pendingEvents = append(pendingEvents, pendingEvent)
@@ -43,7 +43,7 @@ func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequence
 	}
 	defer historyEvents.Close()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get history")
+		return nil, fmt.Errorf("getting history: %w", err)
 	}
 
 	events := make([]history.Event, 0)
@@ -51,7 +51,7 @@ func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequence
 	for historyEvents.Next() {
 		historyEvent, err := scanEvent(historyEvents)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not read event")
+			return nil, fmt.Errorf("reading event: %w", err)
 		}
 
 		events = append(events, historyEvent)
@@ -71,12 +71,12 @@ func scanEvent(row Scanner) (history.Event, error) {
 	historyEvent := history.Event{}
 
 	if err := row.Scan(&historyEvent.ID, &historyEvent.SequenceID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
-		return historyEvent, errors.Wrap(err, "could not scan event")
+		return historyEvent, fmt.Errorf("scanning event: %w", err)
 	}
 
 	a, err := history.DeserializeAttributes(historyEvent.Type, attributes)
 	if err != nil {
-		return historyEvent, errors.Wrap(err, "could not deserialize attributes")
+		return historyEvent, fmt.Errorf("deserializing attributes: %w", err)
 	}
 
 	historyEvent.Attributes = a

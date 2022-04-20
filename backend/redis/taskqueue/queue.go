@@ -3,11 +3,12 @@ package taskqueue
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 )
 
 type taskQueue[T any] struct {
@@ -56,7 +57,7 @@ func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error
 		// Ugly, check since there is no UPSERT for consumer groups. Might replace with a script
 		// using XINFO & XGROUP CREATE atomically
 		if err.Error() != "BUSYGROUP Consumer Group name already exists" {
-			return nil, errors.Wrap(err, "could not create task queue")
+			return nil, fmt.Errorf("creating task queue: %w", err)
 		}
 	}
 
@@ -84,7 +85,7 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, id string, data *T) (*string
 
 	taskID, err := enqueueCmd.Run(ctx, q.rdb, []string{q.setKey, q.streamKey}, id, string(ds)).Result()
 	if err != nil && err != redis.Nil {
-		return nil, errors.Wrap(err, "could not enqueue task")
+		return nil, fmt.Errorf("enqueueing task: %w", err)
 	}
 
 	if taskID == nil {
@@ -99,7 +100,7 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, lockTimeout, timeout time.Du
 	// Try to recover abandoned messages
 	task, err := q.recover(ctx, lockTimeout)
 	if err != nil {
-		return nil, errors.Wrap(err, "could check for abandoned tasks")
+		return nil, fmt.Errorf("checking for abandoned tasks: %w", err)
 	}
 
 	if task != nil {
@@ -115,7 +116,7 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, lockTimeout, timeout time.Du
 		Block:    timeout,
 	}).Result()
 	if err != nil && err != redis.Nil {
-		return nil, errors.Wrap(err, "could not dequeue task")
+		return nil, fmt.Errorf("dequeueing task: %w", err)
 	}
 
 	if len(ids) == 0 || len(ids[0].Messages) == 0 || err == redis.Nil {
@@ -137,7 +138,7 @@ func (q *taskQueue[T]) Extend(ctx context.Context, taskID string) error {
 		MinIdle:  0, // Always claim this message
 	}).Result()
 	if err != nil && err != redis.Nil {
-		return errors.Wrap(err, "could not extend lease")
+		return fmt.Errorf("extending lease: %w", err)
 	}
 
 	return nil
@@ -166,7 +167,7 @@ func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 	// is not an issue for us.
 	c, err := completeCmd.Run(ctx, q.rdb, []string{q.setKey, q.streamKey}, taskID, q.groupName).Result()
 	if err != nil && err != redis.Nil {
-		return errors.Wrap(err, "could not complete task")
+		return fmt.Errorf("completing task: %w", err)
 	}
 
 	if c.(int64) == 0 || err == redis.Nil {
@@ -179,7 +180,7 @@ func (q *taskQueue[T]) Complete(ctx context.Context, taskID string) error {
 func (q *taskQueue[T]) Data(ctx context.Context, taskID string) (*TaskItem[T], error) {
 	msg, err := q.rdb.XRange(ctx, q.streamKey, taskID, taskID).Result()
 	if err != nil && err != redis.Nil {
-		return nil, errors.Wrap(err, "could not find task")
+		return nil, fmt.Errorf("finding task: %w", err)
 	}
 
 	return msgToTaskItem[T](&msg[0])
@@ -198,7 +199,7 @@ func (q *taskQueue[T]) recover(ctx context.Context, idleTimeout time.Duration) (
 	}).Result()
 
 	if err != nil {
-		return nil, errors.Wrap(err, "could not recover tasks")
+		return nil, fmt.Errorf("recovering tasks: %w", err)
 	}
 
 	if len(msgs) == 0 {

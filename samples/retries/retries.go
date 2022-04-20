@@ -14,7 +14,6 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
-	errs "github.com/pkg/errors"
 )
 
 func main() {
@@ -75,7 +74,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 		},
 	}, WorkflowWithFailures, "Hello world"+uuid.NewString()).Get(ctx)
 	if err != nil {
-		return errs.Wrap(err, "error starting subworkflow")
+		return fmt.Errorf("starting subworkflow: %w", err)
 	}
 
 	logger.Debug("Completing workflow 1")
@@ -104,7 +103,7 @@ func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 	}, Activity1, 35).Get(ctx)
 	if err != nil {
 		logger.Debug("Error from Activity 1", err)
-		return errs.Wrap(err, "error getting result from activity 1")
+		return fmt.Errorf("getting result from activity 1: %w", err)
 	}
 
 	logger.Debug("R1 result", "r1", r1)

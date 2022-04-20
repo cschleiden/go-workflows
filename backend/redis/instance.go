@@ -3,6 +3,8 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -10,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/go-redis/redis/v8"
-	"github.com/pkg/errors"
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error {
@@ -32,7 +33,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 		},
 	}).Result()
 	if err != nil {
-		return errors.Wrap(err, "could not create event stream")
+		return fmt.Errorf("creating event stream: %w", err)
 	}
 
 	// Queue workflow instance task
@@ -40,7 +41,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 		LastPendingEventMessageID: msgID,
 	}); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
-			return errors.Wrap(err, "could not queue workflow task")
+			return fmt.Errorf("queueing workflow task: %w", err)
 		}
 	}
 
@@ -59,7 +60,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 	for _, msg := range msgs {
 		var event history.Event
 		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
-			return nil, errors.Wrap(err, "could not unmarshal event")
+			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}
 
 		events = append(events, event)
@@ -87,7 +88,7 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 
 		// Cancel instance
 		if err := rb.addWorkflowInstanceEvent(ctx, instance, event); err != nil {
-			return errors.Wrap(err, "could not add cancellation event to workflow instance")
+			return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
 		}
 
 		// Find sub-workflows
@@ -119,12 +120,12 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 		CreatedAt: time.Now(),
 	})
 	if err != nil {
-		return errors.Wrap(err, "could not marshal instance state")
+		return fmt.Errorf("marshaling instance state: %w", err)
 	}
 
 	ok, err := rdb.SetNX(ctx, key, string(b), 0).Result()
 	if err != nil {
-		return errors.Wrap(err, "could not store instance")
+		return fmt.Errorf("storeing instance: %w", err)
 	}
 
 	if !ignoreDuplicate && !ok {
@@ -138,7 +139,7 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 		}
 
 		if err := rdb.RPush(ctx, subInstanceKey(instance.ParentInstanceID), instanceStr).Err(); err != nil {
-			return errors.Wrap(err, "could not track sub-workflow")
+			return fmt.Errorf("tracking sub-workflow: %w", err)
 		}
 	}
 
@@ -150,12 +151,12 @@ func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID s
 
 	b, err := json.Marshal(state)
 	if err != nil {
-		return errors.Wrap(err, "could not marshal instance state")
+		return fmt.Errorf("marshaling instance state: %w", err)
 	}
 
 	cmd := rdb.Set(ctx, key, string(b), 0)
 	if err := cmd.Err(); err != nil {
-		return errors.Wrap(err, "could not update instance")
+		return fmt.Errorf("updating instance: %w", err)
 	}
 
 	return nil
@@ -170,12 +171,12 @@ func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID str
 			return nil, backend.ErrInstanceNotFound
 		}
 
-		return nil, errors.Wrap(err, "could not read instance")
+		return nil, fmt.Errorf("reading instance: %w", err)
 	}
 
 	var state instanceState
 	if err := json.Unmarshal([]byte(val), &state); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal instance state")
+		return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 	}
 
 	if state.Instance.SubWorkflow() && state.State == backend.WorkflowStateFinished {
@@ -185,7 +186,7 @@ func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID str
 		}
 
 		if err := rdb.LRem(ctx, subInstanceKey(state.Instance.ParentInstanceID), 1, instanceStr).Err(); err != nil {
-			return nil, errors.Wrap(err, "could not remove sub-workflow from parent list")
+			return nil, fmt.Errorf("removing sub-workflow from parent list: %w", err)
 		}
 	}
 
@@ -196,7 +197,7 @@ func subWorkflowInstances(ctx context.Context, rdb redis.UniversalClient, instan
 	key := subInstanceKey(instance.InstanceID)
 	res, err := rdb.LRange(ctx, key, 0, -1).Result()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not read sub-workflow instances")
+		return nil, fmt.Errorf("reading sub-workflow instances: %w", err)
 	}
 
 	var instances []*core.WorkflowInstance
@@ -204,7 +205,7 @@ func subWorkflowInstances(ctx context.Context, rdb redis.UniversalClient, instan
 	for _, instanceStr := range res {
 		var instance core.WorkflowInstance
 		if err := json.Unmarshal([]byte(instanceStr), &instance); err != nil {
-			return nil, errors.Wrap(err, "could not unmarshal sub-workflow instance")
+			return nil, fmt.Errorf("unmarshaling sub-workflow instance: %w", err)
 		}
 
 		instances = append(instances, &instance)

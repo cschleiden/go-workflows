@@ -2,6 +2,7 @@ package activity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/log"
-	"github.com/pkg/errors"
 )
 
 type Executor struct {
@@ -31,7 +31,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 
 	activity, err := e.r.GetActivity(a.Name)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not find activity in registry")
+		return nil, fmt.Errorf("finding activity in registry: %w", err)
 	}
 
 	activityFn := reflect.ValueOf(activity)
@@ -41,7 +41,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 
 	args, addContext, err := args.InputsToArgs(converter.DefaultConverter, activityFn, a.Inputs)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert activity inputs")
+		return nil, fmt.Errorf("converting activity inputs: %w", err)
 	}
 
 	as := NewActivityState(
@@ -66,7 +66,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		var err error
 		result, err = converter.DefaultConverter.To(r[0].Interface())
 		if err != nil {
-			return nil, errors.Wrap(err, "could not convert activity result")
+			return nil, fmt.Errorf("converting activity result: %w", err)
 		}
 	}
 

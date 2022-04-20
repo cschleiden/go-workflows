@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -13,7 +15,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 )
 
 var ErrWorkflowCanceled = errors.New("workflow canceled")
@@ -48,7 +49,7 @@ func New(backend backend.Backend) Client {
 func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not convert arguments")
+		return nil, fmt.Errorf("converting arguments: %w", err)
 	}
 
 	startedEvent := history.NewPendingEvent(
@@ -67,7 +68,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	}
 
 	if err := c.backend.CreateWorkflowInstance(ctx, *startMessage); err != nil {
-		return nil, errors.Wrap(err, "could not create workflow instance")
+		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 
 	c.backend.Logger().Debug("Created workflow instance", "instance_id", wfi.InstanceID, "execution_id", wfi.ExecutionID)
@@ -83,7 +84,7 @@ func (c *client) CancelWorkflowInstance(ctx context.Context, instance *workflow.
 func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
 	input, err := converter.DefaultConverter.To(arg)
 	if err != nil {
-		return errors.Wrap(err, "could not convert arguments")
+		return fmt.Errorf("converting arguments: %w", err)
 	}
 
 	signalEvent := history.NewPendingEvent(
@@ -119,7 +120,7 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 	for {
 		s, err := c.backend.GetWorkflowInstanceState(ctx, instance)
 		if err != nil {
-			return errors.Wrap(err, "could not get workflow state")
+			return fmt.Errorf("getting workflow state: %w", err)
 		}
 
 		if s == backend.WorkflowStateFinished {
@@ -142,7 +143,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 	var z T
 
 	if err := c.WaitForWorkflowInstance(ctx, instance, timeout); err != nil {
-		return z, errors.Wrap(err, "workflow did not finish in time")
+		return z, fmt.Errorf("workflow did not finish in time: %w", err)
 	}
 
 	ic := c.(*client)
@@ -150,7 +151,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 
 	h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
 	if err != nil {
-		return z, errors.Wrap(err, "could not get workflow history")
+		return z, fmt.Errorf("getting workflow history: %w", err)
 	}
 
 	// Iterate over history backwards
@@ -165,7 +166,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 
 			var r T
 			if err := converter.DefaultConverter.From(a.Result, &r); err != nil {
-				return z, errors.Wrap(err, "could not convert result")
+				return z, fmt.Errorf("converting result: %w", err)
 			}
 
 			return r, nil

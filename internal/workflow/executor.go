@@ -16,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/google/uuid"
-	errs "github.com/pkg/errors"
 )
 
 type ExecutionResult struct {
@@ -73,12 +72,12 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
 		if err != nil {
-			return nil, errs.Wrap(err, "could not get workflow history")
+			return nil, fmt.Errorf("getting workflow history: %w", err)
 		}
 
 		if err := e.replayHistory(h); err != nil {
 			e.logger.Error("Error while replaying history", "error", err)
-			return nil, errs.Wrap(err, "could not replay history")
+			return nil, fmt.Errorf("replaying history: %w", err)
 		}
 
 		if t.LastSequenceID != e.lastSequenceID {
@@ -95,14 +94,14 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	// Execute new events received from the backend
 	if err := e.executeNewEvents(toExecute); err != nil {
 		e.logger.Error("Error while executing new events", "error", err)
-		return nil, errs.Wrap(err, "error while executing new events")
+		return nil, fmt.Errorf("executing new events: %w", err)
 	}
 
 	executedEvents := toExecute
 
 	completed, newCommandEvents, activityEvents, workflowEvents, err := e.processCommands(ctx, t)
 	if err != nil {
-		return nil, errs.Wrap(err, "could not process commands")
+		return nil, fmt.Errorf("processing commands: %w", err)
 	}
 
 	executedEvents = append(executedEvents, newCommandEvents...)
@@ -130,7 +129,7 @@ func (e *executor) replayHistory(history []history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range history {
 		if err := e.executeEvent(event); err != nil {
-			return errs.Wrap(err, "could not execute history event")
+			return fmt.Errorf("executeing history event: %w", err)
 		}
 
 		e.lastSequenceID = event.SequenceID
@@ -144,7 +143,7 @@ func (e *executor) executeNewEvents(newEvents []history.Event) error {
 
 	for _, event := range newEvents {
 		if err := e.executeEvent(event); err != nil {
-			return errs.Wrap(err, "error while executing event")
+			return fmt.Errorf("executing event: %w", err)
 		}
 	}
 
@@ -269,7 +268,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 	err := f(a.Result, nil)
 	if err != nil {
-		return errs.Wrap(err, "error while setting result")
+		return fmt.Errorf("setting result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -284,7 +283,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	if err := f(nil, errors.New(a.Reason)); err != nil {
-		return errs.Wrap(err, "error while setting result")
+		return fmt.Errorf("setting result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -306,7 +305,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	if err := f(nil, nil); err != nil {
-		return errs.Wrap(err, "error while setting result")
+		return fmt.Errorf("setting result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -333,7 +332,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	if err := f(nil, errors.New(a.Error)); err != nil {
-		return errs.Wrap(err, "error while setting result")
+		return fmt.Errorf("setting result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -348,7 +347,7 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
 
 	if err := f(a.Result, nil); err != nil {
-		return errs.Wrap(err, "error while setting result")
+		return fmt.Errorf("setting result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
