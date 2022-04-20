@@ -1,3 +1,6 @@
+//go:build analyzerplugin
+// +build analyzerplugin
+
 // Custom plugin for golangci-lint
 package main
 

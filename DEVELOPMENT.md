@@ -5,4 +5,4 @@
 
 ### Use custom linter
 
-1. Build analyzer `go build -buildmode=plugin analyzer/plugin/plugin.go`
+1. Build analyzer `go build -tags analyzerplugin -buildmode=plugin analyzer/plugin/plugin.go`
