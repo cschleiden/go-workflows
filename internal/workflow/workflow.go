@@ -92,10 +92,12 @@ func (w *workflow) Completed() bool {
 	return w.s.RunningCoroutines() == 0
 }
 
+// Result returns the return value of a finished workflow as a payload
 func (w *workflow) Result() payload.Payload {
 	return w.result
 }
 
+// Error returns the error of a finished workflow, can be nil
 func (w *workflow) Error() error {
 	return w.err
 }

@@ -67,6 +67,8 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	e.workflowState.ClearCommands()
 
+	skipNewEvents := false
+
 	if t.LastSequenceID > e.lastSequenceID {
 		e.logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
 
@@ -77,7 +79,10 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 		if err := e.replayHistory(h); err != nil {
 			e.logger.Error("Error while replaying history", "error", err)
-			return nil, fmt.Errorf("replaying history: %w", err)
+
+			// Fail workflow with an error. Skip executing new events, but still go through the commands
+			e.workflowCompleted(nil, err)
+			skipNewEvents = true
 		}
 
 		if t.LastSequenceID != e.lastSequenceID {
@@ -87,18 +92,24 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		return nil, fmt.Errorf("task has older history than current state, cannot execute")
 	}
 
-	// Always pad the received events with WorkflowTaskStarted/Finished evnets to indicate the execution
+	// Always add a WorkflowTaskStarted event before executing new tasks
 	toExecute := []history.Event{e.createNewEvent(history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})}
+	executedEvents := toExecute
+
 	toExecute = append(toExecute, t.NewEvents...)
 
 	// Execute new events received from the backend
-	if err := e.executeNewEvents(toExecute); err != nil {
-		e.logger.Error("Error while executing new events", "error", err)
-		return nil, fmt.Errorf("executing new events: %w", err)
+	if !skipNewEvents {
+		var err error
+		executedEvents, err = e.executeNewEvents(toExecute)
+		if err != nil {
+			e.logger.Error("Error while executing new events", "error", err)
+
+			e.workflowCompleted(nil, err)
+		}
 	}
 
-	executedEvents := toExecute
-
+	// Process any commands added while executing new events
 	completed, newCommandEvents, activityEvents, workflowEvents, err := e.processCommands(ctx, t)
 	if err != nil {
 		return nil, fmt.Errorf("processing commands: %w", err)
@@ -115,6 +126,8 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		"task_id", t.ID,
 		"instance_id", t.WorkflowInstance.InstanceID,
 		"executed", len(executedEvents),
+		"last_sequence_id", e.lastSequenceID,
+		"completed", e.workflow.Completed(),
 	)
 
 	return &ExecutionResult{
@@ -129,7 +142,7 @@ func (e *executor) replayHistory(history []history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range history {
 		if err := e.executeEvent(event); err != nil {
-			return fmt.Errorf("executeing history event: %w", err)
+			return err
 		}
 
 		e.lastSequenceID = event.SequenceID
@@ -138,22 +151,20 @@ func (e *executor) replayHistory(history []history.Event) error {
 	return nil
 }
 
-func (e *executor) executeNewEvents(newEvents []history.Event) error {
+func (e *executor) executeNewEvents(newEvents []history.Event) ([]history.Event, error) {
 	e.workflowState.SetReplaying(false)
 
-	for _, event := range newEvents {
+	for i, event := range newEvents {
 		if err := e.executeEvent(event); err != nil {
-			return fmt.Errorf("executing event: %w", err)
+			return newEvents[:i], err
 		}
 	}
 
 	if e.workflow.Completed() {
-		if err := e.workflowCompleted(e.workflow.Result(), e.workflow.Error()); err != nil {
-			return err
-		}
+		e.workflowCompleted(e.workflow.Result(), e.workflow.Error())
 	}
 
-	return nil
+	return newEvents, nil
 }
 
 func (e *executor) Close() {
@@ -373,13 +384,11 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 	return e.workflow.Continue(e.workflowCtx)
 }
 
-func (e *executor) workflowCompleted(result payload.Payload, err error) error {
+func (e *executor) workflowCompleted(result payload.Payload, err error) {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, result, err)
 	e.workflowState.AddCommand(&cmd)
-
-	return nil
 }
 
 func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool, []history.Event, []history.Event, []history.WorkflowEvent, error) {
