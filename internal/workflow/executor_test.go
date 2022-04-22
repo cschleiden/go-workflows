@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
@@ -29,14 +30,14 @@ func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, in
 	return t.history, nil
 }
 
-func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) *executor {
+func newExecutor(r *Registry, i *core.WorkflowInstance, workflow interface{}, historyProvider WorkflowHistoryProvider) *executor {
 	logger := logger.NewDefaultLogger()
 	s := workflowstate.NewWorkflowState(i, logger, clock.New())
 	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
 
 	return &executor{
 		registry:          r,
-		workflow:          NewWorkflow(reflect.ValueOf(workflow1)),
+		workflow:          NewWorkflow(reflect.ValueOf(workflow)),
 		historyProvider:   historyProvider,
 		workflowState:     s,
 		workflowCtx:       wfCtx,
@@ -52,15 +53,13 @@ func activity1(ctx context.Context, r int) (int, error) {
 	return r, nil
 }
 
-var workflowHits int
-
-func workflow1(ctx sync.Context) error {
-	workflowHits++
-
-	return nil
-}
-
 func Test_ExecuteWorkflow(t *testing.T) {
+	var workflowHits int
+	workflow1 := func(ctx sync.Context) error {
+		workflowHits++
+		return nil
+	}
+
 	r := NewRegistry()
 
 	r.RegisterWorkflow(workflow1)
@@ -74,14 +73,14 @@ func Test_ExecuteWorkflow(t *testing.T) {
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   "workflow1",
+					Name:   fn.Name(workflow1),
 					Inputs: []payload.Payload{},
 				},
 			),
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
+	e := newExecutor(r, task.WorkflowInstance, workflow1, &testHistoryProvider{})
 
 	_, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
@@ -125,13 +124,13 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 		LastSequenceID:   3,
 	}
 
-	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{[]history.Event{
+	e := newExecutor(r, task.WorkflowInstance, workflowWithActivity, &testHistoryProvider{[]history.Event{
 		history.NewHistoryEvent(
 			1,
 			time.Now(),
 			history.EventType_WorkflowExecutionStarted,
 			&history.ExecutionStartedAttributes{
-				Name:   "workflowWithActivity",
+				Name:   fn.Name(workflowWithActivity),
 				Inputs: []payload.Payload{inputs},
 			},
 		),
@@ -181,14 +180,14 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithActivity",
+					Name:   fn.Name(workflowWithActivity),
 					Inputs: []payload.Payload{},
 				},
 			),
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
+	e := newExecutor(r, task.WorkflowInstance, workflowWithActivity, &testHistoryProvider{})
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -237,14 +236,14 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithTimer",
+					Name:   fn.Name(workflowWithTimer),
 					Inputs: []payload.Payload{},
 				},
 			),
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
+	e := newExecutor(r, task.WorkflowInstance, workflowWithTimer, &testHistoryProvider{})
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -293,14 +292,14 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithSelector",
+					Name:   fn.Name(workflowWithSelector),
 					Inputs: []payload.Payload{},
 				},
 			),
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
+	e := newExecutor(r, task.WorkflowInstance, workflowWithSelector, &testHistoryProvider{})
 
 	e.ExecuteTask(context.Background(), task)
 
@@ -330,7 +329,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithActivity",
+					Name:   fn.Name(workflowWithActivity),
 					Inputs: []payload.Payload{inputs},
 				},
 			),
@@ -346,7 +345,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, oldTask.WorkflowInstance, &testHistoryProvider{[]history.Event{}})
+	e := newExecutor(r, oldTask.WorkflowInstance, workflowWithActivity, &testHistoryProvider{[]history.Event{}})
 
 	taskResult, err := e.ExecuteTask(context.Background(), oldTask)
 
@@ -385,21 +384,21 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.Len(t, e.workflowState.Commands(), 1)
 }
 
-var workflowSignalHits int
-
-func workflowWithSignal1(ctx sync.Context) error {
-	c := wf.NewSignalChannel[string](ctx, "signal1")
-	c.Receive(ctx)
-
-	workflowSignalHits++
-
-	return nil
-}
-
 func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	r := NewRegistry()
 
-	r.RegisterWorkflow(workflowWithSignal1)
+	var workflowSignalHits int
+
+	workflowWithSignal := func(ctx sync.Context) error {
+		c := wf.NewSignalChannel[string](ctx, "signal1")
+		c.Receive(ctx)
+
+		workflowSignalHits++
+
+		return nil
+	}
+
+	r.RegisterWorkflow(workflowWithSignal)
 
 	s, err := converter.DefaultConverter.To("")
 	require.NoError(t, err)
@@ -412,7 +411,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithSignal1",
+					Name:   fn.Name(workflowWithSignal),
 					Inputs: []payload.Payload{},
 				},
 			),
@@ -427,7 +426,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 		},
 	}
 
-	e := newExecutor(r, task.WorkflowInstance, &testHistoryProvider{})
+	e := newExecutor(r, task.WorkflowInstance, workflowWithSignal, &testHistoryProvider{})
 
 	_, err = e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
@@ -435,6 +434,40 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	require.Equal(t, 1, workflowSignalHits)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
+}
+
+func Test_CompletesWorkflowOnError(t *testing.T) {
+	r := NewRegistry()
+
+	workflowPanic := func(ctx sync.Context) error {
+		panic("wf error")
+	}
+
+	r.RegisterWorkflow(workflowPanic)
+
+	task1 := &task.Workflow{
+		ID:               "taskid",
+		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		NewEvents: []history.Event{
+			history.NewPendingEvent(
+				time.Now(),
+				history.EventType_WorkflowExecutionStarted,
+				&history.ExecutionStartedAttributes{
+					Name:   fn.Name(workflowPanic),
+					Inputs: []payload.Payload{},
+				},
+			),
+		},
+	}
+
+	historyProvider := &testHistoryProvider{[]history.Event{}}
+	e := newExecutor(r, task1.WorkflowInstance, workflowPanic, historyProvider)
+
+	r1, err := e.ExecuteTask(context.Background(), task1)
+	require.NoError(t, err)
+	require.True(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.Commands(), 1)
+	require.True(t, r1.Completed)
 }
 
 func Test_ClearCommandsBetweenRuns(t *testing.T) {
@@ -461,7 +494,7 @@ func Test_ClearCommandsBetweenRuns(t *testing.T) {
 	}
 
 	historyProvider := &testHistoryProvider{[]history.Event{}}
-	e := newExecutor(r, task1.WorkflowInstance, historyProvider)
+	e := newExecutor(r, task1.WorkflowInstance, workflowWithActivity, historyProvider)
 
 	r1, err := e.ExecuteTask(context.Background(), task1)
 	require.NoError(t, err)
