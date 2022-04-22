@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func Test_WorkflowBlocked(t *testing.T) {
 }
 
 func workflowBlocked(ctx workflow.Context) error {
-	var f workflow.Future[int]
+	f := sync.NewFuture[int]()
 	f.Get(ctx)
 
 	return nil
