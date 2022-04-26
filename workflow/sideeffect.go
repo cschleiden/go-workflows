@@ -8,17 +8,20 @@ import (
 )
 
 func SideEffect[TResult any](ctx sync.Context, f func(ctx sync.Context) TResult) Future[TResult] {
-	wfState := workflowstate.WorkflowState(ctx)
-
-	scheduleEventID := wfState.GetNextScheduleEventID()
-
 	future := sync.NewFuture[TResult]()
+
+	if ctx.Err() != nil {
+		future.Set(*new(TResult), ctx.Err())
+		return future
+	}
+
+	wfState := workflowstate.WorkflowState(ctx)
+	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	if Replaying(ctx) {
 		// There has to be a message in the history with the result, create a new future
 		// and block on it
 		wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(future))
-
 		return future
 	}
 
@@ -28,8 +31,7 @@ func SideEffect[TResult any](ctx sync.Context, f func(ctx sync.Context) TResult)
 	// Create command to add it to the history
 	payload, err := converter.DefaultConverter.To(r)
 	if err != nil {
-		var z TResult
-		future.Set(z, err)
+		future.Set(*new(TResult), err)
 	}
 
 	cmd := command.NewSideEffectCommand(scheduleEventID, payload)

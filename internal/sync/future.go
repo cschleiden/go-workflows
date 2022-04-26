@@ -57,8 +57,7 @@ func (f *future[T]) Get(ctx Context) (T, error) {
 			cr.MadeProgress()
 
 			if f.err != nil {
-				var zero T
-				return zero, f.err
+				return *new(T), f.err
 			}
 
 			return f.v, nil

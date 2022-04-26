@@ -30,10 +30,14 @@ func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
+	if ctx.Err() != nil {
+		f.Set(*new(TResult), ctx.Err())
+		return f
+	}
+
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		var z TResult
-		f.Set(z, fmt.Errorf("converting workflow input: %w", err))
+		f.Set(*new(TResult), fmt.Errorf("converting subworkflow input: %w", err))
 		return f
 	}
 
@@ -42,23 +46,31 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	name := fn.Name(workflow)
-	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, options.InstanceID, name, inputs)
+	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs)
 	wfState.AddCommand(&cmd)
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
-		if _, ok := c.ReceiveNonBlocking(ctx); ok {
-			// Workflow has been canceled, check if the sub-workflow has already been scheduled
-			if cmd.State != command.CommandState_Committed {
-				wfState.RemoveCommand(&cmd)
-				wfState.RemoveFuture(scheduleEventID)
+		c.AddReceiveCallback(func(v struct{}, ok bool) {
+			if cmd.State == command.CommandState_Committed {
+				// Sub-workflow is already started, create cancel command
+				cancelScheduleEventID := wfState.GetNextScheduleEventID()
 
-				var z TResult
-				f.Set(z, sync.Canceled)
+				a := cmd.Attr.(*command.ScheduleSubWorkflowCommandAttr)
+				subworkflowCancellationCmd := command.NewCancelSubWorkflowCommand(cancelScheduleEventID, a.Instance)
+				wfState.AddCommand(&subworkflowCancellationCmd)
 			}
-		}
+
+			// Remove the sub-workflow future from the workflow state and mark it as canceled if it hasn't already fired
+			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
+				if !fi.Ready() {
+					wfState.RemoveFuture(scheduleEventID)
+					f.Set(*new(TResult), sync.Canceled)
+				}
+			}
+		})
 	}
 
 	return f

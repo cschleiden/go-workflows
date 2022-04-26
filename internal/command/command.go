@@ -3,6 +3,7 @@ package command
 import (
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/google/uuid"
 )
@@ -15,6 +16,7 @@ const (
 	CommandType_ScheduleActivityTask
 
 	CommandType_ScheduleSubWorkflow
+	CommandType_CancelSubWorkflow
 
 	CommandType_ScheduleTimer
 	CommandType_CancelTimer
@@ -59,23 +61,37 @@ func NewScheduleActivityTaskCommand(id int64, name string, inputs []payload.Payl
 }
 
 type ScheduleSubWorkflowCommandAttr struct {
-	InstanceID string
-	Name       string
-	Inputs     []payload.Payload
+	Instance *core.WorkflowInstance
+	Name     string
+	Inputs   []payload.Payload
 }
 
-func NewScheduleSubWorkflowCommand(id int64, instanceID, name string, inputs []payload.Payload) Command {
-	if instanceID == "" {
-		instanceID = uuid.New().String()
+func NewScheduleSubWorkflowCommand(id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload) Command {
+	if subWorkflowInstanceID == "" {
+		subWorkflowInstanceID = uuid.New().String()
 	}
 
 	return Command{
 		ID:   id,
 		Type: CommandType_ScheduleSubWorkflow,
 		Attr: &ScheduleSubWorkflowCommandAttr{
-			InstanceID: instanceID,
-			Name:       name,
-			Inputs:     inputs,
+			Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance.InstanceID, id),
+			Name:     name,
+			Inputs:   inputs,
+		},
+	}
+}
+
+type CancelSubWorkflowCommandAttr struct {
+	SubWorkflowInstance *core.WorkflowInstance
+}
+
+func NewCancelSubWorkflowCommand(id int64, subWorkflowInstance *core.WorkflowInstance) Command {
+	return Command{
+		ID:   id,
+		Type: CommandType_CancelSubWorkflow,
+		Attr: &CancelSubWorkflowCommandAttr{
+			SubWorkflowInstance: subWorkflowInstance,
 		},
 	}
 }

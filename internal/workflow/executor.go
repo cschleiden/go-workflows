@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
@@ -15,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/log"
-	"github.com/google/uuid"
 )
 
 type ExecutionResult struct {
@@ -223,10 +223,10 @@ func (e *executor) executeEvent(event history.Event) error {
 
 	case history.EventType_SubWorkflowScheduled:
 		err = e.handleSubWorkflowScheduled(event, event.Attributes.(*history.SubWorkflowScheduledAttributes))
-
+	case history.EventType_SubWorkflowCancellationRequested:
+		err = e.handleSubWorkflowCancellationRequest(event, event.Attributes.(*history.SubWorkflowCancellationRequestedAttributes))
 	case history.EventType_SubWorkflowFailed:
 		err = e.handleSubWorkflowFailed(event, event.Attributes.(*history.SubWorkflowFailedAttributes))
-
 	case history.EventType_SubWorkflowCompleted:
 		err = e.handleSubWorkflowCompleted(event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
 
@@ -348,9 +348,25 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 		if a.Name != ca.Name {
 			return errors.New("previous workflow execution scheduled a different sub workflow")
 		}
+
+		// Set correct InstanceID here.
+		// TODO: see if we can provide better support for commands here and find a better place to store
+		// this message.
+		ca.Instance = a.SubWorkflowInstance
 	}
 
+	// TOOD: If the command cannot be found, raise error?
+
 	return nil
+}
+
+func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *history.SubWorkflowCancellationRequestedAttributes) error {
+	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+	if c != nil {
+		return fmt.Errorf("expected to find a sub workflow cancellation event, instead got: %v", event.Type)
+	}
+
+	return e.workflow.Continue(e.workflowCtx)
 }
 
 func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
@@ -443,21 +459,19 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 		case command.CommandType_ScheduleSubWorkflow:
 			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
 
-			subWorkflowInstance := core.NewSubWorkflowInstance(a.InstanceID, uuid.NewString(), instance.InstanceID, c.ID)
-
 			newEvents = append(newEvents, e.createNewEvent(
 				history.EventType_SubWorkflowScheduled,
 				&history.SubWorkflowScheduledAttributes{
-					InstanceID: subWorkflowInstance.InstanceID,
-					Name:       a.Name,
-					Inputs:     a.Inputs,
+					SubWorkflowInstance: a.Instance,
+					Name:                a.Name,
+					Inputs:              a.Inputs,
 				},
 				history.ScheduleEventID(c.ID),
 			))
 
 			// Send message to new workflow instance
 			workflowEvents = append(workflowEvents, history.WorkflowEvent{
-				WorkflowInstance: subWorkflowInstance,
+				WorkflowInstance: a.Instance,
 				HistoryEvent: e.createNewEvent(
 					history.EventType_WorkflowExecutionStarted,
 					&history.ExecutionStartedAttributes{
@@ -466,6 +480,23 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 					},
 					history.ScheduleEventID(c.ID),
 				),
+			})
+
+		case command.CommandType_CancelSubWorkflow:
+			a := c.Attr.(*command.CancelSubWorkflowCommandAttr)
+
+			// Record sub-workflow cancellation request event
+			newEvents = append(newEvents, e.createNewEvent(
+				history.EventType_SubWorkflowCancellationRequested,
+				&history.SubWorkflowScheduledAttributes{
+					SubWorkflowInstance: a.SubWorkflowInstance,
+				},
+			))
+
+			// Send cancellation event to sub-workflow
+			workflowEvents = append(workflowEvents, history.WorkflowEvent{
+				WorkflowInstance: a.SubWorkflowInstance,
+				HistoryEvent:     history.NewWorkflowCancellationEvent(time.Now()),
 			})
 
 		case command.CommandType_SideEffect:

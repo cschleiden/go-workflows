@@ -20,6 +20,7 @@ const (
 	EventType_WorkflowTaskStarted
 
 	EventType_SubWorkflowScheduled
+	EventType_SubWorkflowCancellationRequested
 	EventType_SubWorkflowCompleted
 	EventType_SubWorkflowFailed
 
@@ -52,6 +53,8 @@ func (et EventType) String() string {
 
 	case EventType_SubWorkflowScheduled:
 		return "SubWorkflowScheduled"
+	case EventType_SubWorkflowCancellationRequested:
+		return "SubWorkflowCancellationRequested"
 	case EventType_SubWorkflowCompleted:
 		return "SubWorkflowCompleted"
 	case EventType_SubWorkflowFailed:
@@ -68,6 +71,8 @@ func (et EventType) String() string {
 		return "TimerScheduled"
 	case EventType_TimerFired:
 		return "TimerFired"
+	case EventType_TimerCanceled:
+		return "TimerCanceled"
 
 	case EventType_SignalReceived:
 		return "SignalReceived"

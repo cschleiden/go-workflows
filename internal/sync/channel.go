@@ -151,8 +151,7 @@ func (c *channel[T]) ReceiveNonBlocking(ctx Context) (T, bool) {
 		return v, ok
 	}
 
-	var z T
-	return z, false
+	return *new(T), false
 }
 
 func (c *channel[T]) hasValue() bool {
@@ -203,8 +202,7 @@ func (c *channel[T]) tryReceive() (v T, ok bool, rok bool) {
 	// If channel has been closed and no values in buffer (if buffered) return zero
 	// element
 	if c.closed {
-		var z T
-		return z, false, true
+		return *new(T), false, true
 	}
 
 	// Any blocked senders? If so, receive from the first one

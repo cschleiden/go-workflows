@@ -1,11 +1,14 @@
 package history
 
-import "github.com/cschleiden/go-workflows/internal/payload"
+import (
+	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/payload"
+)
 
 type SubWorkflowScheduledAttributes struct {
-	InstanceID string
+	SubWorkflowInstance *core.WorkflowInstance `json:"sub_workflow_instance,omitempty"`
 
-	Name string
+	Name string `json:"name,omitempty"`
 
-	Inputs []payload.Payload
+	Inputs []payload.Payload `json:"inputs,omitempty"`
 }

@@ -1,5 +1,5 @@
 package history
 
 type SubWorkflowFailedAttributes struct {
-	Error string
+	Error string `json:"error,omitempty"`
 }
