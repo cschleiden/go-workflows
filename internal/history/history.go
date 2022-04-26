@@ -68,6 +68,8 @@ func (et EventType) String() string {
 		return "TimerScheduled"
 	case EventType_TimerFired:
 		return "TimerFired"
+	case EventType_TimerCanceled:
+		return "TimerCanceled"
 
 	case EventType_SignalReceived:
 		return "SignalReceived"
