@@ -22,7 +22,7 @@ func Test_MysqlBackend(t *testing.T) {
 		t.Skip()
 	}
 
-	dbName := "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
+	var dbName string
 
 	test.BackendTest(t, func() backend.Backend {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
@@ -30,6 +30,7 @@ func Test_MysqlBackend(t *testing.T) {
 			panic(err)
 		}
 
+		dbName = "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
 		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
 			panic(fmt.Errorf("creating database: %w", err))
 		}
