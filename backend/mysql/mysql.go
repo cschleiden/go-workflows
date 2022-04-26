@@ -89,7 +89,9 @@ func (b *mysqlBackend) Logger() log.Logger {
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	tx, err := b.db.BeginTx(ctx, nil)
+	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelReadCommitted,
+	})
 	if err != nil {
 		return err
 	}
@@ -104,16 +106,16 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 		return backend.ErrInstanceNotFound
 	}
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
-		return fmt.Errorf("inserting cancellation event: %w", err)
-	}
-
 	// Recursively, find any sub-workflow instance to cancel
 	toCancel := []string{instance.InstanceID}
 
 	for len(toCancel) > 0 {
 		toCancelID := toCancel[0]
 		toCancel = toCancel[1:]
+
+		if err := insertNewEvents(ctx, tx, toCancelID, []history.Event{*event}); err != nil {
+			return fmt.Errorf("inserting cancellation event: %w", err)
+		}
 
 		rows, err := tx.QueryContext(ctx, "SELECT instance_id FROM `instances` WHERE parent_instance_id = ? AND completed_at IS NULL", toCancelID)
 		defer rows.Close()
@@ -125,11 +127,6 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 			var subWorkflowInstanceID string
 			if err := rows.Scan(&subWorkflowInstanceID); err != nil {
 				return fmt.Errorf("geting workflow instance for canceling: %w", err)
-			}
-
-			// Cancel sub-workflow instance
-			if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{*event}); err != nil {
-				return fmt.Errorf("inserting cancellation event: %w", err)
 			}
 
 			toCancel = append(toCancel, subWorkflowInstanceID)
