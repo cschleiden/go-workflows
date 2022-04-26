@@ -212,6 +212,9 @@ func (e *executor) executeEvent(event history.Event) error {
 	case history.EventType_TimerFired:
 		err = e.handleTimerFired(event, event.Attributes.(*history.TimerFiredAttributes))
 
+	case history.EventType_TimerCanceled:
+		err = e.handleTimerCanceled(event, event.Attributes.(*history.TimerCanceledAttributes))
+
 	case history.EventType_SignalReceived:
 		err = e.handleSignalReceived(event, event.Attributes.(*history.SignalReceivedAttributes))
 
@@ -307,6 +310,22 @@ func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerSch
 }
 
 func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAttributes) error {
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
+	if !ok {
+		// Timer already canceled ignore
+		return nil
+	}
+
+	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+
+	if err := f(nil, nil); err != nil {
+		return fmt.Errorf("setting result: %w", err)
+	}
+
+	return e.workflow.Continue(e.workflowCtx)
+}
+
+func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanceledAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		// Timer already canceled ignore
@@ -482,6 +501,18 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 					history.VisibleAt(a.At),
 				)},
 			)
+
+		case command.CommandType_CancelTimer:
+			a := c.Attr.(*command.CancelTimerCommandAttr)
+
+			workflowEvents = append(workflowEvents, history.WorkflowEvent{
+				WorkflowInstance: instance,
+				HistoryEvent: e.createNewEvent(
+					history.EventType_TimerCanceled,
+					&history.TimerCanceledAttributes{},
+					history.ScheduleEventID(a.TimerScheduleEventID),
+				),
+			})
 
 		case command.CommandType_CompleteWorkflow:
 			completed = true

@@ -11,7 +11,7 @@ type Channel[T any] interface {
 
 	Receive(ctx Context) (v T, ok bool)
 
-	ReceiveNonblocking(ctx Context) (v T, ok bool)
+	ReceiveNonBlocking(ctx Context) (v T, ok bool)
 
 	Close()
 }
@@ -21,6 +21,8 @@ type ChannelInternal[T any] interface {
 
 	ReceiveNonBlocking(ctx Context) (v T, ok bool)
 
+	// AddReceiveCallback adds a callback that is called once when a value is sent to the channel. This is similar
+	// to the blocking `Receive` method, but is not blocking a coroutine.
 	AddReceiveCallback(cb func(v T, ok bool))
 }
 
@@ -144,7 +146,7 @@ func (c *channel[T]) Receive(ctx Context) (v T, ok bool) {
 	}
 }
 
-func (c *channel[T]) ReceiveNonblocking(ctx Context) (T, bool) {
+func (c *channel[T]) ReceiveNonBlocking(ctx Context) (T, bool) {
 	if v, ok, rok := c.tryReceive(); rok {
 		return v, ok
 	}
@@ -224,15 +226,6 @@ func (c *channel[T]) hasCapacity() bool {
 
 func (c *channel[T]) AddReceiveCallback(cb func(v T, ok bool)) {
 	c.receivers = append(c.receivers, cb)
-}
-
-func (c *channel[T]) ReceiveNonBlocking(ctx Context) (T, bool) {
-	if v, ok, rok := c.tryReceive(); rok {
-		return v, ok
-	}
-
-	var z T
-	return z, false
 }
 
 func (c *channel[T]) Closed() bool {
