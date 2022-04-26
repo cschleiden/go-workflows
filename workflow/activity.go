@@ -31,8 +31,7 @@ func executeActivity[TResult any](ctx sync.Context, options ActivityOptions, act
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
-		var z TResult
-		f.Set(z, fmt.Errorf("converting activity input: %w", err))
+		f.Set(*new(TResult), fmt.Errorf("converting activity input: %w", err))
 		return f
 	}
 
@@ -54,8 +53,7 @@ func executeActivity[TResult any](ctx sync.Context, options ActivityOptions, act
 
 					wfState.RemoveFuture(scheduleEventID)
 
-					var z TResult
-					f.Set(z, sync.Canceled)
+					f.Set(*new(TResult), sync.Canceled)
 				}
 			}
 		}

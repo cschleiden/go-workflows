@@ -27,8 +27,7 @@ func AsDecodingSettable[T any](f sync.SettableFuture[T]) DecodingSettable {
 			converter.DefaultConverter.From(v, &t)
 			ferr = f.Set(t, err)
 		} else {
-			var z T
-			ferr = f.Set(z, err)
+			ferr = f.Set(*new(T), err)
 		}
 
 		return ferr

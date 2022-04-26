@@ -139,11 +139,8 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 }
 
 func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.Instance, timeout time.Duration) (T, error) {
-	// Zero result
-	var z T
-
 	if err := c.WaitForWorkflowInstance(ctx, instance, timeout); err != nil {
-		return z, fmt.Errorf("workflow did not finish in time: %w", err)
+		return *new(T), fmt.Errorf("workflow did not finish in time: %w", err)
 	}
 
 	ic := c.(*client)
@@ -151,7 +148,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 
 	h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
 	if err != nil {
-		return z, fmt.Errorf("getting workflow history: %w", err)
+		return *new(T), fmt.Errorf("getting workflow history: %w", err)
 	}
 
 	// Iterate over history backwards
@@ -161,23 +158,23 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 		case history.EventType_WorkflowExecutionFinished:
 			a := event.Attributes.(*history.ExecutionCompletedAttributes)
 			if a.Error != "" {
-				return z, errors.New(a.Error)
+				return *new(T), errors.New(a.Error)
 			}
 
 			var r T
 			if err := converter.DefaultConverter.From(a.Result, &r); err != nil {
-				return z, fmt.Errorf("converting result: %w", err)
+				return *new(T), fmt.Errorf("converting result: %w", err)
 			}
 
 			return r, nil
 
 		case history.EventType_WorkflowExecutionCanceled:
-			return z, ErrWorkflowCanceled
+			return *new(T), ErrWorkflowCanceled
 
 		case history.EventType_WorkflowExecutionTerminated:
-			return z, ErrWorkflowTerminated
+			return *new(T), ErrWorkflowTerminated
 		}
 	}
 
-	return z, errors.New("workflow finished, but could not find result event")
+	return *new(T), errors.New("workflow finished, but could not find result event")
 }

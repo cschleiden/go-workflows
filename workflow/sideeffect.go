@@ -28,8 +28,7 @@ func SideEffect[TResult any](ctx sync.Context, f func(ctx sync.Context) TResult)
 	// Create command to add it to the history
 	payload, err := converter.DefaultConverter.To(r)
 	if err != nil {
-		var z TResult
-		future.Set(z, err)
+		future.Set(*new(TResult), err)
 	}
 
 	cmd := command.NewSideEffectCommand(scheduleEventID, payload)
