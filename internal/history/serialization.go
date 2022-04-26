@@ -60,6 +60,8 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 		attr = &TimerScheduledAttributes{}
 	case EventType_TimerFired:
 		attr = &TimerFiredAttributes{}
+	case EventType_TimerCanceled:
+		attr = &TimerCanceledAttributes{}
 
 	case EventType_SubWorkflowScheduled:
 		attr = &SubWorkflowScheduledAttributes{}

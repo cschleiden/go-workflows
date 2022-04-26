@@ -122,9 +122,9 @@ func (wf *WfState) RemoveCommandByEventID(eventID int64) *command.Command {
 	return nil
 }
 
-func (wf *WfState) RemoveCommand(cmd command.Command) {
+func (wf *WfState) RemoveCommand(cmd *command.Command) {
 	for i, c := range wf.commands {
-		if *c == cmd {
+		if c == cmd {
 			// TODO: Move to state machines?
 			c.State = command.CommandState_Done
 

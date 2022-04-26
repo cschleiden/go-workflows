@@ -25,11 +25,11 @@ type futureEvent struct {
 // KEYS[1] - future event set key
 // ARGV[1] - current timestamp for zrange
 var futureEventsCmd = redis.NewScript(`
-	local events = redis.call("ZRANGEBYSCORE", KEYS[1], "-inf", ARGV[1])
+	local events = redis.call("ZRANGE", KEYS[1], "-inf", ARGV[1], "BYSCORE")
 	if events ~= false and #events ~= 0 then
 		redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", ARGV[1])
+		return redis.call("MGET", unpack(events))
 	end
-	return events
 `)
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
@@ -38,43 +38,45 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	nowStr := strconv.Itoa(int(now))
 
 	result, err := futureEventsCmd.Run(ctx, rb.rdb, []string{futureEventsKey()}, nowStr).Result()
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("checking future events: %w", err)
 	}
 
-	for _, eventR := range result.([]interface{}) {
-		eventStr := eventR.(string)
-		var futureEvent futureEvent
-		if err := json.Unmarshal([]byte(eventStr), &futureEvent); err != nil {
-			return nil, fmt.Errorf("unmarshaling event: %w", err)
-		}
-
-		instanceState, err := readInstance(ctx, rb.rdb, futureEvent.Instance.InstanceID)
-		if err != nil {
-			if err == backend.ErrInstanceNotFound {
-				rb.options.Logger.Debug("Ignoring future event for non-existing instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
-				continue
-			} else {
-				return nil, fmt.Errorf("reading instance: %w", err)
+	if result != nil {
+		for _, eventR := range result.([]interface{}) {
+			eventStr := eventR.(string)
+			var futureEvent futureEvent
+			if err := json.Unmarshal([]byte(eventStr), &futureEvent); err != nil {
+				return nil, fmt.Errorf("unmarshaling event: %w", err)
 			}
-		}
 
-		if instanceState.State != backend.WorkflowStateActive {
-			rb.options.Logger.Debug("Ignoring future event for already completed instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
-			continue
-		}
+			instanceState, err := readInstance(ctx, rb.rdb, futureEvent.Instance.InstanceID)
+			if err != nil {
+				if err == backend.ErrInstanceNotFound {
+					rb.options.Logger.Debug("Ignoring future event for non-existing instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
+					continue
+				} else {
+					return nil, fmt.Errorf("reading instance: %w", err)
+				}
+			}
 
-		msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(futureEvent.Instance.InstanceID), futureEvent.Event)
-		if err != nil {
-			return nil, fmt.Errorf("adding future event to stream: %w", err)
-		}
+			if instanceState.State != backend.WorkflowStateActive {
+				rb.options.Logger.Debug("Ignoring future event for already completed instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
+				continue
+			}
 
-		// Instance now has at least one pending event, try to queue task
-		if _, err := rb.workflowQueue.Enqueue(ctx, futureEvent.Instance.InstanceID, &workflowTaskData{
-			LastPendingEventMessageID: *msgID,
-		}); err != nil {
-			if err != taskqueue.ErrTaskAlreadyInQueue {
-				return nil, fmt.Errorf("queueing workflow task: %w", err)
+			msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(futureEvent.Instance.InstanceID), futureEvent.Event)
+			if err != nil {
+				return nil, fmt.Errorf("adding future event to stream: %w", err)
+			}
+
+			// Instance now has at least one pending event, try to queue task
+			if _, err := rb.workflowQueue.Enqueue(ctx, futureEvent.Instance.InstanceID, &workflowTaskData{
+				LastPendingEventMessageID: *msgID,
+			}); err != nil {
+				if err != taskqueue.ErrTaskAlreadyInQueue {
+					return nil, fmt.Errorf("queueing workflow task: %w", err)
+				}
 			}
 		}
 	}
@@ -171,7 +173,11 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 
 		// TODO: use pipelines
 		for _, event := range events {
-			if event.VisibleAt != nil {
+			if event.Type == history.EventType_TimerCanceled {
+				if err := removeFutureEvent(ctx, rb.rdb, targetInstance, &event); err != nil {
+					return err
+				}
+			} else if event.VisibleAt != nil {
 				// Add future events
 				if err := addFutureEvent(ctx, rb.rdb, targetInstance, &event); err != nil {
 					return err

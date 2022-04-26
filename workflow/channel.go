@@ -9,7 +9,7 @@ type Channel[T any] interface {
 
 	Receive(ctx Context) (v T, ok bool)
 
-	ReceiveNonblocking(ctx Context) (v T, ok bool)
+	ReceiveNonBlocking(ctx Context) (v T, ok bool)
 
 	Close()
 }

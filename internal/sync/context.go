@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+type CancelChannel ChannelInternal[struct{}]
+
 // A Context carries a deadline, a cancellation signal, and other values across
 // API boundaries.
 //

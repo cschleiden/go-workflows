@@ -29,6 +29,7 @@ const (
 
 	EventType_TimerScheduled
 	EventType_TimerFired
+	EventType_TimerCanceled
 
 	EventType_SignalReceived
 

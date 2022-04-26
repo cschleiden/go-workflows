@@ -95,15 +95,15 @@ func NewScheduleTimerCommand(id int64, at time.Time) Command {
 }
 
 type CancelTimerCommandAttr struct {
-	TimerID int
+	TimerScheduleEventID int64
 }
 
-func NewCancelTimerCommand(id int64, timerID int) Command {
+func NewCancelTimerCommand(id int64, timerID int64) Command {
 	return Command{
 		ID:   id,
 		Type: CommandType_CancelTimer,
 		Attr: &CancelTimerCommandAttr{
-			TimerID: timerID,
+			TimerScheduleEventID: timerID,
 		},
 	}
 }

@@ -18,6 +18,12 @@ type SettableFuture[T any] interface {
 	Set(v T, err error) error
 }
 
+type FutureInternal[T any] interface {
+	Future[T]
+
+	Ready() bool
+}
+
 func NewFuture[T any]() SettableFuture[T] {
 	return &future[T]{
 		converter: converter.DefaultConverter,

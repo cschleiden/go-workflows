@@ -12,21 +12,44 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 	wfState := workflowstate.WorkflowState(ctx)
 
 	scheduleEventID := wfState.GetNextScheduleEventID()
-
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, Now(ctx).Add(delay))
 	wfState.AddCommand(&timerCmd)
 
-	t := sync.NewFuture[struct{}]()
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(t))
+	f := sync.NewFuture[struct{}]()
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	if d := ctx.Done(); d != nil {
-		if c, ok := d.(sync.ChannelInternal[struct{}]); ok {
+	// Check if the channel is cancelable
+	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
+		// Is the context is canceled already?
+		if _, ok := c.ReceiveNonBlocking(ctx); ok {
+			// Remove the command, no need to schedule timer
+			wfState.RemoveCommand(&timerCmd)
+
+			// And remove the future from the state and mark it as canceled
+			wfState.RemoveFuture(scheduleEventID)
+			f.Set(struct{}{}, sync.Canceled)
+		} else {
+			// Otherwise register a callback for when it's canceled. The only operation on the `Done` channel
+			// is that it's closed when the context is canceled.
 			c.AddReceiveCallback(func(v struct{}, ok bool) {
-				wfState.RemoveFuture(scheduleEventID)
-				t.Set(v, sync.Canceled)
+				if timerCmd.State == command.CommandState_Committed {
+					// If the timer command is already committed, create a cancel command to allow the backend
+					// to clean up the scheduled timer message.
+					cancelScheduleEventID := wfState.GetNextScheduleEventID()
+					timerCancelationCmd := command.NewCancelTimerCommand(cancelScheduleEventID, scheduleEventID)
+					wfState.AddCommand(&timerCancelationCmd)
+				}
+
+				// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired
+				if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
+					if !fi.Ready() {
+						wfState.RemoveFuture(scheduleEventID)
+						f.Set(v, sync.Canceled)
+					}
+				}
 			})
 		}
 	}
 
-	return t
+	return f
 }

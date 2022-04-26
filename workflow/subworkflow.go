@@ -47,17 +47,16 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	// Handle cancellation
-	if d := ctx.Done(); d != nil {
-		if c, ok := d.(sync.ChannelInternal[struct{}]); ok {
-			if _, ok := c.ReceiveNonBlocking(ctx); ok {
-				// Workflow has been canceled, check if the sub-workflow has already been scheduled
-				if cmd.State != command.CommandState_Committed {
-					wfState.RemoveCommand(cmd)
-					wfState.RemoveFuture(scheduleEventID)
-					var z TResult
-					f.Set(z, sync.Canceled)
-				}
+	// Check if the channel is cancelable
+	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
+		if _, ok := c.ReceiveNonBlocking(ctx); ok {
+			// Workflow has been canceled, check if the sub-workflow has already been scheduled
+			if cmd.State != command.CommandState_Committed {
+				wfState.RemoveCommand(&cmd)
+				wfState.RemoveFuture(scheduleEventID)
+
+				var z TResult
+				f.Set(z, sync.Canceled)
 			}
 		}
 	}

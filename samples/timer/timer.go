@@ -7,7 +7,6 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -18,7 +17,7 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	b := sqlite.NewInMemoryBackend()
+	// b := sqlite.NewInMemoryBackend()
 	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
 	if err != nil {
 		panic(err)
@@ -33,7 +32,6 @@ func main() {
 	startWorkflow(ctx, c)
 
 	cancel()
-
 	w.Stop()
 }
 
@@ -45,12 +43,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	for i := 0; i < 10; i++ {
-		time.Sleep(time.Millisecond * 200)
-		c.SignalWorkflow(ctx, wf.InstanceID, "Hello world", "value")
-	}
-
-	result, err := client.GetWorkflowResult[string](ctx, c, wf, time.Second*10)
+	result, err := client.GetWorkflowResult[string](ctx, c, wf, time.Second*15)
 	if err != nil {
 		log.Fatal(err)
 	}
