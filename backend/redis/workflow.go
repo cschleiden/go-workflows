@@ -182,6 +182,10 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 				if err := addFutureEvent(ctx, rb.rdb, targetInstance, &event); err != nil {
 					return err
 				}
+			} else if event.Type == history.EventType_SubWorkflowCancellationRequested {
+				if err := rb.CancelWorkflowInstance(ctx, targetInstance, &event); err != nil {
+					return err
+				}
 			} else {
 				// Add pending event to stream
 				lastPendingMessageID, err = addEventToStream(ctx, rb.rdb, pendingEventsKey(targetInstance.InstanceID), &event)

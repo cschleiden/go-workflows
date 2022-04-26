@@ -79,7 +79,12 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 }
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
-	// Recursively, find any sub-workflow instance to cancel
+	_, err := readInstance(ctx, rb.rdb, instance.InstanceID)
+	if err != nil {
+		return err
+	}
+
+	// Recursively, find any sub-workflow instances to cancel
 	toCancel := make([]*core.WorkflowInstance, 0)
 	toCancel = append(toCancel, instance)
 	for len(toCancel) > 0 {
@@ -94,7 +99,7 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 		// Find sub-workflows
 		subInstances, err := subWorkflowInstances(ctx, rb.rdb, instance)
 		if err != nil {
-			return err
+			return fmt.Errorf("finding sub-workflow instances for cancellation: %w", err)
 		}
 
 		toCancel = append(toCancel, subInstances...)

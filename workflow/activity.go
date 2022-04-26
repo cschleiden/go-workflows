@@ -29,6 +29,11 @@ func ExecuteActivity[TResult any](ctx sync.Context, options ActivityOptions, act
 func executeActivity[TResult any](ctx sync.Context, options ActivityOptions, activity interface{}, args ...interface{}) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
+	if ctx.Err() != nil {
+		f.Set(*new(TResult), ctx.Err())
+		return f
+	}
+
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting activity input: %w", err))

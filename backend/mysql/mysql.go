@@ -98,30 +98,42 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 	instanceID := instance.InstanceID
 
 	// Cancel workflow instance
+	// TODO: Combine this with the event insertion
+	res := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE instance_id = ? LIMIT 1", instanceID)
+	if err := res.Scan(nil); err == sql.ErrNoRows {
+		return backend.ErrInstanceNotFound
+	}
+
 	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
 		return fmt.Errorf("inserting cancellation event: %w", err)
 	}
 
 	// Recursively, find any sub-workflow instance to cancel
-	for {
-		row := tx.QueryRowContext(ctx, "SELECT instance_id FROM `instances` WHERE parent_instance_id = ? AND completed_at IS NULL LIMIT 1", instanceID)
+	toCancel := []string{instance.InstanceID}
 
-		var subWorkflowInstanceID string
-		if err := row.Scan(&subWorkflowInstanceID); err != nil {
-			if err == sql.ErrNoRows {
-				// No more sub-workflow instances to cancel
-				break
+	for len(toCancel) > 0 {
+		toCancelID := toCancel[0]
+		toCancel = toCancel[1:]
+
+		rows, err := tx.QueryContext(ctx, "SELECT instance_id FROM `instances` WHERE parent_instance_id = ? AND completed_at IS NULL", toCancelID)
+		defer rows.Close()
+		if err != nil {
+			return fmt.Errorf("finding sub-workflow instances: %w", err)
+		}
+
+		for rows.Next() {
+			var subWorkflowInstanceID string
+			if err := rows.Scan(&subWorkflowInstanceID); err != nil {
+				return fmt.Errorf("geting workflow instance for canceling: %w", err)
 			}
 
-			return fmt.Errorf("getting workflow instance for cancelling: %w", err)
-		}
+			// Cancel sub-workflow instance
+			if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{*event}); err != nil {
+				return fmt.Errorf("inserting cancellation event: %w", err)
+			}
 
-		// Cancel sub-workflow instance
-		if err := insertNewEvents(ctx, tx, subWorkflowInstanceID, []history.Event{*event}); err != nil {
-			return fmt.Errorf("inserting cancellation event: %w", err)
+			toCancel = append(toCancel, subWorkflowInstanceID)
 		}
-
-		instanceID = subWorkflowInstanceID
 	}
 
 	return tx.Commit()

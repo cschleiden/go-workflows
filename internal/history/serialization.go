@@ -65,6 +65,8 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 
 	case EventType_SubWorkflowScheduled:
 		attr = &SubWorkflowScheduledAttributes{}
+	case EventType_SubWorkflowCancellationRequested:
+		attr = &SubWorkflowCancellationRequestedAttributes{}
 	case EventType_SubWorkflowCompleted:
 		attr = &SubWorkflowCompletedAttributes{}
 	case EventType_SubWorkflowFailed:

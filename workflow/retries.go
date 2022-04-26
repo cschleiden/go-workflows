@@ -56,12 +56,19 @@ func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx
 
 			result, err = fn(ctx).Get(ctx)
 			if err != nil {
+				if err == sync.Canceled {
+					break
+				}
+
 				backoffDuration := time.Duration(float64(retryOptions.FirstRetryInterval) * math.Pow(retryOptions.BackoffCoefficient, float64(attempt)))
 				if retryOptions.MaxRetryInterval > 0 {
 					backoffDuration = time.Duration(math.Min(float64(backoffDuration), float64(retryOptions.MaxRetryInterval)))
 				}
 
-				Sleep(ctx, backoffDuration)
+				if err := Sleep(ctx, backoffDuration); err != nil {
+					r.Set(*new(T), err)
+					return
+				}
 
 				continue
 			}

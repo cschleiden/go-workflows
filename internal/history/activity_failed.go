@@ -1,5 +1,5 @@
 package history
 
 type ActivityFailedAttributes struct {
-	Reason string
+	Reason string `json:"reason,omitempty"`
 }

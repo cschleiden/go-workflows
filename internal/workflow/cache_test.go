@@ -32,7 +32,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	require.Equal(t, e, e2)
 }
 
-func Test_Cache_Evic(t *testing.T) {
+func Test_Cache_Evict(t *testing.T) {
 	c := NewWorkflowExecutorCache(WorkflowExecutorCacheOptions{
 		CacheDuration: 1, // Should evict immediately
 	})

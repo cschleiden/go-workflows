@@ -10,9 +10,9 @@ import (
 )
 
 func Test_Workflow(t *testing.T) {
-	tester := tester.NewWorkflowTester(Workflow1)
+	tester := tester.NewWorkflowTester(ParentWorkflow)
 
-	tester.Registry().RegisterWorkflow(Workflow2)
+	tester.Registry().RegisterWorkflow(SubWorkflow)
 
 	tester.OnActivity(Activity1, mock.Anything, mock.Anything, mock.Anything).Return(47, nil)
 	tester.OnActivity(Activity2, mock.Anything, mock.Anything, mock.Anything).Return(12, nil)

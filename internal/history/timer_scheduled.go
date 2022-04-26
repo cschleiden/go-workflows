@@ -3,5 +3,5 @@ package history
 import "time"
 
 type TimerScheduledAttributes struct {
-	At time.Time
+	At time.Time `json:"at,omitempty"`
 }

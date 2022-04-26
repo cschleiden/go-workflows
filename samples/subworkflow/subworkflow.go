@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -43,14 +44,14 @@ func main() {
 func startWorkflow(ctx context.Context, c client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
-	}, Workflow1, "Hello world"+uuid.NewString())
+	}, ParentWorkflow, "Hello world"+uuid.NewString())
 	if err != nil {
 		panic("could not start workflow")
 	}
 
 	log.Println("Started workflow", wf.InstanceID)
 
-	result, err := client.GetWorkflowResult[any](ctx, c, wf, time.Second*10)
+	result, err := client.GetWorkflowResult[any](ctx, c, wf, time.Second*200)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,8 +62,8 @@ func startWorkflow(ctx context.Context, c client.Client) {
 func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 	w := worker.New(mb, nil)
 
-	w.RegisterWorkflow(Workflow1)
-	w.RegisterWorkflow(Workflow2)
+	w.RegisterWorkflow(ParentWorkflow)
+	w.RegisterWorkflow(SubWorkflow)
 
 	w.RegisterActivity(Activity1)
 	w.RegisterActivity(Activity2)
@@ -74,35 +75,53 @@ func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 	return w
 }
 
-func Workflow1(ctx workflow.Context, msg string) error {
+func ParentWorkflow(ctx workflow.Context, msg string) error {
 	logger := workflow.Logger(ctx)
 	logger.Debug("Entering Workflow1")
 	logger.Debug("\tWorkflow instance input:", "msg", msg)
 
-	wr, err := workflow.CreateSubWorkflowInstance[string](ctx, workflow.DefaultSubWorkflowOptions, Workflow2, "some input").Get(ctx)
+	sctx, cancel := workflow.WithCancel(ctx)
+
+	wr := workflow.CreateSubWorkflowInstance[string](sctx, workflow.DefaultSubWorkflowOptions, SubWorkflow, "some input")
+
+	workflow.Sleep(ctx, time.Second*2)
+
+	cancel()
+
+	result, err := wr.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("getting sub workflow result: %w", err)
 	}
 
-	logger.Debug("Sub workflow result:", wr)
+	logger.Debug("Sub workflow result:", "result", result)
 
 	return nil
 }
 
-func Workflow2(ctx workflow.Context, msg string) (string, error) {
+func SubWorkflow(ctx workflow.Context, msg string) (string, error) {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering Workflow2")
-	logger.Debug("\tWorkflow instance input:", "msg", msg)
+	logger.Debug("Entering SubWorkflow", "msg", msg)
+	defer logger.Debug("Leaving SubWorkflow")
+
+	defer func() {
+		if errors.Is(ctx.Err(), workflow.Canceled) {
+			// Workflow was canceled. Get new context to perform any cleanup activities
+			// ctx := workflow.NewDisconnectedContext(ctx)
+			logger.Debug("======> Sub workflow was canceled")
+		}
+	}()
+
+	workflow.Sleep(ctx, time.Second*5)
 
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
-		panic("error getting activity 1 result")
+		logger.Error("error getting activity 1 result", "err", err)
 	}
 	logger.Debug("R1 result:", r1)
 
 	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
-		panic("error getting activity 1 result")
+		logger.Error("error getting activity 2 result", "err", err)
 	}
 	logger.Debug("R2 result:", r2)
 

@@ -237,9 +237,57 @@ wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 if err != nil {
 ```
 
+### Canceling workflows
+
+Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Any activities already running when a workflow is canceled will still run to completion and their result will be available.
+
+Sub-workflows will be canceled if their parent workflow is canceled.
+
+```go
+var c client.Client
+err = c.CancelWorkflowInstance(context.Background(), workflowInstance)
+if err != nil {
+	panic("could not cancel workflow")
+}
+```
+
+#### Perform any cleanup
+
+If you need to run any activities or make calls using `workflow.Context`.
+
+```go
+func Workflow2(ctx workflow.Context, msg string) (string, error) {
+	defer func() {
+		if errors.Is(ctx.Err(), workflow.Canceled) {
+			// Workflow was canceled. Get new context to perform any cleanup activities
+			ctx := workflow.NewDisconnectedContext(ctx)
+
+			// Execute the cleanup activity
+			if err := workflow.ExecuteActivity(ctx, ActivityCleanup).Get(ctx, nil); err != nil {
+				return errors.Wrap(err, "could not perform cleanup")
+			}
+		}
+	}()
+
+	r1, err := workflow.ExecuteActivity[int](ctx, ActivityCancel, 1, 2).Get(ctx)
+	if err != nil {  // <---- Workflow is canceled while this activity is running
+		return errors.Wrap(err, "could not get ActivityCancel result")
+	}
+
+	// r1 will contain the result of ActivityCancel
+	// ⬇ ActivitySkip will be skipped immediately
+	r2, err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx)
+	if err != nil {
+		return errors.Wrap(err, "could not get ActivitySkip result")
+	}
+
+	return "some result", nil
+}
+```
+
 ### Running activities
 
-From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future` you can await to get the result or any error it might return.
+From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future[T]` you can await to get the result or any error it might return.
 
 ```go
 r1, err := workflow.ExecuteActivity[int](ctx, Activity1, 35, 12, nil, "test").Get(ctx)
@@ -249,6 +297,10 @@ if err != nil {
 
 log.Println(r1)
 ```
+
+#### Canceling activities
+
+Canceling activities is not supported at this time.
 
 ### Timers
 
@@ -283,44 +335,37 @@ id, _ := workflow.SideEffect[string](ctx, func(ctx workflow.Context) string) {
 
 ### Running sub-workflows
 
-Call `workflow.CreateSubWorkflowInstance` to start a sub-workflow.
+Call `workflow.CreateSubWorkflowInstance` to start a sub-workflow. The returned `Future` will resolve once the sub-workflow has finished.
 
 ```go
 func Workflow1(ctx workflow.Context, msg string) error {
-	wr, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowInstanceOptions{}, Workflow2, "some input").Get(ctx, &wr)
+	result, err := workflow.CreateSubWorkflowInstance[int]
+		ctx, workflow.SubWorkflowInstanceOptions{}, SubWorkflow, "some input").Get(ctx)
 	if err != nil {
 		return errors.Wrap(err, "could not get sub workflow result")
 	}
 
-	log.Println("Sub workflow result:", wr)
+	logger.Debug("Sub workflow result:", "result", result)
+
 	return nil
 }
 
-func Workflow2(ctx workflow.Context, msg string) (int, error) {
-	r1, err := workflow.ExecuteActivity[int](ctx, Activity1, 35, 12).Get(ctx, &r1)
+func SubWorkflow(ctx workflow.Context, msg string) (int, error) {
+	r1, err := workflow.ExecuteActivity[int](ctx, Activity1, 35, 12).Get(ctx)
 	if err != nil {
 		return "", errors.Wrap(err, "could not get activity result")
 	}
 
-	log.Println("A1 result:", r1)
-
+	logger.Debug("A1 result:", "r1", r1)
 	return r1, nil
 }
 ```
 
-### Canceling workflows
+#### Canceling sub-workflows
 
-Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Activities or sub-workflows already running when a workflow is canceled will still run to completion and their result will be available.
+Similar to timer cancellation, you can pass a cancelable context to `CreateSubWorkflowInstance` and cancel the sub-workflow that way. Reacting to the cancellation is the same as canceling a workflow via the `Client`. See [Canceling workflows](#canceling-workflows) for more details.
 
-Sub-workflows will be canceled if their parent workflow is canceled.
 
-```go
-var c client.Client
-err = c.CancelWorkflowInstance(context.Background(), workflowInstance)
-if err != nil {
-	panic("could not cancel workflow")
-}
-```
 
 ### `select`
 
@@ -397,39 +442,6 @@ workflow.Select(
 		// ...
 	})
 )
-```
-
-
-#### Perform any cleanup
-
-```go
-func Workflow2(ctx workflow.Context, msg string) (string, error) {
-	defer func() {
-		if errors.Is(ctx.Err(), workflow.Canceled) {
-			// Workflow was canceled. Get new context to perform any cleanup activities
-			ctx := workflow.NewDisconnectedContext(ctx)
-
-			// Execute the cleanup activity
-			if err := workflow.ExecuteActivity(ctx, ActivityCleanup).Get(ctx, nil); err != nil {
-				return errors.Wrap(err, "could not perform cleanup")
-			}
-		}
-	}()
-
-	r1, err := workflow.ExecuteActivity[int](ctx, ActivityCancel, 1, 2).Get(ctx)
-	if err != nil {  // <---- Workflow is canceled while this activity is running
-		return errors.Wrap(err, "could not get ActivityCancel result")
-	}
-
-	// r1 will contain the result of ActivityCancel
-	// ⬇ ActivitySkip will be skipped immediately
-	r2, err := workflow.ExecuteActivity(ctx, ActivitySkip, 1, 2).Get(ctx)
-	if err != nil {
-		return errors.Wrap(err, "could not get ActivitySkip result")
-	}
-
-	return "some result", nil
-}
 ```
 
 ### Unit testing

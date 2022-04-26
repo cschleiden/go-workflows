@@ -19,6 +19,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	wf "github.com/cschleiden/go-workflows/workflow"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -88,6 +89,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	require.Equal(t, 1, workflowHits)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
+	require.Equal(t, command.CommandType_CompleteWorkflow, e.workflowState.Commands()[0].Type)
 }
 
 var workflowActivityHit int
@@ -470,7 +472,7 @@ func Test_CompletesWorkflowOnError(t *testing.T) {
 	require.True(t, r1.Completed)
 }
 
-func Test_ClearCommandsBetweenRuns(t *testing.T) {
+func Test_ClearCommandsBetweenTasks(t *testing.T) {
 	r := NewRegistry()
 
 	workflowActivityHit = 0
@@ -526,4 +528,110 @@ func Test_ClearCommandsBetweenRuns(t *testing.T) {
 	require.False(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 0)
 	require.Len(t, r2.Executed, 2)
+}
+
+func Test_ScheduleSubWorkflow(t *testing.T) {
+	r := NewRegistry()
+
+	subworkflow := func(ctx wf.Context) error {
+		return nil
+	}
+
+	workflow := func(ctx wf.Context) error {
+		_, err := wf.CreateSubWorkflowInstance[any](ctx, wf.SubWorkflowOptions{
+			InstanceID: "subworkflow",
+		}, subworkflow).Get(ctx)
+
+		return err
+	}
+
+	r.RegisterWorkflow(workflow)
+	r.RegisterWorkflow(subworkflow)
+
+	task := startWorkflowTask("instanceID", workflow)
+	hp := &testHistoryProvider{}
+	e := newExecutor(r, task.WorkflowInstance, workflow, hp)
+	result, err := e.ExecuteTask(context.Background(), task)
+	require.NoError(t, err)
+	require.Len(t, result.Executed, 3)
+	require.Len(t, result.WorkflowEvents, 1)
+	require.Equal(t, history.EventType_WorkflowExecutionStarted, result.WorkflowEvents[0].HistoryEvent.Type)
+}
+
+func Test_ScheduleSubWorkflow_Cancel(t *testing.T) {
+	r := NewRegistry()
+
+	subworkflow := func(ctx wf.Context) error {
+		return nil
+	}
+
+	workflow := func(ctx wf.Context) error {
+		swctx, cancel := wf.WithCancel(ctx)
+
+		wf.CreateSubWorkflowInstance[any](swctx, wf.SubWorkflowOptions{
+			InstanceID: "subworkflow",
+		}, subworkflow)
+
+		wf.Sleep(ctx, time.Millisecond)
+
+		cancel()
+
+		return nil
+	}
+
+	r.RegisterWorkflow(workflow)
+	r.RegisterWorkflow(subworkflow)
+
+	task := startWorkflowTask("instanceID", workflow)
+	hp := &testHistoryProvider{}
+	e := newExecutor(r, task.WorkflowInstance, workflow, hp)
+	result, err := e.ExecuteTask(context.Background(), task)
+	require.NoError(t, err)
+	require.Len(t, result.Executed, 4)
+	require.Len(t, result.WorkflowEvents, 2)
+	require.Equal(t, history.EventType_WorkflowExecutionStarted, result.WorkflowEvents[0].HistoryEvent.Type)
+
+	subWorkflowInstance := result.WorkflowEvents[0].WorkflowInstance
+
+	// Go past Sleep
+	hp.history = append(hp.history, result.Executed...)
+	result, err = e.ExecuteTask(context.Background(), continueTask("instanceID", []history.Event{
+		result.WorkflowEvents[1].HistoryEvent,
+	}, result.Executed[len(result.Executed)-1].SequenceID))
+	require.NoError(t, err)
+	require.Len(t, result.WorkflowEvents, 1)
+	require.Equal(t, history.EventType_WorkflowExecutionCanceled, result.WorkflowEvents[0].HistoryEvent.Type)
+	require.Equal(
+		t,
+		subWorkflowInstance,
+		result.WorkflowEvents[0].WorkflowInstance)
+
+	require.True(t, e.workflow.Completed())
+	require.Len(t, e.workflowState.Commands(), 2)
+}
+
+func startWorkflowTask(instanceID string, workflow interface{}) *task.Workflow {
+	return &task.Workflow{
+		ID:               uuid.NewString(),
+		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
+		NewEvents: []history.Event{
+			history.NewPendingEvent(
+				time.Now(),
+				history.EventType_WorkflowExecutionStarted,
+				&history.ExecutionStartedAttributes{
+					Name:   fn.Name(workflow),
+					Inputs: []payload.Payload{},
+				},
+			),
+		},
+	}
+}
+
+func continueTask(instanceID string, newEvents []history.Event, lastSequenceID int64) *task.Workflow {
+	return &task.Workflow{
+		ID:               uuid.NewString(),
+		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
+		NewEvents:        newEvents,
+		LastSequenceID:   lastSequenceID,
+	}
 }

@@ -41,11 +41,11 @@
       "program": "${workspaceFolder}/samples/signal/signal.go"
     },
     {
-      "name": "Launch cancel sample",
+      "name": "Launch cancellation sample",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/cancelation/cancelation.go"
+      "program": "${workspaceFolder}/samples/cancellation/cancellation.go"
     },
     {
       "name": "Launch subworkflow sample",
