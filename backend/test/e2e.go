@@ -100,7 +100,7 @@ func register(t *testing.T, ctx context.Context, w worker.Worker, workflows []in
 func runWorkflow(t *testing.T, ctx context.Context, c client.Client, wf interface{}, inputs ...interface{}) *workflow.Instance {
 	instance, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
-	}, wf, "hello")
+	}, wf, inputs...)
 	require.NoError(t, err)
 
 	return instance
