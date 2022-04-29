@@ -127,7 +127,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		"instance_id", t.WorkflowInstance.InstanceID,
 		"executed", len(executedEvents),
 		"last_sequence_id", e.lastSequenceID,
-		"completed", e.workflow.Completed(),
+		"completed", completed,
 	)
 
 	return &ExecutionResult{
