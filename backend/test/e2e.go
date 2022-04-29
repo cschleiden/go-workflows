@@ -44,8 +44,8 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
-				require.Nil(t, output)
-				require.Error(t, err)
+				require.Zero(t, output)
+				require.ErrorContains(t, err, "workflow 1 not found")
 			},
 		},
 		{
@@ -55,7 +55,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
 				}
-				register(t, ctx, w, nil, []interface{}{wf})
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
 
