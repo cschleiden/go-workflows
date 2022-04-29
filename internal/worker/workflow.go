@@ -16,7 +16,7 @@ import (
 type WorkflowWorker interface {
 	Start(context.Context) error
 
-	Stop() error
+	WaitForCompletion() error
 }
 
 type workflowWorker struct {
@@ -64,7 +64,7 @@ func (ww *workflowWorker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (ww *workflowWorker) Stop() error {
+func (ww *workflowWorker) WaitForCompletion() error {
 	ww.wg.Wait()
 
 	return nil

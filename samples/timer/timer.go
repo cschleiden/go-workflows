@@ -32,7 +32,7 @@ func main() {
 	startWorkflow(ctx, c)
 
 	cancel()
-	w.Stop()
+	w.WaitForCompletion()
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
