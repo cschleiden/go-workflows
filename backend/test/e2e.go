@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,10 +16,8 @@ import (
 
 func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown func(b backend.Backend)) {
 	tests := []struct {
-		name           string
-		workflow       interface{}
-		workflowInputs []interface{}
-		f              func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker)
+		name string
+		f    func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker)
 	}{
 		{
 			name: "SimpleWorkflow",
@@ -69,13 +68,18 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		t.Run(tt.name, func(t *testing.T) {
 			b := setup()
 			ctx := context.Background()
+			ctx, cancel := context.WithCancel(ctx)
 
 			c := client.New(b)
 			w := worker.New(b, &worker.DefaultWorkerOptions)
 
 			tt.f(t, ctx, c, w)
 
-			w.Stop()
+			cancel()
+			if err := w.WaitForCompletion(); err != nil {
+				fmt.Println("Worker did not stop in time")
+				t.FailNow()
+			}
 
 			if teardown != nil {
 				teardown(b)

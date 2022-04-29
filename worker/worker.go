@@ -27,11 +27,14 @@ type Registry interface {
 type Worker interface {
 	Registry
 
-	// Start starts the worker
+	// Start starts the worker.
+	//
+	// To stop the worker, cancel the context passed to Start. To wait for completion of the active
+	// work items, call `WaitForCompletion`.
 	Start(ctx context.Context) error
 
-	// Stop stops the worker and waits for in-progress work to complete
-	Stop() error
+	// WaitForCompletion
+	WaitForCompletion() error
 }
 
 type worker struct {
@@ -83,12 +86,12 @@ func (w *worker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *worker) Stop() error {
-	if err := w.workflowWorker.Stop(); err != nil {
+func (w *worker) WaitForCompletion() error {
+	if err := w.workflowWorker.WaitForCompletion(); err != nil {
 		return err
 	}
 
-	if err := w.activityWorker.Stop(); err != nil {
+	if err := w.activityWorker.WaitForCompletion(); err != nil {
 		return err
 	}
 

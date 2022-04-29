@@ -36,7 +36,7 @@ func main() {
 
 	cancel()
 
-	if err := w.Stop(); err != nil {
+	if err := w.WaitForCompletion(); err != nil {
 		panic("could not stop worker" + err.Error())
 	}
 }

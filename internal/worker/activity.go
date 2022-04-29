@@ -16,7 +16,7 @@ import (
 
 type ActivityWorker interface {
 	Start(context.Context) error
-	Stop() error
+	WaitForCompletion() error
 }
 
 type activityWorker struct {
@@ -61,7 +61,7 @@ func (aw *activityWorker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (aw *activityWorker) Stop() error {
+func (aw *activityWorker) WaitForCompletion() error {
 	aw.wg.Wait()
 
 	return nil

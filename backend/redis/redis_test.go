@@ -43,7 +43,6 @@ func createBackend() backend.Backend {
 		panic(err)
 	}
 
-	// Disable sticky workflow behavior for the test execution
 	b, err := NewRedisBackend(address, user, password, 0, WithBlockTimeout(time.Millisecond*2))
 	if err != nil {
 		panic(err)
