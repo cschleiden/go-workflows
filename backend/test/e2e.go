@@ -48,6 +48,20 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			},
 		},
 		{
+			name: "WorkflowArgumentMismatch",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+				wf := func(ctx workflow.Context, p1 int) (int, error) {
+					return 42, nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
+
+				require.Zero(t, output)
+				require.ErrorContains(t, err, "converting workflow inputs: mismatched argument count: expected 1, got 0")
+			},
+		},
+		{
 			name: "UnregisteredActivity",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
 				a := func(context.Context) error { return nil }
@@ -60,6 +74,21 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 				require.Zero(t, output)
 				require.ErrorContains(t, err, "activity not found")
+			},
+		},
+		{
+			name: "ActivityArgumentMismatch",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+				a := func(context.Context, int, int) error { return nil }
+				wf := func(ctx workflow.Context) (int, error) {
+					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a, 42).Get(ctx)
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
+
+				require.Zero(t, output)
+				require.ErrorContains(t, err, "converting activity inputs: mismatched argument count: expected 2, got 1")
 			},
 		},
 	}
