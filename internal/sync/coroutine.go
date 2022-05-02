@@ -85,7 +85,7 @@ func newState() *coState {
 	return &coState{
 		blocking: make(chan bool, 1),
 		unblock:  make(chan bool),
-		// Mostly used while debugging issues, default to discarding log messages
+		// Only used while debugging issues, default to discarding log messages
 		logger: log.New(io.Discard, "[co]", log.LstdFlags),
 		// logger:            log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
 		deadlockDetection: DeadlockDetection,
