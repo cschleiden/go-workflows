@@ -2,8 +2,6 @@ package sync
 
 import (
 	"errors"
-
-	"github.com/cschleiden/go-workflows/internal/converter"
 )
 
 type Future[T any] interface {
@@ -25,16 +23,13 @@ type FutureInternal[T any] interface {
 }
 
 func NewFuture[T any]() SettableFuture[T] {
-	return &future[T]{
-		converter: converter.DefaultConverter,
-	}
+	return &future[T]{}
 }
 
 type future[T any] struct {
-	hasValue  bool
-	v         T
-	err       error
-	converter converter.Converter
+	hasValue bool
+	v        T
+	err      error
 }
 
 func (f *future[T]) Set(v T, err error) error {
