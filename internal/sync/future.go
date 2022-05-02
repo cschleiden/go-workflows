@@ -12,7 +12,7 @@ type Future[T any] interface {
 type SettableFuture[T any] interface {
 	Future[T]
 
-	// Set stores the value and unblocks any waiting consumers
+	// Set stores the value
 	Set(v T, err error) error
 }
 
