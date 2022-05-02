@@ -262,12 +262,20 @@ func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.Wor
 
 func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
 	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
-	if c != nil {
-		// Ensure the same activity was scheduled again
-		ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
-		if a.Name != ca.Name {
-			return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
-		}
+
+	// Ensure activity
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled an activity which could not be found")
+	}
+
+	if c.Type != command.CommandType_ScheduleActivity {
+		return fmt.Errorf("previous workflow execution scheduled an activity, this time: %v", c.Type)
+	}
+
+	// Ensure the same activity was scheduled again
+	ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
+	if a.Name != ca.Name {
+		return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
 	}
 
 	return nil
@@ -276,7 +284,7 @@ func (e *executor) handleActivityScheduled(event history.Event, a *history.Activ
 func (e *executor) handleActivityCompleted(event history.Event, a *history.ActivityCompletedAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
-		return nil
+		return fmt.Errorf("could not find pending future for activity completion")
 	}
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
@@ -291,7 +299,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 func (e *executor) handleActivityFailed(event history.Event, a *history.ActivityFailedAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
-		return errors.New("no pending future found for activity failed event")
+		return errors.New("no pending future for activity failed event")
 	}
 
 	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
@@ -316,7 +324,14 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 		return nil
 	}
 
-	e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled a timer")
+	}
+
+	if c.Type != command.CommandType_ScheduleTimer {
+		return fmt.Errorf("previous workflow execution scheduled a timer, this time: %v", c.Type)
+	}
 
 	if err := f(nil, nil); err != nil {
 		return fmt.Errorf("setting result: %w", err)
@@ -343,27 +358,35 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 
 func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
 	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
-	if c != nil {
-		ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
-		if a.Name != ca.Name {
-			return errors.New("previous workflow execution scheduled a different sub workflow")
-		}
-
-		// Set correct InstanceID here.
-		// TODO: see if we can provide better support for commands here and find a better place to store
-		// this message.
-		ca.Instance = a.SubWorkflowInstance
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow")
 	}
 
-	// TOOD: If the command cannot be found, raise error?
+	if c.Type != command.CommandType_ScheduleSubWorkflow {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow, this time: %v", c.Type)
+	}
+
+	ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
+	if a.Name != ca.Name {
+		return fmt.Errorf("previous workflow execution scheduled different type of sub workflow: %s, %s", a.Name, ca.Name)
+	}
+
+	// Set correct InstanceID here.
+	// TODO: see if we can provide better support for commands here and find a better place to store
+	// this message.
+	ca.Instance = a.SubWorkflowInstance
 
 	return nil
 }
 
 func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *history.SubWorkflowCancellationRequestedAttributes) error {
 	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
-	if c != nil {
-		return fmt.Errorf("expected to find a sub workflow cancellation event, instead got: %v", event.Type)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
+	}
+
+	if c.Type != command.CommandType_CancelSubWorkflow {
+		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, this time: %v", c.Type)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -441,7 +464,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 		c.State = command.CommandState_Committed
 
 		switch c.Type {
-		case command.CommandType_ScheduleActivityTask:
+		case command.CommandType_ScheduleActivity:
 			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
 
 			scheduleActivityEvent := e.createNewEvent(

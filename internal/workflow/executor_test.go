@@ -200,7 +200,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	require.Equal(t, command.Command{
 		ID:    1,
 		State: command.CommandState_Committed,
-		Type:  command.CommandType_ScheduleActivityTask,
+		Type:  command.CommandType_ScheduleActivity,
 		Attr: &command.ScheduleActivityTaskCommandAttr{
 			Name:   "activity1",
 			Inputs: []payload.Payload{inputs},
@@ -309,7 +309,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	require.Len(t, e.workflowState.Commands(), 2)
 
 	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.Commands()[0].Type)
-	require.Equal(t, command.CommandType_ScheduleActivityTask, e.workflowState.Commands()[1].Type)
+	require.Equal(t, command.CommandType_ScheduleActivity, e.workflowState.Commands()[1].Type)
 }
 
 func Test_ExecuteNewEvents(t *testing.T) {

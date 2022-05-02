@@ -13,7 +13,7 @@ type CommandType int
 const (
 	_ CommandType = iota
 
-	CommandType_ScheduleActivityTask
+	CommandType_ScheduleActivity
 
 	CommandType_ScheduleSubWorkflow
 	CommandType_CancelSubWorkflow
@@ -25,6 +25,27 @@ const (
 
 	CommandType_CompleteWorkflow
 )
+
+func (ct CommandType) String() string {
+	switch ct {
+	case CommandType_ScheduleActivity:
+		return "ScheduleActivityTask"
+	case CommandType_ScheduleSubWorkflow:
+		return "ScheduleSubWorkflow"
+	case CommandType_CancelSubWorkflow:
+		return "CancelSubWorkflow"
+	case CommandType_ScheduleTimer:
+		return "ScheduleTimer"
+	case CommandType_CancelTimer:
+		return "CancelTimer"
+	case CommandType_SideEffect:
+		return "SideEffect"
+	case CommandType_CompleteWorkflow:
+		return "CompleteWorkflow"
+	}
+
+	return ""
+}
 
 type CommandState int
 
@@ -52,7 +73,7 @@ type ScheduleActivityTaskCommandAttr struct {
 func NewScheduleActivityTaskCommand(id int64, name string, inputs []payload.Payload) Command {
 	return Command{
 		ID:   id,
-		Type: CommandType_ScheduleActivityTask,
+		Type: CommandType_ScheduleActivity,
 		Attr: &ScheduleActivityTaskCommandAttr{
 			Name:   name,
 			Inputs: inputs,
