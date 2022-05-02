@@ -28,8 +28,8 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 	addContext := false
 
 	activityFnT := fn.Type()
-
 	numArgs := activityFnT.NumIn()
+
 	args := make([]reflect.Value, numArgs)
 
 	input := 0
@@ -42,15 +42,25 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 			continue
 		}
 
-		arg := reflect.New(argT).Interface()
-		err := c.From(inputs[input], arg)
-		if err != nil {
-			return nil, false, fmt.Errorf("converting inputs: %w", err)
+		if input < len(inputs) {
+			arg := reflect.New(argT).Interface()
+			err := c.From(inputs[input], arg)
+			if err != nil {
+				return nil, false, fmt.Errorf("converting inputs: %w", err)
+			}
+
+			args[i] = reflect.ValueOf(arg).Elem()
 		}
 
-		args[i] = reflect.ValueOf(arg).Elem()
-
 		input++
+	}
+
+	if addContext {
+		if (numArgs - 1) != len(inputs) {
+			return nil, false, fmt.Errorf("mismatched argument count: expected %d, got %d", numArgs-1, len(inputs))
+		}
+	} else if numArgs != len(inputs) {
+		return nil, false, fmt.Errorf("mismatched argument count: expected %d, got %d", numArgs, len(inputs))
 	}
 
 	return args, addContext, nil

@@ -31,7 +31,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 
 	activity, err := e.r.GetActivity(a.Name)
 	if err != nil {
-		return nil, fmt.Errorf("finding activity in registry: %w", err)
+		return nil, err
 	}
 
 	activityFn := reflect.ValueOf(activity)
