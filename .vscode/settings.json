@@ -1,6 +1,5 @@
 {
-  "go.testFlags": ["-race", "-timeout", "20s", "-count", "1"], // , "-short"],
-  "peacock.color": "#007fff",
+  "go.testFlags": ["-race", "-timeout", "30s", "-count", "1"], // , "-short"],
   "workbench.colorCustomizations": {
     "sash.hoverBorder": "#3399ff",
     "titleBar.activeBackground": "#007fff",
@@ -27,8 +26,6 @@
   },
   "gopls": {
     "ui.semanticTokens": true,
-    "ui.navigation.symbolMatcher": "CaseSensitive",
-    // "ui.navigation.symbolStyle":
   },
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/go.yml"
