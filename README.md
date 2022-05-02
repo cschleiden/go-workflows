@@ -513,9 +513,9 @@ logger := activity.Logger(ctx)
 
 The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance and execution IDs set as default fields.
 
-## Versioning
+## Workflow Versioning
 
-For now, I've intentionally left our versioning. Cadence, Temporal, and DTFx all support the concept of versions for workflows as well as activities. This is mostly required when you make changes to workflows and need to keep backwards compatibility with workflows that are being executed at the time of the upgrade.
+For now, I've intentionally left out versioning. Cadence, Temporal, and DTFx all support the concept of versions for workflows as well as activities. This is mostly required when you make changes to workflows and need to keep backwards compatibility with workflows that are being executed at the time of the upgrade.
 
 **Example**: when you change a workflow from:
 
@@ -577,3 +577,9 @@ This kind of check is understandable for simple changes, but it becomes hard and
 ## `ContinueAsNew`
 
 Both Temporal/Cadence and DTFx support `ContinueAsNew`. This essentially re-starts a running workflow as a new workflow with a new event history. This is needed for long running workflows where the history can become very large, negatively affecting performance. While `WorkflowInstance` supports an `InstanceID` and an `ExecutionID`, this feature is not yet implemented (and might not be).
+
+## FAQ
+
+### How are releases versioned?
+
+For now this library is in a pre-release state. There are no guarantees given regarding breaking changes between (pre)-releases.
