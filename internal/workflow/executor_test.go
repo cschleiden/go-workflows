@@ -133,7 +133,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 			history.EventType_WorkflowExecutionStarted,
 			&history.ExecutionStartedAttributes{
 				Name:   fn.Name(workflowWithActivity),
-				Inputs: []payload.Payload{inputs},
+				Inputs: []payload.Payload{},
 			},
 		),
 		history.NewHistoryEvent(
@@ -332,7 +332,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
 					Name:   fn.Name(workflowWithActivity),
-					Inputs: []payload.Payload{inputs},
+					Inputs: []payload.Payload{},
 				},
 			),
 			history.NewPendingEvent(

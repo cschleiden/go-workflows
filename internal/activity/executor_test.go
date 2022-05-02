@@ -48,7 +48,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 			result: func(t *testing.T, result payload.Payload, err error) {
 				require.Nil(t, result)
 				require.Error(t, err)
-				require.EqualError(t, err, "converting activity inputs: mismatched argument count: expected 3, got 0")
+				require.EqualError(t, err, "converting activity inputs: mismatched argument count: expected 2, got 0")
 			},
 		},
 	}
