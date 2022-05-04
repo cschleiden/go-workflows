@@ -25,7 +25,7 @@ jobs:
       with:
         auto-start: true
         redis-port: 6379
-        redis-version: latest
+        redis-version: '6.2'
         redis-conf: 'requirepass RedisPassw0rd'
 
     - name: Tests
