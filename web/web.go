@@ -99,7 +99,7 @@ func NewMux(backend WebBackend) *http.ServeMux {
 
 			instance, err := backend.GetWorkflowInstance(r.Context(), instanceID)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 
