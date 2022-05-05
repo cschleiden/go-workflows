@@ -21,7 +21,7 @@ function Instance() {
   const instanceId = params.instanceId;
 
   const { isLoading, data: instance } = useFetch<WorkflowInstanceInfo>(
-    "/api/" + instanceId
+    document.location.pathname + "api/" + instanceId
   );
 
   if (isLoading || !instance) {

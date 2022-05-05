@@ -1,10 +1,9 @@
-import { Link, useLocation } from "react-router-dom";
-import { Pagination, Table } from "react-bootstrap";
-
-import { LinkContainer } from "react-router-bootstrap";
 import React from "react";
-import { WorkflowInstanceRef } from "./client";
+import { Pagination, Table } from "react-bootstrap";
 import useFetch from "react-fetch-hook";
+import { LinkContainer } from "react-router-bootstrap";
+import { Link, useLocation } from "react-router-dom";
+import { WorkflowInstanceRef } from "./client";
 
 function useQuery() {
   const { search } = useLocation();
@@ -20,7 +19,9 @@ function Home() {
   const previousId = query.get("previous");
 
   const { isLoading, data, error } = useFetch<WorkflowInstanceRef[]>(
-    `/api?count=${count}` + (afterId ? `&after=${afterId || previousId}` : "")
+    document.location.pathname +
+      `api/?count=${count}` +
+      (afterId ? `&after=${afterId || previousId}` : "")
   );
 
   return (

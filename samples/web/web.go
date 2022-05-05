@@ -33,7 +33,10 @@ func main() {
 	// }
 
 	// Start diagnostic server
-	go http.ListenAndServe(":8080", web.NewMux(b))
+	m := http.NewServeMux()
+	// m.Handle("/diag", http.StripPrefix("/diag", web.NewMux(b)))
+	m.Handle("/", web.NewMux(b))
+	go http.ListenAndServe(":8080", m)
 
 	// Run worker
 	w := RunWorker(ctx, b)
