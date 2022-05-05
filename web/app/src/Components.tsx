@@ -1,6 +1,6 @@
+import React from "react";
 import { Badge } from "react-bootstrap";
 import { Color } from "react-bootstrap/esm/types";
-import React from "react";
 
 export function decodePayload(payload: string): string {
   try {
@@ -78,7 +78,7 @@ function eventColor(event: string): [Color, string] {
       return ["light", "primary"];
 
     case "SignalReceived":
-      return ["dark", "dark"];
+      return ["light", "dark"];
 
     case "SideEffectResult":
       return ["dark", "secondary"];

@@ -1,20 +1,19 @@
+import React from "react";
 import { Accordion, Badge, Card } from "react-bootstrap";
-import {
-  EventType,
-  Payload,
-  decodePayload,
-  decodePayloads,
-} from "./Components";
+import useFetch from "react-fetch-hook";
+import { useParams } from "react-router-dom";
 import {
   ExecutionCompletedAttributes,
   ExecutionStartedAttributes,
   HistoryEvent,
   WorkflowInstanceInfo,
 } from "./client";
-
-import React from "react";
-import useFetch from "react-fetch-hook";
-import { useParams } from "react-router-dom";
+import {
+  decodePayload,
+  decodePayloads,
+  EventType,
+  Payload,
+} from "./Components";
 
 function Instance() {
   let params = useParams();
@@ -30,7 +29,7 @@ function Instance() {
   }
 
   const startedEvent = instance.history.find(
-    (e) => e.type == "WorkflowExecutionStarted"
+    (e) => e.type === "WorkflowExecutionStarted"
   ) as HistoryEvent<ExecutionStartedAttributes>;
 
   const workflowName = startedEvent.attributes.name;
@@ -39,7 +38,7 @@ function Instance() {
   let result: string | undefined;
   let error: string | undefined;
   const finishedEvent = instance.history.find(
-    (e) => e.type == "WorkflowExecutionFinished"
+    (e) => e.type === "WorkflowExecutionFinished"
   ) as HistoryEvent<ExecutionCompletedAttributes>;
   if (finishedEvent) {
     result = finishedEvent.attributes.result;
@@ -63,7 +62,7 @@ function Instance() {
 
         <dt className="col-sm-4">State</dt>
         <dd className="col-sm-8">
-          {instance.state == 0 ? (
+          {instance.state === 0 ? (
             <Badge bg="info">Active</Badge>
           ) : (
             <Badge bg="success">Completed</Badge>

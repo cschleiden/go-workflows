@@ -23,9 +23,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "npm run clean && react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "clean": "rimraf build"
   },
   "eslintConfig": {
     "extends": [
@@ -47,6 +48,7 @@
   },
   "proxy": "http://localhost:8080",
   "devDependencies": {
-    "@types/react-router-bootstrap": "^0.24.5"
+    "@types/react-router-bootstrap": "^0.24.5",
+    "rimraf": "3.0.2"
   }
 }
