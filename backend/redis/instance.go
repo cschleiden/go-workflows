@@ -119,10 +119,12 @@ type instanceState struct {
 func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, ignoreDuplicate bool) error {
 	key := instanceKey(instance.InstanceID)
 
+	createdAt := time.Now()
+
 	b, err := json.Marshal(&instanceState{
 		Instance:  instance,
 		State:     backend.WorkflowStateActive,
-		CreatedAt: time.Now(),
+		CreatedAt: createdAt,
 	})
 	if err != nil {
 		return fmt.Errorf("marshaling instance state: %w", err)
@@ -148,6 +150,13 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 		}
 	}
 
+	if err := rdb.ZAdd(ctx, instancesByCreation(), &redis.Z{
+		Member: instance.InstanceID,
+		Score:  float64(createdAt.UnixMilli()),
+	}).Err(); err != nil {
+		return fmt.Errorf("storing instance reference: %w", err)
+	}
+
 	return nil
 }
 
@@ -163,6 +172,8 @@ func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID s
 	if err := cmd.Err(); err != nil {
 		return fmt.Errorf("updating instance: %w", err)
 	}
+
+	// CreatedAt does not change, so skip updating the instancesByCreation() ZSET
 
 	return nil
 }

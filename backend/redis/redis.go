@@ -34,7 +34,7 @@ func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
 	}
 }
 
-func NewRedisBackend(address, username, password string, db int, opts ...RedisBackendOption) (backend.Backend, error) {
+func NewRedisBackend(address, username, password string, db int, opts ...RedisBackendOption) (*redisBackend, error) {
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:    []string{address},
 		Username: username,
