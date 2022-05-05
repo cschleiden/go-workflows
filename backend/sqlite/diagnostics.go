@@ -13,18 +13,36 @@ import (
 var _ web.Backend = (*sqliteBackend)(nil)
 
 func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*web.WorkflowInstanceRef, error) {
+	var err error
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	rows, err := tx.QueryContext(
-		ctx,
-		"SELECT id, execution_id, created_at, completed_at FROM instances WHERE id > ? ORDER BY created_at DESC LIMIT ?",
-		afterInstanceID,
-		count,
-	)
+	var rows *sql.Rows
+	if afterInstanceID != "" {
+		rows, err = tx.QueryContext(
+			ctx,
+			`SELECT i.id, i.execution_id, i.created_at, i.completed_at
+			FROM instances i
+			INNER JOIN (SELECT id, created_at FROM instances WHERE id = ?) ii
+				ON i.created_at < ii.created_at OR (i.created_at = ii.created_at AND i.id < ii.id)
+			ORDER BY i.created_at DESC, i.id DESC
+			LIMIT ?`,
+			afterInstanceID,
+			count,
+		)
+	} else {
+		rows, err = tx.QueryContext(
+			ctx,
+			`SELECT i.id, i.execution_id, i.created_at, i.completed_at
+			FROM instances i
+			ORDER BY i.created_at DESC, i.id DESC
+			LIMIT ?`,
+			count,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
