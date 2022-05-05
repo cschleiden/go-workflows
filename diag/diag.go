@@ -1,53 +1,20 @@
-package web
+package diag
 
 import (
-	"context"
 	"embed"
 	"encoding/json"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/core"
 )
-
-type WorkflowInstanceRef struct {
-	Instance    *core.WorkflowInstance `json:"instance,omitempty"`
-	CreatedAt   time.Time              `json:"created_at,omitempty"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
-	State       backend.WorkflowState  `json:"state,omitempty"`
-}
-
-type Event struct {
-	ID              string      `json:"id,omitempty"`
-	SequenceID      int64       `json:"sequence_id,omitempty"`
-	Type            string      `json:"type,omitempty"`
-	Timestamp       time.Time   `json:"timestamp,omitempty"`
-	ScheduleEventID int64       `json:"schedule_event_id,omitempty"`
-	Attributes      interface{} `json:"attributes,omitempty"`
-	VisibleAt       *time.Time  `json:"visible_at,omitempty"`
-}
-
-type WorkflowInstanceInfo struct {
-	*WorkflowInstanceRef
-
-	History []*Event `json:"history,omitempty"`
-}
-
-type Backend interface {
-	backend.Backend
-
-	GetWorkflowInstance(ctx context.Context, instanceID string) (*WorkflowInstanceRef, error)
-	GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*WorkflowInstanceRef, error)
-}
 
 //go:embed app/build
 var embeddedFiles embed.FS
 
-func NewMux(backend Backend) *http.ServeMux {
+// NewServeMux returns an *http.ServeMux that serves the diagnostics web app at / and the diagnostics API at /api which is
+// used by the web app.
+func NewServeMux(backend Backend) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// API

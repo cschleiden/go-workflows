@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/web"
+	"github.com/cschleiden/go-workflows/diag"
 	"github.com/go-redis/redis/v8"
 )
 
-var _ web.Backend = (*redisBackend)(nil)
+var _ diag.Backend = (*redisBackend)(nil)
 
-func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*web.WorkflowInstanceRef, error) {
+func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	max := "+inf"
 
 	if afterInstanceID != "" {
@@ -51,14 +51,14 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		return nil, fmt.Errorf("getting instances: %w", err)
 	}
 
-	var instanceRefs []*web.WorkflowInstanceRef
+	var instanceRefs []*diag.WorkflowInstanceRef
 	for _, instance := range instances {
 		var state instanceState
 		if err := json.Unmarshal([]byte(instance.(string)), &state); err != nil {
 			return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 		}
 
-		instanceRefs = append(instanceRefs, &web.WorkflowInstanceRef{
+		instanceRefs = append(instanceRefs, &diag.WorkflowInstanceRef{
 			Instance:    state.Instance,
 			CreatedAt:   state.CreatedAt,
 			CompletedAt: state.CompletedAt,
@@ -69,13 +69,13 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	return instanceRefs, nil
 }
 
-func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*web.WorkflowInstanceRef, error) {
+func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*diag.WorkflowInstanceRef, error) {
 	instance, err := readInstance(ctx, rb.rdb, instanceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &web.WorkflowInstanceRef{
+	return &diag.WorkflowInstanceRef{
 		Instance:    instance.Instance,
 		CreatedAt:   instance.CreatedAt,
 		CompletedAt: instance.CompletedAt,

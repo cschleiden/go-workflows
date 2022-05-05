@@ -11,9 +11,8 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/web"
+	"github.com/cschleiden/go-workflows/diag"
 
-	// "github.com/cschleiden/go-workflows/web"
 	"github.com/cschleiden/go-workflows/worker"
 
 	"github.com/google/uuid"
@@ -35,7 +34,7 @@ func main() {
 	// Start diagnostic server
 	m := http.NewServeMux()
 	// m.Handle("/diag", http.StripPrefix("/diag", web.NewMux(b)))
-	m.Handle("/", web.NewMux(b))
+	m.Handle("/", diag.NewServeMux(b))
 	go http.ListenAndServe(":8080", m)
 
 	// Run worker

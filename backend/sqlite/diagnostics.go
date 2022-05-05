@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/web"
 )
 
-var _ web.Backend = (*sqliteBackend)(nil)
+var _ diag.Backend = (*sqliteBackend)(nil)
 
-func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*web.WorkflowInstanceRef, error) {
+func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	var err error
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -47,7 +47,7 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 		return nil, err
 	}
 
-	var instances []*web.WorkflowInstanceRef
+	var instances []*diag.WorkflowInstanceRef
 
 	for rows.Next() {
 		var id, executionID string
@@ -63,7 +63,7 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 			state = backend.WorkflowStateFinished
 		}
 
-		instances = append(instances, &web.WorkflowInstanceRef{
+		instances = append(instances, &diag.WorkflowInstanceRef{
 			Instance:    core.NewWorkflowInstance(id, executionID),
 			CreatedAt:   createdAt,
 			CompletedAt: completedAt,
@@ -74,7 +74,7 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 	return instances, nil
 }
 
-func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*web.WorkflowInstanceRef, error) {
+func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*diag.WorkflowInstanceRef, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID str
 		state = backend.WorkflowStateFinished
 	}
 
-	return &web.WorkflowInstanceRef{
+	return &diag.WorkflowInstanceRef{
 		Instance:    core.NewWorkflowInstance(id, executionID),
 		CreatedAt:   createdAt,
 		CompletedAt: completedAt,

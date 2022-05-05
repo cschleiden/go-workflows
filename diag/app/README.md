@@ -1,4 +1,4 @@
-# Diagnostic Web UI
+# Diagnostic Web App
 
 This is a basic diagnostic web UI. It's written as a small React application, bootstrapped with create-react-app, which is then embedded in its compiled form with Go `embed` into the binary.
 
