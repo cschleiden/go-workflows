@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Button,
   Container,
@@ -7,10 +6,12 @@ import {
   Nav,
   Navbar,
 } from "react-bootstrap";
+
 import { LinkContainer } from "react-router-bootstrap";
 import { Outlet } from "react-router-dom";
+import React from "react";
 
-export default function () {
+function Layout() {
   return (
     <>
       <header>
@@ -35,7 +36,7 @@ export default function () {
                   className="me-2"
                   aria-label="Search"
                 />
-                <Button variant="outline-success">Search</Button>
+                <Button variant="outline-success">Go</Button>
               </Form>
             </Navbar.Collapse>
           </Container>
@@ -49,3 +50,5 @@ export default function () {
     </>
   );
 }
+
+export default Layout;

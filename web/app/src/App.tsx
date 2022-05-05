@@ -1,9 +1,9 @@
-import React from "react";
 import { Route, Routes } from "react-router-dom";
-import "./App.css";
+
 import Home from "./Home";
 import Instance from "./Instance";
 import Layout from "./Layout";
+import React from "react";
 
 function App() {
   return (

@@ -86,25 +86,25 @@ func (et EventType) String() string {
 
 type Event struct {
 	// ID is a unique identifier for this event
-	ID string
+	ID string `json:"id,omitempty"`
 
 	// SequenceID is a monotonically increasing sequence number this event. It's only set for events that have
 	// been executed and are in the history
-	SequenceID int64
+	SequenceID int64 `json:"sid,omitempty"`
 
-	Type EventType
+	Type EventType `json:"t,omitempty"`
 
-	Timestamp time.Time
+	Timestamp time.Time `json:"ts,omitempty"`
 
 	// ScheduleEventID is used to correlate events belonging together
 	// For example, if an activity is scheduled, ScheduleEventID of the schedule event and the
 	// completion/failure event are the same.
-	ScheduleEventID int64
+	ScheduleEventID int64 `json:"seid,omitempty"`
 
 	// Attributes are event type specific attributes
-	Attributes interface{}
+	Attributes interface{} `json:"attr,omitempty"`
 
-	VisibleAt *time.Time
+	VisibleAt *time.Time `json:"vat,omitempty"`
 }
 
 func (e Event) String() string {
