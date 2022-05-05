@@ -1,9 +1,10 @@
-import React from "react";
-import { Pagination, Table } from "react-bootstrap";
-import useFetch from "react-fetch-hook";
-import { LinkContainer } from "react-router-bootstrap";
 import { Link, useLocation } from "react-router-dom";
+import { Pagination, Table } from "react-bootstrap";
+
+import { LinkContainer } from "react-router-bootstrap";
+import React from "react";
 import { WorkflowInstanceRef } from "./client";
+import useFetch from "react-fetch-hook";
 
 function useQuery() {
   const { search } = useLocation();
@@ -16,12 +17,12 @@ function Home() {
 
   const query = useQuery();
   const afterId = query.get("after");
-  const previousId = query.get("previous");
+  const page = +(query.get("page") || 1);
 
   const { isLoading, data, error } = useFetch<WorkflowInstanceRef[]>(
     document.location.pathname +
       `api/?count=${count}` +
-      (afterId ? `&after=${afterId || previousId}` : "")
+      (afterId ? `&after=${afterId}` : "")
   );
 
   return (
@@ -37,26 +38,28 @@ function Home() {
           <Table striped bordered hover size="sm">
             <thead>
               <tr>
-                <th>#</th>
                 <th>Instance ID</th>
                 <th>Execution ID</th>
                 <th>Created At</th>
               </tr>
             </thead>
             <tbody>
-              {(data || []).map((i, idx) => (
+              {(data || []).map((i) => (
                 <tr key={i.instance.instance_id}>
-                  <td>{idx}</td>
                   <td>
                     <Link
                       to={`/${i.instance.instance_id}`}
                       key={i.instance.instance_id}
                     >
-                      {i.instance.instance_id}
+                      <code>{i.instance.instance_id}</code>
                     </Link>
                   </td>
-                  <td>{i.instance.execution_id}</td>
-                  <td>{i.created_at}</td>
+                  <td>
+                    <code>{i.instance.execution_id}</code>
+                  </td>
+                  <td>
+                    <code>{i.created_at}</code>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -64,13 +67,14 @@ function Home() {
 
           <div className="d-flex justify-content-center">
             <Pagination>
-              <LinkContainer to={`/?previous=${previousId || ""}`}>
-                <Pagination.Prev disabled={!previousId && !afterId} />
+              <LinkContainer to="/?">
+                <Pagination.First disabled={!afterId} />
               </LinkContainer>
+              <Pagination.Item active>{page}</Pagination.Item>
               <LinkContainer
-                to={`/?previous=${afterId || ""}&after=${
+                to={`/?after=${
                   (data && data[data.length - 1].instance.instance_id) || ""
-                }`}
+                }&page=${page + 1}`}
               >
                 <Pagination.Next disabled={!data || data.length < count} />
               </LinkContainer>

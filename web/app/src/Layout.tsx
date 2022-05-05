@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Button,
   Container,
@@ -7,10 +6,19 @@ import {
   Nav,
   Navbar,
 } from "react-bootstrap";
+import { Outlet, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+
 import { LinkContainer } from "react-router-bootstrap";
-import { Outlet } from "react-router-dom";
 
 function Layout() {
+  const navigate = useNavigate();
+  const [input, setInput] = useState("");
+  const onGo = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    setInput("");
+    navigate(`/${input}`);
+  };
+
   return (
     <>
       <header>
@@ -34,14 +42,18 @@ function Layout() {
                   placeholder="InstanceID"
                   className="me-2"
                   aria-label="Search"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
                 />
-                <Button variant="outline-success">Go</Button>
+                <Button variant="outline-success" onClick={onGo}>
+                  Go
+                </Button>
               </Form>
             </Navbar.Collapse>
           </Container>
         </Navbar>
       </header>
-      <main>
+      <main className="pt-5">
         <Container>
           <Outlet />
         </Container>

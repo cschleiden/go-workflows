@@ -1,31 +1,46 @@
-import React from "react";
-import { Accordion, Badge, Card } from "react-bootstrap";
-import useFetch from "react-fetch-hook";
-import { useParams } from "react-router-dom";
+import { Accordion, Alert, Badge, Card } from "react-bootstrap";
+import {
+  EventType,
+  Payload,
+  decodePayload,
+  decodePayloads,
+} from "./Components";
 import {
   ExecutionCompletedAttributes,
   ExecutionStartedAttributes,
   HistoryEvent,
   WorkflowInstanceInfo,
 } from "./client";
-import {
-  decodePayload,
-  decodePayloads,
-  EventType,
-  Payload,
-} from "./Components";
+
+import React from "react";
+import useFetch from "react-fetch-hook";
+import { useParams } from "react-router-dom";
 
 function Instance() {
   let params = useParams();
 
   const instanceId = params.instanceId;
 
-  const { isLoading, data: instance } = useFetch<WorkflowInstanceInfo>(
+  const {
+    isLoading,
+    data: instance,
+    error,
+  } = useFetch<WorkflowInstanceInfo>(
     document.location.pathname + "api/" + instanceId
   );
 
-  if (isLoading || !instance) {
+  if (isLoading) {
     return <div>Loading...</div>;
+  }
+
+  if (error || !instance) {
+    return (
+      <div>
+        <Alert variant="danger">
+          Workflow instance with id <code>{instanceId}</code> not found
+        </Alert>
+      </div>
+    );
   }
 
   const startedEvent = instance.history.find(
@@ -35,14 +50,14 @@ function Instance() {
   const workflowName = startedEvent.attributes.name;
   const inputs = startedEvent.attributes.inputs;
 
-  let result: string | undefined;
-  let error: string | undefined;
+  let wfResult: string | undefined;
+  let wfError: string | undefined;
   const finishedEvent = instance.history.find(
     (e) => e.type === "WorkflowExecutionFinished"
   ) as HistoryEvent<ExecutionCompletedAttributes>;
   if (finishedEvent) {
-    result = finishedEvent.attributes.result;
-    error = finishedEvent.attributes.error;
+    wfResult = finishedEvent.attributes.result;
+    wfError = finishedEvent.attributes.error;
   }
 
   return (
@@ -88,8 +103,8 @@ function Instance() {
       <Card className="mt-3">
         <Card.Header as="h5">Result</Card.Header>
         <Card.Body>
-          {result && <Payload payloads={[decodePayload(result)]} />}
-          {error && <Payload payloads={[error]} />}
+          {wfResult && <Payload payloads={[decodePayload(wfResult)]} />}
+          {wfError && <Payload payloads={[wfError]} />}
         </Card.Body>
       </Card>
 
