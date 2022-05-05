@@ -31,11 +31,10 @@ func main() {
 	// 	panic(err)
 	// }
 
-	// Start diagnostic server
+	// Start diagnostic server under /diag
 	m := http.NewServeMux()
-	// m.Handle("/diag", http.StripPrefix("/diag", web.NewMux(b)))
-	m.Handle("/", diag.NewServeMux(b))
-	go http.ListenAndServe(":8080", m)
+	m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(b)))
+	go http.ListenAndServe(":3000", m)
 
 	// Run worker
 	w := RunWorker(ctx, b)

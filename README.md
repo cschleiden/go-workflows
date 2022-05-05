@@ -116,7 +116,7 @@ While there are implementations for other lanuages in the context of Azure Durab
 
 The execution model for `go-workflows` follows closely the one created for Uber's [Cadence](https://cadenceworkflow.io) and which was then forked by the original creators for [Temporal.io](https://temporal.io).
 
-TODO: describe in more detail here.
+See https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/ for some more details.
 
 ### Supported backends
 
@@ -513,7 +513,38 @@ logger := activity.Logger(ctx)
 
 The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance and execution IDs set as default fields.
 
-## Workflow Versioning
+
+## Tools
+
+### Analyzer
+
+`/analyzer` contains a simple [golangci-lint](https://github.com/golangci/golangci-lint) based analyzer to spot common issues in workflow code.
+
+### Diagnostics Web UI
+
+For investigating workflows, the package includes a simple diagnostic web UI. You can serve it via:
+
+```go
+m := http.NewServeMux()
+m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(b)))
+go http.ListenAndServe(":3000", m)
+```
+
+It provides a simple paginated list of workflow instances:
+
+<img src="./docs/diag-list.png" width="700">
+
+And a way to inspect the history of a workflow instance:
+
+<img src="./docs/diag-details.png" width="700">
+
+## FAQ
+
+### How are releases versioned?
+
+For now this library is in a pre-release state. There are no guarantees given regarding breaking changes between (pre)-releases.
+
+### Workflow versioning
 
 For now, I've intentionally left out versioning. Cadence, Temporal, and DTFx all support the concept of versions for workflows as well as activities. This is mostly required when you make changes to workflows and need to keep backwards compatibility with workflows that are being executed at the time of the upgrade.
 
@@ -574,12 +605,6 @@ and only if a workflow instance was created with a version of `>= 2` will `Activ
 
 This kind of check is understandable for simple changes, but it becomes hard and a source of bugs for more complicated workflows. Therefore for now versioning is not supported and the guidance is to rely on **side-by-side** deployments. See also Azure's [Durable Functions](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-versioning) documentation for the same topic.
 
-## `ContinueAsNew`
+### `ContinueAsNew`
 
 Both Temporal/Cadence and DTFx support `ContinueAsNew`. This essentially re-starts a running workflow as a new workflow with a new event history. This is needed for long running workflows where the history can become very large, negatively affecting performance. While `WorkflowInstance` supports an `InstanceID` and an `ExecutionID`, this feature is not yet implemented (and might not be).
-
-## FAQ
-
-### How are releases versioned?
-
-For now this library is in a pre-release state. There are no guarantees given regarding breaking changes between (pre)-releases.
