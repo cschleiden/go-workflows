@@ -8,7 +8,8 @@ import (
 func (e *Event) UnmarshalJSON(data []byte) error {
 	type Aevent Event
 	a := &struct {
-		Attributes json.RawMessage
+		// Attributes allows us to defer unmarshaling the events. Has to match the struct tag in Event
+		Attributes json.RawMessage `json:"attr,omitempty"`
 		*Aevent
 	}{}
 
