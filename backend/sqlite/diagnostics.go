@@ -10,6 +10,8 @@ import (
 	"github.com/cschleiden/go-workflows/web"
 )
 
+var _ web.Backend = (*sqliteBackend)(nil)
+
 func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*web.WorkflowInstanceRef, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {

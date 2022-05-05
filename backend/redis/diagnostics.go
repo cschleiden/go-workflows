@@ -9,7 +9,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-var _ web.WebBackend = (*redisBackend)(nil)
+var _ web.Backend = (*redisBackend)(nil)
 
 func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*web.WorkflowInstanceRef, error) {
 	max := "+inf"

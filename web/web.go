@@ -37,7 +37,7 @@ type WorkflowInstanceInfo struct {
 	History []*Event `json:"history,omitempty"`
 }
 
-type WebBackend interface {
+type Backend interface {
 	backend.Backend
 
 	GetWorkflowInstance(ctx context.Context, instanceID string) (*WorkflowInstanceRef, error)
@@ -47,7 +47,7 @@ type WebBackend interface {
 //go:embed app/build
 var embeddedFiles embed.FS
 
-func NewMux(backend WebBackend) *http.ServeMux {
+func NewMux(backend Backend) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// API
