@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Button,
   Container,
@@ -6,10 +7,8 @@ import {
   Nav,
   Navbar,
 } from "react-bootstrap";
-
 import { LinkContainer } from "react-router-bootstrap";
 import { Outlet } from "react-router-dom";
-import React from "react";
 
 function Layout() {
   return (
@@ -26,7 +25,7 @@ function Layout() {
                 navbarScroll
               >
                 <LinkContainer to="/">
-                  <Nav.Link>Home</Nav.Link>
+                  <Nav.Link>List</Nav.Link>
                 </LinkContainer>
               </Nav>
               <Form className="d-flex">
