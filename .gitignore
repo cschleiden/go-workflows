@@ -2,3 +2,5 @@
 *.sqlite-journal
 vendor
 plugin.so
+
+web/app/node_modules

@@ -24,45 +24,52 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/concurrent/concurrent.go"
+      "program": "${workspaceFolder}/samples/concurrent"
     },
     {
       "name": "Launch timer sample",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/timer/timer.go"
+      "program": "${workspaceFolder}/samples/timer"
     },
     {
       "name": "Launch signal sample",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/signal/signal.go"
+      "program": "${workspaceFolder}/samples/signal"
     },
     {
       "name": "Launch cancellation sample",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/cancellation/cancellation.go"
+      "program": "${workspaceFolder}/samples/cancellation"
     },
     {
       "name": "Launch subworkflow sample",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/subworkflow/subworkflow.go"
+      "program": "${workspaceFolder}/samples/subworkflow"
     },
     {
       "name": "Launch scale/worker sample",
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/samples/scale/worker/main.go",
+      "program": "${workspaceFolder}/samples/scale/worker",
       "args": [
         "-backend", "mysql",
       ]
+    },
+    {
+      "name": "Launch web sample",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/samples/web"
     },
   ]
 }

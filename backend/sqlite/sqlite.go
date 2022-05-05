@@ -23,7 +23,7 @@ import (
 //go:embed schema.sql
 var schema string
 
-func NewInMemoryBackend(opts ...backend.BackendOption) backend.Backend {
+func NewInMemoryBackend(opts ...backend.BackendOption) *sqliteBackend {
 	b := newSqliteBackend("file::memory:", opts...)
 
 	b.db.SetMaxOpenConns(1)
