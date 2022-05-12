@@ -87,7 +87,7 @@ func wfVarUsage(ctx workflow.Context) error {
 	return nil
 }
 
-func wfChanFuncDecl(ctx workflow.Context) error {
+func wfChanNestedFunc(ctx workflow.Context) error {
 	x := func() {
 		select {} // want "`select` statements are not allowed in workflows, use `workflow.Select` instead"
 	}
@@ -110,4 +110,25 @@ func activity(ctx context.Context) error {
 	select {}
 
 	return nil
+}
+
+type SomeField struct {
+	f func() error
+}
+
+var sf SomeField = SomeField{
+	f: func() error {
+		go fmt.Println("24")
+
+		c := make(chan int)
+		select {
+		case <-c:
+		}
+
+		for x := range c {
+			fmt.Println(x)
+		}
+
+		return nil
+	},
 }
