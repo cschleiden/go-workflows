@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 
@@ -20,9 +19,28 @@ var Analyzer = &analysis.Analyzer{
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
+	// Expect workflows to be top level functions in a file. Therefore it should be enough to just keep track if the current
+	// AST node is a descendant of a workflow FuncDecl.
+	inWorkflow := true
+
 	inspector.Nodes(nil, func(node ast.Node, push bool) bool {
-		if !push {
-			return false
+
+		if _, ok := node.(*ast.FuncDecl); ok {
+			if !push {
+				// Finished with the current workflow
+				inWorkflow = false
+				return false
+			}
+		} else {
+			if !push {
+				// Only check nodes while descending
+				return false
+			}
+
+			if !inWorkflow {
+				// Only check nodes while in a top-level workflow func
+				return false
+			}
 		}
 
 		switch n := node.(type) {
@@ -31,6 +49,8 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			if !isWorkflow(n) {
 				return false
 			}
+
+			inWorkflow = true
 
 			// Check return types
 			if n.Type.Results == nil || len(n.Type.Results.List) == 0 {
@@ -69,8 +89,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				case *types.Chan:
 					pass.Reportf(n.Pos(), "using native channels is not allowed in workflows, use `workflow.Channel` instead")
 				}
-
-				// checkStatements(pass, n.Body.List)
 			}
 
 		case *ast.SelectStmt:
@@ -141,8 +159,6 @@ func checkVarsInScope(pass *analysis.Pass, scope *types.Scope) {
 func checkNamed(pass *analysis.Pass, ref types.Object, named *types.Named) {
 	if obj := named.Obj(); obj != nil {
 		if pkg := obj.Pkg(); pkg != nil {
-			fmt.Println(pkg.Path(), obj.Name(), obj.Id())
-
 			switch pkg.Path() {
 			case "sync":
 				if obj.Name() == "WaitGroup" {
