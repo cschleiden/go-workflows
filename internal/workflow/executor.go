@@ -83,9 +83,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			// Fail workflow with an error. Skip executing new events, but still go through the commands
 			e.workflowCompleted(nil, err)
 			skipNewEvents = true
-		}
-
-		if t.LastSequenceID != e.lastSequenceID {
+		} else if t.LastSequenceID != e.lastSequenceID {
 			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
 		}
 	} else if t.LastSequenceID < e.lastSequenceID {
