@@ -34,6 +34,14 @@ func (e *ErrInvalidWorkflow) Error() string {
 	return e.msg
 }
 
+type ErrInvalidActivity struct {
+	msg string
+}
+
+func (e *ErrInvalidActivity) Error() string {
+	return e.msg
+}
+
 func (r *Registry) RegisterWorkflow(workflow Workflow) error {
 	r.Lock()
 	defer r.Unlock()
@@ -83,6 +91,10 @@ func (r *Registry) RegisterActivity(activity interface{}) error {
 	}
 
 	// Activity as function
+	if err := checkActivity(reflect.TypeOf(activity)); err != nil {
+		return err
+	}
+
 	name := fn.Name(activity)
 	r.activityMap[name] = activity
 
@@ -102,8 +114,29 @@ func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
 			continue
 		}
 
+		if err := checkActivity(mt.Type); err != nil {
+			return err
+		}
+
 		name := mt.Name
 		r.activityMap[name] = mv.Interface()
+	}
+
+	return nil
+}
+
+func checkActivity(actType reflect.Type) error {
+	if actType.Kind() != reflect.Func {
+		return &ErrInvalidActivity{"activity not a func"}
+	}
+
+	if actType.NumOut() == 0 {
+		return &ErrInvalidActivity{"activity must return error"}
+	}
+
+	errType := reflect.TypeOf((*error)(nil)).Elem()
+	if !actType.Out(actType.NumOut() - 1).Implements(errType) {
+		return &ErrInvalidWorkflow{"activity must return error as last return value"}
 	}
 
 	return nil

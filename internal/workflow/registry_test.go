@@ -110,6 +110,17 @@ func Test_ActivityRegistration(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func reg_activity_invalid(ctx context.Context) {
+}
+
+func Test_ActivityRegistration_Invalid(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
+
+	err := r.RegisterActivity(reg_activity_invalid)
+	require.Error(t, err)
+}
+
 type reg_activities struct {
 	SomeValue string
 }
@@ -148,4 +159,22 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 	v, err := fn(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "test", v)
+}
+
+type reg_invalid_activities struct {
+	SomeValue string
+}
+
+func (r *reg_invalid_activities) Activity1(ctx context.Context) {
+}
+
+func Test_ActivityRegistrationOnStruct_Invalid(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
+
+	a := &reg_invalid_activities{
+		SomeValue: "test",
+	}
+	err := r.RegisterActivity(a)
+	require.Error(t, err)
 }
