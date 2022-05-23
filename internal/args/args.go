@@ -37,7 +37,7 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 		argT := activityFnT.In(i)
 
 		// Insert context if requested
-		if i == 0 && (isOwnContext(argT) || isContext(argT)) {
+		if i == 0 && (IsOwnContext(argT) || isContext(argT)) {
 			addContext = true
 			continue
 		}
@@ -66,7 +66,7 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 	return args, addContext, nil
 }
 
-func isOwnContext(inType reflect.Type) bool {
+func IsOwnContext(inType reflect.Type) bool {
 	contextElem := reflect.TypeOf((*sync.Context)(nil)).Elem()
 	return inType != nil && inType.Implements(contextElem)
 }
