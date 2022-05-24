@@ -91,6 +91,60 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				require.ErrorContains(t, err, "converting activity inputs: mismatched argument count: expected 2, got 1")
 			},
 		},
+		{
+			name: "SubWorkflow_PropagateCancellation",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+				canceled := 0
+
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					err := workflow.Sleep(ctx, time.Second*10)
+					if err != nil {
+						if err != workflow.Canceled {
+							return 0, err
+						}
+					}
+
+					if ctx.Err() != nil && ctx.Err() == workflow.Canceled {
+						canceled++
+					}
+
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					swfs := make([]workflow.Future[int], 0)
+
+					swfs = append(swfs, workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, 1))
+					swfs = append(swfs, workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, 2))
+
+					r := 0
+
+					for _, f := range swfs {
+						sr, err := f.Get(ctx)
+						if err != nil && err != workflow.Canceled {
+							return 0, err
+						}
+
+						r = r + sr
+					}
+
+					if ctx.Err() != nil && ctx.Err() == workflow.Canceled {
+						canceled++
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+				require.NoError(t, c.CancelWorkflowInstance(ctx, instance))
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+				require.Equal(t, 6, r)
+
+				require.Equal(t, 3, canceled)
+			},
+		},
 	}
 
 	for _, tt := range tests {

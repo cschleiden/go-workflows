@@ -79,30 +79,15 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 }
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
+	// Read the instance to check if it exists
 	_, err := readInstance(ctx, rb.rdb, instance.InstanceID)
 	if err != nil {
 		return err
 	}
 
-	// Recursively, find any sub-workflow instances to cancel
-	toCancel := make([]*core.WorkflowInstance, 0)
-	toCancel = append(toCancel, instance)
-	for len(toCancel) > 0 {
-		instance := toCancel[0]
-		toCancel = toCancel[1:]
-
-		// Cancel instance
-		if err := rb.addWorkflowInstanceEvent(ctx, instance, event); err != nil {
-			return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
-		}
-
-		// Find sub-workflows
-		subInstances, err := subWorkflowInstances(ctx, rb.rdb, instance)
-		if err != nil {
-			return fmt.Errorf("finding sub-workflow instances for cancellation: %w", err)
-		}
-
-		toCancel = append(toCancel, subInstances...)
+	// Cancel instance
+	if err := rb.addWorkflowInstanceEvent(ctx, instance, event); err != nil {
+		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
 	}
 
 	return nil
@@ -132,7 +117,7 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 
 	ok, err := rdb.SetNX(ctx, key, string(b), 0).Result()
 	if err != nil {
-		return fmt.Errorf("storeing instance: %w", err)
+		return fmt.Errorf("storing instance: %w", err)
 	}
 
 	if !ignoreDuplicate && !ok {

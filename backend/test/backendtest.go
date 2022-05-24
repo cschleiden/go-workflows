@@ -211,32 +211,6 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 			},
 		},
 		{
-			name: "CancelWorkflow_CancelsSpawnedSubWorkflows",
-			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
-				c := client.New(b)
-				instance := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-				startWorkflow(t, ctx, b, c, instance)
-
-				subInstance1 := core.NewSubWorkflowInstance(uuid.NewString(), uuid.NewString(), instance.InstanceID, 1)
-				startWorkflow(t, ctx, b, c, subInstance1)
-
-				subInstance2 := core.NewSubWorkflowInstance(uuid.NewString(), uuid.NewString(), instance.InstanceID, 2)
-				startWorkflow(t, ctx, b, c, subInstance2)
-
-				err := c.CancelWorkflowInstance(ctx, instance)
-				require.NoError(t, err)
-
-				for i := 0; i < 3; i++ {
-					task, err := b.GetWorkflowTask(ctx)
-					require.NoError(t, err)
-					require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
-
-					err = b.CompleteWorkflowTask(ctx, task.ID, task.WorkflowInstance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{})
-					require.NoError(t, err)
-				}
-			},
-		},
-		{
 			name: "CompleteWorkflowTask_SendsInstanceEvents",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				c := client.New(b)
