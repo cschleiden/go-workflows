@@ -24,7 +24,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	// Check if the channel is cancelable
+	// Check if the context is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
 		// Register a callback for when it's canceled. The only operation on the `Done` channel
 		// is that it's closed when the context is canceled.
