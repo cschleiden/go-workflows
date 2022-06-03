@@ -176,7 +176,7 @@ func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 	var completedAt sql.NullTime
 	if err := row.Scan(&completedAt); err != nil {
 		if err == sql.ErrNoRows {
-			return backend.WorkflowStateActive, errors.New("could not find workflow instance")
+			return backend.WorkflowStateActive, backend.ErrInstanceNotFound
 		}
 	}
 
