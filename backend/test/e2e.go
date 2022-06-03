@@ -8,6 +8,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -143,6 +144,51 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				require.Equal(t, 6, r)
 
 				require.Equal(t, 3, canceled)
+			},
+		},
+		{
+			name: "SubWorkflow_CancelBeforeStarting",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+				swInstanceID := "subworkflow"
+
+				swfrun := 0
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					swfrun++
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					swfctx, cancel := workflow.WithCancel(ctx)
+
+					f := workflow.CreateSubWorkflowInstance[int](swfctx, workflow.SubWorkflowOptions{
+						InstanceID: swInstanceID,
+					}, swf, 1)
+
+					// Cancel before it can be started
+					cancel()
+
+					// Force the checkpoint before continuing the execution
+					workflow.Sleep(ctx, time.Millisecond*2)
+
+					r, err := f.Get(ctx)
+					if err != nil && err != workflow.Canceled {
+						return 0, err
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+				require.Equal(t, 0, r)
+				require.Equal(t, 0, swfrun, "sub-workflow should not run")
+
+				err = c.CancelWorkflowInstance(ctx, &core.WorkflowInstance{
+					InstanceID: swInstanceID,
+				})
+				require.Error(t, err)
+				require.EqualError(t, err, "workflow instance not found")
 			},
 		},
 	}
