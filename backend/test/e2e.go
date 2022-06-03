@@ -3,12 +3,14 @@ package test
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -18,11 +20,11 @@ import (
 func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown func(b backend.Backend)) {
 	tests := []struct {
 		name string
-		f    func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker)
+		f    func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend)
 	}{
 		{
 			name: "SimpleWorkflow",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -35,8 +37,8 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			},
 		},
 		{
-			name: "UnregisteredWorkflow",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+			name: "UnregisteredWorkflow_Errors",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -50,7 +52,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "WorkflowArgumentMismatch",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				wf := func(ctx workflow.Context, p1 int) (int, error) {
 					return 42, nil
 				}
@@ -63,8 +65,8 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			},
 		},
 		{
-			name: "UnregisteredActivity",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+			name: "UnregisteredActivity_Errors",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				a := func(context.Context) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
@@ -79,7 +81,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "ActivityArgumentMismatch",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				a := func(context.Context, int, int) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a, 42).Get(ctx)
@@ -94,19 +96,17 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "SubWorkflow_PropagateCancellation",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
-				canceled := 0
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+				canceled := int32(0)
 
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					err := workflow.Sleep(ctx, time.Second*10)
-					if err != nil {
-						if err != workflow.Canceled {
-							return 0, err
-						}
+					if err != nil && err != workflow.Canceled {
+						return 0, err
 					}
 
 					if ctx.Err() != nil && ctx.Err() == workflow.Canceled {
-						canceled++
+						atomic.AddInt32(&canceled, 1)
 					}
 
 					return i * 2, nil
@@ -129,7 +129,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 					}
 
 					if ctx.Err() != nil && ctx.Err() == workflow.Canceled {
-						canceled++
+						atomic.AddInt32(&canceled, 1)
 					}
 
 					return r, nil
@@ -139,16 +139,15 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				instance := runWorkflow(t, ctx, c, wf)
 				require.NoError(t, c.CancelWorkflowInstance(ctx, instance))
 
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*500)
 				require.NoError(t, err)
 				require.Equal(t, 6, r)
-
-				require.Equal(t, 3, canceled)
+				require.Equal(t, int32(3), canceled)
 			},
 		},
 		{
 			name: "SubWorkflow_CancelBeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				swInstanceID := "subworkflow"
 
 				swfrun := 0
@@ -184,11 +183,51 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				require.Equal(t, 0, r)
 				require.Equal(t, 0, swfrun, "sub-workflow should not run")
 
-				err = c.CancelWorkflowInstance(ctx, &core.WorkflowInstance{
+				_, err = b.GetWorkflowInstanceState(ctx, &core.WorkflowInstance{
 					InstanceID: swInstanceID,
 				})
+
 				require.Error(t, err)
-				require.EqualError(t, err, "workflow instance not found")
+				require.Equal(t, backend.ErrInstanceNotFound, err)
+			},
+		},
+		{
+			name: "Timer_CancelBeforeStarting",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+				a := func(ctx context.Context) error {
+					return nil
+				}
+				wf := func(ctx workflow.Context) error {
+					tctx, cancel := workflow.WithCancel(ctx)
+
+					f := workflow.ScheduleTimer(tctx, time.Second*10)
+
+					// Cancel before it can be started
+					cancel()
+
+					// Force the checkpoint before continuing the execution
+					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+
+					_, err := f.Get(ctx)
+					if err != nil && err != workflow.Canceled {
+						return err
+					}
+
+					return nil
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				instance := runWorkflow(t, ctx, c, wf)
+				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+
+				events, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
+				require.NoError(t, err)
+				for _, e := range events {
+					if e.Type == history.EventType_TimerScheduled {
+						require.FailNow(t, "timer should not be scheduled")
+					}
+				}
 			},
 		},
 	}
@@ -202,7 +241,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			c := client.New(b)
 			w := worker.New(b, &worker.DefaultWorkerOptions)
 
-			tt.f(t, ctx, c, w)
+			tt.f(t, ctx, c, w, b)
 
 			cancel()
 			if err := w.WaitForCompletion(); err != nil {
