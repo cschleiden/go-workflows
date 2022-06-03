@@ -340,7 +340,7 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 		return nil
 	}
 
-	if err := f(nil, nil); err != nil {
+	if err := f(nil, sync.Canceled); err != nil {
 		return fmt.Errorf("setting result: %w", err)
 	}
 
@@ -544,14 +544,11 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 		case command.CommandType_CancelTimer:
 			a := c.Attr.(*command.CancelTimerCommandAttr)
 
-			workflowEvents = append(workflowEvents, history.WorkflowEvent{
-				WorkflowInstance: instance,
-				HistoryEvent: e.createNewEvent(
-					history.EventType_TimerCanceled,
-					&history.TimerCanceledAttributes{},
-					history.ScheduleEventID(a.TimerScheduleEventID),
-				),
-			})
+			newEvents = append(newEvents, e.createNewEvent(
+				history.EventType_TimerCanceled,
+				&history.TimerCanceledAttributes{},
+				history.ScheduleEventID(a.TimerScheduleEventID),
+			))
 
 		case command.CommandType_CompleteWorkflow:
 			completed = true
