@@ -11,6 +11,7 @@ import (
 func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 	f := sync.NewFuture[struct{}]()
 
+	// If the context is already canceled, return immediately.
 	if ctx.Err() != nil {
 		f.Set(struct{}{}, ctx.Err())
 		return f
