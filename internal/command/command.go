@@ -30,16 +30,20 @@ func (ct CommandType) String() string {
 	switch ct {
 	case CommandType_ScheduleActivity:
 		return "ScheduleActivityTask"
+
 	case CommandType_ScheduleSubWorkflow:
 		return "ScheduleSubWorkflow"
 	case CommandType_CancelSubWorkflow:
 		return "CancelSubWorkflow"
+
 	case CommandType_ScheduleTimer:
 		return "ScheduleTimer"
 	case CommandType_CancelTimer:
 		return "CancelTimer"
+
 	case CommandType_SideEffect:
 		return "SideEffect"
+
 	case CommandType_CompleteWorkflow:
 		return "CompleteWorkflow"
 	}
