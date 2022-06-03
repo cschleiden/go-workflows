@@ -36,13 +36,16 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 				cancelScheduleEventID := wfState.GetNextScheduleEventID()
 				timerCancellationCmd := command.NewCancelTimerCommand(cancelScheduleEventID, scheduleEventID)
 				wfState.AddCommand(&timerCancellationCmd)
-			}
+			} else {
+				// Remove command that would've scheduled the timer
+				wfState.RemoveCommand(&timerCmd)
 
-			// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired
-			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
-				if !fi.Ready() {
-					wfState.RemoveFuture(scheduleEventID)
-					f.Set(v, sync.Canceled)
+				// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired
+				if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
+					if !fi.Ready() {
+						wfState.RemoveFuture(scheduleEventID)
+						f.Set(v, sync.Canceled)
+					}
 				}
 			}
 		})
