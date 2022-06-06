@@ -80,16 +80,10 @@ func ParentWorkflow(ctx workflow.Context, msg string) error {
 	logger.Debug("Entering Workflow1")
 	logger.Debug("\tWorkflow instance input:", "msg", msg)
 
-	sctx, cancel := workflow.WithCancel(ctx)
-
-	wr := workflow.CreateSubWorkflowInstance[string](sctx, workflow.DefaultSubWorkflowOptions, SubWorkflow, "some input")
-
-	workflow.Sleep(ctx, time.Second*2)
-
-	cancel()
+	wr := workflow.CreateSubWorkflowInstance[string](ctx, workflow.DefaultSubWorkflowOptions, SubWorkflow, "some input")
 
 	result, err := wr.Get(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, workflow.Canceled) {
 		return fmt.Errorf("getting sub workflow result: %w", err)
 	}
 
@@ -102,16 +96,6 @@ func SubWorkflow(ctx workflow.Context, msg string) (string, error) {
 	logger := workflow.Logger(ctx)
 	logger.Debug("Entering SubWorkflow", "msg", msg)
 	defer logger.Debug("Leaving SubWorkflow")
-
-	defer func() {
-		if errors.Is(ctx.Err(), workflow.Canceled) {
-			// Workflow was canceled. Get new context to perform any cleanup activities
-			// ctx := workflow.NewDisconnectedContext(ctx)
-			logger.Debug("======> Sub workflow was canceled")
-		}
-	}()
-
-	workflow.Sleep(ctx, time.Second*5)
 
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {

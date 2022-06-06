@@ -173,17 +173,21 @@ func (rb *redisBackend) CompleteWorkflowTask(ctx context.Context, taskID string,
 
 		// TODO: use pipelines
 		for _, event := range events {
-			if event.Type == history.EventType_TimerCanceled {
+			switch event.Type {
+			case history.EventType_TimerCanceled:
 				if err := removeFutureEvent(ctx, rb.rdb, targetInstance, &event); err != nil {
 					return err
 				}
-			} else if event.VisibleAt != nil {
-				// Add future events
-				if err := addFutureEvent(ctx, rb.rdb, targetInstance, &event); err != nil {
+
+			case history.EventType_SubWorkflowCancellationRequested:
+				if err := rb.CancelWorkflowInstance(ctx, targetInstance, &event); err != nil {
 					return err
 				}
-			} else if event.Type == history.EventType_SubWorkflowCancellationRequested {
-				if err := rb.CancelWorkflowInstance(ctx, targetInstance, &event); err != nil {
+			}
+
+			if event.VisibleAt != nil {
+				// Add future event
+				if err := addFutureEvent(ctx, rb.rdb, targetInstance, &event); err != nil {
 					return err
 				}
 			} else {
