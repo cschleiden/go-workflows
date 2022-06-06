@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,8 +33,8 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
-				require.Equal(t, "hello world", output)
 				require.NoError(t, err)
+				require.Equal(t, "hello world", output)
 			},
 		},
 		{
@@ -280,5 +281,8 @@ func runWorkflow(t *testing.T, ctx context.Context, c client.Client, wf interfac
 
 func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c client.Client, wf interface{}, inputs ...interface{}) (T, error) {
 	instance := runWorkflow(t, ctx, c, wf, inputs...)
+
+	log.Println("Workflow instance:", instance.InstanceID)
+
 	return client.GetWorkflowResult[T](ctx, c, instance, time.Second*10)
 }

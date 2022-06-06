@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -69,6 +70,15 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		workflowQueue: workflowQueue,
 		activityQueue: activityQueue,
 	}
+
+	// Preload scripts
+	ctx := context.Background()
+	addEventsToStreamCmd.Load(ctx, rb.rdb)
+	addFutureEventCmd.Load(ctx, rb.rdb)
+	completeWorkflowCmd.Load(ctx, rb.rdb)
+	futureEventsCmd.Load(ctx, rb.rdb)
+	removeFutureEventCmd.Load(ctx, rb.rdb)
+	removePendingEventsCmd.Load(ctx, rb.rdb)
 
 	return rb, nil
 }

@@ -300,7 +300,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	taskID string,
+	task *task.Workflow,
 	instance *workflow.Instance,
 	state backend.WorkflowState,
 	executedEvents []history.Event,

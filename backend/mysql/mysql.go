@@ -406,7 +406,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 // completed or other workflow instances.
 func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	taskID string,
+	task *task.Workflow,
 	instance *workflow.Instance,
 	state backend.WorkflowState,
 	executedEvents []history.Event,

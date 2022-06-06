@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -15,7 +14,9 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error {
-	if err := createInstance(ctx, rb.rdb, event.WorkflowInstance, false); err != nil {
+	p := rb.rdb.TxPipeline()
+
+	if err := createInstanceP(ctx, p, event.WorkflowInstance, false); err != nil {
 		return err
 	}
 
@@ -25,24 +26,25 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 		return err
 	}
 
-	msgID, err := rb.rdb.XAdd(ctx, &redis.XAddArgs{
+	p.XAdd(ctx, &redis.XAddArgs{
 		Stream: pendingEventsKey(event.WorkflowInstance.InstanceID),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
 		},
-	}).Result()
-	if err != nil {
-		return fmt.Errorf("creating event stream: %w", err)
-	}
+	})
 
 	// Queue workflow instance task
-	if _, err := rb.workflowQueue.Enqueue(ctx, event.WorkflowInstance.InstanceID, &workflowTaskData{
-		LastPendingEventMessageID: msgID,
+	if err := rb.workflowQueue.Enqueue(ctx, p, event.WorkflowInstance.InstanceID, &workflowTaskData{
+		LastPendingEventMessageID: "", // TODO: REDIS: Determine this when picking up task?
 	}); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return fmt.Errorf("queueing workflow task: %w", err)
 		}
+	}
+
+	if _, err := p.Exec(ctx); err != nil {
+		return fmt.Errorf("creating workflow instance: %w", err)
 	}
 
 	rb.options.Logger.Debug("Created new workflow instance")
@@ -79,16 +81,17 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 }
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
-	// Read the instance to check if it exists
-	_, err := readInstance(ctx, rb.rdb, instance.InstanceID)
-	if err != nil {
-		return err
-	}
+	// TODO: REDIS: Re-enable canceling workflows
+	// // Read the instance to check if it exists
+	// _, err := readInstance(ctx, rb.rdb, instance.InstanceID)
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Cancel instance
-	if err := rb.addWorkflowInstanceEvent(ctx, instance, event); err != nil {
-		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
-	}
+	// // Cancel instance
+	// if err := rb.addWorkflowInstanceEventP(ctx, instance, event); err != nil {
+	// 	return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
+	// }
 
 	return nil
 }
@@ -101,7 +104,7 @@ type instanceState struct {
 	LastSequenceID int64                  `json:"last_sequence_id,omitempty"`
 }
 
-func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, ignoreDuplicate bool) error {
+func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, ignoreDuplicate bool) error {
 	key := instanceKey(instance.InstanceID)
 
 	createdAt := time.Now()
@@ -115,37 +118,21 @@ func createInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 		return fmt.Errorf("marshaling instance state: %w", err)
 	}
 
-	ok, err := rdb.SetNX(ctx, key, string(b), 0).Result()
-	if err != nil {
-		return fmt.Errorf("storing instance: %w", err)
-	}
+	p.SetNX(ctx, key, string(b), 0)
 
-	if !ignoreDuplicate && !ok {
-		return errors.New("workflow instance already exists")
-	}
-
-	if instance.SubWorkflow() {
-		instanceStr, err := json.Marshal(instance)
-		if err != nil {
-			return err
-		}
-
-		if err := rdb.RPush(ctx, subInstanceKey(instance.ParentInstanceID), instanceStr).Err(); err != nil {
-			return fmt.Errorf("tracking sub-workflow: %w", err)
-		}
-	}
-
-	if err := rdb.ZAdd(ctx, instancesByCreation(), &redis.Z{
+	p.ZAdd(ctx, instancesByCreation(), &redis.Z{
 		Member: instance.InstanceID,
 		Score:  float64(createdAt.UnixMilli()),
-	}).Err(); err != nil {
-		return fmt.Errorf("storing instance reference: %w", err)
+	})
+
+	if _, err := p.Exec(ctx); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID string, state *instanceState) error {
+func updateInstanceP(ctx context.Context, p redis.Pipeliner, instanceID string, state *instanceState) error {
 	key := instanceKey(instanceID)
 
 	b, err := json.Marshal(state)
@@ -153,10 +140,7 @@ func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID s
 		return fmt.Errorf("marshaling instance state: %w", err)
 	}
 
-	cmd := rdb.Set(ctx, key, string(b), 0)
-	if err := cmd.Err(); err != nil {
-		return fmt.Errorf("updating instance: %w", err)
-	}
+	p.Set(ctx, key, string(b), 0)
 
 	// CreatedAt does not change, so skip updating the instancesByCreation() ZSET
 
@@ -164,9 +148,25 @@ func updateInstance(ctx context.Context, rdb redis.UniversalClient, instanceID s
 }
 
 func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID string) (*instanceState, error) {
+	p := rdb.Pipeline()
+
+	cmd := readInstanceP(ctx, p, instanceID)
+
+	if _, err := p.Exec(ctx); err != nil {
+		return nil, err
+	}
+
+	return readInstancePipelineCmd(cmd)
+}
+
+func readInstanceP(ctx context.Context, p redis.Pipeliner, instanceID string) *redis.StringCmd {
 	key := instanceKey(instanceID)
 
-	val, err := rdb.Get(ctx, key).Result()
+	return p.Get(ctx, key)
+}
+
+func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
+	val, err := cmd.Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, backend.ErrInstanceNotFound
@@ -180,37 +180,5 @@ func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID str
 		return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 	}
 
-	if state.Instance.SubWorkflow() && state.State == backend.WorkflowStateFinished {
-		instanceStr, err := json.Marshal(state.Instance)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := rdb.LRem(ctx, subInstanceKey(state.Instance.ParentInstanceID), 1, instanceStr).Err(); err != nil {
-			return nil, fmt.Errorf("removing sub-workflow from parent list: %w", err)
-		}
-	}
-
 	return &state, nil
-}
-
-func subWorkflowInstances(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance) ([]*core.WorkflowInstance, error) {
-	key := subInstanceKey(instance.InstanceID)
-	res, err := rdb.LRange(ctx, key, 0, -1).Result()
-	if err != nil {
-		return nil, fmt.Errorf("reading sub-workflow instances: %w", err)
-	}
-
-	var instances []*core.WorkflowInstance
-
-	for _, instanceStr := range res {
-		var instance core.WorkflowInstance
-		if err := json.Unmarshal([]byte(instanceStr), &instance); err != nil {
-			return nil, fmt.Errorf("unmarshaling sub-workflow instance: %w", err)
-		}
-
-		instances = append(instances, &instance)
-	}
-
-	return instances, nil
 }

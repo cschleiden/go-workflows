@@ -9,7 +9,7 @@ import (
 )
 
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
-	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
+	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.rdb, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -26,14 +26,28 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 }
 
 func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
-	return rb.activityQueue.Extend(ctx, activityID)
+	p := rb.rdb.Pipeline()
+
+	if err := rb.activityQueue.Extend(ctx, p, activityID); err != nil {
+		return err
+	}
+
+	_, err := p.Exec(ctx)
+	return err
 }
 
 func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event history.Event) error {
-	if err := rb.addWorkflowInstanceEvent(ctx, instance, &event); err != nil {
+	p := rb.rdb.TxPipeline()
+
+	if err := rb.addWorkflowInstanceEventP(ctx, p, instance, &event); err != nil {
 		return err
 	}
 
 	// Unlock activity
-	return rb.activityQueue.Complete(ctx, activityID)
+	if err := rb.activityQueue.Complete(ctx, p, activityID); err != nil {
+		return err
+	}
+
+	_, err := p.Exec(ctx)
+	return err
 }
