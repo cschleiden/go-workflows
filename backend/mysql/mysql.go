@@ -229,7 +229,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ign
 		}
 
 		if rows != 1 {
-			return errors.New("could not insert workflow instance")
+			return backend.ErrInstanceAlreadyExists
 		}
 	}
 

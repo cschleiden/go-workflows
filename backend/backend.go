@@ -12,6 +12,7 @@ import (
 )
 
 var ErrInstanceNotFound = errors.New("workflow instance not found")
+var ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
 
 type WorkflowState int
 

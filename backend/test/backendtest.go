@@ -68,6 +68,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.Error(t, err)
+				require.ErrorIs(t, err, backend.ErrInstanceAlreadyExists)
 			},
 		},
 		{
