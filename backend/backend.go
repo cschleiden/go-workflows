@@ -12,6 +12,7 @@ import (
 )
 
 var ErrInstanceNotFound = errors.New("workflow instance not found")
+var ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
 
 type WorkflowState int
 
@@ -50,7 +51,7 @@ type Backend interface {
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
-		ctx context.Context, taskID string, instance *workflow.Instance, state WorkflowState,
+		ctx context.Context, task *task.Workflow, instance *workflow.Instance, state WorkflowState,
 		executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities

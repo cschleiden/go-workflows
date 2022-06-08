@@ -6,6 +6,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/go-redis/redis/v8"
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
@@ -14,17 +15,20 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 		return err
 	}
 
-	msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(instanceID), &event)
-	if err != nil {
-		return fmt.Errorf("adding event to stream: %w", err)
-	}
-
-	if _, err := rb.workflowQueue.Enqueue(ctx, instanceID, &workflowTaskData{
-		LastPendingEventMessageID: *msgID,
-	}); err != nil {
-		if err != taskqueue.ErrTaskAlreadyInQueue {
-			return fmt.Errorf("queueing workflow task: %w", err)
+	if _, err = rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
+		if err := addEventToStreamP(ctx, p, pendingEventsKey(instanceID), &event); err != nil {
+			return fmt.Errorf("adding event to stream: %w", err)
 		}
+
+		if err := rb.workflowQueue.Enqueue(ctx, p, instanceID, nil); err != nil {
+			if err != taskqueue.ErrTaskAlreadyInQueue {
+				return fmt.Errorf("queueing workflow task: %w", err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return nil

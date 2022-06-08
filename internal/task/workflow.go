@@ -17,4 +17,8 @@ type Workflow struct {
 
 	// NewEvents are new events since the last task execution
 	NewEvents []history.Event
+
+	// Backend specific data
+	// TODO: Can we hide this better?
+	CustomData any
 }

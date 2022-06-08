@@ -12,10 +12,6 @@ func instancesByCreation() string {
 	return "instances-by-creation"
 }
 
-func subInstanceKey(instanceID string) string {
-	return fmt.Sprintf("sub-instance:%v", instanceID)
-}
-
 func pendingEventsKey(instanceID string) string {
 	return fmt.Sprintf("pending-events:%v", instanceID)
 }
@@ -28,6 +24,6 @@ func futureEventsKey() string {
 	return "future-events"
 }
 
-func futureEventKey(instanceID string, scheduleEventID int64) string {
-	return fmt.Sprintf("future-event:%v:%v", instanceID, scheduleEventID)
+func futureEventKey(instanceID, eventID string) string {
+	return fmt.Sprintf("future-event:%v:%v", instanceID, eventID)
 }

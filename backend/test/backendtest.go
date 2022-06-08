@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -67,6 +68,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 					HistoryEvent:     history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				})
 				require.Error(t, err)
+				require.ErrorIs(t, err, backend.ErrInstanceAlreadyExists)
 			},
 		},
 		{
@@ -121,7 +123,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				})
 				require.NoError(t, err)
 
-				err = b.CompleteWorkflowTask(ctx, "taskID", wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
+				err = b.CompleteWorkflowTask(ctx, &task.Workflow{}, wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
 
 				require.Error(t, err)
 			},
@@ -161,7 +163,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 
 				workflowEvents := []history.WorkflowEvent{}
 
-				err = b.CompleteWorkflowTask(ctx, task.ID, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
+				err = b.CompleteWorkflowTask(ctx, task, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
 				require.NoError(t, err)
 
 				time.Sleep(time.Second)
@@ -229,7 +231,7 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				// Simulate context and sub-workflow cancellation
 				task, err := b.GetWorkflowTask(ctx)
 				require.NoError(t, err)
-				err = b.CompleteWorkflowTask(ctx, task.ID, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{
+				err = b.CompleteWorkflowTask(ctx, task, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{
 					{
 						WorkflowInstance: subInstance1,
 						HistoryEvent: history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionCanceled, &history.SubWorkflowCancellationRequestedAttributes{
@@ -270,6 +272,6 @@ func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c clien
 	task, err := b.GetWorkflowTask(ctx)
 	require.NoError(t, err)
 
-	err = b.CompleteWorkflowTask(ctx, task.ID, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{})
+	err = b.CompleteWorkflowTask(ctx, task, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{})
 	require.NoError(t, err)
 }

@@ -117,7 +117,7 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ign
 		}
 
 		if rows != 1 {
-			return errors.New("could not insert workflow instance")
+			return backend.ErrInstanceAlreadyExists
 		}
 	}
 
@@ -300,7 +300,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	taskID string,
+	task *task.Workflow,
 	instance *workflow.Instance,
 	state backend.WorkflowState,
 	executedEvents []history.Event,

@@ -49,12 +49,12 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
-	ret := _m.Called(ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents)
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, t *task.Workflow, instance *core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+	ret := _m.Called(ctx, t, instance, state, executedEvents, activityEvents, workflowEvents)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *core.WorkflowInstance, WorkflowState, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
-		r0 = rf(ctx, taskID, instance, state, executedEvents, activityEvents, workflowEvents)
+	if rf, ok := ret.Get(0).(func(context.Context, *task.Workflow, *core.WorkflowInstance, WorkflowState, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
+		r0 = rf(ctx, t, instance, state, executedEvents, activityEvents, workflowEvents)
 	} else {
 		r0 = ret.Error(0)
 	}
