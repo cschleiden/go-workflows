@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
@@ -13,75 +15,59 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-type futureEvent struct {
-	Instance *core.WorkflowInstance `json:"instance,omitempty"`
-	Event    *history.Event         `json:"event,omitempty"`
-}
-
-// Return all events with a visibleAt timestamp in the past. Also remove them from the set
+// Find all due future events. For each event:
+// - Look up event data
+// - Add to pending event stream for workflow instance
+// - Try to queue workflow task for workflow instance
+// - Remove event from future event set and delete event data
+//
 // KEYS[1] - future event set key
+// KEYS[2] - workflow task queue stream
+// KEYS[3] - workflow task queue set
 // ARGV[1] - current timestamp for zrange
+//
+// Note: this does not work with Redis Cluster since not all keys are passed into the script.
 var futureEventsCmd = redis.NewScript(`
+	-- Find events which should become visible now
 	local events = redis.call("ZRANGE", KEYS[1], "-inf", ARGV[1], "BYSCORE")
-	if events ~= false and #events ~= 0 then
-		redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", ARGV[1])
-		return redis.call("MGET", unpack(events))
+	for i = 1, #events do
+		local instanceID = redis.call("HGET", events[i], "instance")
+
+		-- Add event to pending event stream
+		local eventData = redis.call("HGET", events[i], "event")
+		local pending_events_key = "pending-events:" .. instanceID
+		redis.call("XADD", pending_events_key, "*", "event", eventData)
+
+		-- Try to queue workflow task
+		local already_queued = redis.call("SADD", KEYS[3], instanceID)
+		if already_queued ~= 0 then
+			redis.call("XADD", KEYS[2], "*", "id", instanceID, "data", "")
+		end
+
+		-- Delete event hash data
+		redis.call("DEL", events[i])
+		redis.call("ZREM", KEYS[1], events[i])
 	end
+
+	return #events
 `)
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
-	// TODO: Re-enable. Ensure no events get lost. Can we make adding to the pending event stream idempotent? Do we need an additional set for that?
-	// pending-event `STREAM` for ordering, and `SET` for deduplication?
+	// Check for future events
+	now := time.Now().Unix()
+	nowStr := strconv.Itoa(int(now))
 
-	// // Check for future events
-	// now := time.Now().Unix()
-	// nowStr := strconv.Itoa(int(now))
+	queueKeys := rb.workflowQueue.Keys()
 
-	// result, err := futureEventsCmd.Run(ctx, rb.rdb, []string{futureEventsKey()}, nowStr).Result()
-	// if err != nil && err != redis.Nil {
-	// 	return nil, fmt.Errorf("checking future events: %w", err)
-	// }
+	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
+		futureEventsKey(),
+		queueKeys.StreamKey,
+		queueKeys.SetKey,
+	}, nowStr).Result(); err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("checking future events: %w", err)
+	}
 
-	// if result != nil {
-	// 	for _, eventR := range result.([]interface{}) {
-	// 		eventStr := eventR.(string)
-	// 		var futureEvent futureEvent
-	// 		if err := json.Unmarshal([]byte(eventStr), &futureEvent); err != nil {
-	// 			return nil, fmt.Errorf("unmarshaling event: %w", err)
-	// 		}
-
-	// 		instanceState, err := readInstance(ctx, rb.rdb, futureEvent.Instance.InstanceID)
-	// 		if err != nil {
-	// 			if err == backend.ErrInstanceNotFound {
-	// 				rb.options.Logger.Debug("Ignoring future event for non-existing instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
-	// 				continue
-	// 			} else {
-	// 				return nil, fmt.Errorf("reading instance: %w", err)
-	// 			}
-	// 		}
-
-	// 		if instanceState.State != backend.WorkflowStateActive {
-	// 			rb.options.Logger.Debug("Ignoring future event for already completed instance", "instance_id", futureEvent.Instance.InstanceID, "event_id", futureEvent.Event.ID)
-	// 			continue
-	// 		}
-
-	// 		msgID, err := addEventToStream(ctx, rb.rdb, pendingEventsKey(futureEvent.Instance.InstanceID), futureEvent.Event)
-	// 		if err != nil {
-	// 			return nil, fmt.Errorf("adding future event to stream: %w", err)
-	// 		}
-
-	// 		// Instance now has at least one pending event, try to queue task
-	// 		if _, err := rb.workflowQueue.Enqueue(ctx, futureEvent.Instance.InstanceID, &workflowTaskData{
-	// 			LastPendingEventMessageID: *msgID,
-	// 		}); err != nil {
-	// 			if err != taskqueue.ErrTaskAlreadyInQueue {
-	// 				return nil, fmt.Errorf("queueing workflow task: %w", err)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// Try to get a workflow task
+	// Try to get a workflow task, this locks the instance
 	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.rdb, rb.options.WorkflowLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
@@ -141,6 +127,22 @@ var removePendingEventsCmd = redis.NewScript(`
 	return removed
 `)
 
+// KEYS[1] - pending events
+// KEYS[2] - task queue stream
+// KEYS[3] - task queue set
+// ARGV[1] - Instance ID
+var requeueInstanceCmd = redis.NewScript(`
+	local pending_events = redis.call("XLEN", KEYS[1])
+	if pending_events > 0 then
+		local already_queued = redis.call("SADD", KEYS[3], ARGV[1])
+		if already_queued ~= 0 then
+			redis.call("XADD", KEYS[2], "*", "id", ARGV[1], "data", "")
+		end
+	end
+
+	return true
+`)
+
 func (rb *redisBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *task.Workflow,
@@ -165,6 +167,13 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		return fmt.Errorf("serializing : %w", err)
 	}
 
+	for _, event := range executedEvents {
+		switch event.Type {
+		case history.EventType_TimerCanceled:
+			removeFutureEventP(ctx, p, instance, &event)
+		}
+	}
+
 	// Send new workflow events to the respective streams
 	groupedEvents := eventsByWorkflowInstance(workflowEvents)
 	for targetInstance, events := range groupedEvents {
@@ -179,18 +188,15 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		msgAdded := false
 
 		for _, event := range events {
-			switch event.Type {
-			case history.EventType_TimerCanceled:
-				removeFutureEventP(ctx, p, targetInstance, event)
-			}
+			event := event
 
 			if event.VisibleAt != nil {
-				if err := addFutureEventP(ctx, p, targetInstance, event); err != nil {
+				if err := addFutureEventP(ctx, p, targetInstance, &event); err != nil {
 					return err
 				}
 			} else {
 				// Add pending event to stream
-				if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstance.InstanceID), event); err != nil {
+				if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstance.InstanceID), &event); err != nil {
 					return err
 				}
 
@@ -200,9 +206,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 		// If any pending message was added, try to queue workflow task
 		if targetInstance != instance && msgAdded {
-			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, &workflowTaskData{
-				LastPendingEventMessageID: "", // TODO: Can we figure this out when picking up the task instead of adding it here?
-			}); err != nil {
+			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, nil); err != nil {
 				if err != taskqueue.ErrTaskAlreadyInQueue {
 					return fmt.Errorf("adding instance to locked instances set: %w", err)
 				}
@@ -210,15 +214,10 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 	}
 
-	// Update instance state with last message
-	// TODO: REDIS: Do this in one go? Use lua json functionality?
-	// instanceState, err := readInstanceP(ctx, p, instance.InstanceID)
-	// if err != nil {
-	// 	return fmt.Errorf("reading workflow instance: %w", err)
-	// }
-
 	instanceState.State = state
-	instanceState.LastSequenceID = executedEvents[len(executedEvents)-1].SequenceID
+	if len(executedEvents) > 0 {
+		instanceState.LastSequenceID = executedEvents[len(executedEvents)-1].SequenceID
+	}
 
 	if err := updateInstanceP(ctx, p, instance.InstanceID, instanceState); err != nil {
 		return fmt.Errorf("updating workflow instance: %w", err)
@@ -236,8 +235,10 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	// Remove executed pending events
-	lastPendingEventMessageID := task.CustomData.(string)
-	removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance.InstanceID)}, lastPendingEventMessageID)
+	if task.CustomData != nil {
+		lastPendingEventMessageID := task.CustomData.(string)
+		removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance.InstanceID)}, lastPendingEventMessageID)
+	}
 
 	// Complete workflow task and unlock instance
 	if err := rb.workflowQueue.Complete(ctx, p, task.ID); err != nil {
@@ -245,20 +246,11 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	// If there are pending events, queue the instance again
-	msgIDs, err := p.XRevRangeN(ctx, pendingEventsKey(instance.InstanceID), "+", "-", 1).Result()
-	if err != nil {
-		return fmt.Errorf("reading event stream: %w", err)
-	}
-
-	if state != backend.WorkflowStateFinished && len(msgIDs) > 0 {
-		if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, &workflowTaskData{
-			LastPendingEventMessageID: msgIDs[0].ID,
-		}); err != nil {
-			if err != taskqueue.ErrTaskAlreadyInQueue {
-				return fmt.Errorf("queueing workflow: %w", err)
-			}
-		}
-	}
+	keyInfo := rb.workflowQueue.Keys()
+	requeueInstanceCmd.Run(ctx, p,
+		[]string{pendingEventsKey(instance.InstanceID), keyInfo.StreamKey, keyInfo.SetKey},
+		instance.InstanceID,
+	)
 
 	// Commit transaction
 	executedCmds, err := p.Exec(ctx)
@@ -282,9 +274,7 @@ func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.P
 	}
 
 	// Queue workflow task
-	if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, &workflowTaskData{
-		LastPendingEventMessageID: "", // TODO: REDIS: Can we get this at pick up time?
-	}); err != nil {
+	if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, nil); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return fmt.Errorf("queueing workflow: %w", err)
 		}
@@ -293,15 +283,15 @@ func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.P
 	return nil
 }
 
-func eventsByWorkflowInstance(events []history.WorkflowEvent) map[*core.WorkflowInstance][]*history.Event {
-	groupedEvents := make(map[*core.WorkflowInstance][]*history.Event)
+func eventsByWorkflowInstance(events []history.WorkflowEvent) map[*core.WorkflowInstance][]history.Event {
+	groupedEvents := make(map[*core.WorkflowInstance][]history.Event)
 
 	for _, m := range events {
 		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
-			groupedEvents[m.WorkflowInstance] = []*history.Event{}
+			groupedEvents[m.WorkflowInstance] = []history.Event{}
 		}
 
-		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], &m.HistoryEvent)
+		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
 	}
 
 	return groupedEvents

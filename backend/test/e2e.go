@@ -96,6 +96,29 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			},
 		},
 		{
+			name: "SubWorkflow_Simple",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, 1).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*500)
+				require.NoError(t, err)
+				require.Equal(t, 2, r)
+			},
+		},
+		{
 			name: "SubWorkflow_PropagateCancellation",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
 				canceled := int32(0)
@@ -142,8 +165,8 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*500)
 				require.NoError(t, err)
-				require.Equal(t, 6, r)
 				require.Equal(t, int32(3), canceled)
+				require.Equal(t, 6, r)
 			},
 		},
 		{
@@ -190,6 +213,33 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 				require.Error(t, err)
 				require.Equal(t, backend.ErrInstanceNotFound, err)
+			},
+		},
+		{
+			name: "Timer_Cancel",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+				a := func(ctx context.Context) error {
+					return nil
+				}
+				wf := func(ctx workflow.Context) error {
+					_, err := workflow.ScheduleTimer(ctx, time.Second*10).Get(ctx)
+					if err != nil && err != workflow.Canceled {
+						return err
+					}
+
+					return nil
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				// Allow some time for the timer to get scheduled
+				time.Sleep(time.Millisecond * 200)
+
+				require.NoError(t, c.CancelWorkflowInstance(ctx, instance))
+
+				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
 			},
 		},
 		{

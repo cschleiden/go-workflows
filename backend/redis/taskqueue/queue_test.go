@@ -1,203 +1,245 @@
 package taskqueue
 
 import (
+	"context"
 	"testing"
+	"time"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_TaskQueue(t *testing.T) {
-	// TODO: REDIS: Re-enable
-	// // These cases rely on redis being running on localhost:6379. Skip this test if `-short` is set.
-	// if testing.Short() {
-	// 	t.Skip()
-	// }
+	// These cases rely on redis being running on localhost:6379. Skip this test if `-short` is set.
+	if testing.Short() {
+		t.Skip()
+	}
 
-	// client := redis.NewUniversalClient(&redis.UniversalOptions{
-	// 	Addrs:    []string{"localhost:6379"},
-	// 	Username: "",
-	// 	Password: "RedisPassw0rd",
-	// 	DB:       1,
-	// })
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:    []string{"localhost:6379"},
+		Username: "",
+		Password: "RedisPassw0rd",
+		DB:       1,
+	})
 
-	// lockTimeout := time.Millisecond * 10
-	// blockTimeout := time.Millisecond * 10
+	lockTimeout := time.Millisecond * 10
+	blockTimeout := time.Millisecond * 10
 
-	// tests := []struct {
-	// 	name string
-	// 	f    func(t *testing.T)
-	// }{
-	// 	{
-	// 		name: "Create queue",
-	// 		f: func(t *testing.T) {
-	// 			q, err := New[any](client, "test")
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, q)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Simple enqueue/dequeue",
-	// 		f: func(t *testing.T) {
-	// 			q, err := New[any](client, "test")
-	// 			require.NoError(t, err)
+	tests := []struct {
+		name string
+		f    func(t *testing.T)
+	}{
+		{
+			name: "Create queue",
+			f: func(t *testing.T) {
+				q, err := New[any](client, "test")
+				require.NoError(t, err)
+				require.NotNil(t, q)
+			},
+		},
+		{
+			name: "Simple enqueue/dequeue",
+			f: func(t *testing.T) {
+				q, err := New[any](client, "test")
+				require.NoError(t, err)
 
-	// 			_, err = q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
+				ctx := context.Background()
 
-	// 			task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
-	// 			require.Equal(t, "t1", task.ID)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Guarantee uniqueness",
-	// 		f: func(t *testing.T) {
-	// 			q, err := New[any](client, "test")
-	// 			require.NoError(t, err)
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
 
-	// 			_, err = q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
+				task, err := q.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, "t1", task.ID)
+			},
+		},
+		{
+			name: "Guarantee uniqueness",
+			f: func(t *testing.T) {
+				q, err := New[any](client, "test")
+				require.NoError(t, err)
 
-	// 			_, err = q.Enqueue(context.Background(), "t1", nil)
-	// 			require.Error(t, ErrTaskAlreadyInQueue, err)
+				ctx := context.Background()
 
-	// 			task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
 
-	// 			err = q.Complete(context.Background(), task.TaskID)
-	// 			require.NoError(t, err)
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.Error(t, ErrTaskAlreadyInQueue, err)
 
-	// 			_, err = q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Store custom data",
-	// 		f: func(t *testing.T) {
-	// 			type foo struct {
-	// 				Count int
-	// 				Name  string
-	// 			}
+				task, err := q.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
 
-	// 			q, err := New[foo](client, "test")
-	// 			require.NoError(t, err)
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Complete(ctx, p, task.TaskID)
+				})
+				require.NoError(t, err)
 
-	// 			_, err = q.Enqueue(context.Background(), "t1", &foo{
-	// 				Count: 1,
-	// 				Name:  "bar",
-	// 			})
-	// 			require.NoError(t, err)
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "Store custom data",
+			f: func(t *testing.T) {
+				type foo struct {
+					Count int
+					Name  string
+				}
 
-	// 			task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
-	// 			require.Equal(t, "t1", task.ID)
-	// 			require.Equal(t, 1, task.Data.Count)
-	// 			require.Equal(t, "bar", task.Data.Name)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Simple enqueue/dequeue different worker",
-	// 		f: func(t *testing.T) {
-	// 			q, _ := New[any](client, "test")
+				ctx := context.Background()
 
-	// 			_, err := q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
+				q, err := New[foo](client, "test")
+				require.NoError(t, err)
 
-	// 			q2, _ := New[any](client, "test")
-	// 			require.NoError(t, err)
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", &foo{
+						Count: 1,
+						Name:  "bar",
+					})
+				})
+				require.NoError(t, err)
 
-	// 			// Dequeue using second worker
-	// 			task, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
-	// 			require.Equal(t, "t1", task.ID)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Complete removes task",
-	// 		f: func(t *testing.T) {
-	// 			q, _ := New[any](client, "test")
-	// 			q2, _ := New[any](client, "test")
+				task, err := q.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, "t1", task.ID)
+				require.Equal(t, 1, task.Data.Count)
+				require.Equal(t, "bar", task.Data.Name)
+			},
+		},
+		{
+			name: "Simple enqueue/dequeue different worker",
+			f: func(t *testing.T) {
+				q, _ := New[any](client, "test")
 
-	// 			_, err := q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
+				ctx := context.Background()
 
-	// 			task, err := q.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
 
-	// 			// Complete task
-	// 			err = q2.Complete(context.Background(), task.TaskID)
-	// 			require.NoError(t, err)
+				q2, _ := New[any](client, "test")
+				require.NoError(t, err)
 
-	// 			time.Sleep(time.Millisecond * 10)
+				// Dequeue using second worker
+				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, "t1", task.ID)
+			},
+		},
+		{
+			name: "Complete removes task",
+			f: func(t *testing.T) {
+				q, _ := New[any](client, "test")
+				q2, _ := New[any](client, "test")
 
-	// 			// Try to recover using second worker
-	// 			task2, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.Nil(t, task2)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Recover task",
-	// 		f: func(t *testing.T) {
-	// 			q, _ := New[any](client, "test")
+				ctx := context.Background()
 
-	// 			_, err := q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
 
-	// 			q2, _ := New[any](client, "test")
-	// 			require.NoError(t, err)
+				task, err := q.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
 
-	// 			task, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
-	// 			require.Equal(t, "t1", task.ID)
+				// Complete task
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q2.Complete(ctx, p, task.TaskID)
+				})
+				require.NoError(t, err)
 
-	// 			time.Sleep(time.Millisecond * 10)
+				time.Sleep(time.Millisecond * 10)
 
-	// 			// Assume q2 crashed, recover from other worker
-	// 			recoveredTask, err := q.Dequeue(context.Background(), time.Millisecond*1, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
-	// 			require.Equal(t, task, recoveredTask)
-	// 		},
-	// 	},
-	// 	{
-	// 		name: "Extending task prevents recovering",
-	// 		f: func(t *testing.T) {
-	// 			q, _ := New[any](client, "test")
+				// Try to recover using second worker
+				task2, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.Nil(t, task2)
+			},
+		},
+		{
+			name: "Recover task",
+			f: func(t *testing.T) {
+				q, _ := New[any](client, "test")
 
-	// 			_, err := q.Enqueue(context.Background(), "t1", nil)
-	// 			require.NoError(t, err)
+				ctx := context.Background()
 
-	// 			q2, _ := New[any](client, "test")
-	// 			require.NoError(t, err)
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
 
-	// 			task, err := q2.Dequeue(context.Background(), lockTimeout, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.NotNil(t, task)
-	// 			require.Equal(t, "t1", task.ID)
+				q2, _ := New[any](client, "test")
+				require.NoError(t, err)
 
-	// 			time.Sleep(time.Millisecond * 5)
+				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, "t1", task.ID)
 
-	// 			err = q2.Extend(context.Background(), task.TaskID)
-	// 			require.NoError(t, err)
+				time.Sleep(time.Millisecond * 10)
 
-	// 			recoveredTask, err := q.Dequeue(context.Background(), lockTimeout*2, blockTimeout)
-	// 			require.NoError(t, err)
-	// 			require.Nil(t, recoveredTask)
-	// 		},
-	// 	},
-	// }
-	// for _, tt := range tests {
-	// 	t.Run(tt.name, func(t *testing.T) {
-	// 		if err := client.FlushDB(context.Background()).Err(); err != nil {
-	// 			panic(err)
-	// 		}
+				// Assume q2 crashed, recover from other worker
+				recoveredTask, err := q.Dequeue(ctx, client, time.Millisecond*1, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, task, recoveredTask)
+			},
+		},
+		{
+			name: "Extending task prevents recovering",
+			f: func(t *testing.T) {
+				q, _ := New[any](client, "test")
 
-	// 		tt.f(t)
-	// 	})
-	// }
+				ctx := context.Background()
+
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, "t1", nil)
+				})
+				require.NoError(t, err)
+
+				q2, _ := New[any](client, "test")
+				require.NoError(t, err)
+
+				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, "t1", task.ID)
+
+				time.Sleep(time.Millisecond * 5)
+
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q2.Extend(ctx, p, task.TaskID)
+				})
+				require.NoError(t, err)
+
+				recoveredTask, err := q.Dequeue(ctx, client, lockTimeout*2, blockTimeout)
+				require.NoError(t, err)
+				require.Nil(t, recoveredTask)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := client.FlushDB(context.Background()).Err(); err != nil {
+				panic(err)
+			}
+
+			tt.f(t)
+		})
+	}
 }

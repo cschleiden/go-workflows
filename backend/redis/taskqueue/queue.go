@@ -32,6 +32,11 @@ type TaskItem[T any] struct {
 
 var ErrTaskAlreadyInQueue = errors.New("task already in queue")
 
+type KeyInfo struct {
+	StreamKey string
+	SetKey    string
+}
+
 type TaskQueue[T any] interface {
 	// Enqueue adds a task to the queue
 	Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error
@@ -47,6 +52,8 @@ type TaskQueue[T any] interface {
 
 	// Data returns the stored data for the given task
 	Data(ctx context.Context, p redis.Pipeliner, taskID string) (*TaskItem[T], error)
+
+	Keys() KeyInfo
 }
 
 func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error) {
@@ -75,18 +82,25 @@ func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error
 	return tq, nil
 }
 
+func (q *taskQueue[T]) Keys() KeyInfo {
+	return KeyInfo{
+		StreamKey: q.streamKey,
+		SetKey:    q.setKey,
+	}
+}
+
 // KEYS[1] = stream
 // KEYS[2] = stream
 // ARGV[1] = caller provided id of the task
 // ARGV[2] = additional data to store with the task
 var enqueueCmd = redis.NewScript(
 	// Prevent duplicates by checking a set first
-	`local exists = redis.call("SADD", KEYS[1], ARGV[1])
-	if exists == 0 then
-		return nil
+	`local added = redis.call("SADD", KEYS[1], ARGV[1])
+	if added == 1 then
+		redis.call("XADD", KEYS[2], "*", "id", ARGV[1], "data", ARGV[2])
 	end
 
-	return redis.call("XADD", KEYS[2], "*", "id", ARGV[1], "data", ARGV[2])
+	return true
 `)
 
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
@@ -174,7 +188,7 @@ func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, taskID s
 		return fmt.Errorf("completing task: %w", err)
 	}
 
-	// TODO: Move this to the consumer?
+	// TODO: REDIS: Move this to the consumer?
 	// if c.(int64) == 0 || err == redis.Nil {
 	// 	return errors.New("could not find task to complete")
 	// }
@@ -219,8 +233,10 @@ func msgToTaskItem[T any](msg *redis.XMessage) (*TaskItem[T], error) {
 	data := msg.Values["data"].(string)
 
 	var t T
-	if err := json.Unmarshal([]byte(data), &t); err != nil {
-		return nil, err
+	if data != "" {
+		if err := json.Unmarshal([]byte(data), &t); err != nil {
+			return nil, err
+		}
 	}
 
 	return &TaskItem[T]{

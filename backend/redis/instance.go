@@ -14,6 +14,15 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error {
+	state, err := readInstance(ctx, rb.rdb, event.WorkflowInstance.InstanceID)
+	if err != nil && err != backend.ErrInstanceNotFound {
+		return err
+	}
+
+	if state != nil {
+		return backend.ErrInstanceAlreadyExists
+	}
+
 	p := rb.rdb.TxPipeline()
 
 	if err := createInstanceP(ctx, p, event.WorkflowInstance, false); err != nil {
@@ -35,9 +44,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	})
 
 	// Queue workflow instance task
-	if err := rb.workflowQueue.Enqueue(ctx, p, event.WorkflowInstance.InstanceID, &workflowTaskData{
-		LastPendingEventMessageID: "", // TODO: REDIS: Determine this when picking up task?
-	}); err != nil {
+	if err := rb.workflowQueue.Enqueue(ctx, p, event.WorkflowInstance.InstanceID, nil); err != nil {
 		if err != taskqueue.ErrTaskAlreadyInQueue {
 			return fmt.Errorf("queueing workflow task: %w", err)
 		}
@@ -81,17 +88,19 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 }
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
-	// TODO: REDIS: Re-enable canceling workflows
-	// // Read the instance to check if it exists
-	// _, err := readInstance(ctx, rb.rdb, instance.InstanceID)
-	// if err != nil {
-	// 	return err
-	// }
+	// Read the instance to check if it exists
+	_, err := readInstance(ctx, rb.rdb, instance.InstanceID)
+	if err != nil {
+		return err
+	}
 
-	// // Cancel instance
-	// if err := rb.addWorkflowInstanceEventP(ctx, instance, event); err != nil {
-	// 	return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
-	// }
+	// Cancel instance
+	if cmds, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
+		return rb.addWorkflowInstanceEventP(ctx, p, instance, event)
+	}); err != nil {
+		fmt.Println(cmds)
+		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
+	}
 
 	return nil
 }
@@ -125,10 +134,6 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 		Score:  float64(createdAt.UnixMilli()),
 	})
 
-	if _, err := p.Exec(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -152,9 +157,8 @@ func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID str
 
 	cmd := readInstanceP(ctx, p, instanceID)
 
-	if _, err := p.Exec(ctx); err != nil {
-		return nil, err
-	}
+	// Error is checked when checking the cmd
+	_, _ = p.Exec(ctx)
 
 	return readInstancePipelineCmd(cmd)
 }
