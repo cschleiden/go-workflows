@@ -39,13 +39,15 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 			} else {
 				// Remove command that would've scheduled the timer
 				wfState.RemoveCommand(&timerCmd)
+			}
 
-				// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired
-				if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
-					if !fi.Ready() {
-						wfState.RemoveFuture(scheduleEventID)
-						f.Set(v, sync.Canceled)
-					}
+			// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired. This is different
+			// from subworkflow behavior, where we want to wait for the subworkflow to complete before proceeding. Here we can
+			// continue right away.
+			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
+				if !fi.Ready() {
+					wfState.RemoveFuture(scheduleEventID)
+					f.Set(v, sync.Canceled)
 				}
 			}
 		})
