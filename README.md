@@ -6,6 +6,7 @@ Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and sin
 
 See also:
 - https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/
+- https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/
 
 On Go support: the current version of the library requires **Go 1.18** or later. There is a version that doesn't require generics and relies more on `interface{}` instead, but I think the improved type safety is worth not supporting a version of Go before 1.18 for now.
 
