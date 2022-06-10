@@ -215,6 +215,12 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	instanceState.State = state
+
+	if state == backend.WorkflowStateFinished {
+		t := time.Now()
+		instanceState.CompletedAt = &t
+	}
+
 	if len(executedEvents) > 0 {
 		instanceState.LastSequenceID = executedEvents[len(executedEvents)-1].SequenceID
 	}

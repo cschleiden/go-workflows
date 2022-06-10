@@ -7,6 +7,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -176,6 +177,45 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 					require.Equal(t, event.Type, h[i].Type)
 					require.Equal(t, event.Attributes, h[i].Attributes)
 				}
+			},
+		},
+		{
+			name: "CompleteWorkflowTask_SetsCompletedAtWhenFinished",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
+
+				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+				err := b.CreateWorkflowInstance(ctx, history.WorkflowEvent{
+					WorkflowInstance: wfi,
+					HistoryEvent:     startedEvent,
+				})
+				require.NoError(t, err)
+
+				task, err := b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+
+				events := []history.Event{
+					history.NewHistoryEvent(-1, time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{}),
+					startedEvent,
+					history.NewHistoryEvent(-1, time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{}),
+				}
+
+				sequenceID := int64(1)
+				for i := range events {
+					sequenceID++
+					events[i].SequenceID = sequenceID
+				}
+
+				err = b.CompleteWorkflowTask(ctx, task, wfi, backend.WorkflowStateFinished, events, []history.Event{}, []history.WorkflowEvent{})
+				require.NoError(t, err)
+
+				time.Sleep(time.Second)
+
+				db := b.(diag.Backend)
+				s, err := db.GetWorkflowInstance(ctx, wfi.InstanceID)
+				require.NoError(t, err)
+				require.Equal(t, backend.WorkflowStateFinished, s.State)
+				require.NotNil(t, s.CompletedAt)
 			},
 		},
 		{
