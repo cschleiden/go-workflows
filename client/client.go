@@ -138,6 +138,8 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 	}
 }
 
+// GetWorkflowResult gets the workflow result for the given workflow result. It first waits for the workflow to finish or until
+// the given timeout has expired.
 func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.Instance, timeout time.Duration) (T, error) {
 	if err := c.WaitForWorkflowInstance(ctx, instance, timeout); err != nil {
 		return *new(T), fmt.Errorf("workflow did not finish in time: %w", err)
