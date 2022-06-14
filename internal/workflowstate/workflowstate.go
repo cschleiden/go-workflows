@@ -42,7 +42,7 @@ func AsDecodingSettable[T any](f sync.SettableFuture[T]) DecodingSettable {
 }
 
 type signalChannel struct {
-	receive func(sync.Context, payload.Payload)
+	receive func(payload.Payload)
 	channel interface{}
 }
 
