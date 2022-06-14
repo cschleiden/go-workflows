@@ -10,7 +10,7 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${file}"
+      "program": "${fileDirname}"
     },
     {
       "name": "Launch simple sample",
