@@ -6,5 +6,6 @@ import (
 
 type (
 	Instance = core.WorkflowInstance
+	Metadata = core.WorkflowInstanceMetadata
 	Workflow = interface{}
 )
