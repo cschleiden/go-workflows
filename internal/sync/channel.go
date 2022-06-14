@@ -3,11 +3,11 @@ package sync
 type Channel[T any] interface {
 	Send(ctx Context, v T)
 
-	SendNonblocking(ctx Context, v T) (ok bool)
+	SendNonblocking(v T) (ok bool)
 
 	Receive(ctx Context) (v T, ok bool)
 
-	ReceiveNonBlocking(ctx Context) (v T, ok bool)
+	ReceiveNonBlocking() (v T, ok bool)
 
 	Close()
 }
@@ -15,7 +15,7 @@ type Channel[T any] interface {
 type ChannelInternal[T any] interface {
 	Closed() bool
 
-	ReceiveNonBlocking(ctx Context) (v T, ok bool)
+	ReceiveNonBlocking() (v T, ok bool)
 
 	// AddReceiveCallback adds a callback that is called once when a value is sent to the channel. This is similar
 	// to the blocking `Receive` method, but is not blocking a coroutine.
@@ -100,7 +100,7 @@ func (c *channel[T]) Send(ctx Context, v T) {
 	}
 }
 
-func (c *channel[T]) SendNonblocking(ctx Context, v T) bool {
+func (c *channel[T]) SendNonblocking(v T) bool {
 	return c.trySend(v)
 }
 
@@ -139,7 +139,7 @@ func (c *channel[T]) Receive(ctx Context) (v T, ok bool) {
 	}
 }
 
-func (c *channel[T]) ReceiveNonBlocking(ctx Context) (T, bool) {
+func (c *channel[T]) ReceiveNonBlocking() (T, bool) {
 	if v, ok, rok := c.tryReceive(); rok {
 		return v, ok
 	}

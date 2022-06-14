@@ -5,11 +5,11 @@ type Scheduler interface {
 	NewCoroutine(ctx Context, fn func(Context) error)
 
 	// Execute executes all coroutines until they are all blocked
-	Execute(ctx Context) error
+	Execute() error
 
 	RunningCoroutines() int
 
-	Exit(ctx Context)
+	Exit()
 }
 
 type scheduler struct {
@@ -28,7 +28,7 @@ func (s *scheduler) NewCoroutine(ctx Context, fn func(Context) error) {
 	c.SetScheduler(s)
 }
 
-func (s *scheduler) Execute(ctx Context) error {
+func (s *scheduler) Execute() error {
 	allBlocked := false
 	for !allBlocked {
 		allBlocked = true
@@ -64,7 +64,7 @@ func (s *scheduler) RunningCoroutines() int {
 	return len(s.coroutines)
 }
 
-func (s *scheduler) Exit(_ Context) {
+func (s *scheduler) Exit() {
 	for _, c := range s.coroutines {
 		c.Exit()
 	}

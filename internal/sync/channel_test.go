@@ -51,7 +51,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				cr.Execute()
 
 				crSend := NewCoroutine(Background(), func(ctx Context) error {
-					c.SendNonblocking(ctx, 42)
+					c.SendNonblocking(42)
 
 					return nil
 				})
@@ -79,7 +79,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				require.True(t, cr.Blocked(), "coroutine should be blocked")
 
 				crSend := NewCoroutine(Background(), func(ctx Context) error {
-					c.SendNonblocking(ctx, 42)
+					c.SendNonblocking(42)
 
 					return nil
 				})
@@ -177,7 +177,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			name: "SendNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
-					r := c.SendNonblocking(ctx, 42)
+					r := c.SendNonblocking(42)
 
 					require.False(t, r)
 
@@ -194,7 +194,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 			name: "ReceiveNonblocking_DoesNotBlock",
 			fn: func(t *testing.T, c *channel[int]) {
 				cr := NewCoroutine(Background(), func(ctx Context) error {
-					r := c.SendNonblocking(ctx, 42)
+					r := c.SendNonblocking(42)
 
 					require.False(t, r)
 
@@ -225,7 +225,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 					})
 				}
 
-				s.Execute(ctx)
+				s.Execute()
 				require.Equal(t, 0, r)
 
 				for i := 0; i < 10; i++ {
@@ -237,7 +237,7 @@ func Test_Channel_Unbuffered(t *testing.T) {
 				}
 
 				for s.RunningCoroutines() > 0 {
-					s.Execute(ctx)
+					s.Execute()
 				}
 
 				require.Equal(t, 10, r)

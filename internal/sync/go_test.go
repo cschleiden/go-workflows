@@ -20,7 +20,7 @@ func Test_Go(t *testing.T) {
 		return nil
 	})
 
-	err := s.Execute(ctx)
+	err := s.Execute()
 	require.NoError(t, err)
 	require.True(t, called)
 }
@@ -43,7 +43,7 @@ func Test_Go_MultipleGoroutines(t *testing.T) {
 		return nil
 	})
 
-	err := s.Execute(ctx)
+	err := s.Execute()
 	require.NoError(t, err)
 	require.Equal(t, 2, called)
 }
