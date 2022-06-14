@@ -5,7 +5,10 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
@@ -24,6 +27,10 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 	wfState.AddCommand(timerCmd)
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
+
+	span := tracing.Tracer(ctx).Start("ScheduleTimer",
+		trace.WithAttributes(attribute.Int64("duration_s", int64(delay/time.Second))))
+	defer span.End()
 
 	// Check if the context is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {

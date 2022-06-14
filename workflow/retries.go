@@ -29,10 +29,10 @@ var DefaultRetryOptions = RetryOptions{
 	BackoffCoefficient: 1,
 }
 
-func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.Context) Future[T]) Future[T] {
+func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.Context, attempt int) Future[T]) Future[T] {
 	if retryOptions.MaxAttempts <= 1 {
 		// Short-circuit if we don't need to retry
-		return fn(ctx)
+		return fn(ctx, 0)
 	}
 
 	r := sync.NewFuture[T]()
@@ -54,7 +54,7 @@ func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx
 				break
 			}
 
-			result, err = fn(ctx).Get(ctx)
+			result, err = fn(ctx, attempt).Get(ctx)
 			if err != nil {
 				if err == sync.Canceled {
 					break

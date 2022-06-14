@@ -8,7 +8,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type SubWorkflowOptions struct {
@@ -22,12 +25,12 @@ var DefaultSubWorkflowOptions = SubWorkflowOptions{
 }
 
 func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
-	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context) Future[TResult] {
-		return createSubWorkflowInstance[TResult](ctx, options, workflow, args...)
+	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+		return createSubWorkflowInstance[TResult](ctx, options, attempt, workflow, args...)
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, attempt int, workflow interface{}, args ...interface{}) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
@@ -50,6 +53,14 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	wfState.AddCommand(cmd)
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
+
+	span := tracing.Tracer(ctx).Start(
+		"CreateSubworkflowInstance", trace.WithAttributes(
+			attribute.String("name", name),
+			attribute.Int64(tracing.ScheduleEventID, scheduleEventID),
+			attribute.Int("attempt", attempt),
+		))
+	defer span.End()
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
