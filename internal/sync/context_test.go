@@ -43,39 +43,3 @@ func TestWithCancel(t *testing.T) {
 
 	require.True(t, canceled)
 }
-
-// type myDoneCtx struct {
-// 	Context
-// }
-
-// func (d *myDoneCtx) Done() Channel {
-// 	c := NewChannel()
-// 	return c
-// }
-
-// func TestWithOtherCancel(t *testing.T) {
-// 	canceled := false
-
-// 	var cancel CancelFunc
-
-// 	cr := NewCoroutine(Background(), func(ctx Context) {
-// 		var c2 Context
-// 		c2, cancel = WithCancel(&myDoneCtx{ctx})
-
-// 		s := NewSelector()
-// 		s.AddChannelReceive(c2.Done(), func(ctx Context, c Channel) {
-// 			canceled = true
-// 		})
-// 		s.Select(ctx)
-// 	})
-
-// 	cr.Execute()
-// 	require.False(t, cr.Finished())
-
-// 	cancel()
-
-// 	cr.Execute()
-// 	require.True(t, cr.Finished())
-
-// 	require.True(t, canceled)
-// }
