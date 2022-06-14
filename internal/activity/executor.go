@@ -11,21 +11,27 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/log"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Executor struct {
 	logger log.Logger
+	tracer trace.Tracer
 	r      *workflow.Registry
 }
 
-func NewExecutor(logger log.Logger, r *workflow.Registry) Executor {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, r *workflow.Registry) Executor {
 	return Executor{
 		logger: logger,
+		tracer: tracer,
 		r:      r,
 	}
 }
+
 func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (payload.Payload, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 
@@ -44,17 +50,27 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		return nil, fmt.Errorf("converting activity inputs: %w", err)
 	}
 
+	// Add activity state to context
 	as := NewActivityState(
 		task.Event.ID,
 		task.WorkflowInstance,
 		e.logger)
 	activityCtx := WithActivityState(ctx, as)
 
+	activityCtx = tracing.UnmarshalSpan(activityCtx, task.WorkflowMetadata)
+	activityCtx, span := e.tracer.Start(activityCtx, "ActivityTaskExecution", trace.WithAttributes(
+		attribute.String("activity", a.Name),
+		attribute.String(tracing.WorkflowInstanceID, task.WorkflowInstance.InstanceID),
+		attribute.String(tracing.ActivityTaskID, task.ID),
+	))
+
+	// Execute activity
 	if addContext {
 		args[0] = reflect.ValueOf(activityCtx)
 	}
-
 	r := activityFn.Call(args)
+
+	defer span.End()
 
 	if len(r) < 1 || len(r) > 2 {
 		return nil, errors.New("activity has to return either (error) or (<result>, error)")
