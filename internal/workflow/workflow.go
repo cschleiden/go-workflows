@@ -81,11 +81,11 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 		return nil
 	})
 
-	return w.s.Execute(ctx)
+	return w.s.Execute()
 }
 
-func (w *workflow) Continue(ctx sync.Context) error {
-	return w.s.Execute(ctx)
+func (w *workflow) Continue() error {
+	return w.s.Execute()
 }
 
 func (w *workflow) Completed() bool {
@@ -102,7 +102,7 @@ func (w *workflow) Error() error {
 	return w.err
 }
 
-func (w *workflow) Close(ctx sync.Context) {
+func (w *workflow) Close() {
 	// End coroutine execution to prevent goroutine leaks
-	w.s.Exit(ctx)
+	w.s.Exit()
 }
