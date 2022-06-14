@@ -2,18 +2,10 @@
   // Some integration tests take quite long to run, increase the overall limit for now
   "go.testFlags": ["-timeout", "120s", "-race", "-count", "1"], // , "-short"],
   "workbench.colorCustomizations": {
-    "sash.hoverBorder": "#3399ff",
     "titleBar.activeBackground": "#007fff",
     "titleBar.activeForeground": "#e7e7e7",
     "titleBar.inactiveBackground": "#007fff99",
     "titleBar.inactiveForeground": "#e7e7e799",
-    "activityBar.activeBackground": "#3399ff",
-    "activityBar.activeBorder": "#bf0060",
-    "activityBar.background": "#3399ff",
-    "activityBar.foreground": "#15202b",
-    "activityBar.inactiveForeground": "#15202b99",
-    "activityBarBadge.background": "#bf0060",
-    "activityBarBadge.foreground": "#e7e7e7"
   },
 
   "files.exclude": {
@@ -32,5 +24,7 @@
     ".github/workflows/go.yml"
   ],
   "go.testExplorer.showDynamicSubtestsInEditor": true,
-  "go.lintTool": "golangci-lint"
+  "go.lintTool": "golangci-lint",
+  "todo-tree.tree.showBadges": true,
+  "todo-tree.tree.disableCompactFolders": true
 }
