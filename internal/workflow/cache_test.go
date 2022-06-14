@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func Test_Cache_StoreAndGet(t *testing.T) {
@@ -19,7 +21,8 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(logger.NewDefaultLogger(), r, &testHistoryProvider{}, i, clock.New())
+	e, err := NewExecutor(
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, &testHistoryProvider{}, i, clock.New())
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)
@@ -40,7 +43,8 @@ func Test_Cache_Evict(t *testing.T) {
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	r := NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e, err := NewExecutor(logger.NewDefaultLogger(), r, &testHistoryProvider{}, i, clock.New())
+	e, err := NewExecutor(
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, &testHistoryProvider{}, i, clock.New())
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)

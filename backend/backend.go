@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var ErrInstanceNotFound = errors.New("workflow instance not found")
@@ -21,13 +22,15 @@ const (
 	WorkflowStateFinished
 )
 
+const TracerName = "go-workflow"
+
 //go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
-	CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error
+	CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error
 
 	// CancelWorkflowInstance cancels a running workflow instance
-	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error
+	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, cancelEvent *history.Event) error
 
 	// GetWorkflowInstanceState returns the state of the given workflow instance
 	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (WorkflowState, error)
@@ -65,4 +68,7 @@ type Backend interface {
 
 	// Logger returns the configured logger for the backend
 	Logger() log.Logger
+
+	// Tracer returns th configured trace provider for the backend
+	Tracer() trace.Tracer
 }

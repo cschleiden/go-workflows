@@ -13,8 +13,11 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var ErrWorkflowCanceled = errors.New("workflow canceled")
@@ -22,6 +25,9 @@ var ErrWorkflowTerminated = errors.New("workflow terminated")
 
 type WorkflowInstanceOptions struct {
 	InstanceID string
+
+	// FUTURE: Expose this to callers of the API. Use it only internally for now.
+	// Metadata *core.WorkflowInstanceMetadata
 }
 
 type Client interface {
@@ -52,22 +58,30 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, fmt.Errorf("converting arguments: %w", err)
 	}
 
+	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
+
+	workflowName := fn.Name(wf)
+
 	startedEvent := history.NewPendingEvent(
 		c.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
-			Name:   fn.Name(wf),
+			Name:   workflowName,
 			Inputs: inputs,
 		})
 
-	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
+	metadata := &workflow.Metadata{}
 
-	startMessage := &history.WorkflowEvent{
-		WorkflowInstance: wfi,
-		HistoryEvent:     startedEvent,
-	}
+	// Start new span and add to metadata
+	sctx, span := c.backend.Tracer().Start(ctx, "CreateWorkflowInstance", trace.WithAttributes(
+		attribute.String(tracing.WorkflowInstanceID, wfi.InstanceID),
+		attribute.String(tracing.WorkflowName, workflowName),
+	))
+	defer span.End()
 
-	if err := c.backend.CreateWorkflowInstance(ctx, *startMessage); err != nil {
+	tracing.MarshalSpan(sctx, metadata)
+
+	if err := c.backend.CreateWorkflowInstance(ctx, wfi, metadata, startedEvent); err != nil {
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 

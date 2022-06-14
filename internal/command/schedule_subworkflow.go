@@ -45,6 +45,8 @@ func (*ScheduleSubWorkflowCommand) Type() string {
 func (c *ScheduleSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
 	c.commit()
 
+	// TODO: TRACING: Add span
+
 	return &CommandResult{
 		// Record scheduled sub-workflow
 		Events: []history.Event{

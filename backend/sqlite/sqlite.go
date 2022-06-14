@@ -16,6 +16,7 @@ import (
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -63,7 +64,11 @@ func (sb *sqliteBackend) Logger() log.Logger {
 	return sb.options.Logger
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
+func (sb *sqliteBackend) Tracer() trace.Tracer {
+	return sb.options.TracerProvider.Tracer(backend.TracerName)
+}
+
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction: %w", err)
@@ -71,7 +76,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, m.WorkflowInstance, false); err != nil {
+	if err := createInstance(ctx, tx, instance, false); err != nil {
 		return err
 	}
 

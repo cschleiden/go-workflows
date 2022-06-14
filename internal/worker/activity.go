@@ -27,8 +27,6 @@ type activityWorker struct {
 	activityTaskQueue    chan *task.Activity
 	activityTaskExecutor activity.Executor
 
-	logger *log.Logger
-
 	wg *sync.WaitGroup
 
 	clock clock.Clock
@@ -41,9 +39,7 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 		options: options,
 
 		activityTaskQueue:    make(chan *task.Activity),
-		activityTaskExecutor: activity.NewExecutor(backend.Logger(), registry),
-
-		logger: log.Default(),
+		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), registry),
 
 		wg: &sync.WaitGroup{},
 
@@ -118,9 +114,9 @@ func (aw *activityWorker) runDispatcher(ctx context.Context) {
 }
 
 func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
+	// Start heartbeat while activity is running
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-
-	go func(ctx context.Context) {
+	go func(ctx context.Context) {=
 		t := time.NewTicker(aw.options.ActivityHeartbeatInterval)
 		defer t.Stop()
 
@@ -130,7 +126,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 				return
 			case <-t.C:
 				if err := aw.backend.ExtendActivityTask(ctx, task.ID); err != nil {
-					aw.logger.Panic(err)
+					aw.backend.Logger().Panic("extending activity task", "error", err)
 				}
 			}
 		}
@@ -162,7 +158,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	}
 
 	if err := aw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
-		aw.logger.Panic(err)
+		aw.backend.Logger().Panic("completing activity task", "error", err)
 	}
 }
 

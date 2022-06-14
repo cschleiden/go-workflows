@@ -17,6 +17,7 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
 )
 
 //go:embed schema.sql
@@ -58,7 +59,7 @@ type mysqlBackend struct {
 }
 
 // CreateWorkflowInstance creates a new workflow instance
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
+func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -68,12 +69,12 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, m.WorkflowInstance, false); err != nil {
+	if err := createInstance(ctx, tx, instance, false); err != nil {
 		return err
 	}
 
 	// Initial history is empty, store only new events
-	if err := insertPendingEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}
 
@@ -86,6 +87,10 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 
 func (b *mysqlBackend) Logger() log.Logger {
 	return b.options.Logger
+}
+
+func (b *mysqlBackend) Tracer() trace.Tracer {
+	return b.options.TracerProvider.Tracer(backend.TracerName)
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
