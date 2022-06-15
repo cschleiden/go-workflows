@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -51,7 +52,8 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	span := tracing.Tracer(ctx).Start(
+	span := workflowtracer.Tracer(ctx).Start(
+		ctx,
 		"ExecuteActivity", trace.WithAttributes(
 			attribute.String("name", name),
 			attribute.Int64(tracing.ScheduleEventID, scheduleEventID),

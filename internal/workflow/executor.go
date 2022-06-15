@@ -15,6 +15,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -42,7 +43,7 @@ type executor struct {
 	registry          *Registry
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
-	workflowTracer    *tracing.WorkflowTracer
+	workflowTracer    *workflowtracer.WorkflowTracer
 	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
@@ -55,11 +56,11 @@ type executor struct {
 func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
 
-	wfTracer := tracing.NewWorkflowTracer(tracer)
+	wfTracer := workflowtracer.New(tracer)
 
 	wfCtx, cancel := sync.WithCancel(
 		workflowstate.WithWorkflowState(
-			tracing.WithWorkflowTracer(
+			workflowtracer.WithWorkflowTracer(
 				sync.Background(),
 				wfTracer,
 			),

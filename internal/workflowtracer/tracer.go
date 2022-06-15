@@ -1,9 +1,10 @@
-package tracing
+package workflowtracer
 
 import (
 	"context"
 
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -28,7 +29,7 @@ type WorkflowTracer struct {
 	tracer     trace.Tracer
 }
 
-func NewWorkflowTracer(tracer trace.Tracer) *WorkflowTracer {
+func New(tracer trace.Tracer) *WorkflowTracer {
 	return &WorkflowTracer{
 		tracer: tracer,
 	}
@@ -38,8 +39,15 @@ func (wt *WorkflowTracer) UpdateExecution(span trace.Span) {
 	wt.parentSpan = span
 }
 
-func (wt *WorkflowTracer) Start(name string, opts ...trace.SpanStartOption) trace.Span {
-	ctx := trace.ContextWithSpan(context.Background(), wt.parentSpan)
-	_, span := wt.tracer.Start(ctx, name, opts...)
+func (wt *WorkflowTracer) Start(ctx sync.Context, name string, opts ...trace.SpanStartOption) trace.Span {
+	sctx := trace.ContextWithSpan(context.Background(), wt.parentSpan)
+	sctx, span := wt.tracer.Start(sctx, name, opts...)
+
+	state := workflowstate.WorkflowState(ctx)
+	if state.Replaying() {
+		sctx = trace.ContextWithSpanContext(sctx, span.SpanContext())
+		return trace.SpanFromContext(sctx)
+	}
+
 	return span
 }

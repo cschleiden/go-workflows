@@ -4,12 +4,12 @@ import (
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 )
 
 func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TResult] {
-	span := tracing.Tracer(ctx).Start("SideEffect")
+	span := workflowtracer.Tracer(ctx).Start(ctx, "SideEffect")
 	defer span.End()
 
 	future := sync.NewFuture[TResult]()

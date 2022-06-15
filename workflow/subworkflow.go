@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -30,7 +31,7 @@ func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, attempt int, workflow interface{}, args ...interface{}) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, attempt int, wf interface{}, args ...interface{}) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
@@ -39,7 +40,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 		return f
 	}
 
-	name := fn.Name(workflow)
+	name := fn.Name(wf)
 
 	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
 	if err != nil {
@@ -54,7 +55,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	span := tracing.Tracer(ctx).Start(
+	span := workflowtracer.Tracer(ctx).Start(ctx,
 		"CreateSubworkflowInstance", trace.WithAttributes(
 			attribute.String("name", name),
 			attribute.Int64(tracing.ScheduleEventID, scheduleEventID),
