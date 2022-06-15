@@ -38,12 +38,12 @@ jobs:
     - name: Tests
       run: |
         go install github.com/jstemmer/go-junit-report@latest
-        go test -race -timeout 30s -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "$RUNNER_TEMP/report.xml"
+        go test -race -timeout 30s -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
 
     - name: Test Summary
       uses: test-summary/action@v1
       with:
         paths: |
-          ${{ env.RUNNER_TEMP }}/report.xml
+          ${{ github.workspace }}/report.xml
       if: always()
