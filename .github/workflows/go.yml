@@ -28,7 +28,17 @@ jobs:
         redis-version: '6.2'
         redis-conf: 'requirepass RedisPassw0rd'
 
+    - name: Start MySQL
+      run: sudo /etc/init.d/mysql start
+
     - name: Tests
       run: |
-        sudo /etc/init.d/mysql start
-        go test -race -timeout 30s -count 1 ./...
+        go test -race -timeout 30s -count 1 ./... | go-junit-report -set-exit-code > report.xml
+
+
+    - name: Test Summary
+      uses: test-summary/action@v1
+      with:
+        paths: |
+          report.xml
+      if: always()
