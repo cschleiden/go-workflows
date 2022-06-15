@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   build:
@@ -34,7 +38,7 @@ jobs:
     - name: Tests
       run: |
         go install github.com/jstemmer/go-junit-report@latest
-        go test -race -timeout 30s -count 1 -v ./... | go-junit-report -set-exit-code > "$RUNNER_TEMP/report.xml"
+        go test -race -timeout 30s -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "$RUNNER_TEMP/report.xml"
 
 
     - name: Test Summary
