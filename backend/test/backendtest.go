@@ -109,9 +109,8 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				defer cancel()
 
 				task, err = b.GetWorkflowTask(ctx)
-
-				require.NoError(t, err)
 				require.Nil(t, task)
+				require.True(t, err == nil || errors.Is(err, context.DeadlineExceeded))
 			},
 		},
 		{
