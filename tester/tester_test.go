@@ -28,7 +28,7 @@ func Test_Workflow(t *testing.T) {
 }
 
 func Test_WorkflowBlocked(t *testing.T) {
-	tester := NewWorkflowTester[any](workflowBlocked)
+	tester := NewWorkflowTester[any](workflowBlocked, WithTestTimeout(time.Second*1))
 
 	require.Panics(t, func() {
 		tester.Execute()

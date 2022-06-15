@@ -127,6 +127,12 @@ func WithLogger(logger log.Logger) WorkflowTesterOption {
 	}
 }
 
+func WithTestTimeout(timeout time.Duration) WorkflowTesterOption {
+	return func(o *options) {
+		o.TestTimeout = timeout
+	}
+}
+
 func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption) WorkflowTester[TResult] {
 	// Start with the current wall-clock tiem
 	clock := clock.NewMock()
@@ -388,8 +394,10 @@ func (wt *workflowTester[TResult]) WorkflowFinished() bool {
 
 func (wt *workflowTester[TResult]) WorkflowResult() (TResult, string) {
 	var r TResult
-	if err := converter.DefaultConverter.From(wt.workflowResult, &r); err != nil {
-		panic("could not convert workflow result to expected type" + err.Error())
+	if wt.workflowResult != nil {
+		if err := converter.DefaultConverter.From(wt.workflowResult, &r); err != nil {
+			panic("could not convert workflow result to expected type" + err.Error())
+		}
 	}
 
 	return r, wt.workflowErr
