@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -20,13 +20,7 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	//b := sqlite.NewInMemoryBackend()
-	//b := sqlite.NewSqliteBackend("cancellation.sqlite")
-	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "cancellation")
-	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-	if err != nil {
-		panic(err)
-	}
+	b := samples.GetBackend("cancellation")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -51,15 +45,11 @@ func startWorkflow(ctx context.Context, c client.Client) {
 		panic("could not start workflow")
 	}
 
-	log.Println("Started workflow", wf.InstanceID)
-
 	time.Sleep(2 * time.Second)
 
 	if err := c.CancelWorkflowInstance(ctx, wf); err != nil {
 		panic("could not cancel workflow")
 	}
-
-	log.Println("Canceled workflow", wf.InstanceID)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {

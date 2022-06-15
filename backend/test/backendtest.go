@@ -11,7 +11,6 @@ import (
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -124,8 +123,16 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				})
 				require.NoError(t, err)
 
-				err = b.CompleteWorkflowTask(ctx, &task.Workflow{}, wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
+				tk, err := b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+				require.NotNil(t, tk)
 
+				// Complete workflow task
+				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.WorkflowEvent{})
+				require.NoError(t, err)
+
+				// Task is already completed, this should error
+				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.WorkflowEvent{})
 				require.Error(t, err)
 			},
 		},

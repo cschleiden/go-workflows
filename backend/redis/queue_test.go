@@ -1,4 +1,4 @@
-package taskqueue
+package redis
 
 import (
 	"context"
@@ -33,7 +33,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Create queue",
 			f: func(t *testing.T) {
-				q, err := New[any](client, "test")
+				q, err := newTaskQueue[any](client, "test")
 				require.NoError(t, err)
 				require.NotNil(t, q)
 			},
@@ -41,7 +41,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue",
 			f: func(t *testing.T) {
-				q, err := New[any](client, "test")
+				q, err := newTaskQueue[any](client, "test")
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -60,7 +60,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Guarantee uniqueness",
 			f: func(t *testing.T) {
-				q, err := New[any](client, "test")
+				q, err := newTaskQueue[any](client, "test")
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -73,14 +73,15 @@ func Test_TaskQueue(t *testing.T) {
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
 					return q.Enqueue(ctx, p, "t1", nil)
 				})
-				require.Error(t, ErrTaskAlreadyInQueue, err)
+				require.Error(t, errTaskAlreadyInQueue, err)
 
 				task, err := q.Dequeue(ctx, client, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Complete(ctx, p, task.TaskID)
+					_, err := q.Complete(ctx, p, task.TaskID)
+					return err
 				})
 				require.NoError(t, err)
 
@@ -100,7 +101,7 @@ func Test_TaskQueue(t *testing.T) {
 
 				ctx := context.Background()
 
-				q, err := New[foo](client, "test")
+				q, err := newTaskQueue[foo](client, "test")
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
@@ -122,7 +123,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue different worker",
 			f: func(t *testing.T) {
-				q, _ := New[any](client, "test")
+				q, _ := newTaskQueue[any](client, "test")
 
 				ctx := context.Background()
 
@@ -131,7 +132,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := New[any](client, "test")
+				q2, _ := newTaskQueue[any](client, "test")
 				require.NoError(t, err)
 
 				// Dequeue using second worker
@@ -144,8 +145,8 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Complete removes task",
 			f: func(t *testing.T) {
-				q, _ := New[any](client, "test")
-				q2, _ := New[any](client, "test")
+				q, _ := newTaskQueue[any](client, "test")
+				q2, _ := newTaskQueue[any](client, "test")
 
 				ctx := context.Background()
 
@@ -160,7 +161,8 @@ func Test_TaskQueue(t *testing.T) {
 
 				// Complete task
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q2.Complete(ctx, p, task.TaskID)
+					_, err := q2.Complete(ctx, p, task.TaskID)
+					return err
 				})
 				require.NoError(t, err)
 
@@ -175,7 +177,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Recover task",
 			f: func(t *testing.T) {
-				q, _ := New[any](client, "test")
+				q, _ := newTaskQueue[any](client, "test")
 
 				ctx := context.Background()
 
@@ -184,7 +186,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := New[any](client, "test")
+				q2, _ := newTaskQueue[any](client, "test")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
@@ -204,7 +206,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Extending task prevents recovering",
 			f: func(t *testing.T) {
-				q, _ := New[any](client, "test")
+				q, _ := newTaskQueue[any](client, "test")
 
 				ctx := context.Background()
 
@@ -213,7 +215,8 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := New[any](client, "test")
+				// Create second worker (with different name)
+				q2, _ := newTaskQueue[any](client, "test")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
@@ -228,7 +231,8 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				recoveredTask, err := q.Dequeue(ctx, client, lockTimeout*2, blockTimeout)
+				// Use large lock timeout
+				recoveredTask, err := q.Dequeue(ctx, client, time.Second*2, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, recoveredTask)
 			},

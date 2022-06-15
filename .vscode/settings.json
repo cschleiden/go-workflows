@@ -1,5 +1,5 @@
 {
-  "go.testFlags": ["-race", "-timeout", "30s", "-count", "1"], // , "-short"],
+  "go.testFlags": ["-race", "-count", "1"], // , "-short"],
   "workbench.colorCustomizations": {
     "sash.hoverBorder": "#3399ff",
     "titleBar.activeBackground": "#007fff",

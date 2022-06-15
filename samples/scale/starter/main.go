@@ -8,11 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/mysql"
-	"github.com/cschleiden/go-workflows/backend/redis"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
 	"github.com/google/uuid"
 )
@@ -28,22 +25,7 @@ func main() {
 
 	count = int32(*tostart)
 
-	var b backend.Backend
-
-	switch *backendType {
-	case "sqlite":
-		b = sqlite.NewSqliteBackend("../scale.sqlite?_busy_timeout=10000")
-
-	case "mysql":
-		b = mysql.NewMysqlBackend("localhost", 3306, "root", "root", "scale")
-
-	case "redis":
-		var err error
-		b, err = redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-		if err != nil {
-			panic(err)
-		}
-	}
+	b := samples.GetBackend("scale")
 
 	// Start workflow via client
 	c := client.New(b)
@@ -70,8 +52,6 @@ func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 	if err != nil {
 		panic("could not start workflow")
 	}
-
-	// log.Println("Started workflow", wf.InstanceID)
 
 	err = c.WaitForWorkflowInstance(ctx, wf, time.Second*30)
 	if err != nil {

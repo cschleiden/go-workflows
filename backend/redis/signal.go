@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/go-redis/redis/v8"
 )
@@ -21,7 +20,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 		}
 
 		if err := rb.workflowQueue.Enqueue(ctx, p, instanceID, nil); err != nil {
-			if err != taskqueue.ErrTaskAlreadyInQueue {
+			if err != errTaskAlreadyInQueue {
 				return fmt.Errorf("queueing workflow task: %w", err)
 			}
 		}

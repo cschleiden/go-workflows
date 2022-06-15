@@ -6,7 +6,7 @@ import (
 	"os/signal"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/samples"
 	simple_split_worker "github.com/cschleiden/go-workflows/samples/simple-split-worker"
 	"github.com/cschleiden/go-workflows/worker"
 )
@@ -14,8 +14,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	//b := sqlite.NewSqliteBackend("../simple-split.sqlite")
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
+	b := samples.GetBackend("simple-split")
 
 	// Run worker
 	go RunWorker(ctx, b)

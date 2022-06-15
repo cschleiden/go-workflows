@@ -75,11 +75,15 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
 		default:
 			task, err := ww.poll(ctx, 30*time.Second)
 			if err != nil {
 				ww.logger.Error("error while polling for workflow task", "error", err)
-			} else if task != nil {
+				continue
+			}
+
+			if task != nil {
 				ww.workflowTaskQueue <- task
 			}
 		}

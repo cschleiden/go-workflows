@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -19,8 +19,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// b := sqlite.NewSqliteBackend("simple.sqlite")
-	b := sqlite.NewInMemoryBackend()
+	b := samples.GetBackend("retries")
 
 	// Run worker
 	go RunWorker(ctx, b)

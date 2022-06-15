@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/log"
@@ -35,22 +34,15 @@ func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
 	}
 }
 
-func NewRedisBackend(address, username, password string, db int, opts ...RedisBackendOption) (*redisBackend, error) {
-	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:        []string{address},
-		Username:     username,
-		Password:     password,
-		DB:           db,
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 30,
-	})
+var _ backend.Backend = (*redisBackend)(nil)
 
-	workflowQueue, err := taskqueue.New[any](client, "workflows")
+func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
+	workflowQueue, err := newTaskQueue[any](client, "workflows")
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := taskqueue.New[activityData](client, "activities")
+	activityQueue, err := newTaskQueue[activityData](client, "activities")
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
@@ -85,6 +77,8 @@ func NewRedisBackend(address, username, password string, db int, opts ...RedisBa
 		"requeueInstanceCmd":     requeueInstanceCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
+		fmt.Println(name, cmd.Val())
+
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
 		}
@@ -97,8 +91,8 @@ type redisBackend struct {
 	rdb     redis.UniversalClient
 	options *RedisOptions
 
-	workflowQueue taskqueue.TaskQueue[any]
-	activityQueue taskqueue.TaskQueue[activityData]
+	workflowQueue *taskQueue[any]
+	activityQueue *taskQueue[activityData]
 }
 
 type activityData struct {
@@ -109,4 +103,8 @@ type activityData struct {
 
 func (rb *redisBackend) Logger() log.Logger {
 	return rb.options.Logger
+}
+
+func (rb *redisBackend) Close() error {
+	return rb.rdb.Close()
 }

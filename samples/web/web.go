@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/diag"
+	"github.com/cschleiden/go-workflows/samples"
 
 	"github.com/cschleiden/go-workflows/worker"
 
@@ -21,19 +21,16 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// b := sqlite.NewSqliteBackend("simple.sqlite")
-	b := sqlite.NewInMemoryBackend()
+	b := samples.GetBackend("web")
 
-	//b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
-
-	// b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	db, ok := b.(diag.Backend)
+	if !ok {
+		panic("backend does not implement diag.Backend")
+	}
 
 	// Start diagnostic server under /diag
 	m := http.NewServeMux()
-	m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(b)))
+	m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(db)))
 	go http.ListenAndServe(":3000", m)
 
 	// Run worker

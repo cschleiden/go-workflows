@@ -15,15 +15,13 @@ func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string,
 		return err
 	}
 
-	p.XAdd(ctx, &redis.XAddArgs{
+	return p.XAdd(ctx, &redis.XAddArgs{
 		Stream: streamKey,
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
 		},
-	})
-
-	return nil
+	}).Err()
 }
 
 // addEventsToStream adds the given events to the given event stream. If successful, the message id of the last event added
