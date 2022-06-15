@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Workflow(t *testing.T) {
-	tester := tester.NewWorkflowTester(Workflow1)
+	tester := tester.NewWorkflowTester[any](Workflow1)
 
 	tester.Registry().RegisterWorkflow(WorkflowWithFailures)
 
@@ -20,9 +20,7 @@ func Test_Workflow(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wr int
-	var werr string
-	tester.WorkflowResult(&wr, &werr)
+	wr, werr := tester.WorkflowResult()
 	require.Empty(t, wr)
 	require.Empty(t, werr)
 	tester.AssertExpectations(t)

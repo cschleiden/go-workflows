@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Workflow(t *testing.T) {
-	tester := tester.NewWorkflowTester(Workflow1)
+	tester := tester.NewWorkflowTester[int](Workflow1)
 
 	tester.OnActivity(Activity1, mock.Anything, 35, 12).Return(47, nil)
 	tester.OnActivity(Activity2, mock.Anything, mock.Anything, mock.Anything).Return(12, nil)
@@ -22,9 +22,7 @@ func Test_Workflow(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wr int
-	var werr string
-	tester.WorkflowResult(&wr, &werr)
+	wr, werr := tester.WorkflowResult()
 	require.Equal(t, 59, wr)
 	require.Empty(t, werr)
 	tester.AssertExpectations(t)
