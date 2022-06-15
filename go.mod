@@ -7,10 +7,13 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golangci/golangci-lint v1.45.2
 	github.com/google/uuid v1.3.0
+	github.com/jstemmer/go-junit-report/v2 v2.0.0-beta1
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/tools v0.1.10
 )
+
+require github.com/breml/bidichk v0.2.2 // indirect
 
 require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
@@ -26,8 +29,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.0 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
-	github.com/bombsimon/wsl/v3 v3.3.0 // indirect
-	github.com/breml/bidichk v0.2.2 // indirect
+	github.com/bombsimon/wsl/v3 v3.3.0 // indirect; indirec
 	github.com/breml/errchkjson v0.2.3 // indirect
 	github.com/butuzov/ireturn v0.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -163,7 +165,6 @@ require (
 require (
 	github.com/benbjohnson/clock v1.3.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/jstemmer/go-junit-report v1.0.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.1.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
