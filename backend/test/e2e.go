@@ -292,17 +292,19 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			c := client.New(b)
 			w := worker.New(b, &worker.DefaultWorkerOptions)
 
+			t.Cleanup(func() {
+				cancel()
+				if err := w.WaitForCompletion(); err != nil {
+					fmt.Println("Worker did not stop in time")
+					t.FailNow()
+				}
+
+				if teardown != nil {
+					teardown(b)
+				}
+			})
+
 			tt.f(t, ctx, c, w, b)
-
-			cancel()
-			if err := w.WaitForCompletion(); err != nil {
-				fmt.Println("Worker did not stop in time")
-				t.FailNow()
-			}
-
-			if teardown != nil {
-				teardown(b)
-			}
 		})
 	}
 }

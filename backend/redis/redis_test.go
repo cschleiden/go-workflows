@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,19 @@ func getCreateBackend(ignoreLog bool) func() backend.Backend {
 		})
 
 		if err := client.FlushDB(context.Background()).Err(); err != nil {
+			panic(err)
+		}
+
+		r, err := client.Keys(context.Background(), "*").Result()
+		if err != nil {
+			panic(err)
+		}
+
+		if len(r) > 0 {
+			panic("Keys should've been empty" + strings.Join(r, ", "))
+		}
+
+		if err := client.Close(); err != nil {
 			panic(err)
 		}
 

@@ -2,6 +2,7 @@ package taskqueue
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -237,6 +238,15 @@ func Test_TaskQueue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := client.FlushDB(context.Background()).Err(); err != nil {
 				panic(err)
+			}
+
+			r, err := client.Keys(context.Background(), "*").Result()
+			if err != nil {
+				panic(err)
+			}
+
+			if len(r) > 0 {
+				panic("Keys should've been empty" + strings.Join(r, ", "))
 			}
 
 			tt.f(t)

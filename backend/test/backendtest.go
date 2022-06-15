@@ -293,10 +293,14 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 		t.Run(tt.name, func(t *testing.T) {
 			b := setup()
 			ctx := context.Background()
+
+			t.Cleanup(func() {
+				if teardown != nil {
+					teardown(b)
+				}
+			})
+
 			tt.f(t, ctx, b)
-			if teardown != nil {
-				teardown(b)
-			}
 		})
 	}
 }
