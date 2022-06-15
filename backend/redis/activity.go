@@ -44,7 +44,7 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance *core
 	}
 
 	// Unlock activity
-	if err := rb.activityQueue.Complete(ctx, p, activityID); err != nil {
+	if _, err := rb.activityQueue.Complete(ctx, p, activityID); err != nil {
 		return err
 	}
 

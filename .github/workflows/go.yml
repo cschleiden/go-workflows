@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   build:
@@ -28,7 +32,18 @@ jobs:
         redis-version: '6.2'
         redis-conf: 'requirepass RedisPassw0rd'
 
+    - name: Start MySQL
+      run: sudo /etc/init.d/mysql start
+
     - name: Tests
       run: |
-        sudo /etc/init.d/mysql start
-        go test -race -timeout 30s -count 1 ./...
+        go install github.com/jstemmer/go-junit-report/v2@latest
+        go test -race -count 3 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+
+
+    - name: Test Summary
+      uses: test-summary/action@v1
+      with:
+        paths: |
+          ${{ github.workspace }}/report.xml
+      if: always()

@@ -1,0 +1,47 @@
+package samples
+
+import (
+	"flag"
+	"time"
+
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/redis"
+	"github.com/cschleiden/go-workflows/backend/sqlite"
+	redisv8 "github.com/go-redis/redis/v8"
+)
+
+func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
+	b := flag.String("backend", "redis", "backend to use: memory, sqlite, mysql, redis")
+	flag.Parse()
+
+	switch *b {
+	case "memory":
+		return sqlite.NewInMemoryBackend(opt...)
+
+	case "sqlite":
+		return sqlite.NewSqliteBackend(name+".sqlite", opt...)
+
+	case "mysql":
+		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, opt...)
+
+	case "redis":
+		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{
+			Addrs:        []string{"localhost:6379"},
+			Username:     "",
+			Password:     "RedisPassw0rd",
+			DB:           0,
+			WriteTimeout: time.Second * 30,
+			ReadTimeout:  time.Second * 30,
+		})
+		b, err := redis.NewRedisBackend(rclient)
+		if err != nil {
+			panic(err)
+		}
+
+		return b
+
+	default:
+		panic("unknown backend " + *b)
+	}
+}

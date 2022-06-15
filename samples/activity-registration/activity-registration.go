@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -20,8 +20,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := sqlite.NewInMemoryBackend()
-	// b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
+	b := samples.GetBackend("activity-registration")
 
 	go RunWorker(ctx, b)
 
@@ -35,14 +34,12 @@ func main() {
 }
 
 func startWorkflow(ctx context.Context, c client.Client) {
-	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+	_, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world"+uuid.NewString())
 	if err != nil {
 		log.Panic(err)
 	}
-
-	log.Println("Started workflow", wf.InstanceID)
 }
 
 func RunWorker(ctx context.Context, mb backend.Backend) {

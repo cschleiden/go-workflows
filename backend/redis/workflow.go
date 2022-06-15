@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/redis/taskqueue"
+
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -67,7 +67,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, fmt.Errorf("checking future events: %w", err)
 	}
 
-	// Try to get a workflow task, this locks the instance
+	// Try to get a workflow task, this locks the instance when it dequeues one
 	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.rdb, rb.options.WorkflowLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		// If any pending message was added, try to queue workflow task
 		if targetInstance != instance && msgAdded {
 			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, nil); err != nil {
-				if err != taskqueue.ErrTaskAlreadyInQueue {
+				if err != errTaskAlreadyInQueue {
 					return fmt.Errorf("adding instance to locked instances set: %w", err)
 				}
 			}
@@ -246,8 +246,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance.InstanceID)}, lastPendingEventMessageID)
 	}
 
-	// Complete workflow task and unlock instance
-	if err := rb.workflowQueue.Complete(ctx, p, task.ID); err != nil {
+	// Complete workflow task and unlock instance.
+	completeCmd, err := rb.workflowQueue.Complete(ctx, p, task.ID)
+	if err != nil {
 		return fmt.Errorf("completing workflow task: %w", err)
 	}
 
@@ -261,6 +262,10 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// Commit transaction
 	executedCmds, err := p.Exec(ctx)
 	if err != nil {
+		if err := completeCmd.Err(); err != nil && err == redis.Nil {
+			return fmt.Errorf("could not complete workflow task: %w", err)
+		}
+
 		for _, cmd := range executedCmds {
 			if cmdErr := cmd.Err(); cmdErr != nil {
 				rb.Logger().Debug("redis command error", "cmd", cmd.FullName(), "cmdErr", cmdErr.Error())
@@ -281,9 +286,7 @@ func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.P
 
 	// Queue workflow task
 	if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, nil); err != nil {
-		if err != taskqueue.ErrTaskAlreadyInQueue {
-			return fmt.Errorf("queueing workflow: %w", err)
-		}
+		return fmt.Errorf("queueing workflow: %w", err)
 	}
 
 	return nil

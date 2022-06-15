@@ -7,8 +7,8 @@ import (
 	"os/signal"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/mysql"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -17,9 +17,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// b := sqlite.NewSqliteBackend("simple.sqlite")
-	//b := memory.NewMemoryBackend()
-	b := mysql.NewMysqlBackend("localhost", 3306, "root", "test", "simple")
+	b := samples.GetBackend("complex-parameters")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -69,27 +67,21 @@ type Workflow1Args struct {
 }
 
 func Workflow1(ctx workflow.Context, args Workflow1Args) error {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", args.Name, "age:", args.Age)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-
-	defer func() {
-		log.Println("Leaving Workflow1")
-	}()
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1", "args.name", args.Name, "args.age", args.Age)
+	defer logger.Debug("Leaving Workflow1")
 
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	log.Println("R1 result:", r1)
-
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	logger.Debug("R1 result:", r1)
 
 	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	log.Println("R2 result:", r2)
+	logger.Debug("R2 result:", r2)
 
 	return nil
 }

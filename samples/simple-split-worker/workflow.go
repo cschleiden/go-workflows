@@ -9,27 +9,21 @@ import (
 )
 
 func Workflow1(ctx workflow.Context, msg string) error {
-	log.Println("Entering Workflow1")
-	log.Println("\tWorkflow instance input:", msg)
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
-
-	defer func() {
-		log.Println("Leaving Workflow1")
-	}()
+	logger := workflow.Logger(ctx)
+	logger.Debug("Entering Workflow1", "msg", msg)
+	defer logger.Debug("Leaving Workflow1")
 
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	log.Println("R1 result:", r1)
-
-	log.Println("\tIsReplaying:", workflow.Replaying(ctx))
+	logger.Debug("R1 result:", "r1", r1)
 
 	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
 		panic("error getting activity 1 result")
 	}
-	log.Println("R2 result:", r2)
+	logger.Debug("R2 result:", "r2", r2)
 
 	return nil
 }

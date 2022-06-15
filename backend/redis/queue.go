@@ -1,4 +1,4 @@
-package taskqueue
+package redis
 
 import (
 	"context"
@@ -30,33 +30,14 @@ type TaskItem[T any] struct {
 	Data T
 }
 
-var ErrTaskAlreadyInQueue = errors.New("task already in queue")
+var errTaskAlreadyInQueue = errors.New("task already in queue")
 
 type KeyInfo struct {
 	StreamKey string
 	SetKey    string
 }
 
-type TaskQueue[T any] interface {
-	// Enqueue adds a task to the queue
-	Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error
-
-	// Dequeue returns the next task item from the queue. If no task is available, nil is returned
-	Dequeue(ctx context.Context, rdb redis.UniversalClient, lockTimeout, timeout time.Duration) (*TaskItem[T], error)
-
-	// Extend extends the lock of the given task item
-	Extend(ctx context.Context, p redis.Pipeliner, taskID string) error
-
-	// Complete completes the task with the given taskID
-	Complete(ctx context.Context, p redis.Pipeliner, taskID string) error
-
-	// Data returns the stored data for the given task
-	Data(ctx context.Context, p redis.Pipeliner, taskID string) (*TaskItem[T], error)
-
-	Keys() KeyInfo
-}
-
-func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error) {
+func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue[T], error) {
 	tq := &taskQueue[T]{
 		tasktype:   tasktype,
 		setKey:     "task-set:" + tasktype,
@@ -76,8 +57,19 @@ func New[T any](rdb redis.UniversalClient, tasktype string) (TaskQueue[T], error
 	}
 
 	// Pre-load script
-	enqueueCmd.Load(context.Background(), rdb)
-	completeCmd.Load(context.Background(), rdb)
+	cmds := map[string]*redis.StringCmd{
+		"enqueueCmd":  enqueueCmd.Load(context.Background(), rdb),
+		"completeCmd": completeCmd.Load(context.Background(), rdb),
+	}
+
+	for name, cmd := range cmds {
+		// DEBUG: REMOVE
+		fmt.Println(name, cmd.Val())
+
+		if cmd.Err() != nil {
+			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
+		}
+	}
 
 	return tq, nil
 }
@@ -169,31 +161,27 @@ func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, taskID str
 // ARGV[1] = task id
 // ARGV[2] = group
 // We have to XACK _and_ XDEL here. See https://github.com/redis/redis/issues/5754
-var completeCmd = redis.NewScript(`
-	local task = redis.call("XRANGE", KEYS[2], ARGV[1], ARGV[1])
-	if task == nil then
+var completeCmd = redis.NewScript(
+	`local task = redis.call("XRANGE", KEYS[2], ARGV[1], ARGV[1])
+	if #task == 0 then
 		return nil
 	end
 	local id = task[1][2][2]
 	redis.call("SREM", KEYS[1], id)
 	redis.call("XACK", KEYS[2], ARGV[2], ARGV[1])
+
+	-- Delete the task here. Overall we'll keep the stream at a small size, so fragmentation
+	-- is not an issue for us.
 	return redis.call("XDEL", KEYS[2], ARGV[1])
 `)
 
-func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, taskID string) error {
-	// Delete the task here. Overall we'll keep the stream at a small size, so fragmentation
-	// is not an issue for us.
-	err := completeCmd.Run(ctx, p, []string{q.setKey, q.streamKey}, taskID, q.groupName).Err()
-	if err != nil && err != redis.Nil {
-		return fmt.Errorf("completing task: %w", err)
+func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, taskID string) (*redis.Cmd, error) {
+	cmd := completeCmd.Run(ctx, p, []string{q.setKey, q.streamKey}, taskID, q.groupName)
+	if err := cmd.Err(); err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("completing task: %w", err)
 	}
 
-	// TODO: REDIS: Move this to the consumer?
-	// if c.(int64) == 0 || err == redis.Nil {
-	// 	return errors.New("could not find task to complete")
-	// }
-
-	return nil
+	return cmd, nil
 }
 
 func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, taskID string) (*TaskItem[T], error) {

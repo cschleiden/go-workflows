@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,12 +12,25 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+const (
+	address  = "localhost:6379"
+	user     = ""
+	password = "RedisPassw0rd"
+)
+
 func Benchmark_RedisBackend(b *testing.B) {
 	if testing.Short() {
 		b.Skip()
 	}
 
-	test.SimpleWorkflowBenchmark(b, getCreateBackend(true), nil)
+	client := getClient()
+	setup := getCreateBackend(client, true)
+
+	test.SimpleWorkflowBenchmark(b, setup, func(b backend.Backend) {
+		if err := b.(*redisBackend).Close(); err != nil {
+			panic(err)
+		}
+	})
 }
 
 func Test_RedisBackend(t *testing.T) {
@@ -24,7 +38,10 @@ func Test_RedisBackend(t *testing.T) {
 		t.Skip()
 	}
 
-	test.BackendTest(t, getCreateBackend(false), nil)
+	client := getClient()
+	setup := getCreateBackend(client, false)
+
+	test.BackendTest(t, setup, nil)
 }
 
 func Test_EndToEndRedisBackend(t *testing.T) {
@@ -32,25 +49,37 @@ func Test_EndToEndRedisBackend(t *testing.T) {
 		t.Skip()
 	}
 
-	test.EndToEndBackendTest(t, getCreateBackend(false), nil)
+	client := getClient()
+	setup := getCreateBackend(client, false)
+
+	test.EndToEndBackendTest(t, setup, nil)
 }
 
-func getCreateBackend(ignoreLog bool) func() backend.Backend {
+func getClient() redis.UniversalClient {
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:    []string{address},
+		Username: user,
+		Password: password,
+		DB:       0,
+	})
+
+	return client
+}
+
+func getCreateBackend(client redis.UniversalClient, ignoreLog bool) func() backend.Backend {
 	return func() backend.Backend {
-		address := "localhost:6379"
-		user := ""
-		password := "RedisPassw0rd"
-
 		// Flush database
-		client := redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs:    []string{address},
-			Username: user,
-			Password: password,
-			DB:       0,
-		})
-
 		if err := client.FlushDB(context.Background()).Err(); err != nil {
 			panic(err)
+		}
+
+		r, err := client.Keys(context.Background(), "*").Result()
+		if err != nil {
+			panic(err)
+		}
+
+		if len(r) > 0 {
+			panic("Keys should've been empty" + strings.Join(r, ", "))
 		}
 
 		options := []RedisBackendOption{
@@ -61,7 +90,7 @@ func getCreateBackend(ignoreLog bool) func() backend.Backend {
 			options = append(options, WithBackendOptions(backend.WithLogger(&nullLogger{})))
 		}
 
-		b, err := NewRedisBackend(address, user, password, 0, options...)
+		b, err := NewRedisBackend(client, options...)
 		if err != nil {
 			panic(err)
 		}

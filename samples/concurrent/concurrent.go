@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -18,7 +18,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := sqlite.NewInMemoryBackend()
+	b := samples.GetBackend("concurrent")
 
 	// Run worker
 	go RunWorker(ctx, b)
@@ -82,7 +82,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 					panic(err)
 				}
 
-				log.Println("A2 result", r)
+				logger.Debug("A2 result", "r", r)
 				results++
 			}),
 			workflow.Await(a1, func(ctx workflow.Context, f1 workflow.Future[int]) {
@@ -91,7 +91,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 					panic(err)
 				}
 
-				log.Println("A1 result", r)
+				logger.Debug("A1 result", "r", r)
 
 				results++
 			}),

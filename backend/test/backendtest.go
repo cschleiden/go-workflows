@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -109,9 +109,8 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				defer cancel()
 
 				task, err = b.GetWorkflowTask(ctx)
-
-				require.NoError(t, err)
 				require.Nil(t, task)
+				require.True(t, err == nil || errors.Is(err, context.DeadlineExceeded))
 			},
 		},
 		{
@@ -124,8 +123,16 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 				})
 				require.NoError(t, err)
 
-				err = b.CompleteWorkflowTask(ctx, &task.Workflow{}, wfi, backend.WorkflowStateActive, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
+				tk, err := b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+				require.NotNil(t, tk)
 
+				// Complete workflow task
+				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.WorkflowEvent{})
+				require.NoError(t, err)
+
+				// Task is already completed, this should error
+				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.WorkflowEvent{})
 				require.Error(t, err)
 			},
 		},
@@ -293,10 +300,14 @@ func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b bac
 		t.Run(tt.name, func(t *testing.T) {
 			b := setup()
 			ctx := context.Background()
+
+			t.Cleanup(func() {
+				if teardown != nil {
+					teardown(b)
+				}
+			})
+
 			tt.f(t, ctx, b)
-			if teardown != nil {
-				teardown(b)
-			}
 		})
 	}
 }

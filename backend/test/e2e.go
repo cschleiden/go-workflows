@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -113,7 +112,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 				instance := runWorkflow(t, ctx, c, wf)
 
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*500)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
 				require.NoError(t, err)
 				require.Equal(t, 2, r)
 			},
@@ -124,8 +123,9 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				canceled := int32(0)
 
 				swf := func(ctx workflow.Context, i int) (int, error) {
-					err := workflow.Sleep(ctx, time.Second*10)
-					if err != nil && err != workflow.Canceled {
+					// Sleep in this sub workflow, we expect the subworkflow to be canceled, so this timer will not complete.
+					if err := workflow.Sleep(ctx, time.Second*10); err != nil && err != workflow.Canceled {
+						// This should not happen
 						return 0, err
 					}
 
@@ -135,11 +135,17 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 
 					return i * 2, nil
 				}
+
+				ch := make(chan struct{}, 1)
+
 				wf := func(ctx workflow.Context) (int, error) {
 					swfs := make([]workflow.Future[int], 0)
 
 					swfs = append(swfs, workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, 1))
 					swfs = append(swfs, workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, 2))
+
+					// Unblock test. Should not do this in production code, but here we know that this will be executed in the same process.
+					ch <- struct{}{}
 
 					r := 0
 
@@ -161,9 +167,13 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
+
+				// Wait for the workflow to start running
+				<-ch
+
 				require.NoError(t, c.CancelWorkflowInstance(ctx, instance))
 
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*500)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
 				require.NoError(t, err)
 				require.Equal(t, int32(3), canceled)
 				require.Equal(t, 6, r)
@@ -292,17 +302,19 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			c := client.New(b)
 			w := worker.New(b, &worker.DefaultWorkerOptions)
 
+			t.Cleanup(func() {
+				cancel()
+				if err := w.WaitForCompletion(); err != nil {
+					fmt.Println("Worker did not stop in time")
+					t.FailNow()
+				}
+
+				if teardown != nil {
+					teardown(b)
+				}
+			})
+
 			tt.f(t, ctx, c, w, b)
-
-			cancel()
-			if err := w.WaitForCompletion(); err != nil {
-				fmt.Println("Worker did not stop in time")
-				t.FailNow()
-			}
-
-			if teardown != nil {
-				teardown(b)
-			}
 		})
 	}
 }
@@ -331,8 +343,5 @@ func runWorkflow(t *testing.T, ctx context.Context, c client.Client, wf interfac
 
 func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c client.Client, wf interface{}, inputs ...interface{}) (T, error) {
 	instance := runWorkflow(t, ctx, c, wf, inputs...)
-
-	log.Println("Workflow instance:", instance.InstanceID)
-
 	return client.GetWorkflowResult[T](ctx, c, instance, time.Second*10)
 }

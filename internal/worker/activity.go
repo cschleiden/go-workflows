@@ -76,7 +76,10 @@ func (aw *activityWorker) runPoll(ctx context.Context) {
 			task, err := aw.poll(ctx, 30*time.Second)
 			if err != nil {
 				log.Println("error while polling for activity task:", err)
-			} else if task != nil {
+				continue
+			}
+
+			if task != nil {
 				aw.activityTaskQueue <- task
 			}
 		}

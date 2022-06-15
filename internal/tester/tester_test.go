@@ -3,7 +3,6 @@ package tester
 import (
 	"context"
 	"errors"
-	"log"
 	"testing"
 	"time"
 
@@ -176,13 +175,9 @@ type timerResult struct {
 }
 
 func workflowTimer(ctx workflow.Context) (timerResult, error) {
-	log.Println("workflowWithTimer-Before", workflow.Now(ctx))
-
 	t1 := workflow.Now(ctx)
 
 	workflow.ScheduleTimer(ctx, 30*time.Second).Get(ctx)
-
-	log.Println("workflowWithTimer-After", workflow.Now(ctx))
 
 	t2 := workflow.Now(ctx)
 

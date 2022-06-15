@@ -302,8 +302,6 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		return nil, fmt.Errorf("scanning workflow instance: %w", err)
 	}
 
-	// log.Println("Acquired workflow instance", instanceID)
-
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances i

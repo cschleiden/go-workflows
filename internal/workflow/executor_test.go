@@ -280,6 +280,8 @@ func workflowWithSelector(ctx sync.Context) error {
 }
 
 func Test_ExecuteWorkflowWithSelector(t *testing.T) {
+	workflowWithSelectorHits = 0
+
 	r := NewRegistry()
 
 	r.RegisterWorkflow(workflowWithSelector)
