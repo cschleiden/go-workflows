@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `execution_id` TEXT NO NULL,
   `parent_instance_id` TEXT NULL,
   `parent_schedule_event_id` INTEGER NULL,
+  `metadata` TEXT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,

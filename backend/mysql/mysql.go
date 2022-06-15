@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -69,7 +70,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, false); err != nil {
+	if err := createInstance(ctx, tx, instance, metadata, false); err != nil {
 		return err
 	}
 
@@ -204,7 +205,7 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 	return backend.WorkflowStateActive, nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ignoreDuplicate bool) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
 	var parentInstanceID *string
 	var parentEventID *int64
 	if wfi.SubWorkflow() {
@@ -215,13 +216,19 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ign
 		parentEventID = &n
 	}
 
+	metadataJson, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshaling metadata: %w", err)
+	}
+
 	res, err := tx.ExecContext(
 		ctx,
-		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_schedule_event_id) VALUES (?, ?, ?, ?)",
+		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_schedule_event_id, metadata) VALUES (?, ?, ?, ?, ?)",
 		wfi.InstanceID,
 		wfi.ExecutionID,
 		parentInstanceID,
 		parentEventID,
+		string(metadataJson),
 	)
 	if err != nil {
 		return fmt.Errorf("inserting workflow instance: %w", err)
@@ -278,7 +285,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	now := time.Now()
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_schedule_event_id, i.sticky_until
+		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_schedule_event_id, i.metadata, i.sticky_until
 			FROM instances i
 			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
 			WHERE
@@ -298,8 +305,9 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	var instanceID, executionID string
 	var parentInstanceID *string
 	var parentEventID *int64
+	var metadataJson sql.NullString
 	var stickyUntil *time.Time
-	if err := row.Scan(&id, &instanceID, &executionID, &parentInstanceID, &parentEventID, &stickyUntil); err != nil {
+	if err := row.Scan(&id, &instanceID, &executionID, &parentInstanceID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -334,9 +342,17 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
+	var metadata *core.WorkflowInstanceMetadata
+	if metadataJson.Valid {
+		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
+			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
+		}
+	}
+
 	t := &task.Workflow{
 		ID:               wfi.InstanceID,
 		WorkflowInstance: wfi,
+		Metadata:         metadata,
 		NewEvents:        []history.Event{},
 	}
 
@@ -494,20 +510,18 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	}
 
 	// Insert new workflow events
-	groupedEvents := make(map[*workflow.Instance][]history.Event)
-	for _, m := range workflowEvents {
-		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
-			groupedEvents[m.WorkflowInstance] = []history.Event{}
-		}
-
-		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
-	}
+	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
 	for targetInstance, events := range groupedEvents {
-		if targetInstance.InstanceID != instance.InstanceID {
-			// Create new instance
-			if err := createInstance(ctx, tx, targetInstance, true); err != nil {
-				return err
+		for _, event := range events {
+			if event.Type == history.EventType_WorkflowExecutionStarted {
+				a := event.Attributes.(*history.ExecutionStartedAttributes)
+				// Create new instance
+				if err := createInstance(ctx, tx, targetInstance, a.Metadata, true); err != nil {
+					return err
+				}
+
+				break
 			}
 		}
 
@@ -566,8 +580,9 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	now := time.Now()
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT id, activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at
+		`SELECT id, activity_id, instance_id, execution_id, instances.metadata, event_type, timestamp, schedule_event_id, attributes, visible_at
 			FROM activities
+				INNER JOIN instances ON activities.instance_id = instances.instance_id
 			WHERE locked_until IS NULL OR locked_until < ?
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED`,
@@ -577,14 +592,22 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	var id int64
 	var instanceID, executionID string
 	var attributes []byte
+	var metadataJson sql.NullString
 	event := history.Event{}
 
-	if err := res.Scan(&id, &event.ID, &instanceID, &executionID, &event.Type, &event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
+	if err := res.Scan(
+		&id, &event.ID, &instanceID, &executionID, &metadataJson, &event.Type,
+		&event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 
 		return nil, fmt.Errorf("finding activity task to lock: %w", err)
+	}
+
+	var metadata *workflow.Metadata
+	if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
+		return nil, fmt.Errorf("unmarshaling metadata: %w", err)
 	}
 
 	a, err := history.DeserializeAttributes(event.Type, attributes)
@@ -607,6 +630,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	t := &task.Activity{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
+		WorkflowMetadata: metadata,
 		Event:            event,
 	}
 

@@ -199,7 +199,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	// Send new workflow events to the respective streams
-	groupedEvents := eventsByWorkflowInstance(workflowEvents)
+	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 	for targetInstance, events := range groupedEvents {
 		// Insert pending events for target instance
 		for _, event := range events {
@@ -314,18 +314,4 @@ func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.P
 	}
 
 	return nil
-}
-
-func eventsByWorkflowInstance(events []history.WorkflowEvent) map[*core.WorkflowInstance][]history.Event {
-	groupedEvents := make(map[*core.WorkflowInstance][]history.Event)
-
-	for _, m := range events {
-		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
-			groupedEvents[m.WorkflowInstance] = []history.Event{}
-		}
-
-		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
-	}
-
-	return groupedEvents
 }
