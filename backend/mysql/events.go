@@ -8,7 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
+func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
 	return insertEvents(ctx, tx, "pending_events", instanceID, newEvents)
 }
 
@@ -50,4 +50,15 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 	}
 
 	return nil
+}
+
+func removeFutureEvent(ctx context.Context, tx *sql.Tx, instanceID string, scheduleEventID int64) error {
+	_, err := tx.ExecContext(
+		ctx,
+		"DELETE FROM `pending_events` WHERE instance_id = ? AND schedule_event_id = ? AND visible_at IS NOT NULL",
+		instanceID,
+		scheduleEventID,
+	)
+
+	return err
 }

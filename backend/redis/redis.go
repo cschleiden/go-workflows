@@ -77,7 +77,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		"requeueInstanceCmd":     requeueInstanceCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
-		fmt.Println(name, cmd.Val())
+		// fmt.Println(name, cmd.Val())
 
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())

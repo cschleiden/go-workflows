@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `pending_events` (
   PRIMARY KEY(`id`, `instance_id`)
 );
 
-CREATE INDEX IF NOT EXISTS `idx_pending_events_instance_id_visible_at` ON `pending_events` (`instance_id`, `visible_at`);
+CREATE INDEX IF NOT EXISTS `idx_pending_events_instance_id_visible_at_schedule_event_id` ON `pending_events` (`instance_id`, `visible_at`, `schedule_event_id`);
 
 CREATE TABLE IF NOT EXISTS `history` (
   `id` TEXT,

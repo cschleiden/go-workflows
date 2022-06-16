@@ -70,7 +70,7 @@ func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 	addFutureEventCmd.Run(
 		ctx, p,
-		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ID)},
+		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID)},
 		event.VisibleAt.Unix(),
 		instance.InstanceID,
 		string(eventData),
@@ -86,7 +86,8 @@ var removeFutureEventCmd = redis.NewScript(`
 	return redis.call("DEL", KEYS[2])
 `)
 
+// removeFutureEvent removes a scheduled future event for the given event. Events are associated via their ScheduleEventID
 func removeFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) {
-	key := futureEventKey(instance.InstanceID, event.ID)
+	key := futureEventKey(instance.InstanceID, event.ScheduleEventID)
 	removeFutureEventCmd.Run(ctx, p, []string{futureEventsKey(), key})
 }

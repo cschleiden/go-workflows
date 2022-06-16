@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func BackendTest(t *testing.T, setup func() backend.Backend, teardown func(b backend.Backend)) {
+func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBackend)) {
 	tests := []struct {
 		name string
 		f    func(t *testing.T, ctx context.Context, b backend.Backend)

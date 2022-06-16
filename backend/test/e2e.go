@@ -2,7 +2,7 @@ package test
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,14 +17,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown func(b backend.Backend)) {
+func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBackend)) {
 	tests := []struct {
 		name string
-		f    func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend)
+		f    func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
 	}{
 		{
 			name: "SimpleWorkflow",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -38,7 +38,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "UnregisteredWorkflow_Errors",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -52,7 +52,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "WorkflowArgumentMismatch",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, p1 int) (int, error) {
 					return 42, nil
 				}
@@ -66,7 +66,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "UnregisteredActivity_Errors",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(context.Context) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
@@ -81,7 +81,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "ActivityArgumentMismatch",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(context.Context, int, int) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a, 42).Get(ctx)
@@ -96,7 +96,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "SubWorkflow_Simple",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					return i * 2, nil
 				}
@@ -119,7 +119,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "SubWorkflow_PropagateCancellation",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				canceled := int32(0)
 
 				swf := func(ctx workflow.Context, i int) (int, error) {
@@ -181,7 +181,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "SubWorkflow_CancelBeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				swInstanceID := "subworkflow"
 
 				swfrun := 0
@@ -226,8 +226,8 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			},
 		},
 		{
-			name: "Timer_Cancel",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			name: "Timer_CancelWorkflowInstance",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
 					return nil
 				}
@@ -254,7 +254,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 		},
 		{
 			name: "Timer_CancelBeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b backend.Backend) {
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
 					return nil
 				}
@@ -289,6 +289,45 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 						require.FailNow(t, "timer should not be scheduled")
 					}
 				}
+
+				futureEvents, err := b.GetFutureEvents(ctx)
+				require.NoError(t, err)
+				require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			},
+		},
+		{
+			name: "Timer_CancelBeforeFiringRemovesFutureEvent",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				a := func(ctx context.Context) error {
+					return nil
+				}
+				wf := func(ctx workflow.Context) error {
+					tctx, cancel := workflow.WithCancel(ctx)
+					f := workflow.ScheduleTimer(tctx, time.Second*10)
+
+					// Force the checkpoint before continuing the execution
+					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+
+					// Cancel timer
+					cancel()
+
+					if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
+						return err
+					}
+
+					return nil
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				instance := runWorkflow(t, ctx, c, wf)
+				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+
+				historyContains(ctx, t, b, instance, history.EventType_TimerScheduled, history.EventType_TimerCanceled)
+
+				futureEvents, err := b.GetFutureEvents(ctx)
+				require.NoError(t, err)
+				require.Len(t, futureEvents, 0, "no future events should be scheduled")
 			},
 		},
 	}
@@ -305,7 +344,7 @@ func EndToEndBackendTest(t *testing.T, setup func() backend.Backend, teardown fu
 			t.Cleanup(func() {
 				cancel()
 				if err := w.WaitForCompletion(); err != nil {
-					fmt.Println("Worker did not stop in time")
+					log.Println("Worker did not stop in time")
 					t.FailNow()
 				}
 
@@ -344,4 +383,31 @@ func runWorkflow(t *testing.T, ctx context.Context, c client.Client, wf interfac
 func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c client.Client, wf interface{}, inputs ...interface{}) (T, error) {
 	instance := runWorkflow(t, ctx, c, wf, inputs...)
 	return client.GetWorkflowResult[T](ctx, c, instance, time.Second*10)
+}
+
+func historyIterate(ctx context.Context, t *testing.T, b TestBackend, instance *workflow.Instance, f func(event *history.Event) bool) {
+	events, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
+	require.NoError(t, err)
+	for _, e := range events {
+		if !f(&e) {
+			break
+		}
+	}
+}
+
+// historyContains ensure the history contains all of the given event types in the given order
+func historyContains(ctx context.Context, t *testing.T, b TestBackend, instance *workflow.Instance, eventTypes ...history.EventType) {
+	historyIterate(ctx, t, b, instance, func(event *history.Event) bool {
+		if len(eventTypes) == 0 {
+			return false
+		}
+
+		if event.Type == eventTypes[0] {
+			eventTypes = eventTypes[1:]
+		}
+
+		return true
+	})
+
+	require.Equal(t, []history.EventType{}, eventTypes, "history does not contain all event types")
 }

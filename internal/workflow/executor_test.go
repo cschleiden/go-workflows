@@ -2,7 +2,7 @@ package workflow
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -49,7 +49,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance, workflow interface{}, hi
 }
 
 func activity1(ctx context.Context, r int) (int, error) {
-	fmt.Println("Entering Activity1")
+	log.Println("Entering Activity1")
 
 	return r, nil
 }

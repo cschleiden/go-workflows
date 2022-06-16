@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -14,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func SimpleWorkflowBenchmark(b *testing.B, setup func() backend.Backend, teardown func(b backend.Backend)) {
+func SimpleWorkflowBenchmark(b *testing.B, setup func() TestBackend, teardown func(b TestBackend)) {
 	// Suppress default metric
 	b.ReportMetric(0, "ns/op")
 	b.StopTimer()
