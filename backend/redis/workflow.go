@@ -100,6 +100,21 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		newEvents = append(newEvents, event)
 	}
 
+	if instanceState.State == backend.WorkflowStateFinished {
+		// This should never happen. For now, log information and then panic.
+		l := rb.Logger().With(
+			"task_id", instanceTask.ID,
+			"instance_id", instanceState.Instance.InstanceID)
+		l.Error("got workflow task for finished workflow instance")
+
+		// Log events that lead to this task
+		for _, event := range newEvents {
+			l.Error("pending_event", "id", event.ID, "event_type", event.Type.String(), "schedule_event_id", event.ScheduleEventID)
+		}
+
+		panic("Dequeued already finished workflow instance task")
+	}
+
 	return &task.Workflow{
 		ID:               instanceTask.TaskID,
 		WorkflowInstance: instanceState.Instance,
