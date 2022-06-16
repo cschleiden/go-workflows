@@ -365,6 +365,15 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 	}
 
+	for _, event := range executedEvents {
+		switch event.Type {
+		case history.EventType_TimerCanceled:
+			if err := removeFutureEvent(ctx, tx, instance.InstanceID, event.ScheduleEventID); err != nil {
+				return fmt.Errorf("removing future event: %w", err)
+			}
+		}
+	}
+
 	// Insert new workflow events
 	groupedEvents := make(map[*workflow.Instance][]history.Event)
 	for _, m := range workflowEvents {
