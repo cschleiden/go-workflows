@@ -324,6 +324,30 @@ t := workflow.ScheduleTimer(tctx, 2*time.Second)
 cancel()
 ```
 
+### Signals
+
+Signals are a way to send a message to a workflow. You can send a signal to a workflow by calling `workflow.Signal` and listen to them by creating a `SignalChannel` via `NewSignalChannel`:
+
+```go
+// From outside the workflow:
+c.SignalWorkflow(ctx, "<instance-id>", "signal-name", "value")
+
+func Workflow(ctx workflow.Context) error {
+	// ...
+
+	signalCh := workflow.NewSignalChannel[string](ctx, "signal-name")
+
+	// Pause workflow until signal is received
+	workflow.Select(ctx,
+		workflow.Receive(, func(ctx workflow.Context, r string, ok bool) {
+			logger.Debug("Received signal:", r)
+		}),
+	)
+
+	// Continue execution
+}
+```
+
 ### Executing side effects
 
 Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
