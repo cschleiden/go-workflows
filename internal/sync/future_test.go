@@ -22,16 +22,6 @@ func Test_FutureYields(t *testing.T) {
 	require.True(t, c.Blocked())
 }
 
-func Test_FutureSetErrorsWhenSetTwice(t *testing.T) {
-	f := NewFuture[int]()
-
-	err := f.Set(42, nil)
-	require.NoError(t, err)
-
-	err = f.Set(42, nil)
-	require.Error(t, err)
-}
-
 func Test_FutureSetUnblocks(t *testing.T) {
 	f := NewFuture[int]()
 

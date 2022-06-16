@@ -1,9 +1,5 @@
 package sync
 
-import (
-	"errors"
-)
-
 type Future[T any] interface {
 	// Get returns the value if set, blocks otherwise
 	Get(ctx Context) (T, error)
@@ -12,8 +8,10 @@ type Future[T any] interface {
 type SettableFuture[T any] interface {
 	Future[T]
 
-	// Set stores the value
-	Set(v T, err error) error
+	// Set stores the value and provided error
+	Set(v T, err error)
+
+	HasValue() bool
 }
 
 type FutureInternal[T any] interface {
@@ -32,16 +30,14 @@ type future[T any] struct {
 	err      error
 }
 
-func (f *future[T]) Set(v T, err error) error {
-	if f.hasValue {
-		return errors.New("future already set")
-	}
-
+func (f *future[T]) Set(v T, err error) {
 	f.v = v
 	f.err = err
 	f.hasValue = true
+}
 
-	return nil
+func (f *future[T]) HasValue() bool {
+	return f.hasValue
 }
 
 func (f *future[T]) Get(ctx Context) (T, error) {
