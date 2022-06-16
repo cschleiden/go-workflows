@@ -3,14 +3,14 @@ package main
 import (
 	"testing"
 
-	"github.com/cschleiden/go-workflows/internal/tester"
+	"github.com/cschleiden/go-workflows/tester"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_Workflow(t *testing.T) {
-	tester := tester.NewWorkflowTester(ParentWorkflow)
+	tester := tester.NewWorkflowTester[any](ParentWorkflow)
 
 	tester.Registry().RegisterWorkflow(SubWorkflow)
 
@@ -21,9 +21,7 @@ func Test_Workflow(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wr int
-	var werr string
-	tester.WorkflowResult(&wr, &werr)
+	wr, werr := tester.WorkflowResult()
 	require.Empty(t, wr)
 	require.Empty(t, werr)
 	tester.AssertExpectations(t)

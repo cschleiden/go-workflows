@@ -30,15 +30,14 @@ func Test_SubWorkflow(t *testing.T) {
 		return sresult, nil
 	}
 
-	tester := NewWorkflowTester(workflowWithSub)
+	tester := NewWorkflowTester[string](workflowWithSub)
 	tester.Registry().RegisterWorkflow(subWorkflow)
 
 	tester.Execute("hello")
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wfR string
-	tester.WorkflowResult(&wfR, nil)
+	wfR, _ := tester.WorkflowResult()
 	require.Equal(t, "hellosresult", wfR)
 	tester.AssertExpectations(t)
 }
@@ -62,7 +61,7 @@ func Test_SubWorkflow_Mocked(t *testing.T) {
 		return sresult, nil
 	}
 
-	tester := NewWorkflowTester(workflow)
+	tester := NewWorkflowTester[string](workflow)
 	tester.Registry().RegisterWorkflow(subWorkflow)
 	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return("sresult2", nil)
 
@@ -70,8 +69,7 @@ func Test_SubWorkflow_Mocked(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wfR string
-	tester.WorkflowResult(&wfR, nil)
+	wfR, _ := tester.WorkflowResult()
 	require.Equal(t, "sresult2", wfR)
 	tester.AssertExpectations(t)
 }
@@ -95,7 +93,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 		return sresult, nil
 	}
 
-	tester := NewWorkflowTester(workflow)
+	tester := NewWorkflowTester[string](workflow)
 	tester.Registry().RegisterWorkflow(subWorkflow)
 	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return(nil, errors.New("error"))
 
@@ -103,9 +101,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wfR string
-	var wfE string
-	tester.WorkflowResult(&wfR, &wfE)
+	wfR, wfE := tester.WorkflowResult()
 	require.Equal(t, "", wfR)
 	require.Equal(t, "error", wfE)
 
@@ -134,7 +130,7 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 		return sresult, nil
 	}
 
-	tester := NewWorkflowTester(workflowWithSub)
+	tester := NewWorkflowTester[string](workflowWithSub)
 	tester.Registry().RegisterWorkflow(subWorkflow)
 
 	var subWorkflowInstance *core.WorkflowInstance
@@ -151,8 +147,7 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 
-	var wfR string
-	tester.WorkflowResult(&wfR, nil)
+	wfR, _ := tester.WorkflowResult()
 	require.Equal(t, "hello42", wfR)
 	tester.AssertExpectations(t)
 }
