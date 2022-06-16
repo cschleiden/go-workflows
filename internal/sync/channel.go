@@ -1,9 +1,5 @@
 package sync
 
-import (
-	"github.com/cschleiden/go-workflows/internal/converter"
-)
-
 type Channel[T any] interface {
 	Send(ctx Context, v T)
 
@@ -31,16 +27,14 @@ var _ ChannelInternal[struct{}] = (*channel[struct{}])(nil)
 
 func NewChannel[T any]() Channel[T] {
 	return &channel[T]{
-		c:         make([]T, 0),
-		converter: converter.DefaultConverter,
+		c: make([]T, 0),
 	}
 }
 
 func NewBufferedChannel[T any](size int) Channel[T] {
 	return &channel[T]{
-		c:         make([]T, 0, size),
-		size:      size,
-		converter: converter.DefaultConverter,
+		c:    make([]T, 0, size),
+		size: size,
 	}
 }
 
@@ -50,7 +44,6 @@ type channel[T any] struct {
 	senders   []func() T
 	closed    bool
 	size      int
-	converter converter.Converter
 }
 
 func (c *channel[T]) Close() {
