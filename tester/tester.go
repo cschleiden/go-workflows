@@ -24,6 +24,7 @@ import (
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type testHistoryProvider struct {
@@ -118,6 +119,8 @@ type workflowTester[TResult any] struct {
 	runningActivities int32
 
 	logger log.Logger
+
+	tracer trace.Tracer
 }
 
 type WorkflowTesterOption func(*options)
@@ -154,6 +157,8 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		options.Logger = logger.NewDefaultLogger()
 	}
 
+	tracer := trace.NewNoopTracerProvider().Tracer("workflow-tester")
+
 	wt := &workflowTester[TResult]{
 		options: options,
 
@@ -176,6 +181,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		callbacks: make(chan func() *history.WorkflowEvent, 1024),
 
 		logger: options.Logger,
+		tracer: tracer,
 	}
 
 	// Always register the workflow under test
@@ -246,7 +252,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := workflow.NewExecutor(wt.logger, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
+			e, err := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
 			if err != nil {
 				panic("could not create workflow executor" + err.Error())
 			}
@@ -474,7 +480,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			}
 
 		} else {
-			executor := activity.NewExecutor(wt.logger, wt.registry)
+			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
 				WorkflowInstance: wfi,
