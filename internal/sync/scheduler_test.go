@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -18,8 +17,6 @@ func Test_Scheduler(t *testing.T) {
 		hit++
 
 		getCoState(ctx).Yield()
-
-		fmt.Println("tes")
 
 		return nil
 	})

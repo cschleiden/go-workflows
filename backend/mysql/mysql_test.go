@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/google/uuid"
 )
 
@@ -24,7 +26,7 @@ func Test_MysqlBackend(t *testing.T) {
 
 	var dbName string
 
-	test.BackendTest(t, func() backend.Backend {
+	test.BackendTest(t, func() test.TestBackend {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -40,7 +42,7 @@ func Test_MysqlBackend(t *testing.T) {
 		}
 
 		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
-	}, func(b backend.Backend) {
+	}, func(b test.TestBackend) {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -63,7 +65,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 
 	var dbName string
 
-	test.EndToEndBackendTest(t, func() backend.Backend {
+	test.EndToEndBackendTest(t, func() test.TestBackend {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -79,7 +81,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 		}
 
 		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
-	}, func(b backend.Backend) {
+	}, func(b test.TestBackend) {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -93,4 +95,11 @@ func TestMySqlBackendE2E(t *testing.T) {
 			panic(err)
 		}
 	})
+}
+
+var _ test.TestBackend = (*mysqlBackend)(nil)
+
+func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]history.Event, error) {
+	// TODO: TESTING: Implement
+	return nil, nil
 }

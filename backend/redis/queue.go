@@ -63,8 +63,7 @@ func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue
 	}
 
 	for name, cmd := range cmds {
-		// DEBUG: REMOVE
-		fmt.Println(name, cmd.Val())
+		// fmt.Println(name, cmd.Val())
 
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
