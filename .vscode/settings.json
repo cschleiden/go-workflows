@@ -1,5 +1,6 @@
 {
-  "go.testFlags": ["-race", "-count", "1"], // , "-short"],
+  // Some integration tests take quite long to run, increase the overall limit for now
+  "go.testFlags": ["-timeout", "120s", "-race", "-count", "1"], // , "-short"],
   "workbench.colorCustomizations": {
     "sash.hoverBorder": "#3399ff",
     "titleBar.activeBackground": "#007fff",
