@@ -289,7 +289,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 
 	err := f(a.Result, nil)
 	if err != nil {
-		return fmt.Errorf("setting result: %w", err)
+		return fmt.Errorf("setting activity completed result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -302,7 +302,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 	}
 
 	if err := f(nil, errors.New(a.Reason)); err != nil {
-		return fmt.Errorf("setting result: %w", err)
+		return fmt.Errorf("setting activity failed result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -329,7 +329,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 	}
 
 	if err := f(nil, nil); err != nil {
-		return fmt.Errorf("setting result: %w", err)
+		return fmt.Errorf("setting timer fired result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -343,7 +343,7 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 	}
 
 	if err := f(nil, sync.Canceled); err != nil {
-		return fmt.Errorf("setting result: %w", err)
+		return fmt.Errorf("setting timer canceled result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -392,7 +392,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 	}
 
 	if err := f(nil, errors.New(a.Error)); err != nil {
-		return fmt.Errorf("setting result: %w", err)
+		return fmt.Errorf("setting sub workflow failed result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -405,7 +405,7 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 	}
 
 	if err := f(a.Result, nil); err != nil {
-		return fmt.Errorf("setting result: %w", err)
+		return fmt.Errorf("setting sub workflow completed result: %w", err)
 	}
 
 	return e.workflow.Continue(e.workflowCtx)
@@ -424,7 +424,9 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 		return errors.New("no pending future found for side effect result event")
 	}
 
-	f(a.Result, nil)
+	if err := f(a.Result, nil); err != nil {
+		return fmt.Errorf("setting side effect result result: %w", err)
+	}
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -577,7 +579,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 						&history.SubWorkflowFailedAttributes{
 							Error: a.Error,
 						},
-						// Ensure the message gets sent back to the parent workflow with the right eventID
+						// Ensure the message gets sent back to the parent workflow with the right schedule event ID
 						history.ScheduleEventID(instance.ParentEventID),
 					)
 				} else {
@@ -586,7 +588,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 						&history.SubWorkflowCompletedAttributes{
 							Result: a.Result,
 						},
-						// Ensure the message gets sent back to the parent workflow with the right eventID
+						// Ensure the message gets sent back to the parent workflow with the right schedule event ID
 						history.ScheduleEventID(instance.ParentEventID),
 					)
 				}
