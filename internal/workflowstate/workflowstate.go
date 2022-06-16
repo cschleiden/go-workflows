@@ -1,6 +1,7 @@
 package workflowstate
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -18,19 +19,25 @@ var workflowCtxKey key
 
 type DecodingSettable func(v payload.Payload, err error) error
 
-// Use this to track futures for the workflow state
+// Use this to track futures for the workflow state. It's required to map the generic Future interface
+// to a type without type parameters.
 func AsDecodingSettable[T any](f sync.SettableFuture[T]) DecodingSettable {
 	return func(v payload.Payload, err error) error {
-		var ferr error
-		if v != nil {
-			var t T
-			converter.DefaultConverter.From(v, &t)
-			ferr = f.Set(t, err)
-		} else {
-			ferr = f.Set(*new(T), err)
+		if f.HasValue() {
+			return fmt.Errorf("future already has value")
 		}
 
-		return ferr
+		if v != nil {
+			var t T
+			if err := converter.DefaultConverter.From(v, &t); err != nil {
+				return fmt.Errorf("failed to decode future: %v", err)
+			}
+			f.Set(t, err)
+		} else {
+			f.Set(*new(T), err)
+		}
+
+		return nil
 	}
 }
 
