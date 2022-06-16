@@ -1,10 +1,10 @@
-import { Link, useLocation } from "react-router-dom";
 import { Pagination, Table } from "react-bootstrap";
+import { Link, useLocation } from "react-router-dom";
 
-import { LinkContainer } from "react-router-bootstrap";
 import React from "react";
-import { WorkflowInstanceRef } from "./client";
 import useFetch from "react-fetch-hook";
+import { LinkContainer } from "react-router-bootstrap";
+import { WorkflowInstanceRef } from "./client";
 
 function useQuery() {
   const { search } = useLocation();
@@ -40,6 +40,7 @@ function Home() {
               <tr>
                 <th>Instance ID</th>
                 <th>Execution ID</th>
+                <th>Parent Instance ID</th>
                 <th>Created At</th>
               </tr>
             </thead>
@@ -47,15 +48,17 @@ function Home() {
               {(data || []).map((i) => (
                 <tr key={i.instance.instance_id}>
                   <td>
-                    <Link
-                      to={`/${i.instance.instance_id}`}
-                      key={i.instance.instance_id}
-                    >
+                    <Link to={`/${i.instance.instance_id}`}>
                       <code>{i.instance.instance_id}</code>
                     </Link>
                   </td>
                   <td>
                     <code>{i.instance.execution_id}</code>
+                  </td>
+                  <td>
+                    <Link to={`/${i.instance.parent_instance}`}>
+                      <code>{i.instance.parent_instance}</code>
+                    </Link>
                   </td>
                   <td>
                     <code>{i.created_at}</code>

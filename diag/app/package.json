@@ -46,7 +46,7 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3000",
+  "proxy": "http://localhost:3000/diag/",
   "homepage": ".",
   "devDependencies": {
     "@types/react-router-bootstrap": "^0.24.5",

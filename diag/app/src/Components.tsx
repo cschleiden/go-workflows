@@ -59,6 +59,31 @@ export const EventType: React.FC<{ type: string }> = ({ type }) => {
   );
 };
 
+export const ScheduleEventID: React.FC<{ id: number }> = ({ id }) => {
+  const [textColor, bgColor] = scheduleEventIDColor(id);
+
+  return (
+    <Badge
+      className="ms-2"
+      pill
+      text={textColor}
+      bg={""}
+      style={{
+        background: bgColor,
+        fontWeight: "bold",
+      }}
+    >
+      <code
+        style={{
+          color: "inherit",
+        }}
+      >
+        {id}
+      </code>
+    </Badge>
+  );
+};
+
 function eventColor(event: string): [Color, string] {
   switch (event) {
     case "SubWorkflowScheduled":
@@ -89,4 +114,22 @@ function eventColor(event: string): [Color, string] {
     default:
       return ["dark", "info"];
   }
+}
+
+function scheduleEventIDColor(id: number): [Color, string] {
+  // Default bootstrap theme colors
+  const colors: [Color, string][] = [
+    ["light", "#0d6efd"],
+    ["light", "#6f42c1"],
+    ["light", "#d63384"],
+    ["light", "#ffc107"],
+    ["light", "#dc3545"],
+    ["light", "#6610f2"],
+    ["light", "#fd7e14"],
+    ["light", "#198754"],
+    ["light", "#20c997"],
+    ["light", "#0dcaf0"],
+  ];
+
+  return colors[(id - 1) % colors.length];
 }
