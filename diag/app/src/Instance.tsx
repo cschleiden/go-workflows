@@ -1,20 +1,20 @@
 import { Accordion, Alert, Badge, Card } from "react-bootstrap";
-import {
-  EventType,
-  Payload,
-  decodePayload,
-  decodePayloads,
-} from "./Components";
+import { Link, useParams } from "react-router-dom";
 import {
   ExecutionCompletedAttributes,
   ExecutionStartedAttributes,
   HistoryEvent,
   WorkflowInstanceInfo,
 } from "./client";
+import {
+  decodePayload,
+  decodePayloads,
+  EventType,
+  Payload,
+  ScheduleEventID,
+} from "./Components";
 
-import React from "react";
 import useFetch from "react-fetch-hook";
-import { useParams } from "react-router-dom";
 
 function Instance() {
   let params = useParams();
@@ -70,10 +70,25 @@ function Instance() {
 
       <dl className="row">
         <dt className="col-sm-4">InstanceID</dt>
-        <dd className="col-sm-8">{instance.instance.instance_id}</dd>
+        <dd className="col-sm-8">
+          <code>{instance.instance.instance_id}</code>
+        </dd>
 
         <dt className="col-sm-4">ExecutionID</dt>
-        <dd className="col-sm-8">{instance.instance.execution_id}</dd>
+        <dd className="col-sm-8">
+          <code>{instance.instance.execution_id}</code>
+        </dd>
+
+        {!!instance.instance.parent_instance && (
+          <>
+            <dt className="col-sm-4">Parent InstanceID</dt>
+            <dd className="col-sm-8">
+              <Link to={`/${instance.instance.parent_instance}`}>
+                {instance.instance.parent_instance}
+              </Link>
+            </dd>
+          </>
+        )}
 
         <dt className="col-sm-4">State</dt>
         <dd className="col-sm-8">
@@ -119,6 +134,10 @@ function Instance() {
                 </div>
                 <div className="flex-grow-1">
                   <EventType type={event.type} />
+
+                  {!!event.schedule_event_id && (
+                    <ScheduleEventID id={event.schedule_event_id!} />
+                  )}
                 </div>
                 <div>{event.timestamp}</div>
               </h5>
