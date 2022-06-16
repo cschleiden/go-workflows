@@ -73,7 +73,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, m history.Wor
 	}
 
 	// Initial history is empty, store only new events
-	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
+	if err := insertPendingEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}
 
@@ -110,7 +110,7 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 		return err
 	}
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
 		return fmt.Errorf("inserting cancellation event: %w", err)
 	}
 
@@ -252,7 +252,7 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 		return backend.ErrInstanceNotFound
 	}
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting signal event: %w", err)
 	}
 
@@ -475,6 +475,15 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		}
 	}
 
+	for _, event := range executedEvents {
+		switch event.Type {
+		case history.EventType_TimerCanceled:
+			if err := removeFutureEvent(ctx, tx, instance.InstanceID, event.ScheduleEventID); err != nil {
+				return fmt.Errorf("removing future event: %w", err)
+			}
+		}
+	}
+
 	// Insert new workflow events
 	groupedEvents := make(map[*workflow.Instance][]history.Event)
 	for _, m := range workflowEvents {
@@ -493,7 +502,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 			}
 		}
 
-		if err := insertNewEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
+		if err := insertPendingEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
 		}
 	}
@@ -631,7 +640,7 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workf
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertNewEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new events for completed activity: %w", err)
 	}
 
