@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/samples"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -52,12 +52,7 @@ func main() {
 
 	otel.SetTracerProvider(tp)
 
-	// b := sqlite.NewInMemoryBackend(backend.WithTracerProvider(tp))
-
-	b, err := redis.NewRedisBackend("localhost:6379", "", "RedisPassw0rd", 0, redis.WithBackendOptions(backend.WithTracerProvider(tp)))
-	if err != nil {
-		panic(err)
-	}
+	b := samples.GetBackend("tracing", backend.WithTracerProvider(tp))
 
 	// Run worker
 	w := RunWorker(ctx, b)
