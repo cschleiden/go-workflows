@@ -63,14 +63,16 @@ func NewExecutor(logger log.Logger, registry *Registry, historyProvider Workflow
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
-	e.logger.Debug("Executing workflow task", "task_id", t.ID, "instance_id", t.WorkflowInstance.InstanceID)
+	logger := e.logger.With("task_id", t.ID, "instance_id", t.WorkflowInstance.InstanceID)
+
+	logger.Debug("Executing workflow task")
 
 	e.workflowState.ClearCommands()
 
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {
-		e.logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
+		logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
 
 		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
 		if err != nil {
@@ -78,13 +80,13 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		}
 
 		if err := e.replayHistory(h); err != nil {
-			e.logger.Error("Error while replaying history", "error", err)
+			logger.Error("Error while replaying history", "error", err)
 
 			// Fail workflow with an error. Skip executing new events, but still go through the commands
 			e.workflowCompleted(nil, err)
 			skipNewEvents = true
 		} else if t.LastSequenceID != e.lastSequenceID {
-			e.logger.Debug("Task has newer history than current state", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
+			logger.Debug("Task has newer history than current state", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
 
 			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
 		}
@@ -103,7 +105,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		var err error
 		executedEvents, err = e.executeNewEvents(toExecute)
 		if err != nil {
-			e.logger.Error("Error while executing new events", "error", err)
+			logger.Error("Error while executing new events", "error", err)
 
 			e.workflowCompleted(nil, err)
 		}
@@ -122,9 +124,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		executedEvents[i].SequenceID = e.nextSequenceID()
 	}
 
-	e.logger.Debug("Finished workflow task",
-		"task_id", t.ID,
-		"instance_id", t.WorkflowInstance.InstanceID,
+	logger.Debug("Finished workflow task",
 		"executed", len(executedEvents),
 		"last_sequence_id", e.lastSequenceID,
 		"completed", completed,
