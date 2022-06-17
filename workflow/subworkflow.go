@@ -56,7 +56,8 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	span := workflowtracer.Tracer(ctx).Start(ctx,
-		"CreateSubworkflowInstance", trace.WithAttributes(
+		fmt.Sprintf("CreateSubworkflowInstance: %s", name),
+		trace.WithAttributes(
 			attribute.String("name", name),
 			attribute.Int64(tracing.ScheduleEventID, scheduleEventID),
 			attribute.Int("attempt", attempt),

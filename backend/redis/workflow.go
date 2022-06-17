@@ -57,8 +57,8 @@ var futureEventsCmd = redis.NewScript(`
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
 	// Check for future events
-	now := time.Now().Unix()
-	nowStr := strconv.Itoa(int(now))
+	now := time.Now().UnixMilli()
+	nowStr := strconv.FormatInt(now, 10)
 
 	queueKeys := rb.workflowQueue.Keys()
 

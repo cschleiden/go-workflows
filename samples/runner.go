@@ -34,7 +34,7 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 			WriteTimeout: time.Second * 30,
 			ReadTimeout:  time.Second * 30,
 		})
-		b, err := redis.NewRedisBackend(rclient)
+		b, err := redis.NewRedisBackend(rclient, redis.WithBackendOptions(opt...))
 		if err != nil {
 			panic(err)
 		}

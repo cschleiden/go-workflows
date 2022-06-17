@@ -16,7 +16,6 @@ import (
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 
 	"github.com/cschleiden/go-workflows/worker"
 
@@ -33,19 +32,24 @@ func main() {
 		attribute.String("environment", "sample"),
 	)
 
-	stdoutexp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-	if err != nil {
-		panic(err)
-	}
+	// stdoutexp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	oclient := otlptracehttp.NewClient(otlptracehttp.WithEndpoint("localhost:8360"), otlptracehttp.WithURLPath("/traces/otlp/v0.9"), otlptracehttp.WithInsecure())
+	oclient := otlptracehttp.NewClient(
+		// otlptracehttp.WithEndpoint("localhost:8360"),
+		// otlptracehttp.WithURLPath("/traces/otlp/v0.9"),
+		otlptracehttp.WithEndpoint("localhost:4318"),
+		otlptracehttp.WithInsecure(),
+	)
 	exp, err := otlptrace.New(ctx, oclient)
 	if err != nil {
 		panic(err)
 	}
 
 	tp := trace.NewTracerProvider(
-		trace.WithSyncer(stdoutexp),
+		// trace.WithSyncer(stdoutexp),
 		trace.WithBatcher(exp),
 		trace.WithResource(r),
 	)
