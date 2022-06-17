@@ -19,6 +19,5 @@ type Workflow struct {
 	NewEvents []history.Event
 
 	// Backend specific data
-	// TODO: Can we hide this better?
 	CustomData any
 }
