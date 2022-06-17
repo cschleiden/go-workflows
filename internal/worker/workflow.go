@@ -185,8 +185,7 @@ func (ww *workflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 }
 
 func (ww *workflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow) {
-	// TODO: Make configurable
-	t := time.NewTicker(25 * time.Second)
+	t := time.NewTicker(ww.options.WorkflowHeartbeatInterval)
 	defer t.Stop()
 
 	for {
