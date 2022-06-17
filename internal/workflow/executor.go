@@ -448,7 +448,6 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 	workflowEvents := make([]history.WorkflowEvent, 0)
 
 	for _, c := range commands {
-		// TODO: Move to state machine?
 		// Mark this command as committed.
 		c.State = command.CommandState_Committed
 
