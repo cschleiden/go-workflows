@@ -116,7 +116,7 @@ func (aw *activityWorker) runDispatcher(ctx context.Context) {
 func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	// Start heartbeat while activity is running
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-	go func(ctx context.Context) {=
+	go func(ctx context.Context) {
 		t := time.NewTicker(aw.options.ActivityHeartbeatInterval)
 		defer t.Stop()
 
