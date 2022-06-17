@@ -121,7 +121,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 
 	go func(ctx context.Context) {
-		t := time.NewTicker(30 * time.Second)
+		t := time.NewTicker(aw.options.ActivityHeartbeatInterval)
 		defer t.Stop()
 
 		for {
