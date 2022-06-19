@@ -128,11 +128,11 @@ func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBac
 				require.NotNil(t, tk)
 
 				// Complete workflow task
-				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.WorkflowEvent{})
+				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
 				require.NoError(t, err)
 
 				// Task is already completed, this should error
-				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.WorkflowEvent{})
+				err = b.CompleteWorkflowTask(ctx, tk, wfi, backend.WorkflowStateActive, tk.NewEvents, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
 				require.Error(t, err)
 			},
 		},
@@ -171,7 +171,7 @@ func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBac
 
 				workflowEvents := []history.WorkflowEvent{}
 
-				err = b.CompleteWorkflowTask(ctx, task, wfi, backend.WorkflowStateActive, events, activityEvents, workflowEvents)
+				err = b.CompleteWorkflowTask(ctx, task, wfi, backend.WorkflowStateActive, events, activityEvents, []history.Event{}, workflowEvents)
 				require.NoError(t, err)
 
 				time.Sleep(time.Second)
@@ -213,7 +213,7 @@ func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBac
 					events[i].SequenceID = sequenceID
 				}
 
-				err = b.CompleteWorkflowTask(ctx, task, wfi, backend.WorkflowStateFinished, events, []history.Event{}, []history.WorkflowEvent{})
+				err = b.CompleteWorkflowTask(ctx, task, wfi, backend.WorkflowStateFinished, events, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
 				require.NoError(t, err)
 
 				time.Sleep(time.Second)
@@ -278,7 +278,7 @@ func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBac
 				// Simulate context and sub-workflow cancellation
 				task, err := b.GetWorkflowTask(ctx)
 				require.NoError(t, err)
-				err = b.CompleteWorkflowTask(ctx, task, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{
+				err = b.CompleteWorkflowTask(ctx, task, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.Event{}, []history.WorkflowEvent{
 					{
 						WorkflowInstance: subInstance1,
 						HistoryEvent: history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionCanceled, &history.SubWorkflowCancellationRequestedAttributes{
@@ -323,6 +323,6 @@ func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c clien
 	task, err := b.GetWorkflowTask(ctx)
 	require.NoError(t, err)
 
-	err = b.CompleteWorkflowTask(ctx, task, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.WorkflowEvent{})
+	err = b.CompleteWorkflowTask(ctx, task, instance, backend.WorkflowStateActive, task.NewEvents, []history.Event{}, []history.Event{}, []history.WorkflowEvent{})
 	require.NoError(t, err)
 }

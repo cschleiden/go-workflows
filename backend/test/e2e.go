@@ -91,7 +91,11 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(context.Context) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
-					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+					return workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
+						RetryOptions: workflow.RetryOptions{
+							MaxAttempts: 1,
+						},
+					}, a).Get(ctx)
 				}
 				register(t, ctx, w, []interface{}{wf}, nil)
 
@@ -106,7 +110,11 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(context.Context, int, int) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
-					return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a, 42).Get(ctx)
+					return workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
+						RetryOptions: workflow.RetryOptions{
+							MaxAttempts: 1,
+						},
+					}, a, 42).Get(ctx)
 				}
 				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 

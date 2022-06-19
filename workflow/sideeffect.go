@@ -35,7 +35,7 @@ func SideEffect[TResult any](ctx sync.Context, f func(ctx sync.Context) TResult)
 	}
 
 	cmd := command.NewSideEffectCommand(scheduleEventID, payload)
-	wfState.AddCommand(&cmd)
+	wfState.AddCommand(cmd)
 
 	future.Set(r, nil)
 

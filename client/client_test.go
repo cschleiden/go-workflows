@@ -51,7 +51,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 		mockClock.Add(time.Second)
 	})
 	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(backend.WorkflowStateFinished, nil)
-	b.On("GetWorkflowInstanceHistory", mock.Anything, instance).Return([]history.Event{
+	b.On("GetWorkflowInstanceHistory", mock.Anything, instance, (*int64)(nil)).Return([]history.Event{
 		history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 		history.NewHistoryEvent(2, time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{
 			Result: r,

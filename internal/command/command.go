@@ -1,185 +1,73 @@
 package command
 
 import (
-	"time"
-
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/google/uuid"
+	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/internal/history"
 )
-
-type CommandType int
-
-const (
-	_ CommandType = iota
-
-	CommandType_ScheduleActivity
-
-	CommandType_ScheduleSubWorkflow
-	CommandType_CancelSubWorkflow
-
-	CommandType_ScheduleTimer
-	CommandType_CancelTimer
-
-	CommandType_SideEffect
-
-	CommandType_CompleteWorkflow
-)
-
-func (ct CommandType) String() string {
-	switch ct {
-	case CommandType_ScheduleActivity:
-		return "ScheduleActivityTask"
-
-	case CommandType_ScheduleSubWorkflow:
-		return "ScheduleSubWorkflow"
-	case CommandType_CancelSubWorkflow:
-		return "CancelSubWorkflow"
-
-	case CommandType_ScheduleTimer:
-		return "ScheduleTimer"
-	case CommandType_CancelTimer:
-		return "CancelTimer"
-
-	case CommandType_SideEffect:
-		return "SideEffect"
-
-	case CommandType_CompleteWorkflow:
-		return "CompleteWorkflow"
-	}
-
-	return ""
-}
 
 type CommandState int
 
+//  ┌───────┐
+//  │Pending├
+//  └───────┘
+//      ▼
+// ┌─────────┐
+// │Committed│
+// └─────────┘
+//      ▼
+//   ┌────┐
+//   │Done│
+//   └────┘
 const (
 	CommandState_Pending CommandState = iota
 	CommandState_Committed
 	CommandState_Done
 )
 
-type Command struct {
-	State CommandState
+type Command interface {
+	ID() int64
 
-	ID int64
+	Commit(clock clock.Clock) *CommandResult
 
-	Type CommandType
+	// Done marks the command as done. This transitions the state to done and indicates that the result
+	// of this command has been applied.
+	Done()
 
-	Attr interface{}
+	State() CommandState
+
+	Type() string
 }
 
-type ScheduleActivityTaskCommandAttr struct {
-	Name   string
-	Inputs []payload.Payload
+type CommandResult struct {
+	Completed      bool
+	Events         []history.Event
+	ActivityEvents []history.Event
+	TimerEvents    []history.Event
+	WorkflowEvents []history.WorkflowEvent
 }
 
-func NewScheduleActivityTaskCommand(id int64, name string, inputs []payload.Payload) Command {
-	return Command{
-		ID:   id,
-		Type: CommandType_ScheduleActivity,
-		Attr: &ScheduleActivityTaskCommandAttr{
-			Name:   name,
-			Inputs: inputs,
-		},
-	}
+type command struct {
+	state CommandState
+
+	id int64
 }
 
-type ScheduleSubWorkflowCommandAttr struct {
-	Instance *core.WorkflowInstance
-	Name     string
-	Inputs   []payload.Payload
-}
-
-func NewScheduleSubWorkflowCommand(id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload) Command {
-	if subWorkflowInstanceID == "" {
-		subWorkflowInstanceID = uuid.New().String()
+func (c *command) commit() {
+	if c.state != CommandState_Pending {
+		panic("command already committed")
 	}
 
-	return Command{
-		ID:   id,
-		Type: CommandType_ScheduleSubWorkflow,
-		Attr: &ScheduleSubWorkflowCommandAttr{
-			Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance.InstanceID, id),
-			Name:     name,
-			Inputs:   inputs,
-		},
-	}
+	c.state = CommandState_Committed
 }
 
-type CancelSubWorkflowCommandAttr struct {
-	SubWorkflowInstance *core.WorkflowInstance
+func (c *command) ID() int64 {
+	return c.id
 }
 
-func NewCancelSubWorkflowCommand(id int64, subWorkflowInstance *core.WorkflowInstance) Command {
-	return Command{
-		ID:   id,
-		Type: CommandType_CancelSubWorkflow,
-		Attr: &CancelSubWorkflowCommandAttr{
-			SubWorkflowInstance: subWorkflowInstance,
-		},
-	}
+func (c *command) State() CommandState {
+	return c.state
 }
 
-type ScheduleTimerCommandAttr struct {
-	At time.Time
-}
-
-func NewScheduleTimerCommand(id int64, at time.Time) Command {
-	return Command{
-		ID:   id,
-		Type: CommandType_ScheduleTimer,
-		Attr: &ScheduleTimerCommandAttr{
-			At: at,
-		},
-	}
-}
-
-type CancelTimerCommandAttr struct {
-	TimerScheduleEventID int64
-}
-
-func NewCancelTimerCommand(id int64, timerID int64) Command {
-	return Command{
-		ID:   id,
-		Type: CommandType_CancelTimer,
-		Attr: &CancelTimerCommandAttr{
-			TimerScheduleEventID: timerID,
-		},
-	}
-}
-
-type SideEffectCommandAttr struct {
-	Result payload.Payload
-}
-
-func NewSideEffectCommand(id int64, result payload.Payload) Command {
-	return Command{
-		ID:   id,
-		Type: CommandType_SideEffect,
-		Attr: &SideEffectCommandAttr{
-			Result: result,
-		},
-	}
-}
-
-type CompleteWorkflowCommandAttr struct {
-	Result payload.Payload
-	Error  string
-}
-
-func NewCompleteWorkflowCommand(id int64, result payload.Payload, err error) Command {
-	var error string
-	if err != nil {
-		error = err.Error()
-	}
-
-	return Command{
-		ID:   id,
-		Type: CommandType_CompleteWorkflow,
-		Attr: &CompleteWorkflowCommandAttr{
-			Result: result,
-			Error:  error,
-		},
-	}
+func (c *command) Done() {
+	c.state = CommandState_Done
 }

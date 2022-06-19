@@ -49,7 +49,7 @@ type signalChannel struct {
 type WfState struct {
 	instance        *core.WorkflowInstance
 	scheduleEventID int64
-	commands        []*command.Command
+	commands        []command.Command
 	pendingFutures  map[int64]DecodingSettable
 	replaying       bool
 
@@ -65,7 +65,7 @@ type WfState struct {
 func NewWorkflowState(instance *core.WorkflowInstance, logger log.Logger, clock clock.Clock) *WfState {
 	state := &WfState{
 		instance:        instance,
-		commands:        []*command.Command{},
+		commands:        []command.Command{},
 		scheduleEventID: 1,
 		pendingFutures:  map[int64]DecodingSettable{},
 
@@ -109,39 +109,22 @@ func (wf *WfState) RemoveFuture(scheduleEventID int64) {
 	delete(wf.pendingFutures, scheduleEventID)
 }
 
-func (wf *WfState) Commands() []*command.Command {
+func (wf *WfState) Commands() []command.Command {
 	return wf.commands
 }
 
-func (wf *WfState) AddCommand(cmd *command.Command) {
+func (wf *WfState) AddCommand(cmd command.Command) {
 	wf.commands = append(wf.commands, cmd)
 }
 
-func (wf *WfState) RemoveCommandByEventID(eventID int64) *command.Command {
-	for i, c := range wf.commands {
-		if c.ID == eventID {
-			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
+func (wf *WfState) CommandByScheduleEventID(scheduleEventID int64) command.Command {
+	for _, c := range wf.commands {
+		if c.ID() == scheduleEventID {
 			return c
 		}
 	}
 
 	return nil
-}
-
-func (wf *WfState) RemoveCommand(cmd *command.Command) {
-	for i, c := range wf.commands {
-		if c == cmd {
-			// TODO: Move to state machines?
-			c.State = command.CommandState_Done
-
-			wf.commands = append(wf.commands[:i], wf.commands[i+1:]...)
-			return
-		}
-	}
-}
-
-func (wf *WfState) ClearCommands() {
-	wf.commands = []*command.Command{}
 }
 
 func (wf *WfState) SetReplaying(replaying bool) {

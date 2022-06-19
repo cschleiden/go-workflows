@@ -163,8 +163,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	task *task.Workflow,
 	instance *core.WorkflowInstance,
 	state backend.WorkflowState,
-	executedEvents []history.Event,
-	activityEvents []history.Event,
+	executedEvents, activityEvents, timerEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
 	instanceState, err := readInstance(ctx, rb.rdb, instance.InstanceID)
@@ -189,6 +188,13 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 	}
 
+	// Scheduler timers
+	for _, timerEvent := range timerEvents {
+		if err := addFutureEventP(ctx, p, instance, &timerEvent); err != nil {
+			return err
+		}
+	}
+
 	// Send new workflow events to the respective streams
 	groupedEvents := eventsByWorkflowInstance(workflowEvents)
 	for targetInstance, events := range groupedEvents {
@@ -200,27 +206,17 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 
 		// Insert pending events for target instance
-		msgAdded := false
-
 		for _, event := range events {
 			event := event
 
-			if event.VisibleAt != nil {
-				if err := addFutureEventP(ctx, p, targetInstance, &event); err != nil {
-					return err
-				}
-			} else {
-				// Add pending event to stream
-				if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstance.InstanceID), &event); err != nil {
-					return err
-				}
-
-				msgAdded = true
+			// Add pending event to stream
+			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstance.InstanceID), &event); err != nil {
+				return err
 			}
 		}
 
 		// If any pending message was added, try to queue workflow task
-		if targetInstance != instance && msgAdded {
+		if targetInstance != instance {
 			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, nil); err != nil {
 				if err != errTaskAlreadyInQueue {
 					return fmt.Errorf("adding instance to locked instances set: %w", err)
