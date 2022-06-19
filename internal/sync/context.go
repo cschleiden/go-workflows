@@ -206,7 +206,6 @@ func propagateCancel(parent Context, child canceler) {
 			p.children[child] = struct{}{}
 		}
 	} else {
-		// TODO: support custom context implementations with their own `Done` channel
 		panic("not implemented")
 		// go func() {
 		// 	s := NewSelector()

@@ -44,7 +44,6 @@ func TestWithCancel(t *testing.T) {
 	require.True(t, canceled)
 }
 
-// TODO: Support custom context implementations with their own `Done` channel
 // type myDoneCtx struct {
 // 	Context
 // }
