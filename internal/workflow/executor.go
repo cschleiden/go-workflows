@@ -489,7 +489,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 						Name:   a.Name,
 						Inputs: a.Inputs,
 					},
-					history.ScheduleEventID(c.ID),
+					history.ScheduleEventID(0),
 				),
 			})
 
@@ -564,7 +564,7 @@ func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool,
 					Result: a.Result,
 					Error:  a.Error,
 				},
-				history.ScheduleEventID(c.ID),
+				history.ScheduleEventID(0),
 			))
 
 			if instance.SubWorkflow() {

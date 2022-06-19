@@ -37,6 +37,28 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			},
 		},
 		{
+			name: "SimpleWorkflow_ExpectedHistory",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				wf := func(ctx workflow.Context, msg string) (string, error) {
+					return msg + " world", nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf, "hello")
+
+				require.NoError(t, c.WaitForWorkflowInstance(ctx, instance, time.Second*10))
+
+				events, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
+				require.NoError(t, err)
+
+				require.Equal(t, history.EventType_WorkflowTaskStarted, events[0].Type)
+				require.Equal(t, history.EventType_WorkflowExecutionStarted, events[1].Type)
+				require.Equal(t, int64(0), events[1].ScheduleEventID)
+				require.Equal(t, history.EventType_WorkflowExecutionFinished, events[2].Type)
+				require.Equal(t, int64(0), events[2].ScheduleEventID)
+			},
+		},
+		{
 			name: "UnregisteredWorkflow_Errors",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
