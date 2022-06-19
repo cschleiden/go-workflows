@@ -12,6 +12,7 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	margs "github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
@@ -178,7 +179,9 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 	}
 
 	// Always register the workflow under test
-	wt.registry.RegisterWorkflow(wf)
+	if err := wt.registry.RegisterWorkflow(wf); err != nil {
+		panic(fmt.Sprintf("could not workflow under test: %v", err))
+	}
 
 	return wt
 }
@@ -270,10 +273,12 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 						wt.workflowResult = a.Result
 						wt.workflowErr = a.Error
 					}
-
-				case history.EventType_ActivityScheduled:
-					wt.scheduleActivity(tw.instance, event)
 				}
+			}
+
+			// Schedule activities
+			for _, event := range result.ActivityEvents {
+				wt.scheduleActivity(tw.instance, event)
 			}
 
 			for _, workflowEvent := range result.WorkflowEvents {
@@ -284,12 +289,16 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				case history.EventType_WorkflowExecutionStarted:
 					wt.scheduleSubWorkflow(workflowEvent)
 
-				case history.EventType_TimerFired:
-					wt.scheduleTimer(workflowEvent)
-
 				default:
 					wt.sendEvent(workflowEvent.WorkflowInstance, workflowEvent.HistoryEvent)
 				}
+			}
+
+			for _, timerEvent := range result.TimerEvents {
+				gotNewEvents = true
+				wt.logger.Debug("Timer event", "event_type", timerEvent.Type)
+
+				wt.scheduleTimer(tw.instance, timerEvent)
 			}
 		}
 
@@ -504,14 +513,17 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 	}()
 }
 
-func (wt *workflowTester[TResult]) scheduleTimer(event history.WorkflowEvent) {
-	e := event.HistoryEvent.Attributes.(*history.TimerFiredAttributes)
+func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance, event history.Event) {
+	e := event.Attributes.(*history.TimerFiredAttributes)
 
 	wt.timers = append(wt.timers, &testTimer{
 		At: e.At,
 		Callback: func() {
 			wt.callbacks <- func() *history.WorkflowEvent {
-				return &event
+				return &history.WorkflowEvent{
+					WorkflowInstance: instance,
+					HistoryEvent:     event,
+				}
 			}
 		},
 	})
@@ -580,33 +592,9 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 
 	wt.callbacks <- func() *history.WorkflowEvent {
-		// Ideally we'd execute the same command here, but for now duplicate the code
-		var he history.Event
+		r := command.NewCompleteWorkflowCommand(0, event.WorkflowInstance, workflowResult, workflowErr).Commit(wt.clock)
 
-		if workflowErr != nil {
-			he = history.NewPendingEvent(
-				wt.clock.Now(),
-				history.EventType_SubWorkflowFailed,
-				&history.SubWorkflowFailedAttributes{
-					Error: workflowErr.Error(),
-				},
-				history.ScheduleEventID(event.WorkflowInstance.ParentEventID),
-			)
-		} else {
-			he = history.NewPendingEvent(
-				wt.clock.Now(),
-				history.EventType_SubWorkflowCompleted,
-				&history.SubWorkflowCompletedAttributes{
-					Result: workflowResult,
-				},
-				history.ScheduleEventID(event.WorkflowInstance.ParentEventID),
-			)
-		}
-
-		return &history.WorkflowEvent{
-			WorkflowInstance: core.NewWorkflowInstance(event.WorkflowInstance.ParentInstanceID, ""),
-			HistoryEvent:     he,
-		}
+		return &r.WorkflowEvents[0]
 	}
 }
 

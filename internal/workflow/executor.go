@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
@@ -22,6 +21,7 @@ type ExecutionResult struct {
 	Completed      bool
 	Executed       []history.Event
 	ActivityEvents []history.Event
+	TimerEvents    []history.Event
 	WorkflowEvents []history.WorkflowEvent
 }
 
@@ -67,8 +67,6 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	logger.Debug("Executing workflow task")
 
-	e.workflowState.ClearCommands()
-
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {
@@ -112,11 +110,27 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	}
 
 	// Process any commands added while executing new events
-	completed, newCommandEvents, activityEvents, workflowEvents, err := e.processCommands(ctx, t)
-	if err != nil {
-		return nil, fmt.Errorf("processing commands: %w", err)
+	completed := false
+	newCommandEvents := make([]history.Event, 0)
+	activityEvents := make([]history.Event, 0)
+	timerEvents := make([]history.Event, 0)
+	workflowEvents := make([]history.WorkflowEvent, 0)
+
+	for _, c := range e.workflowState.Commands() {
+		if c.State() != command.CommandState_Pending {
+			continue
+		}
+
+		r := c.Commit(e.clock)
+
+		completed = completed || r.Completed
+		newCommandEvents = append(newCommandEvents, r.Events...)
+		activityEvents = append(activityEvents, r.ActivityEvents...)
+		timerEvents = append(timerEvents, r.TimerEvents...)
+		workflowEvents = append(workflowEvents, r.WorkflowEvents...)
 	}
 
+	// Events from command don't have to be executed again, add them to the executed events.
 	executedEvents = append(executedEvents, newCommandEvents...)
 
 	// Set SequenceIDs for all executed events
@@ -134,6 +148,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		Completed:      completed,
 		Executed:       executedEvents,
 		ActivityEvents: activityEvents,
+		TimerEvents:    timerEvents,
 		WorkflowEvents: workflowEvents,
 	}, nil
 }
@@ -180,6 +195,7 @@ func (e *executor) executeEvent(event history.Event) error {
 		"event_id", event.ID,
 		"seq_id", event.SequenceID,
 		"event_type", event.Type,
+		"schedule_event_id", event.ScheduleEventID,
 	)
 
 	var err error
@@ -261,22 +277,22 @@ func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.Wor
 }
 
 func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
-	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
-
-	// Ensure activity
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled an activity which could not be found")
 	}
 
-	if c.Type != command.CommandType_ScheduleActivity {
-		return fmt.Errorf("previous workflow execution scheduled an activity, not: %v", c.Type)
+	sac, ok := c.(*command.ScheduleActivityCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution scheduled an activity, not: %v", c.Type())
 	}
 
 	// Ensure the same activity was scheduled again
-	ca := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
-	if a.Name != ca.Name {
-		return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, ca.Name)
+	if a.Name != sac.Name {
+		return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, sac.Name)
 	}
+
+	c.Done()
 
 	return nil
 }
@@ -309,14 +325,16 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 }
 
 func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerScheduledAttributes) error {
-	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled a timer")
 	}
 
-	if c.Type != command.CommandType_ScheduleTimer {
-		return fmt.Errorf("previous workflow execution scheduled a timer, not: %v", c.Type)
+	if _, ok := c.(*command.ScheduleTimerCommand); !ok {
+		return fmt.Errorf("previous workflow execution scheduled a timer, not: %v", c.Type())
 	}
+
+	c.Done()
 
 	return nil
 }
@@ -350,37 +368,36 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 }
 
 func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
-	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled a sub workflow")
 	}
 
-	if c.Type != command.CommandType_ScheduleSubWorkflow {
-		return fmt.Errorf("previous workflow execution scheduled a sub workflow, not: %v", c.Type)
+	sswc, ok := c.(*command.ScheduleSubWorkflowCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow, not: %v", c.Type())
 	}
 
-	ca := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
-	if a.Name != ca.Name {
-		return fmt.Errorf("previous workflow execution scheduled different type of sub workflow: %s, %s", a.Name, ca.Name)
+	if a.Name != sswc.Name {
+		return fmt.Errorf("previous workflow execution scheduled different type of sub workflow: %s, %s", a.Name, sswc.Name)
 	}
 
-	// Set correct InstanceID here.
-	// TODO: see if we can provide better support for commands here and find a better place to store
-	// this message.
-	ca.Instance = a.SubWorkflowInstance
+	c.Done()
 
 	return nil
 }
 
 func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *history.SubWorkflowCancellationRequestedAttributes) error {
-	c := e.workflowState.RemoveCommandByEventID(event.ScheduleEventID)
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
 	}
 
-	if c.Type != command.CommandType_CancelSubWorkflow {
-		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type)
+	if _, ok := c.(*command.CancelSubWorkflowCommand); !ok {
+		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
 	}
+
+	c.Done()
 
 	return e.workflow.Continue(e.workflowCtx)
 }
@@ -434,176 +451,8 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 func (e *executor) workflowCompleted(result payload.Payload, err error) {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
-	cmd := command.NewCompleteWorkflowCommand(eventId, result, err)
-	e.workflowState.AddCommand(&cmd)
-}
-
-func (e *executor) processCommands(ctx context.Context, t *task.Workflow) (bool, []history.Event, []history.Event, []history.WorkflowEvent, error) {
-	instance := t.WorkflowInstance
-	commands := e.workflowState.Commands()
-
-	completed := false
-	newEvents := make([]history.Event, 0)
-	activityEvents := make([]history.Event, 0)
-	workflowEvents := make([]history.WorkflowEvent, 0)
-
-	for _, c := range commands {
-		// Mark this command as committed.
-		c.State = command.CommandState_Committed
-
-		switch c.Type {
-		case command.CommandType_ScheduleActivity:
-			a := c.Attr.(*command.ScheduleActivityTaskCommandAttr)
-
-			scheduleActivityEvent := e.createNewEvent(
-				history.EventType_ActivityScheduled,
-				&history.ActivityScheduledAttributes{
-					Name:   a.Name,
-					Inputs: a.Inputs,
-				},
-				history.ScheduleEventID(c.ID),
-			)
-
-			newEvents = append(newEvents, scheduleActivityEvent)
-			activityEvents = append(activityEvents, scheduleActivityEvent)
-
-		case command.CommandType_ScheduleSubWorkflow:
-			a := c.Attr.(*command.ScheduleSubWorkflowCommandAttr)
-
-			newEvents = append(newEvents, e.createNewEvent(
-				history.EventType_SubWorkflowScheduled,
-				&history.SubWorkflowScheduledAttributes{
-					SubWorkflowInstance: a.Instance,
-					Name:                a.Name,
-					Inputs:              a.Inputs,
-				},
-				history.ScheduleEventID(c.ID),
-			))
-
-			// Send message to new workflow instance
-			workflowEvents = append(workflowEvents, history.WorkflowEvent{
-				WorkflowInstance: a.Instance,
-				HistoryEvent: e.createNewEvent(
-					history.EventType_WorkflowExecutionStarted,
-					&history.ExecutionStartedAttributes{
-						Name:   a.Name,
-						Inputs: a.Inputs,
-					},
-					history.ScheduleEventID(0),
-				),
-			})
-
-		case command.CommandType_CancelSubWorkflow:
-			a := c.Attr.(*command.CancelSubWorkflowCommandAttr)
-
-			// Record sub-workflow cancellation request event
-			newEvents = append(newEvents, e.createNewEvent(
-				history.EventType_SubWorkflowCancellationRequested,
-				&history.SubWorkflowScheduledAttributes{
-					SubWorkflowInstance: a.SubWorkflowInstance,
-				},
-			))
-
-			// Send cancellation event to sub-workflow
-			workflowEvents = append(workflowEvents, history.WorkflowEvent{
-				WorkflowInstance: a.SubWorkflowInstance,
-				HistoryEvent:     history.NewWorkflowCancellationEvent(time.Now()),
-			})
-
-		case command.CommandType_SideEffect:
-			a := c.Attr.(*command.SideEffectCommandAttr)
-			newEvents = append(newEvents, e.createNewEvent(
-				history.EventType_SideEffectResult,
-				&history.SideEffectResultAttributes{
-					Result: a.Result,
-				},
-				history.ScheduleEventID(c.ID),
-			))
-
-		case command.CommandType_ScheduleTimer:
-			a := c.Attr.(*command.ScheduleTimerCommandAttr)
-
-			newEvents = append(newEvents, e.createNewEvent(
-				history.EventType_TimerScheduled,
-				&history.TimerScheduledAttributes{
-					At: a.At,
-				},
-				history.ScheduleEventID(c.ID),
-			))
-
-			// Create timer_fired event which will become visible in the future
-			workflowEvents = append(workflowEvents, history.WorkflowEvent{
-				WorkflowInstance: instance,
-				HistoryEvent: e.createNewEvent(
-					history.EventType_TimerFired,
-					&history.TimerFiredAttributes{
-						At: a.At,
-					},
-					history.ScheduleEventID(c.ID),
-					history.VisibleAt(a.At),
-				)},
-			)
-
-		case command.CommandType_CancelTimer:
-			a := c.Attr.(*command.CancelTimerCommandAttr)
-
-			newEvents = append(newEvents, e.createNewEvent(
-				history.EventType_TimerCanceled,
-				&history.TimerCanceledAttributes{},
-				history.ScheduleEventID(a.TimerScheduleEventID),
-			))
-
-		case command.CommandType_CompleteWorkflow:
-			completed = true
-
-			a := c.Attr.(*command.CompleteWorkflowCommandAttr)
-
-			newEvents = append(newEvents, e.createNewEvent(
-				history.EventType_WorkflowExecutionFinished,
-				&history.ExecutionCompletedAttributes{
-					Result: a.Result,
-					Error:  a.Error,
-				},
-				history.ScheduleEventID(0),
-			))
-
-			if instance.SubWorkflow() {
-				// Send completion message back to parent workflow instance
-				var historyEvent history.Event
-
-				if a.Error != "" {
-					// Sub workflow failed
-					historyEvent = e.createNewEvent(
-						history.EventType_SubWorkflowFailed,
-						&history.SubWorkflowFailedAttributes{
-							Error: a.Error,
-						},
-						// Ensure the message gets sent back to the parent workflow with the right schedule event ID
-						history.ScheduleEventID(instance.ParentEventID),
-					)
-				} else {
-					historyEvent = e.createNewEvent(
-						history.EventType_SubWorkflowCompleted,
-						&history.SubWorkflowCompletedAttributes{
-							Result: a.Result,
-						},
-						// Ensure the message gets sent back to the parent workflow with the right schedule event ID
-						history.ScheduleEventID(instance.ParentEventID),
-					)
-				}
-
-				workflowEvents = append(workflowEvents, history.WorkflowEvent{
-					WorkflowInstance: core.NewWorkflowInstance(instance.ParentInstanceID, ""), // TODO: Do we need execution id here?
-					HistoryEvent:     historyEvent,
-				})
-			}
-
-		default:
-			return false, nil, nil, nil, fmt.Errorf("unknown command type: %v", c.Type)
-		}
-	}
-
-	return completed, newEvents, activityEvents, workflowEvents, nil
+	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, err)
+	e.workflowState.AddCommand(cmd)
 }
 
 func (e *executor) nextSequenceID() int64 {

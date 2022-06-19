@@ -407,8 +407,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	task *task.Workflow,
 	instance *workflow.Instance,
 	state backend.WorkflowState,
-	executedEvents []history.Event,
-	activityEvents []history.Event,
+	executedEvents, activityEvents, timerEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
@@ -473,6 +472,11 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		if err := scheduleActivity(ctx, tx, instance, e); err != nil {
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
+	}
+
+	// Timer events
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, timerEvents); err != nil {
+		return fmt.Errorf("scheduling timers: %w", err)
 	}
 
 	for _, event := range executedEvents {

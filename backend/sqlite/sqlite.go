@@ -76,7 +76,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 	}
 
 	// Initial history is empty, store only new events
-	if err := insertNewEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
+	if err := insertPendingEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}
 
@@ -143,7 +143,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 		return err
 	}
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instanceID, []history.Event{*event}); err != nil {
 		return fmt.Errorf("inserting cancellation event: %w", err)
 	}
 
@@ -200,7 +200,7 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 		return backend.ErrInstanceNotFound
 	}
 
-	if err := insertNewEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting signal event: %w", err)
 	}
 
@@ -303,8 +303,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	task *task.Workflow,
 	instance *workflow.Instance,
 	state backend.WorkflowState,
-	executedEvents []history.Event,
-	activityEvents []history.Event,
+	executedEvents, activityEvents, timerEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
@@ -365,6 +364,11 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 	}
 
+	// Timer events
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, timerEvents); err != nil {
+		return fmt.Errorf("scheduling timers: %w", err)
+	}
+
 	for _, event := range executedEvents {
 		switch event.Type {
 		case history.EventType_TimerCanceled:
@@ -393,7 +397,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 
 		// Insert pending events for target instance
-		if err := insertNewEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
+		if err := insertPendingEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
 		}
 	}
@@ -511,7 +515,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertNewEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new events for completed activity: %w", err)
 	}
 

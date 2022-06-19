@@ -47,24 +47,23 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs)
-	wfState.AddCommand(&cmd)
+	wfState.AddCommand(cmd)
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
 		c.AddReceiveCallback(func(v struct{}, ok bool) {
-			if cmd.State == command.CommandState_Committed {
+			if cmd.State() == command.CommandState_Committed {
 				// The command is committed, that means the sub-workflow is already started. Create and add a cancel command
 				// to stop the sub-workflow execution.
 				cancelScheduleEventID := wfState.GetNextScheduleEventID()
 
-				a := cmd.Attr.(*command.ScheduleSubWorkflowCommandAttr)
-				subworkflowCancellationCmd := command.NewCancelSubWorkflowCommand(cancelScheduleEventID, a.Instance)
-				wfState.AddCommand(&subworkflowCancellationCmd)
+				subworkflowCancellationCmd := command.NewCancelSubWorkflowCommand(cancelScheduleEventID, cmd.Instance)
+				wfState.AddCommand(subworkflowCancellationCmd)
 			} else {
 				// Remove command that would've started the sub-workflow
-				wfState.RemoveCommand(&cmd)
+				cmd.Done()
 
 				// Remove the sub-workflow future from the workflow state and mark it as canceled if it hasn't already fired
 				if fi, ok := f.(sync.FutureInternal[TResult]); ok {

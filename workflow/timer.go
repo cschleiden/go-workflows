@@ -21,7 +21,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	scheduleEventID := wfState.GetNextScheduleEventID()
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, Now(ctx).Add(delay))
-	wfState.AddCommand(&timerCmd)
+	wfState.AddCommand(timerCmd)
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
@@ -30,15 +30,14 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 		// Register a callback for when it's canceled. The only operation on the `Done` channel
 		// is that it's closed when the context is canceled.
 		c.AddReceiveCallback(func(v struct{}, ok bool) {
-			if timerCmd.State == command.CommandState_Committed {
+			if timerCmd.State() == command.CommandState_Committed {
 				// If the timer command is already committed, create a cancel command to allow the backend
 				// to clean up the scheduled timer message.
 				cancelScheduleEventID := wfState.GetNextScheduleEventID()
 				timerCancellationCmd := command.NewCancelTimerCommand(cancelScheduleEventID, scheduleEventID)
-				wfState.AddCommand(&timerCancellationCmd)
+				wfState.AddCommand(timerCancellationCmd)
 			} else {
-				// Remove command that would've scheduled the timer
-				wfState.RemoveCommand(&timerCmd)
+				timerCmd.Done()
 			}
 
 			// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired. This is different

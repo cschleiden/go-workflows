@@ -44,8 +44,8 @@ func executeActivity[TResult any](ctx sync.Context, options ActivityOptions, act
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	name := fn.Name(activity)
-	cmd := command.NewScheduleActivityTaskCommand(scheduleEventID, name, inputs)
-	wfState.AddCommand(&cmd)
+	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs)
+	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	// Handle cancellation
@@ -53,11 +53,9 @@ func executeActivity[TResult any](ctx sync.Context, options ActivityOptions, act
 		if c, ok := d.(sync.ChannelInternal[struct{}]); ok {
 			if _, ok := c.ReceiveNonBlocking(ctx); ok {
 				// Workflow has been canceled, check if the activity has already been scheduled, no need to schedule otherwise
-				if cmd.State != command.CommandState_Committed {
-					wfState.RemoveCommand(&cmd)
-
+				if cmd.State() != command.CommandState_Committed {
+					cmd.Done()
 					wfState.RemoveFuture(scheduleEventID)
-
 					f.Set(*new(TResult), sync.Canceled)
 				}
 			}

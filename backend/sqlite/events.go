@@ -84,7 +84,7 @@ func scanEvent(row Scanner) (history.Event, error) {
 	return historyEvent, nil
 }
 
-func insertNewEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
+func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
 	return insertEvents(ctx, tx, "pending_events", instanceID, newEvents)
 }
 

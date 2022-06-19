@@ -89,7 +89,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	require.Equal(t, 1, workflowHits)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
-	require.Equal(t, command.CommandType_CompleteWorkflow, e.workflowState.Commands()[0].Type)
+	require.IsType(t, &command.CompleteWorkflowCommand{}, e.workflowState.Commands()[0])
 }
 
 var workflowActivityHit int
@@ -162,7 +162,17 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 1)
+	require.Len(t, e.workflowState.Commands(), 2)
+}
+
+func pendingCommands(commands []command.Command) []command.Command {
+	var pending []command.Command
+	for _, c := range commands {
+		if c.State() == command.CommandState_Pending {
+			pending = append(pending, c)
+		}
+	}
+	return pending
 }
 
 func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
@@ -197,15 +207,10 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	require.Len(t, e.workflowState.Commands(), 1)
 
 	inputs, _ := converter.DefaultConverter.To(42)
-	require.Equal(t, command.Command{
-		ID:    1,
-		State: command.CommandState_Committed,
-		Type:  command.CommandType_ScheduleActivity,
-		Attr: &command.ScheduleActivityTaskCommandAttr{
-			Name:   "activity1",
-			Inputs: []payload.Payload{inputs},
-		},
-	}, *e.workflowState.Commands()[0])
+	require.IsType(t, &command.ScheduleActivityCommand{}, e.workflowState.Commands()[0])
+	require.Equal(t, command.CommandState_Committed, e.workflowState.Commands()[0].State())
+	require.Equal(t, "activity1", e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Name)
+	require.Equal(t, []payload.Payload{inputs}, e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Inputs)
 }
 
 var workflowTimerHits int
@@ -252,8 +257,8 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	require.Equal(t, 1, workflowTimerHits)
 	require.Len(t, e.workflowState.Commands(), 1)
 
-	require.Equal(t, int64(1), e.workflowState.Commands()[0].ID)
-	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.Commands()[0].Type)
+	require.Equal(t, int64(1), e.workflowState.Commands()[0].ID())
+	require.IsType(t, &command.ScheduleTimerCommand{}, e.workflowState.Commands()[0])
 }
 
 var workflowWithSelectorHits int
@@ -310,8 +315,8 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	require.Equal(t, 1, workflowWithSelectorHits)
 	require.Len(t, e.workflowState.Commands(), 2)
 
-	require.Equal(t, command.CommandType_ScheduleTimer, e.workflowState.Commands()[0].Type)
-	require.Equal(t, command.CommandType_ScheduleActivity, e.workflowState.Commands()[1].Type)
+	require.IsType(t, &command.ScheduleTimerCommand{}, e.workflowState.Commands()[0])
+	require.IsType(t, &command.ScheduleActivityCommand{}, e.workflowState.Commands()[1])
 }
 
 func Test_ExecuteNewEvents(t *testing.T) {
@@ -356,7 +361,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, workflowActivityHit)
 	require.False(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 0)
+	require.Len(t, e.workflowState.Commands(), 1)
 
 	h := []history.Event{}
 	h = append(h, oldTask.NewEvents...)
@@ -385,7 +390,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 1)
+	require.Len(t, e.workflowState.Commands(), 2)
 }
 
 func Test_ExecuteWorkflowWithSignal(t *testing.T) {
@@ -471,6 +476,7 @@ func Test_CompletesWorkflowOnError(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
+	require.Len(t, pendingCommands(e.workflowState.Commands()), 0)
 	require.True(t, r1.Completed)
 }
 
@@ -528,7 +534,7 @@ func Test_ClearCommandsBetweenTasks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, workflowActivityHit)
 	require.False(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 0)
+	require.Len(t, e.workflowState.Commands(), 1)
 	require.Len(t, r2.Executed, 2)
 }
 
@@ -590,7 +596,8 @@ func Test_ScheduleSubWorkflow_Cancel(t *testing.T) {
 	result, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
 	require.Len(t, result.Executed, 4)
-	require.Len(t, result.WorkflowEvents, 2)
+	require.Len(t, result.TimerEvents, 1)
+	require.Len(t, result.WorkflowEvents, 1)
 	require.Equal(t, history.EventType_WorkflowExecutionStarted, result.WorkflowEvents[0].HistoryEvent.Type)
 
 	subWorkflowInstance := result.WorkflowEvents[0].WorkflowInstance
@@ -598,10 +605,10 @@ func Test_ScheduleSubWorkflow_Cancel(t *testing.T) {
 	// Go past Sleep
 	hp.history = append(hp.history, result.Executed...)
 	result, err = e.ExecuteTask(context.Background(), continueTask("instanceID", []history.Event{
-		result.WorkflowEvents[1].HistoryEvent,
+		result.TimerEvents[0],
 	}, result.Executed[len(result.Executed)-1].SequenceID))
 	require.NoError(t, err)
-	require.Len(t, result.WorkflowEvents, 1)
+	require.Len(t, result.WorkflowEvents, 1, "Cancellation should have been requested")
 	require.Equal(t, history.EventType_WorkflowExecutionCanceled, result.WorkflowEvents[0].HistoryEvent.Type)
 	require.Equal(
 		t,
@@ -609,7 +616,7 @@ func Test_ScheduleSubWorkflow_Cancel(t *testing.T) {
 		result.WorkflowEvents[0].WorkflowInstance)
 
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 2)
+	require.Len(t, e.workflowState.Commands(), 4)
 }
 
 func startWorkflowTask(instanceID string, workflow interface{}) *task.Workflow {
