@@ -7,7 +7,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 )
 
-func SideEffect[TResult any](ctx sync.Context, f func(ctx sync.Context) TResult) Future[TResult] {
+func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TResult] {
 	future := sync.NewFuture[TResult]()
 
 	if ctx.Err() != nil {
