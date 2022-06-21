@@ -52,7 +52,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	span := workflowtracer.Tracer(ctx).Start(ctx,
+	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
 		fmt.Sprintf("ExecuteActivity: %s", name),
 		trace.WithAttributes(
 			attribute.String("name", name),

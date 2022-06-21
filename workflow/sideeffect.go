@@ -9,7 +9,7 @@ import (
 )
 
 func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TResult] {
-	span := workflowtracer.Tracer(ctx).Start(ctx, "SideEffect")
+	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "SideEffect")
 	defer span.End()
 
 	future := sync.NewFuture[TResult]()

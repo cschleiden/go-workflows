@@ -342,7 +342,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
-	var metadata *core.WorkflowInstanceMetadata
+	var metadata *core.WorkflowMetadata
 	if metadataJson.Valid {
 		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
 			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
@@ -630,7 +630,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	t := &task.Activity{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-		WorkflowMetadata: metadata,
+		Metadata:         metadata,
 		Event:            event,
 	}
 

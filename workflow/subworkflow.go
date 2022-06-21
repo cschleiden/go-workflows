@@ -6,6 +6,7 @@ import (
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/tracing"
@@ -50,12 +51,8 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
-	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs)
-	wfState.AddCommand(cmd)
 
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
-
-	span := workflowtracer.Tracer(ctx).Start(ctx,
+	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
 		fmt.Sprintf("CreateSubworkflowInstance: %s", name),
 		trace.WithAttributes(
 			attribute.String("name", name),
@@ -63,6 +60,13 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 			attribute.Int("attempt", attempt),
 		))
 	defer span.End()
+
+	metadata := &core.WorkflowMetadata{}
+	span.Marshal(metadata)
+
+	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs, metadata)
+	wfState.AddCommand(cmd)
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {

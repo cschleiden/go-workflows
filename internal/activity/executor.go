@@ -57,20 +57,19 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		e.logger)
 	activityCtx := WithActivityState(ctx, as)
 
-	activityCtx = tracing.UnmarshalSpan(activityCtx, task.WorkflowMetadata)
+	activityCtx = tracing.UnmarshalSpan(activityCtx, task.Metadata)
 	activityCtx, span := e.tracer.Start(activityCtx, "ActivityTaskExecution", trace.WithAttributes(
 		attribute.String("activity", a.Name),
 		attribute.String(tracing.WorkflowInstanceID, task.WorkflowInstance.InstanceID),
 		attribute.String(tracing.ActivityTaskID, task.ID),
 	))
+	defer span.End()
 
 	// Execute activity
 	if addContext {
 		args[0] = reflect.ValueOf(activityCtx)
 	}
 	r := activityFn.Call(args)
-
-	defer span.End()
 
 	if len(r) < 1 || len(r) > 2 {
 		return nil, errors.New("activity has to return either (error) or (<result>, error)")

@@ -14,11 +14,11 @@ var propagator propagation.TextMapPropagator = propagation.NewCompositeTextMapPr
 	propagation.Baggage{},
 )
 
-func MarshalSpan(ctx context.Context, metadata *core.WorkflowInstanceMetadata) {
+func MarshalSpan(ctx context.Context, metadata *core.WorkflowMetadata) {
 	propagator.Inject(ctx, metadata)
 }
 
-func UnmarshalSpan(ctx context.Context, metadata *core.WorkflowInstanceMetadata) context.Context {
+func UnmarshalSpan(ctx context.Context, metadata *core.WorkflowMetadata) context.Context {
 	return propagator.Extract(ctx, metadata)
 }
 

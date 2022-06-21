@@ -56,7 +56,7 @@ func main() {
 
 	otel.SetTracerProvider(tp)
 
-	b := samples.GetBackend("tracing", backend.WithTracerProvider(tp))
+	b := samples.GetBackend("tracing", backend.WithTracerProvider(tp), backend.WithStickyTimeout(0))
 
 	// Run worker
 	w := RunWorker(ctx, b)

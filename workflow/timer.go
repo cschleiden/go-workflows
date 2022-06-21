@@ -29,7 +29,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
 
-	span := workflowtracer.Tracer(ctx).Start(ctx, "ScheduleTimer",
+	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "ScheduleTimer",
 		trace.WithAttributes(
 			attribute.Int64("duration_ms", int64(delay/time.Millisecond)),
 			attribute.String("now", Now(ctx).String()),

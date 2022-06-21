@@ -12,14 +12,16 @@ type ScheduleSubWorkflowCommand struct {
 	command
 
 	Instance *core.WorkflowInstance
-	Name     string
-	Inputs   []payload.Payload
+	Metadata *core.WorkflowMetadata
+
+	Name   string
+	Inputs []payload.Payload
 }
 
 var _ Command = (*ScheduleSubWorkflowCommand)(nil)
 
 func NewScheduleSubWorkflowCommand(
-	id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload,
+	id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload, metadata *core.WorkflowMetadata,
 ) *ScheduleSubWorkflowCommand {
 	if subWorkflowInstanceID == "" {
 		subWorkflowInstanceID = uuid.New().String()
@@ -32,6 +34,7 @@ func NewScheduleSubWorkflowCommand(
 		},
 
 		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance.InstanceID, id),
+		Metadata: metadata,
 
 		Name:   name,
 		Inputs: inputs,
@@ -45,8 +48,6 @@ func (*ScheduleSubWorkflowCommand) Type() string {
 func (c *ScheduleSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
 	c.commit()
 
-	// TODO: TRACING: Add span
-
 	return &CommandResult{
 		// Record scheduled sub-workflow
 		Events: []history.Event{
@@ -55,6 +56,7 @@ func (c *ScheduleSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
 				history.EventType_SubWorkflowScheduled,
 				&history.SubWorkflowScheduledAttributes{
 					SubWorkflowInstance: c.Instance,
+					Metadata:            c.Metadata,
 					Name:                c.Name,
 					Inputs:              c.Inputs,
 				},
@@ -69,8 +71,9 @@ func (c *ScheduleSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
 					clock.Now(),
 					history.EventType_WorkflowExecutionStarted,
 					&history.ExecutionStartedAttributes{
-						Name:   c.Name,
-						Inputs: c.Inputs,
+						Name:     c.Name,
+						Inputs:   c.Inputs,
+						Metadata: c.Metadata,
 					},
 					history.ScheduleEventID(0),
 				),

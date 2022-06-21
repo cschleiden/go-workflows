@@ -12,8 +12,7 @@ type Workflow struct {
 	// WorkflowInstance is the workflow instance that this task is for
 	WorkflowInstance *core.WorkflowInstance
 
-	// TODO: Use this? Or make the span more explicit?
-	Metadata *core.WorkflowInstanceMetadata
+	Metadata *core.WorkflowMetadata
 
 	// LastSequenceID is the sequence ID of the newest event in the workflow instances's history
 	LastSequenceID int64

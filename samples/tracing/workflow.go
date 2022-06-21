@@ -45,7 +45,10 @@ func Activity1(ctx context.Context, a, b int) (int, error) {
 	logger.Debug("Entering Activity1")
 	defer logger.Debug("Leaving Activity1")
 
-	_, span := otel.Tracer("activity").Start(ctx, "Activity1")
+	ctx, span := otel.Tracer("activity").Start(ctx, "Custom Activity1 span")
+	defer span.End()
+
+	ctx, span = otel.Tracer("activity").Start(ctx, "Another one")
 	defer span.End()
 
 	time.Sleep(300 * time.Millisecond)

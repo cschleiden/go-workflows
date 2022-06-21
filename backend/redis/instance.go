@@ -107,7 +107,7 @@ type instanceState struct {
 	Instance *core.WorkflowInstance `json:"instance,omitempty"`
 	State    backend.WorkflowState  `json:"state,omitempty"`
 
-	Metadata *core.WorkflowInstanceMetadata `json:"metadata,omitempty"`
+	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
 
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
@@ -115,7 +115,7 @@ type instanceState struct {
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowInstanceMetadata, ignoreDuplicate bool) error {
+func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, ignoreDuplicate bool) error {
 	key := instanceKey(instance.InstanceID)
 
 	createdAt := time.Now()

@@ -10,7 +10,7 @@ import (
 )
 
 func Sleep(ctx sync.Context, d time.Duration) error {
-	span := workflowtracer.Tracer(ctx).Start(ctx, "Sleep",
+	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "Sleep",
 		trace.WithAttributes(attribute.Int64("duration_ms", int64(d/time.Millisecond))))
 	defer span.End()
 

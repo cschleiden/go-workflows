@@ -62,7 +62,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -118,7 +118,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		LastSequenceID:   3,
 	}
 
@@ -182,7 +182,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -235,7 +235,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -295,7 +295,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -335,7 +335,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	oldTask := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -373,7 +373,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	newTask := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: oldTask.WorkflowInstance,
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -419,7 +419,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -462,7 +462,7 @@ func Test_CompletesWorkflowOnError(t *testing.T) {
 	task1 := &task.Workflow{
 		ID:               "taskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -498,7 +498,7 @@ func Test_ClearCommandsBetweenTasks(t *testing.T) {
 	task1 := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -526,7 +526,7 @@ func Test_ClearCommandsBetweenTasks(t *testing.T) {
 	task2 := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -635,7 +635,7 @@ func startWorkflowTask(instanceID string, workflow interface{}) *task.Workflow {
 	return &task.Workflow{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -653,7 +653,7 @@ func continueTask(instanceID string, newEvents []history.Event, lastSequenceID i
 	return &task.Workflow{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
-		Metadata:         &core.WorkflowInstanceMetadata{},
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents:        newEvents,
 		LastSequenceID:   lastSequenceID,
 	}

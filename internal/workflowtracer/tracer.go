@@ -3,7 +3,9 @@ package workflowtracer
 import (
 	"context"
 
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -24,6 +26,22 @@ func Tracer(ctx sync.Context) *WorkflowTracer {
 	panic("no tracer in context")
 }
 
+type spanContextKeyType int
+
+const spanKey spanContextKeyType = iota
+
+func ContextWithSpan(ctx sync.Context, span trace.Span) sync.Context {
+	return sync.WithValue(ctx, spanKey, span)
+}
+
+func SpanFromContext(ctx sync.Context) *trace.Span {
+	if span, ok := ctx.Value(spanKey).(trace.Span); ok {
+		return &span
+	}
+
+	return nil
+}
+
 type WorkflowTracer struct {
 	parentSpan trace.Span
 	tracer     trace.Tracer
@@ -39,15 +57,40 @@ func (wt *WorkflowTracer) UpdateExecution(span trace.Span) {
 	wt.parentSpan = span
 }
 
-func (wt *WorkflowTracer) Start(ctx sync.Context, name string, opts ...trace.SpanStartOption) trace.Span {
-	sctx := trace.ContextWithSpan(context.Background(), wt.parentSpan)
-	sctx, span := wt.tracer.Start(sctx, name, opts...)
+func (wt *WorkflowTracer) Start(ctx sync.Context, name string, opts ...trace.SpanStartOption) (sync.Context, Span) {
+	parentSpan := wt.parentSpan
 
-	state := workflowstate.WorkflowState(ctx)
-	if state.Replaying() {
-		sctx = trace.ContextWithSpanContext(sctx, span.SpanContext())
-		return trace.SpanFromContext(sctx)
+	// Try to get parent span from ctx, otherwise use the one from the tracer instance
+	if span := SpanFromContext(ctx); span != nil {
+		parentSpan = *span
 	}
 
-	return span
+	state := workflowstate.WorkflowState(ctx)
+
+	sctx := trace.ContextWithSpan(context.Background(), parentSpan)
+	opts = append(opts, trace.WithTimestamp(state.Time()))
+	sctx, span := wt.tracer.Start(sctx, name, opts...)
+
+	if state.Replaying() {
+		sctx = trace.ContextWithSpanContext(sctx, span.SpanContext())
+		span = trace.SpanFromContext(sctx)
+	}
+
+	return ContextWithSpan(ctx, span), Span{span, state}
+}
+
+type Span struct {
+	span  trace.Span
+	state *workflowstate.WfState
+}
+
+func (s *Span) End() {
+	if !s.state.Replaying() {
+		// Only end the trace when we are not replaying
+		s.span.End()
+	}
+}
+
+func (s *Span) Marshal(metadata *core.WorkflowMetadata) {
+	tracing.MarshalSpan(trace.ContextWithSpan(context.Background(), s.span), metadata)
 }

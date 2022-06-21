@@ -82,7 +82,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	}
 
 	// Initial history is empty, store only new events
-	if err := insertPendingEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}
 
@@ -274,7 +274,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
-	var metadata *core.WorkflowInstanceMetadata
+	var metadata *core.WorkflowMetadata
 	if metadataJson.Valid {
 		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
 			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
@@ -511,7 +511,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	t := &task.Activity{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
-		WorkflowMetadata: metadata,
+		Metadata:         metadata,
 		Event:            event,
 	}
 
