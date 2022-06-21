@@ -86,6 +86,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	ctx, span := e.tracer.Start(ctx, "WorkflowTaskExecution", trace.WithAttributes(
 		attribute.String(tracing.WorkflowInstanceID, t.WorkflowInstance.InstanceID),
 		attribute.String(tracing.WorkflowTaskID, t.ID),
+		attribute.Int(tracing.WorkflowTaskEvents, len(t.NewEvents)),
 	))
 	defer span.End()
 
