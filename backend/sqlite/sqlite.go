@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -63,7 +65,11 @@ func (sb *sqliteBackend) Logger() log.Logger {
 	return sb.options.Logger
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.WorkflowEvent) error {
+func (sb *sqliteBackend) Tracer() trace.Tracer {
+	return sb.options.TracerProvider.Tracer(backend.TracerName)
+}
+
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction: %w", err)
@@ -71,12 +77,11 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, m.WorkflowInstance, false); err != nil {
+	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
 		return err
 	}
 
-	// Initial history is empty, store only new events
-	if err := insertPendingEvents(ctx, tx, m.WorkflowInstance.InstanceID, []history.Event{m.HistoryEvent}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}
 
@@ -87,7 +92,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, m history.W
 	return nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ignoreDuplicate bool) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
 	var parentInstanceID *string
 	var parentEventID *int64
 	if wfi.SubWorkflow() {
@@ -98,13 +103,19 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, ign
 		parentEventID = &n
 	}
 
+	metadataJson, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshaling metadata: %w", err)
+	}
+
 	res, err := tx.ExecContext(
 		ctx,
-		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_schedule_event_id) VALUES (?, ?, ?, ?)",
+		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_schedule_event_id, metadata) VALUES (?, ?, ?, ?, ?)",
 		wfi.InstanceID,
 		wfi.ExecutionID,
 		parentInstanceID,
 		parentEventID,
+		string(metadataJson),
 	)
 	if err != nil {
 		return fmt.Errorf("inserting workflow instance: %w", err)
@@ -233,7 +244,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 						)
 					LIMIT 1
-			) RETURNING id, execution_id, parent_instance_id, parent_schedule_event_id, sticky_until`,
+			) RETURNING id, execution_id, parent_instance_id, parent_schedule_event_id, metadata, sticky_until`,
 		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
 		now,           // locked_until
@@ -245,8 +256,9 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	var instanceID, executionID string
 	var parentInstanceID *string
 	var parentEventID *int64
+	var metadataJson sql.NullString
 	var stickyUntil *time.Time
-	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID, &stickyUntil); err != nil {
+	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -261,9 +273,17 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
+	var metadata *core.WorkflowMetadata
+	if metadataJson.Valid {
+		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
+			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
+		}
+	}
+
 	t := &task.Workflow{
 		ID:               wfi.InstanceID,
 		WorkflowInstance: wfi,
+		Metadata:         metadata,
 		NewEvents:        []history.Event{},
 	}
 
@@ -379,20 +399,18 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 
 	// Insert new workflow events
-	groupedEvents := make(map[*workflow.Instance][]history.Event)
-	for _, m := range workflowEvents {
-		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
-			groupedEvents[m.WorkflowInstance] = []history.Event{}
-		}
-
-		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
-	}
+	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
 	for targetInstance, events := range groupedEvents {
-		if instance.InstanceID != targetInstance.InstanceID {
-			// Create new instance
-			if err := createInstance(ctx, tx, targetInstance, true); err != nil {
-				return err
+		for _, event := range events {
+			if event.Type == history.EventType_WorkflowExecutionStarted {
+				a := event.Attributes.(*history.ExecutionStartedAttributes)
+				// Create new instance
+				if err := createInstance(ctx, tx, targetInstance, a.Metadata, true); err != nil {
+					return err
+				}
+
+				break
 			}
 		}
 
@@ -479,9 +497,20 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 
 	event.Attributes = a
 
+	var metadataJson sql.NullString
+	if err := tx.QueryRowContext(ctx, "SELECT metadata FROM instances WHERE id = ?", instanceID).Scan(&metadataJson); err != nil {
+		return nil, fmt.Errorf("scanning metadata: %w", err)
+	}
+
+	var metadata *workflow.Metadata
+	if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
+		return nil, fmt.Errorf("unmarshaling metadata: %w", err)
+	}
+
 	t := &task.Activity{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
+		Metadata:         metadata,
 		Event:            event,
 	}
 

@@ -10,5 +10,7 @@ type Activity struct {
 
 	WorkflowInstance *core.WorkflowInstance
 
+	Metadata *core.WorkflowMetadata
+
 	Event history.Event
 }

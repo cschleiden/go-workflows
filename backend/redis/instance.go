@@ -9,11 +9,12 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/go-redis/redis/v8"
 )
 
-func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event history.WorkflowEvent) error {
-	state, err := readInstance(ctx, rb.rdb, event.WorkflowInstance.InstanceID)
+func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
+	state, err := readInstance(ctx, rb.rdb, instance.InstanceID)
 	if err != nil && err != backend.ErrInstanceNotFound {
 		return err
 	}
@@ -24,18 +25,18 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 
 	p := rb.rdb.TxPipeline()
 
-	if err := createInstanceP(ctx, p, event.WorkflowInstance, false); err != nil {
+	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
 		return err
 	}
 
 	// Create event stream
-	eventData, err := json.Marshal(event.HistoryEvent)
+	eventData, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
 	p.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(event.WorkflowInstance.InstanceID),
+		Stream: pendingEventsKey(instance.InstanceID),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
@@ -43,10 +44,8 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, event histor
 	})
 
 	// Queue workflow instance task
-	if err := rb.workflowQueue.Enqueue(ctx, p, event.WorkflowInstance.InstanceID, nil); err != nil {
-		if err != errTaskAlreadyInQueue {
-			return fmt.Errorf("queueing workflow task: %w", err)
-		}
+	if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, nil); err != nil {
+		return fmt.Errorf("queueing workflow task: %w", err)
 	}
 
 	if _, err := p.Exec(ctx); err != nil {
@@ -105,14 +104,18 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
-	Instance       *core.WorkflowInstance `json:"instance,omitempty"`
-	State          backend.WorkflowState  `json:"state,omitempty"`
-	CreatedAt      time.Time              `json:"created_at,omitempty"`
-	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
-	LastSequenceID int64                  `json:"last_sequence_id,omitempty"`
+	Instance *core.WorkflowInstance `json:"instance,omitempty"`
+	State    backend.WorkflowState  `json:"state,omitempty"`
+
+	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
+
+	CreatedAt   time.Time  `json:"created_at,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, ignoreDuplicate bool) error {
+func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, ignoreDuplicate bool) error {
 	key := instanceKey(instance.InstanceID)
 
 	createdAt := time.Now()
@@ -120,6 +123,7 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	b, err := json.Marshal(&instanceState{
 		Instance:  instance,
 		State:     backend.WorkflowStateActive,
+		Metadata:  metadata,
 		CreatedAt: createdAt,
 	})
 	if err != nil {

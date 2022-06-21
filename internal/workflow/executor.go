@@ -13,8 +13,12 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/cschleiden/go-workflows/log"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ExecutionResult struct {
@@ -39,30 +43,58 @@ type executor struct {
 	registry          *Registry
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
+	workflowTracer    *workflowtracer.WorkflowTracer
 	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
 	clock             clock.Clock
 	logger            log.Logger
+	tracer            trace.Tracer
 	lastSequenceID    int64
 }
 
-func NewExecutor(logger log.Logger, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
-	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
+
+	wfTracer := workflowtracer.New(tracer)
+
+	wfCtx, cancel := sync.WithCancel(
+		workflowstate.WithWorkflowState(
+			workflowtracer.WithWorkflowTracer(
+				sync.Background(),
+				wfTracer,
+			),
+			s,
+		),
+	)
 
 	return &executor{
 		registry:          registry,
 		historyProvider:   historyProvider,
+		workflowTracer:    wfTracer,
 		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
 		clock:             clock,
 		logger:            logger,
+		tracer:            tracer,
 	}, nil
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
+	ctx = tracing.UnmarshalSpan(ctx, t.Metadata)
+	ctx, span := e.tracer.Start(ctx, "WorkflowTaskExecution", trace.WithAttributes(
+		attribute.String(tracing.WorkflowInstanceID, t.WorkflowInstance.InstanceID),
+		attribute.String(tracing.WorkflowTaskID, t.ID),
+		attribute.Int(tracing.WorkflowTaskEvents, len(t.NewEvents)),
+	))
+	defer span.End()
+
+	// Make the current span available to the tracer that we pass into the workflow execution. With caching
+	// the executor instance might be used for multiple workflow tasks and we want calls made in each task
+	// execution to be associated with the span for the WorkflowTaskExecution.
+	e.workflowTracer.UpdateExecution(span)
+
 	logger := e.logger.With("task_id", t.ID, "instance_id", t.WorkflowInstance.InstanceID)
 
 	logger.Debug("Executing workflow task")
@@ -185,7 +217,7 @@ func (e *executor) executeNewEvents(newEvents []history.Event) ([]history.Event,
 func (e *executor) Close() {
 	if e.workflow != nil {
 		// End workflow if running to prevent leaking goroutines
-		e.workflow.Close(e.workflowCtx)
+		e.workflow.Close()
 	}
 }
 
@@ -267,7 +299,7 @@ func (e *executor) handleWorkflowExecutionStarted(a *history.ExecutionStartedAtt
 func (e *executor) handleWorkflowCanceled() error {
 	e.workflowCtxCancel()
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.WorkflowTaskStartedAttributes) error {
@@ -308,7 +340,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 		return fmt.Errorf("setting activity completed result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleActivityFailed(event history.Event, a *history.ActivityFailedAttributes) error {
@@ -321,7 +353,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 		return fmt.Errorf("setting activity failed result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerScheduledAttributes) error {
@@ -350,7 +382,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 		return fmt.Errorf("setting timer fired result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanceledAttributes) error {
@@ -364,7 +396,7 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 		return fmt.Errorf("setting timer canceled result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
@@ -399,7 +431,7 @@ func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *
 
 	c.Done()
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
@@ -412,7 +444,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 		return fmt.Errorf("setting sub workflow failed result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.SubWorkflowCompletedAttributes) error {
@@ -425,14 +457,14 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 		return fmt.Errorf("setting sub workflow completed result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
 	// Send signal to workflow channel
-	workflowstate.ReceiveSignal(e.workflowCtx, e.workflowState, a.Name, a.Arg)
+	workflowstate.ReceiveSignal(e.workflowState, a.Name, a.Arg)
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
@@ -445,7 +477,7 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 		return fmt.Errorf("setting side effect result result: %w", err)
 	}
 
-	return e.workflow.Continue(e.workflowCtx)
+	return e.workflow.Continue()
 }
 
 func (e *executor) workflowCompleted(result payload.Payload, err error) {

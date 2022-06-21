@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS `instances` (
   `execution_id` NVARCHAR(128) NOT NULL,
   `parent_instance_id` NVARCHAR(128) NULL,
   `parent_schedule_event_id` BIGINT NULL,
+  `metadata` BLOB NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `completed_at` DATETIME NULL,
   `locked_until` DATETIME NULL,

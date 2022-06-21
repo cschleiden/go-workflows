@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -71,7 +72,7 @@ func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	addFutureEventCmd.Run(
 		ctx, p,
 		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID)},
-		event.VisibleAt.Unix(),
+		strconv.FormatInt(event.VisibleAt.UnixMilli(), 10),
 		instance.InstanceID,
 		string(eventData),
 	)

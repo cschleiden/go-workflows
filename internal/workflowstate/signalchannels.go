@@ -6,10 +6,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
-func ReceiveSignal(ctx sync.Context, wf *WfState, name string, arg payload.Payload) {
+func ReceiveSignal(wf *WfState, name string, arg payload.Payload) {
 	sc, ok := wf.signalChannels[name]
 	if ok {
-		sc.receive(ctx, arg)
+		sc.receive(arg)
 		return
 	}
 
@@ -34,7 +34,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 
 	// Add channel to map
 	wf.signalChannels[name] = &signalChannel{
-		receive: func(ctx sync.Context, input payload.Payload) {
+		receive: func(input payload.Payload) {
 			var t T
 			if err := converter.DefaultConverter.From(input, &t); err != nil {
 				panic(err)
@@ -42,7 +42,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 
 			// Channel is buffered, so we can just send without waiting and potentially
 			// blocking on a Yield.
-			c.SendNonblocking(ctx, t)
+			c.SendNonblocking(t)
 		},
 		channel: c,
 	}

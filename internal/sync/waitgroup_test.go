@@ -27,7 +27,7 @@ func Test_WaitGroup_Blocks(t *testing.T) {
 		return nil
 	})
 
-	s.Execute(ctx)
+	s.Execute()
 	require.Equal(t, 1, s.RunningCoroutines())
 
 	s.NewCoroutine(ctx, func(ctx Context) error {
@@ -36,7 +36,7 @@ func Test_WaitGroup_Blocks(t *testing.T) {
 		return nil
 	})
 
-	s.Execute(ctx)
+	s.Execute()
 	require.Equal(t, 1, s.RunningCoroutines())
 
 	s.NewCoroutine(ctx, func(ctx Context) error {
@@ -45,6 +45,6 @@ func Test_WaitGroup_Blocks(t *testing.T) {
 		return nil
 	})
 
-	s.Execute(ctx)
+	s.Execute()
 	require.Equal(t, 0, s.RunningCoroutines())
 }

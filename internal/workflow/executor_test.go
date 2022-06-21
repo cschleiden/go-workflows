@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"log"
-	"reflect"
 	"testing"
 	"time"
 
@@ -17,10 +16,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type testHistoryProvider struct {
@@ -33,19 +32,14 @@ func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, in
 
 func newExecutor(r *Registry, i *core.WorkflowInstance, workflow interface{}, historyProvider WorkflowHistoryProvider) *executor {
 	logger := logger.NewDefaultLogger()
-	s := workflowstate.NewWorkflowState(i, logger, clock.New())
-	wfCtx, cancel := sync.WithCancel(workflowstate.WithWorkflowState(sync.Background(), s))
+	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	return &executor{
-		registry:          r,
-		workflow:          NewWorkflow(reflect.ValueOf(workflow)),
-		historyProvider:   historyProvider,
-		workflowState:     s,
-		workflowCtx:       wfCtx,
-		workflowCtxCancel: cancel,
-		logger:            logger,
-		clock:             clock.New(),
+	e, err := NewExecutor(logger, tracer, r, historyProvider, i, clock.New())
+	if err != nil {
+		panic(err)
 	}
+
+	return e.(*executor)
 }
 
 func activity1(ctx context.Context, r int) (int, error) {
@@ -68,6 +62,7 @@ func Test_ExecuteWorkflow(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -123,6 +118,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		LastSequenceID:   3,
 	}
 
@@ -159,7 +155,7 @@ func Test_ReplayWorkflowWithActivityResult(t *testing.T) {
 
 	_, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
-
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 2)
@@ -186,6 +182,7 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -201,8 +198,9 @@ func Test_ExecuteWorkflowWithActivityCommand(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance, workflowWithActivity, &testHistoryProvider{})
 
-	e.ExecuteTask(context.Background(), task)
-
+	_, err := e.ExecuteTask(context.Background(), task)
+	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 1, workflowActivityHit)
 	require.Len(t, e.workflowState.Commands(), 1)
 
@@ -237,6 +235,7 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -252,8 +251,9 @@ func Test_ExecuteWorkflowWithTimer(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance, workflowWithTimer, &testHistoryProvider{})
 
-	e.ExecuteTask(context.Background(), task)
-
+	_, err := e.ExecuteTask(context.Background(), task)
+	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 1, workflowTimerHits)
 	require.Len(t, e.workflowState.Commands(), 1)
 
@@ -295,6 +295,7 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -310,8 +311,9 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 
 	e := newExecutor(r, task.WorkflowInstance, workflowWithSelector, &testHistoryProvider{})
 
-	e.ExecuteTask(context.Background(), task)
-
+	_, err := e.ExecuteTask(context.Background(), task)
+	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 1, workflowWithSelectorHits)
 	require.Len(t, e.workflowState.Commands(), 2)
 
@@ -333,6 +335,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	oldTask := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -357,8 +360,8 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	e := newExecutor(r, oldTask.WorkflowInstance, workflowWithActivity, &testHistoryProvider{[]history.Event{}})
 
 	taskResult, err := e.ExecuteTask(context.Background(), oldTask)
-
 	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 1, workflowActivityHit)
 	require.False(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
@@ -370,6 +373,7 @@ func Test_ExecuteNewEvents(t *testing.T) {
 	newTask := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: oldTask.WorkflowInstance,
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewHistoryEvent(
 				1,
@@ -386,8 +390,8 @@ func Test_ExecuteNewEvents(t *testing.T) {
 
 	// Execute the workflow again with the activity completed event
 	_, err = e.ExecuteTask(context.Background(), newTask)
-
 	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 2, workflowActivityHit)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 2)
@@ -415,6 +419,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 	task := &task.Workflow{
 		ID:               "taskID",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -439,7 +444,7 @@ func Test_ExecuteWorkflowWithSignal(t *testing.T) {
 
 	_, err = e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
-
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 1, workflowSignalHits)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
@@ -457,6 +462,7 @@ func Test_CompletesWorkflowOnError(t *testing.T) {
 	task1 := &task.Workflow{
 		ID:               "taskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -474,6 +480,7 @@ func Test_CompletesWorkflowOnError(t *testing.T) {
 
 	r1, err := e.ExecuteTask(context.Background(), task1)
 	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.True(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
 	require.Len(t, pendingCommands(e.workflowState.Commands()), 0)
@@ -491,6 +498,7 @@ func Test_ClearCommandsBetweenTasks(t *testing.T) {
 	task1 := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -508,6 +516,7 @@ func Test_ClearCommandsBetweenTasks(t *testing.T) {
 
 	r1, err := e.ExecuteTask(context.Background(), task1)
 	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Equal(t, 1, workflowActivityHit)
 	require.False(t, e.workflow.Completed())
 	require.Len(t, e.workflowState.Commands(), 1)
@@ -517,6 +526,7 @@ func Test_ClearCommandsBetweenTasks(t *testing.T) {
 	task2 := &task.Workflow{
 		ID:               "oldtaskid",
 		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -561,6 +571,7 @@ func Test_ScheduleSubWorkflow(t *testing.T) {
 	e := newExecutor(r, task.WorkflowInstance, workflow, hp)
 	result, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Len(t, result.Executed, 3)
 	require.Len(t, result.WorkflowEvents, 1)
 	require.Equal(t, history.EventType_WorkflowExecutionStarted, result.WorkflowEvents[0].HistoryEvent.Type)
@@ -595,6 +606,7 @@ func Test_ScheduleSubWorkflow_Cancel(t *testing.T) {
 	e := newExecutor(r, task.WorkflowInstance, workflow, hp)
 	result, err := e.ExecuteTask(context.Background(), task)
 	require.NoError(t, err)
+	require.NoError(t, e.workflow.err)
 	require.Len(t, result.Executed, 4)
 	require.Len(t, result.TimerEvents, 1)
 	require.Len(t, result.WorkflowEvents, 1)
@@ -623,6 +635,7 @@ func startWorkflowTask(instanceID string, workflow interface{}) *task.Workflow {
 	return &task.Workflow{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents: []history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -640,6 +653,7 @@ func continueTask(instanceID string, newEvents []history.Event, lastSequenceID i
 	return &task.Workflow{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
+		Metadata:         &core.WorkflowMetadata{},
 		NewEvents:        newEvents,
 		LastSequenceID:   lastSequenceID,
 	}

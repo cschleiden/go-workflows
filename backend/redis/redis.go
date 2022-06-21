@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/go-redis/redis/v8"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type RedisOptions struct {
@@ -50,7 +51,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	// Default options
 	options := &RedisOptions{
 		Options:      backend.ApplyOptions(),
-		BlockTimeout: time.Second * 5,
+		BlockTimeout: time.Second * 2,
 	}
 
 	for _, opt := range opts {
@@ -103,6 +104,10 @@ type activityData struct {
 
 func (rb *redisBackend) Logger() log.Logger {
 	return rb.options.Logger
+}
+
+func (rb *redisBackend) Tracer() trace.Tracer {
+	return rb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
 func (rb *redisBackend) Close() error {

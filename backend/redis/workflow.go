@@ -12,7 +12,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/go-redis/redis/v8"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Find all due future events. For each event:
@@ -54,8 +57,8 @@ var futureEventsCmd = redis.NewScript(`
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
 	// Check for future events
-	now := time.Now().Unix()
-	nowStr := strconv.Itoa(int(now))
+	now := time.Now().UnixMilli()
+	nowStr := strconv.FormatInt(now, 10)
 
 	queueKeys := rb.workflowQueue.Keys()
 
@@ -82,14 +85,13 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, fmt.Errorf("reading workflow instance: %w", err)
 	}
 
-	// New Events
-	newEvents := make([]history.Event, 0)
-
+	// Read all pending events for this instance
 	msgs, err := rb.rdb.XRange(ctx, pendingEventsKey(instanceTask.ID), "-", "+").Result()
 	if err != nil {
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
 
+	newEvents := make([]history.Event, 0, len(msgs))
 	for _, msg := range msgs {
 		var event history.Event
 
@@ -118,9 +120,10 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	return &task.Workflow{
 		ID:               instanceTask.TaskID,
 		WorkflowInstance: instanceState.Instance,
+		Metadata:         instanceState.Metadata,
 		LastSequenceID:   instanceState.LastSequenceID,
 		NewEvents:        newEvents,
-		CustomData:       msgs[len(msgs)-1].ID, // Id of last pending message in stream
+		CustomData:       msgs[len(msgs)-1].ID, // Id of last pending message in stream at this point
 	}, nil
 }
 
@@ -196,18 +199,19 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	// Send new workflow events to the respective streams
-	groupedEvents := eventsByWorkflowInstance(workflowEvents)
+	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 	for targetInstance, events := range groupedEvents {
-		if instance.InstanceID != targetInstance.InstanceID {
-			// Instance might not exist, try to create a new instance ignoring any duplicates
-			if err := createInstanceP(ctx, p, targetInstance, true); err != nil {
-				return err
-			}
-		}
-
 		// Insert pending events for target instance
 		for _, event := range events {
 			event := event
+
+			if event.Type == history.EventType_WorkflowExecutionStarted {
+				// Create new instance
+				a := event.Attributes.(*history.ExecutionStartedAttributes)
+				if err := createInstanceP(ctx, p, targetInstance, a.Metadata, true); err != nil {
+					return err
+				}
+			}
 
 			// Add pending event to stream
 			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstance.InstanceID), &event); err != nil {
@@ -286,6 +290,15 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		return fmt.Errorf("completing workflow task: %w", err)
 	}
 
+	if state == backend.WorkflowStateFinished {
+		ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
+		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
+			trace.WithAttributes(
+				attribute.String("workflow_instance_id", instanceState.Instance.InstanceID),
+			))
+		span.End()
+	}
+
 	return nil
 }
 
@@ -301,18 +314,4 @@ func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.P
 	}
 
 	return nil
-}
-
-func eventsByWorkflowInstance(events []history.WorkflowEvent) map[*core.WorkflowInstance][]history.Event {
-	groupedEvents := make(map[*core.WorkflowInstance][]history.Event)
-
-	for _, m := range events {
-		if _, ok := groupedEvents[m.WorkflowInstance]; !ok {
-			groupedEvents[m.WorkflowInstance] = []history.Event{}
-		}
-
-		groupedEvents[m.WorkflowInstance] = append(groupedEvents[m.WorkflowInstance], m.HistoryEvent)
-	}
-
-	return groupedEvents
 }
