@@ -60,7 +60,7 @@ type mysqlBackend struct {
 }
 
 // CreateWorkflowInstance creates a new workflow instance
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error {
+func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -70,7 +70,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, metadata, false); err != nil {
+	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
 		return err
 	}
 
@@ -580,10 +580,11 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	now := time.Now()
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT id, activity_id, instance_id, execution_id, instances.metadata, event_type, timestamp, schedule_event_id, attributes, visible_at
+		`SELECT activities.id, activity_id, activities.instance_id, activities.execution_id,
+			instances.metadata, event_type, timestamp, schedule_event_id, attributes, visible_at
 			FROM activities
 				INNER JOIN instances ON activities.instance_id = instances.instance_id
-			WHERE locked_until IS NULL OR locked_until < ?
+			WHERE activities.locked_until IS NULL OR activities.locked_until < ?
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED`,
 		now,

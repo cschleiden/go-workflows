@@ -13,7 +13,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error {
+func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
 	state, err := readInstance(ctx, rb.rdb, instance.InstanceID)
 	if err != nil && err != backend.ErrInstanceNotFound {
 		return err
@@ -25,7 +25,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 
 	p := rb.rdb.TxPipeline()
 
-	if err := createInstanceP(ctx, p, instance, metadata, false); err != nil {
+	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
 		return err
 	}
 

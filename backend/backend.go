@@ -27,7 +27,7 @@ const TracerName = "go-workflow"
 //go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
-	CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error
+	CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error
 
 	// CancelWorkflowInstance cancels a running workflow instance
 	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, cancelEvent *history.Event) error

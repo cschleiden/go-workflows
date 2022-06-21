@@ -59,18 +59,9 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	}
 
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
+	metadata := &workflow.Metadata{}
 
 	workflowName := fn.Name(wf)
-
-	startedEvent := history.NewPendingEvent(
-		c.clock.Now(),
-		history.EventType_WorkflowExecutionStarted,
-		&history.ExecutionStartedAttributes{
-			Name:   workflowName,
-			Inputs: inputs,
-		})
-
-	metadata := &workflow.Metadata{}
 
 	// Start new span and add to metadata
 	sctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(
@@ -81,7 +72,16 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 
 	tracing.MarshalSpan(sctx, metadata)
 
-	if err := c.backend.CreateWorkflowInstance(ctx, wfi, metadata, startedEvent); err != nil {
+	startedEvent := history.NewPendingEvent(
+		c.clock.Now(),
+		history.EventType_WorkflowExecutionStarted,
+		&history.ExecutionStartedAttributes{
+			Metadata: metadata,
+			Name:     workflowName,
+			Inputs:   inputs,
+		})
+
+	if err := c.backend.CreateWorkflowInstance(ctx, wfi, startedEvent); err != nil {
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 

@@ -69,7 +69,7 @@ func (sb *sqliteBackend) Tracer() trace.Tracer {
 	return sb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, metadata *workflow.Metadata, event history.Event) error {
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction: %w", err)
@@ -77,11 +77,10 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, metadata, false); err != nil {
+	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
 		return err
 	}
 
-	// Initial history is empty, store only new events
 	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}

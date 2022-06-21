@@ -483,6 +483,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
+				Metadata:         &core.WorkflowMetadata{},
 				WorkflowInstance: wfi,
 				Event:            event,
 			})
@@ -617,8 +618,9 @@ func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interf
 		wt.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
-			Name:   name,
-			Inputs: inputs,
+			Name:     name,
+			Metadata: &core.WorkflowMetadata{},
+			Inputs:   inputs,
 		},
 	)
 }
@@ -631,6 +633,7 @@ func getNextWorkflowTask(wfi *core.WorkflowInstance, history []history.Event, ne
 
 	return &task.Workflow{
 		WorkflowInstance: wfi,
+		Metadata:         &core.WorkflowMetadata{},
 		LastSequenceID:   lastSequenceID,
 		NewEvents:        newEvents,
 	}
