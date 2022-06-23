@@ -339,7 +339,7 @@ func Workflow(ctx workflow.Context) error {
 
 	// Pause workflow until signal is received
 	workflow.Select(ctx,
-		workflow.Receive(, func(ctx workflow.Context, r string, ok bool) {
+		workflow.Receive(signalCh, func(ctx workflow.Context, r string, ok bool) {
 			logger.Debug("Received signal:", r)
 		}),
 	)
