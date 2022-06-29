@@ -7,6 +7,8 @@ import (
 	"github.com/cschleiden/go-workflows/activity"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Inputs struct {
@@ -18,6 +20,15 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 	logger := workflow.Logger(ctx)
 	logger.Debug("Entering Workflow1", "msg", msg, "times", times, "inputs", inputs)
 	defer logger.Debug("Leaving Workflow1")
+
+	ctx, span := workflow.Tracer(ctx).Start(ctx, "Workflow1 span", trace.WithAttributes(
+		// Add additional
+		attribute.String("msg", "hello world"),
+	))
+
+	// Do something
+
+	span.End()
 
 	workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 

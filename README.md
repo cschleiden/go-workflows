@@ -536,6 +536,40 @@ logger := activity.Logger(ctx)
 
 The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance and execution IDs set as default fields.
 
+### Tracing
+
+The library supports tracing via [OpenTelemetry](https://opentelemetry.io/). When you pass a `TracerProvider` when creating a backend instance, workflow execution will be traced. You can also add additional spans for both activities and workflows.
+
+_Note: the support is considered experimental right now, if you decide to use it, please leave feedback_
+
+#### Activities
+
+The `context.Context` passed into activities is set up with the correct current span. If you create additional spans, they'll show up under the `ActivityTaskExecution`:
+
+```go
+func Activity1(ctx context.Context, a, b int) (int, error) {
+	ctx, span := otel.Tracer("activity1").Start(ctx, "Custom Activity1 span")
+	defer span.End()
+
+	// Do something
+}
+```
+
+#### Workflows
+
+For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not:
+
+```go
+func Workflow(ctx workflow.Context) error {
+	ctx, span := workflow.Tracer(ctx).Start(ctx, "Workflow1 span", trace.WithAttributes(
+		// Add additional
+		attribute.String("msg", "hello world"),
+	))
+
+	// Do something
+
+	span.End()
+```
 
 ## Tools
 
