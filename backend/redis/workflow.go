@@ -103,10 +103,11 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	}
 
 	if instanceState.State == backend.WorkflowStateFinished {
-		// This should never happen. For now, log information and then panic.
 		l := rb.Logger().With(
 			"task_id", instanceTask.ID,
 			"instance_id", instanceState.Instance.InstanceID)
+
+		// This should never happen. For now, log information and then panic.
 		l.Error("got workflow task for finished workflow instance")
 
 		// Log events that lead to this task
