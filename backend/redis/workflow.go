@@ -104,7 +104,8 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 
 	if instanceState.State == backend.WorkflowStateFinished {
 		l := rb.Logger().With(
-			"task_id", instanceTask.ID,
+			"task_id", instanceTask.TaskID,
+			"id", instanceTask.ID,
 			"instance_id", instanceState.Instance.InstanceID)
 
 		// This should never happen. For now, log information and then panic.
@@ -153,8 +154,8 @@ var removePendingEventsCmd = redis.NewScript(`
 var requeueInstanceCmd = redis.NewScript(`
 	local pending_events = redis.call("XLEN", KEYS[1])
 	if pending_events > 0 then
-		local already_queued = redis.call("SADD", KEYS[3], ARGV[1])
-		if already_queued ~= 0 then
+		local added = redis.call("SADD", KEYS[3], ARGV[1])
+		if added == 1 then
 			redis.call("XADD", KEYS[2], "*", "id", ARGV[1], "data", "")
 		end
 	end
@@ -181,7 +182,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	p := rb.rdb.TxPipeline()
 
 	// Add executed events to the history
-	if err := addEventsToStreamP(ctx, p, historyKey(instance.InstanceID), executedEvents); err != nil {
+	if err := addEventsToHistoryStreamP(ctx, p, historyKey(instance.InstanceID), executedEvents); err != nil {
 		return fmt.Errorf("serializing : %w", err)
 	}
 
@@ -192,7 +193,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 	}
 
-	// Scheduler timers
+	// Schedule timers
 	for _, timerEvent := range timerEvents {
 		if err := addFutureEventP(ctx, p, instance, &timerEvent); err != nil {
 			return err
@@ -220,12 +221,10 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 		}
 
-		// If any pending message was added, try to queue workflow task
+		// Try to queue workflow task
 		if targetInstance != instance {
 			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, nil); err != nil {
-				if err != errTaskAlreadyInQueue {
-					return fmt.Errorf("adding instance to locked instances set: %w", err)
-				}
+				return fmt.Errorf("enqueuing workflow task: %w", err)
 			}
 		}
 	}

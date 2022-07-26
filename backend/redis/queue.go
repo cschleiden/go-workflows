@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -29,8 +28,6 @@ type TaskItem[T any] struct {
 	// Optional data stored with a task, needs to be serializable
 	Data T
 }
-
-var errTaskAlreadyInQueue = errors.New("task already in queue")
 
 type KeyInfo struct {
 	StreamKey string
@@ -80,7 +77,7 @@ func (q *taskQueue[T]) Keys() KeyInfo {
 	}
 }
 
-// KEYS[1] = stream
+// KEYS[1] = set
 // KEYS[2] = stream
 // ARGV[1] = caller provided id of the task
 // ARGV[2] = additional data to store with the task
