@@ -61,6 +61,14 @@ func New(backend backend.Backend, options *Options) Worker {
 		options = &internal.DefaultOptions
 	}
 
+	if options.WorkflowExecutorCacheSize == 0 {
+		options.WorkflowExecutorCacheSize = internal.DefaultOptions.WorkflowExecutorCacheSize
+	}
+
+	if options.WorkflowExecutorCacheTTL == 0 {
+		options.WorkflowExecutorCacheTTL = internal.DefaultOptions.WorkflowExecutorCacheTTL
+	}
+
 	registry := workflowinternal.NewRegistry()
 
 	return &worker{
