@@ -209,14 +209,14 @@ func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 		// unpack into standard events
 		hevts := make([]history.Event, len(evts))
 		for i, evt := range evts {
-			attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
+			attr, err := history.DeserializeAttributes(evt.EventType, evt.Attributes)
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes: %w", err)
 			}
 			hevts[i] = history.Event{
 				ID:              evt.EventID,
 				SequenceID:      evt.SequenceID,
-				Type:            evt.Type,
+				Type:            evt.EventType,
 				Timestamp:       evt.Timestamp,
 				ScheduleEventID: evt.ScheduleEventID,
 				VisibleAt:       evt.VisibleAt,
@@ -411,14 +411,14 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		// unpack into standard events
 		for i, evt := range evts {
-			attr, err := history.DeserializeAttributes(evt.Type, evt.Attributes)
+			attr, err := history.DeserializeAttributes(evt.EventType, evt.Attributes)
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes: %w", err)
 			}
 			twf.NewEvents[i] = history.Event{
 				ID:              evt.EventID,
 				SequenceID:      evt.SequenceID,
-				Type:            evt.Type,
+				Type:            evt.EventType,
 				Timestamp:       evt.Timestamp,
 				ScheduleEventID: evt.ScheduleEventID,
 				VisibleAt:       evt.VisibleAt,
@@ -643,7 +643,8 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 			Attributes:      attr,
 		}
 
-		filter = bson.M{"id": act.ID}
+		// filter = bson.M{"id": act.ID}
+		filter = bson.M{"activity_id": act.ActivityID}
 		upd := bson.D{{Key: "$set", Value: bson.D{
 			{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
 			{Key: "worker", Value: b.workerName},
@@ -675,14 +676,14 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
-func (b *mongoBackend) CompleteActivityTask(ctx context.Context, instance *workflow.Instance, id string, event history.Event) error {
+func (b *mongoBackend) CompleteActivityTask(ctx context.Context, inst *workflow.Instance, actID string, event history.Event) error {
 
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// remove completed activity
 		filter := bson.M{"$and": bson.A{
-			bson.M{"activity_id": id},
-			bson.M{"instance_id": instance.InstanceID},
-			bson.M{"execution_id": instance.ExecutionID},
+			bson.M{"activity_id": actID},
+			bson.M{"instance_id": inst.InstanceID},
+			bson.M{"execution_id": inst.ExecutionID},
 			bson.M{"worker": b.workerName},
 		}}
 		if _, err := b.db.Collection("activities").DeleteOne(sessCtx, filter); err != nil {
@@ -690,7 +691,7 @@ func (b *mongoBackend) CompleteActivityTask(ctx context.Context, instance *workf
 		}
 
 		// insert new event generated during this workflow execution
-		if err := b.insertEvents(sessCtx, "pending_events", instance.InstanceID, []history.Event{event}); err != nil {
+		if err := b.insertEvents(sessCtx, "pending_events", inst.InstanceID, []history.Event{event}); err != nil {
 			return nil, fmt.Errorf("inserting new events for completed activity: %w", err)
 		}
 

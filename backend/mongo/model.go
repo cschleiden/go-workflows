@@ -20,7 +20,7 @@ type instance struct {
 }
 
 type activity struct {
-	ID              string            `bson:"id"`
+	// ID              string            `bson:"id"`
 	ActivityID      string            `bson:"activity_id"`
 	InstanceID      string            `bson:"instance_id"`
 	ExecutionID     string            `bson:"execution_id"`
@@ -35,9 +35,9 @@ type activity struct {
 
 type event struct {
 	EventID         string            `bson:"event_id"`
-	SequenceID      int64             `bson:"sequence_id"`
 	InstanceID      string            `bson:"instance_id"`
-	Type            history.EventType `bson:"event_type"`
+	SequenceID      int64             `bson:"sequence_id"`
+	EventType       history.EventType `bson:"event_type"`
 	Timestamp       time.Time         `bson:"timestamp"`
 	ScheduleEventID int64             `bson:"schedule_event_id"`
 	Attributes      []byte            `bson:"attributes"`

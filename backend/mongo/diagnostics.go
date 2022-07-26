@@ -59,15 +59,15 @@ func (b *mongoBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID
 
 	// unpack results
 	instances := make([]*diag.WorkflowInstanceRef, len(insts))
-	for i := 0; i < len(insts); i++ {
+	for i, inst := range insts {
 		var state backend.WorkflowState
-		if insts[i].CompletedAt != nil {
+		if inst.CompletedAt != nil {
 			state = backend.WorkflowStateFinished
 		}
 		instances[i] = &diag.WorkflowInstanceRef{
-			Instance:    core.NewWorkflowInstance(insts[i].InstanceID, insts[i].ExecutionID),
-			CreatedAt:   insts[i].CreatedAt,
-			CompletedAt: insts[i].CompletedAt,
+			Instance:    core.NewWorkflowInstance(inst.InstanceID, inst.ExecutionID),
+			CreatedAt:   inst.CreatedAt,
+			CompletedAt: inst.CompletedAt,
 			State:       state,
 		}
 	}
