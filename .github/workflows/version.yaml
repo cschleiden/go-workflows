@@ -1,0 +1,57 @@
+# Automatically updates the libraries version when commit message contains [tag:patch|minor|major].
+
+name: Update Version
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    # only run if commit message contains versioning setting
+    if: |
+      contains(github.event.head_commit.message, '[tag:patch]')
+      || contains(github.event.head_commit.message, '[tag:minor]')
+      || contains(github.event.head_commit.message, '[tag:major]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # generate new version number — increment based on [tag:xxx] setting
+      - name: Generate version
+        id: version
+        uses: paulhatch/semantic-version@v4.0.2
+        with:
+          major_pattern: "[tag:major]"
+          minor_pattern: "[tag:minor]"
+          short_tags: false
+
+      # tag the repo using the new version
+      - name: Tag repo
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: "refs/tags/${{ steps.version.outputs.version_tag }}",
+              sha: context.sha
+            })
+      # create  git release based on the tag
+      - name: Create release
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: "${{ steps.version.outputs.version_tag }}"
+            })
