@@ -69,12 +69,11 @@ func NewMongoBackend(uri, app string, opts ...MongoBackendOption) (*mongoBackend
 		return nil, fmt.Errorf("error connecting to mongo: %w", err)
 	}
 
-	// Default options
+	// apply options
 	options := &MongoOptions{
 		Options:      backend.ApplyOptions(),
 		BlockTimeout: time.Second * 2,
 	}
-
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -88,22 +87,14 @@ func NewMongoBackend(uri, app string, opts ...MongoBackendOption) (*mongoBackend
 
 // CreateWorkflowInstance creates a new workflow instance
 func (b *mongoBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
-	// create transaction
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// create workflow instance
-		attr, ok := event.Attributes.(*history.ExecutionStartedAttributes)
-		if !ok {
-			return nil, errors.New("event attributes are not of type ExecutionStartedAttributes")
-		}
-
-		coll := b.db.Collection("instances")
-		if err := createInstance(sessCtx, coll, instance, attr.Metadata, false); err != nil {
+		if err := b.createInstance(sessCtx, instance, event, false); err != nil {
 			return nil, err
 		}
 
 		// initial history is empty, add new event
-		coll = b.db.Collection("pending_events")
-		if err := insertEvents(sessCtx, coll, instance.InstanceID, []history.Event{event}); err != nil {
+		if err := b.insertEvents(sessCtx, "pending_events", instance.InstanceID, []history.Event{event}); err != nil {
 			return nil, fmt.Errorf("inserting new event: %w", err)
 		}
 		return nil, nil
@@ -116,19 +107,14 @@ func (b *mongoBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	}
 	defer session.EndSession(ctx)
 	_, err = session.WithTransaction(ctx, txn)
-
-	// , &options.TransactionOptions{
-	// 	ReadConcern: readconcern.Majority(),
-	// }
-
 	return err
 }
 
 // create a workflow instance
-func createInstance(sessCtx mongo.SessionContext, coll *mongo.Collection, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
+func (b *mongoBackend) createInstance(sessCtx mongo.SessionContext, wfi *workflow.Instance, event history.Event, ignoreDuplicate bool) error {
 	// don't create duplicate instances
 	if !ignoreDuplicate {
-		docs, err := coll.CountDocuments(sessCtx, bson.M{"instance_id": wfi.InstanceID})
+		docs, err := b.db.Collection("instances").CountDocuments(sessCtx, bson.M{"instance_id": wfi.InstanceID})
 		if err != nil {
 			return err
 		}
@@ -137,7 +123,12 @@ func createInstance(sessCtx mongo.SessionContext, coll *mongo.Collection, wfi *w
 		}
 	}
 
-	metadataJson, err := json.Marshal(metadata)
+	// metatdata from event that created this instance
+	attr, ok := event.Attributes.(*history.ExecutionStartedAttributes)
+	if !ok {
+		return errors.New("event attributes are not of type ExecutionStartedAttributes")
+	}
+	md, err := json.Marshal(attr.Metadata)
 	if err != nil {
 		return fmt.Errorf("marshaling metadata: %w", err)
 	}
@@ -145,7 +136,7 @@ func createInstance(sessCtx mongo.SessionContext, coll *mongo.Collection, wfi *w
 	inst := instance{
 		InstanceID:  wfi.InstanceID,
 		ExecutionID: wfi.ExecutionID,
-		Metadata:    metadataJson,
+		Metadata:    md,
 		CreatedAt:   time.Now(),
 	}
 	if wfi.SubWorkflow() {
@@ -153,7 +144,7 @@ func createInstance(sessCtx mongo.SessionContext, coll *mongo.Collection, wfi *w
 		inst.ParentScheduleEventID = &wfi.ParentEventID
 	}
 
-	if _, err := coll.InsertOne(sessCtx, inst); err != nil {
+	if _, err := b.db.Collection("instances").InsertOne(sessCtx, inst); err != nil {
 		return fmt.Errorf("inserting workflow instance: %w", err)
 	}
 
@@ -175,8 +166,7 @@ func (b *mongoBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 		}
 
 		// add 'cancel' event
-		coll := b.db.Collection("pending_events")
-		if err := insertEvents(sessCtx, coll, instance.InstanceID, []history.Event{*event}); err != nil {
+		if err := b.insertEvents(sessCtx, "pending_events", instance.InstanceID, []history.Event{*event}); err != nil {
 			return nil, fmt.Errorf("inserting cancellation event: %w", err)
 		}
 		return nil, nil
@@ -218,18 +208,18 @@ func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 
 		// unpack into standard events
 		hevts := make([]history.Event, len(evts))
-		for i := 0; i < len(evts); i++ {
+		for i, evt := range evts {
 			attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes: %w", err)
 			}
 			hevts[i] = history.Event{
-				ID:              evts[i].EventID,
-				SequenceID:      evts[i].SequenceID,
-				Type:            evts[i].Type,
-				Timestamp:       evts[i].Timestamp,
-				ScheduleEventID: evts[i].ScheduleEventID,
-				VisibleAt:       evts[i].VisibleAt,
+				ID:              evt.EventID,
+				SequenceID:      evt.SequenceID,
+				Type:            evt.Type,
+				Timestamp:       evt.Timestamp,
+				ScheduleEventID: evt.ScheduleEventID,
+				VisibleAt:       evt.VisibleAt,
 				Attributes:      attr,
 			}
 		}
@@ -304,8 +294,7 @@ func (b *mongoBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 		}
 
 		// add 'cancel' event
-		coll := b.db.Collection("pending_events")
-		if err := insertEvents(sessCtx, coll, instanceID, []history.Event{event}); err != nil {
+		if err := b.insertEvents(sessCtx, "pending_events", instanceID, []history.Event{event}); err != nil {
 			return nil, fmt.Errorf("inserting signal event: %w", err)
 		}
 
@@ -355,12 +344,12 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		}
 
 		// check to see if instance has events to process
-		matches, err := b.db.Collection("pending_events").CountDocuments(sessCtx, bson.M{"instance_id": inst.InstanceID})
+		count, err := b.db.Collection("pending_events").CountDocuments(sessCtx, bson.M{"instance_id": inst.InstanceID})
 		if err != nil {
 			return nil, err
 		}
 		// exit if no pending events to process
-		if matches == 0 {
+		if count == 0 {
 			return nil, nil
 		}
 
@@ -380,11 +369,6 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 			wfi = core.NewSubWorkflowInstance(inst.InstanceID, inst.ExecutionID, *inst.ParentInstanceID, *inst.ParentScheduleEventID)
 		} else {
 			wfi = core.NewWorkflowInstance(inst.InstanceID, inst.ExecutionID)
-		}
-
-		var metadata *core.WorkflowMetadata
-		if err := json.Unmarshal(inst.Metadata, &metadata); err != nil {
-			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
 		}
 
 		// get new events
@@ -413,27 +397,31 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 			return nil, nil
 		}
 
+		var md *core.WorkflowMetadata
+		if err := json.Unmarshal(inst.Metadata, &md); err != nil {
+			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
+		}
+
 		twf := &task.Workflow{
 			ID:               wfi.InstanceID,
 			WorkflowInstance: wfi,
-			Metadata:         metadata,
+			Metadata:         md,
 			NewEvents:        make([]history.Event, len(evts)),
 		}
 
 		// unpack into standard events
-		for i := 0; i < len(evts); i++ {
-			attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
+		for i, evt := range evts {
+			attr, err := history.DeserializeAttributes(evt.Type, evt.Attributes)
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes: %w", err)
 			}
-
 			twf.NewEvents[i] = history.Event{
-				ID:              evts[i].EventID,
-				SequenceID:      evts[i].SequenceID,
-				Type:            evts[i].Type,
-				Timestamp:       evts[i].Timestamp,
-				ScheduleEventID: evts[i].ScheduleEventID,
-				VisibleAt:       evts[i].VisibleAt,
+				ID:              evt.EventID,
+				SequenceID:      evt.SequenceID,
+				Type:            evt.Type,
+				Timestamp:       evt.Timestamp,
+				ScheduleEventID: evt.ScheduleEventID,
+				VisibleAt:       evt.VisibleAt,
 				Attributes:      attr,
 			}
 		}
@@ -485,10 +473,9 @@ func (b *mongoBackend) CompleteWorkflowTask(
 
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// unlock instance, but keep it sticky to the current worker
-		var completedAt *time.Time
+		var completedAt time.Time
 		if state == backend.WorkflowStateFinished {
-			t := time.Now()
-			completedAt = &t
+			completedAt = time.Now()
 		}
 
 		filter := bson.M{"$and": bson.A{
@@ -500,7 +487,7 @@ func (b *mongoBackend) CompleteWorkflowTask(
 			{Key: "$set", Value: bson.D{
 				{Key: "locked_until", Value: nil},
 				{Key: "sticky_until", Value: time.Now().Add(b.options.StickyTimeout)},
-				{Key: "completed_at", Value: completedAt},
+				{Key: "completed_at", Value: &completedAt},
 			}},
 		}
 		if err := b.db.Collection("instances").FindOneAndUpdate(sessCtx, filter, upd).Err(); err != nil {
@@ -521,30 +508,26 @@ func (b *mongoBackend) CompleteWorkflowTask(
 			}
 		}
 		// ... and add to history
-		coll := b.db.Collection("history")
-		if err := insertEvents(sessCtx, coll, instance.InstanceID, executedEvents); err != nil {
+		if err := b.insertEvents(sessCtx, "history", instance.InstanceID, executedEvents); err != nil {
 			return nil, fmt.Errorf("inserting new history events: %w", err)
 		}
 
 		// schedule activities
-		coll = b.db.Collection("activities")
 		for _, e := range activityEvents {
-			if err := scheduleActivity(sessCtx, coll, instance, e); err != nil {
+			if err := b.scheduleActivity(sessCtx, instance, e); err != nil {
 				return nil, fmt.Errorf("scheduling activity: %w", err)
 			}
 		}
 
 		// add new timer events
-		coll = b.db.Collection("pending_events")
-		if err := insertEvents(sessCtx, coll, instance.InstanceID, timerEvents); err != nil {
+		if err := b.insertEvents(sessCtx, "pending_events", instance.InstanceID, timerEvents); err != nil {
 			return nil, fmt.Errorf("scheduling timers: %w", err)
 		}
 		// ...and remove cancelled ones
 		for _, e := range executedEvents {
 			switch e.Type {
 			case history.EventType_TimerCanceled:
-				coll := b.db.Collection("pending_events")
-				if err := removeFutureEvent(sessCtx, coll, instance.InstanceID, e.ScheduleEventID); err != nil {
+				if err := b.removeFutureEvent(sessCtx, instance.InstanceID, e.ScheduleEventID); err != nil {
 					return nil, fmt.Errorf("removing future event: %w", err)
 				}
 			}
@@ -553,21 +536,18 @@ func (b *mongoBackend) CompleteWorkflowTask(
 		// insert new workflow events
 		groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
-		for targetInstance, events := range groupedEvents {
+		for wfi, events := range groupedEvents {
 			for _, event := range events {
 				// create instance
 				if event.Type == history.EventType_WorkflowExecutionStarted {
-					a := event.Attributes.(*history.ExecutionStartedAttributes)
-					coll := b.db.Collection("instances")
-					if err := createInstance(sessCtx, coll, targetInstance, a.Metadata, true); err != nil {
+					if err := b.createInstance(sessCtx, wfi, event, true); err != nil {
 						return nil, err
 					}
 					break
 				}
 			}
 			// insert event
-			coll := b.db.Collection("pending_events")
-			if err := insertEvents(sessCtx, coll, targetInstance.InstanceID, events); err != nil {
+			if err := b.insertEvents(sessCtx, "pending_events", wfi.InstanceID, events); err != nil {
 				return nil, fmt.Errorf("inserting messages: %w", err)
 			}
 		}
@@ -709,8 +689,7 @@ func (b *mongoBackend) CompleteActivityTask(ctx context.Context, instance *workf
 		}
 
 		// insert new event generated during this workflow execution
-		coll := b.db.Collection("pending_events")
-		if err := insertEvents(sessCtx, coll, instance.InstanceID, []history.Event{event}); err != nil {
+		if err := b.insertEvents(sessCtx, "pending_events", instance.InstanceID, []history.Event{event}); err != nil {
 			return nil, fmt.Errorf("inserting new events for completed activity: %w", err)
 		}
 
@@ -752,7 +731,7 @@ func (b *mongoBackend) ExtendActivityTask(ctx context.Context, activityID string
 	return err
 }
 
-func scheduleActivity(sessCtx mongo.SessionContext, coll *mongo.Collection, inst *core.WorkflowInstance, event history.Event) error {
+func (b *mongoBackend) scheduleActivity(sessCtx mongo.SessionContext, inst *core.WorkflowInstance, event history.Event) error {
 
 	attr, err := history.SerializeAttributes(event.Attributes)
 	if err != nil {
@@ -769,9 +748,9 @@ func scheduleActivity(sessCtx mongo.SessionContext, coll *mongo.Collection, inst
 		ScheduleEventID: event.ScheduleEventID,
 		VisibleAt:       event.VisibleAt,
 	}
-	if _, err := coll.InsertOne(sessCtx, act); err != nil {
+	if _, err := b.db.Collection("activities").InsertOne(sessCtx, act); err != nil {
 		return fmt.Errorf("inserting activity: %w", err)
 	}
 
-	return err
+	return nil
 }
