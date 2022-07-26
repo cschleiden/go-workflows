@@ -155,15 +155,14 @@ func (b *mongoBackend) createInstance(sessCtx mongo.SessionContext, wfi *workflo
 func (b *mongoBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	// create transaction
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		// check we have a running instance
-		// TODO: Combine this with the event insertion
-		count, err := b.db.Collection("instances").CountDocuments(sessCtx, bson.M{"instance_id": instance.InstanceID})
-		if err != nil {
-			return nil, err
-		}
-		if count == 0 {
-			return nil, backend.ErrInstanceNotFound
-		}
+		// // check we have a running instance
+		// count, err := b.db.Collection("instances").CountDocuments(sessCtx, bson.M{"instance_id": instance.InstanceID})
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// if count == 0 {
+		// 	return nil, backend.ErrInstanceNotFound
+		// }
 
 		// add 'cancel' event
 		if err := b.insertEvents(sessCtx, "pending_events", instance.InstanceID, []history.Event{*event}); err != nil {
@@ -283,17 +282,16 @@ func (b *mongoBackend) GetWorkflowInstanceState(ctx context.Context, inst *workf
 func (b *mongoBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
 
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		// check we have an instance
-		// TODO: Combine this with the event insertion
-		count, err := b.db.Collection("instances").CountDocuments(sessCtx, bson.M{"instance_id": instanceID})
-		if err != nil {
-			return nil, fmt.Errorf("error counting instances: %w", err)
-		}
-		if count == 0 {
-			return nil, backend.ErrInstanceNotFound
-		}
+		// // check we have an instance
+		// count, err := b.db.Collection("instances").CountDocuments(sessCtx, bson.M{"instance_id": instanceID})
+		// if err != nil {
+		// 	return nil, fmt.Errorf("error counting instances: %w", err)
+		// }
+		// if count == 0 {
+		// 	return nil, backend.ErrInstanceNotFound
+		// }
 
-		// add 'cancel' event
+		// add 'signal' event
 		if err := b.insertEvents(sessCtx, "pending_events", instanceID, []history.Event{event}); err != nil {
 			return nil, fmt.Errorf("inserting signal event: %w", err)
 		}
@@ -428,7 +426,6 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		// get most recent sequence id
 		filter = bson.M{"instance_id": wfi.InstanceID}
-		// fopts := options.FindOneOptions{Sort: bson.M{"id": -1}}
 		fopts := options.FindOneOptions{Sort: bson.M{"sequence_id": -1}}
 
 		var evt event
@@ -615,35 +612,7 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 			return nil, fmt.Errorf("getting most recent sequence id: %w", err)
 		}
 
-		// get instance metadata
-		filter = bson.M{"instance_id": act.InstanceID}
-		var inst instance
-		if err := b.db.Collection("instances").FindOne(sessCtx, filter).Decode(&inst); err != nil {
-			if err == mongo.ErrNoDocuments {
-				return nil, errors.New("was expecting to find a matching instance")
-			}
-			return nil, fmt.Errorf("getting instance: %w", err)
-		}
-
-		var metadata *workflow.Metadata
-		if err := json.Unmarshal(inst.Metadata, &metadata); err != nil {
-			return nil, fmt.Errorf("unmarshaling metadata: %w", err)
-		}
-		attr, err := history.DeserializeAttributes(act.EventType, act.Attributes)
-		if err != nil {
-			return nil, fmt.Errorf("deserializing attributes: %w", err)
-		}
-
-		evt := history.Event{
-			ID:              act.ActivityID,
-			Type:            act.EventType,
-			Timestamp:       act.Timestamp,
-			ScheduleEventID: act.ScheduleEventID,
-			VisibleAt:       act.VisibleAt,
-			Attributes:      attr,
-		}
-
-		// filter = bson.M{"id": act.ID}
+		// lock returned activity
 		filter = bson.M{"activity_id": act.ActivityID}
 		upd := bson.D{{Key: "$set", Value: bson.D{
 			{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
@@ -653,11 +622,37 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 			return nil, fmt.Errorf("locking activity: %w", err)
 		}
 
+		// add instance metadata to activity
+		filter = bson.M{"instance_id": act.InstanceID}
+		var inst instance
+		if err := b.db.Collection("instances").FindOne(sessCtx, filter).Decode(&inst); err != nil {
+			if err == mongo.ErrNoDocuments {
+				return nil, errors.New("was expecting to find a matching instance")
+			}
+			return nil, fmt.Errorf("getting instance: %w", err)
+		}
+
+		var md *workflow.Metadata
+		if err := json.Unmarshal(inst.Metadata, &md); err != nil {
+			return nil, fmt.Errorf("unmarshaling metadata: %w", err)
+		}
+		attr, err := history.DeserializeAttributes(act.EventType, act.Attributes)
+		if err != nil {
+			return nil, fmt.Errorf("deserializing attributes: %w", err)
+		}
+
 		return &task.Activity{
 			ID:               act.ActivityID,
 			WorkflowInstance: core.NewWorkflowInstance(act.InstanceID, act.ExecutionID),
-			Metadata:         metadata,
-			Event:            evt,
+			Metadata:         md,
+			Event: history.Event{
+				ID:              act.ActivityID,
+				Type:            act.EventType,
+				Timestamp:       act.Timestamp,
+				ScheduleEventID: act.ScheduleEventID,
+				VisibleAt:       act.VisibleAt,
+				Attributes:      attr,
+			},
 		}, nil
 	}
 
@@ -676,12 +671,12 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
-func (b *mongoBackend) CompleteActivityTask(ctx context.Context, inst *workflow.Instance, actID string, event history.Event) error {
+func (b *mongoBackend) CompleteActivityTask(ctx context.Context, inst *workflow.Instance, activityID string, event history.Event) error {
 
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// remove completed activity
 		filter := bson.M{"$and": bson.A{
-			bson.M{"activity_id": actID},
+			bson.M{"activity_id": activityID},
 			bson.M{"instance_id": inst.InstanceID},
 			bson.M{"execution_id": inst.ExecutionID},
 			bson.M{"worker": b.workerName},

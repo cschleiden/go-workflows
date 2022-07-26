@@ -20,7 +20,6 @@ type instance struct {
 }
 
 type activity struct {
-	// ID              string            `bson:"id"`
 	ActivityID      string            `bson:"activity_id"`
 	InstanceID      string            `bson:"instance_id"`
 	ExecutionID     string            `bson:"execution_id"`
