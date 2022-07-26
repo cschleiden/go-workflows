@@ -282,36 +282,36 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	// lock next workflow task by finding an unlocked instance with new events to process.
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// find an unlocked instance with events to process
-		pl := bson.A{
+				pl := bson.A{
 			// find matching instances
-			bson.M{"$match": bson.M{"$and": bson.A{
-				bson.M{"$set": bson.M{"completed_at": false}},
+			bson.D{{Key: "$match", Value: bson.D{{Key: "$and", Value: bson.A{
+				bson.M{"completed_at": bson.M{"$exists": false}},
 				bson.M{"$or": bson.A{
-					bson.M{"$set": bson.M{"locked_until": false}},
+					bson.M{"locked_until": bson.M{"$exists": false}},
 					bson.M{"locked_until": bson.M{"$lt": time.Now()}},
 				}},
 				bson.M{"$or": bson.A{
-					bson.M{"$set": bson.M{"sticky_until": false}},
+					bson.M{"sticky_until": bson.M{"$exists": false}},
 					bson.M{"sticky_until": bson.M{"$lt": time.Now()}},
 					bson.M{"worker": bson.M{"$eq": b.workerName}},
 				}},
-			}}},
+			}}}}},
 			// find pending_events ready for processing
-			bson.M{"$lookup": bson.A{
-				bson.M{"from": "pending_events"},
-				bson.M{"localField": "instance_id"},
-				bson.M{"foreignField": "instance_id"},
-				bson.M{"pipeline": bson.A{
-					bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-						bson.M{"$or": bson.A{
-							bson.M{"$set": bson.M{"$visible_at": false}},
-							bson.M{"$visible_at": bson.M{"$lte": time.Now()}},
-						}},
-					}}}},
-					bson.M{"$project": bson.M{"instance_id": 1}},
+			bson.D{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "pending_events"},
+				{Key: "localField", Value: "instance_id"},
+				{Key: "foreignField", Value: "instance_id"},
+				{Key: "pipeline", Value: bson.A{
+					bson.D{{Key: "$match",
+						Value: bson.D{{Key: "$or", Value: bson.A{
+							bson.M{"visible_at": bson.M{"$exists": false}},
+							bson.M{"visible_at": bson.M{"$lte": time.Now()}},
+						}}},
+					}},
+					bson.D{{Key: "$project", Value: bson.D{{Key: "instance_id", Value: 1}}}},
 				}},
-				bson.M{"as": "pending_events"},
-			}},
+				{Key: "as", Value: "pending_events"},
+			}}},
 		}
 
 		cursor, err := b.db.Collection("instances").Aggregate(sessCtx, pl)
