@@ -170,6 +170,8 @@ func (s *coState) Execute() {
 	s.unblock <- true
 	s.logger.Println("execute: unblocked")
 
+	runtime.Gosched()
+
 	// Run until blocked (which is also true when finished)
 	select {
 	case <-s.blocking:
