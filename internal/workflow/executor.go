@@ -97,12 +97,12 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	logger := e.logger.With("task_id", t.ID, "instance_id", t.WorkflowInstance.InstanceID)
 
-	logger.Debug("Executing workflow task")
+	logger.Debug("Executing workflow task", "task_last_sequence_id", t.LastSequenceID)
 
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {
-		logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
+		logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "local_sequence_id", e.lastSequenceID)
 
 		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
 		if err != nil {
@@ -188,6 +188,10 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 func (e *executor) replayHistory(history []history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range history {
+		if event.SequenceID < e.lastSequenceID {
+			panic("history has older events than current state")
+		}
+
 		if err := e.executeEvent(event); err != nil {
 			return err
 		}
@@ -216,6 +220,8 @@ func (e *executor) executeNewEvents(newEvents []history.Event) ([]history.Event,
 
 func (e *executor) Close() {
 	if e.workflow != nil {
+		e.logger.Debug("Stopping workflow executor", "instance_id", e.workflowState.Instance().InstanceID)
+
 		// End workflow if running to prevent leaking goroutines
 		e.workflow.Close()
 	}

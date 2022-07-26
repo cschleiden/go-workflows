@@ -58,7 +58,13 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 }
 
 func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
-	msgs, err := rb.rdb.XRange(ctx, historyKey(instance.InstanceID), "-", "+").Result()
+	start := "-"
+
+	if lastSequenceID != nil {
+		start = "(" + historyID(*lastSequenceID)
+	}
+
+	msgs, err := rb.rdb.XRange(ctx, historyKey(instance.InstanceID), start, "+").Result()
 	if err != nil {
 		return nil, err
 	}

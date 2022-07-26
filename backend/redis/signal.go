@@ -25,15 +25,9 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 	))
 	defer span.End()
 
-	if _, err = rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		if err := addEventToStreamP(ctx, p, pendingEventsKey(instanceID), &event); err != nil {
+	if _, err = rb.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
+		if err := rb.addWorkflowInstanceEventP(ctx, p, instanceState.Instance, &event); err != nil {
 			return fmt.Errorf("adding event to stream: %w", err)
-		}
-
-		if err := rb.workflowQueue.Enqueue(ctx, p, instanceID, nil); err != nil {
-			if err != errTaskAlreadyInQueue {
-				return fmt.Errorf("queueing workflow task: %w", err)
-			}
 		}
 
 		return nil
