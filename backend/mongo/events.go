@@ -9,6 +9,10 @@ import (
 )
 
 func (b *mongoBackend) insertEvents(sessCtx mongo.SessionContext, collName, instanceID string, events []history.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	
 	coll := b.db.Collection(collName)
 	evts := make([]interface{}, len(events))
 

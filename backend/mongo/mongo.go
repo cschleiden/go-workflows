@@ -473,9 +473,10 @@ func (b *mongoBackend) CompleteWorkflowTask(
 
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// unlock instance, but keep it sticky to the current worker
-		var completedAt time.Time
+		var completedAt *time.Time
 		if state == backend.WorkflowStateFinished {
-			completedAt = time.Now()
+			t := time.Now()
+			completedAt = &t
 		}
 
 		filter := bson.M{"$and": bson.A{
@@ -487,7 +488,7 @@ func (b *mongoBackend) CompleteWorkflowTask(
 			{Key: "$set", Value: bson.D{
 				{Key: "locked_until", Value: nil},
 				{Key: "sticky_until", Value: time.Now().Add(b.options.StickyTimeout)},
-				{Key: "completed_at", Value: &completedAt},
+				{Key: "completed_at", Value: completedAt},
 			}},
 		}
 		if err := b.db.Collection("instances").FindOneAndUpdate(sessCtx, filter, upd).Err(); err != nil {
@@ -684,7 +685,7 @@ func (b *mongoBackend) CompleteActivityTask(ctx context.Context, instance *workf
 			bson.M{"execution_id": instance.ExecutionID},
 			bson.M{"worker": b.workerName},
 		}}
-		if _, err := b.db.Collection("pending_events").DeleteOne(sessCtx, filter); err != nil {
+		if _, err := b.db.Collection("activities").DeleteOne(sessCtx, filter); err != nil {
 			return nil, fmt.Errorf("completing activity: %w", err)
 		}
 
