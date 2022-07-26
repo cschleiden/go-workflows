@@ -110,6 +110,18 @@ func (b *mongoBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	return err
 }
 
+// type txnFunc func(sessCtx mongo.SessionContext) (interface{}, error)
+
+// func (b *mongoBackend) exec(txn txnFunc) (interface{}, error) {
+// 	ctx := context.Background()
+// 	session, err := b.db.Client().StartSession()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer session.EndSession(ctx)
+// 	return session.WithTransaction(ctx, txn)
+// }
+
 // create a workflow instance
 func (b *mongoBackend) createInstance(sessCtx mongo.SessionContext, wfi *workflow.Instance, event history.Event, ignoreDuplicate bool) error {
 	// don't create duplicate instances
