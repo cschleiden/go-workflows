@@ -12,7 +12,7 @@ func (b *mongoBackend) insertEvents(sessCtx mongo.SessionContext, collName, inst
 	if len(events) == 0 {
 		return nil
 	}
-	
+
 	coll := b.db.Collection(collName)
 	evts := make([]interface{}, len(events))
 
@@ -25,7 +25,7 @@ func (b *mongoBackend) insertEvents(sessCtx mongo.SessionContext, collName, inst
 			EventID:         e.ID,
 			InstanceID:      instanceID,
 			SequenceID:      e.SequenceID,
-			Type:            e.Type,
+			EventType:       e.Type,
 			Timestamp:       e.Timestamp,
 			ScheduleEventID: e.ScheduleEventID,
 			Attributes:      attr,
