@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	lg "github.com/cschleiden/go-workflows/log"
+	lg "github.com/ticctech/go-workflows/log"
 )
 
 type defaultLogger struct {

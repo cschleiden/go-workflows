@@ -1,7 +1,7 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/ticctech/go-workflows/internal/workflowstate"
 )
 
 func NewSignalChannel[T any](ctx Context, name string) Channel[T] {

@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/cschleiden/go-workflows/analyzer"
+	"github.com/ticctech/go-workflows/analyzer"
 	"golang.org/x/tools/go/analysis"
 )
 

@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/client"
+	"github.com/ticctech/go-workflows/diag"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/payload"
+	"github.com/ticctech/go-workflows/workflow"
 )
 
 func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBackend)) {

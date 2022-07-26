@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/test"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/go-redis/redis/v8"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/backend/test"
+	"github.com/ticctech/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/log"
 )
 
 const (

@@ -3,10 +3,10 @@ package workflowtracer
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/tracing"
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/sync"
+	"github.com/ticctech/go-workflows/internal/tracing"
+	"github.com/ticctech/go-workflows/internal/workflowstate"
 	"go.opentelemetry.io/otel/trace"
 )
 

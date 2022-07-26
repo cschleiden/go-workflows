@@ -1,7 +1,7 @@
 package converter
 
 import (
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/ticctech/go-workflows/internal/payload"
 )
 
 type Converter interface {

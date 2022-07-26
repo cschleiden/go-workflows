@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/samples"
-	scale "github.com/cschleiden/go-workflows/samples/scale"
-	"github.com/cschleiden/go-workflows/worker"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/samples"
+	scale "github.com/ticctech/go-workflows/samples/scale"
+	"github.com/ticctech/go-workflows/worker"
 )
 
 var backendType = flag.String("backend", "redis", "backend to use: sqlite, mysql, redis")

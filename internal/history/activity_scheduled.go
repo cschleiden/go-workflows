@@ -1,8 +1,8 @@
 package history
 
 import (
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/payload"
 )
 
 type ActivityScheduledAttributes struct {

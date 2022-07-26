@@ -2,8 +2,8 @@ package command
 
 import (
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/history"
 )
 
 type CancelSubWorkflowCommand struct {

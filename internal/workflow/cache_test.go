@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/stretchr/testify/require"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/logger"
 	"go.opentelemetry.io/otel/trace"
 )
 

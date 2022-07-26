@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/fn"
+	"github.com/ticctech/go-workflows/internal/args"
+	"github.com/ticctech/go-workflows/internal/fn"
 )
 
 type Activity interface{}

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/ticctech/go-workflows/internal/converter"
+	"github.com/ticctech/go-workflows/internal/payload"
+	"github.com/ticctech/go-workflows/internal/sync"
 )
 
 func ArgsToInputs(c converter.Converter, args ...interface{}) ([]payload.Payload, error) {

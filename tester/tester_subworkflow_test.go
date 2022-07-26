@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/workflow"
 )
 
 func Test_SubWorkflow(t *testing.T) {

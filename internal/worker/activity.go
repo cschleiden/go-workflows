@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/activity"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/internal/activity"
+	"github.com/ticctech/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/task"
+	"github.com/ticctech/go-workflows/internal/workflow"
 )
 
 type ActivityWorker interface {

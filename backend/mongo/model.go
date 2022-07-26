@@ -3,7 +3,7 @@ package mongo
 import (
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/history"
 )
 
 type instance struct {

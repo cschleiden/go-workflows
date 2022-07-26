@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/stretchr/testify/require"
+	"github.com/ticctech/go-workflows/internal/converter"
+	"github.com/ticctech/go-workflows/internal/payload"
 )
 
 func TestInputsToArgs(t *testing.T) {

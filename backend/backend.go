@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	core "github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/log"
-	"github.com/cschleiden/go-workflows/workflow"
+	core "github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/task"
+	"github.com/ticctech/go-workflows/log"
+	"github.com/ticctech/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
 

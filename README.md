@@ -1,6 +1,6 @@
 # Durable workflows using Go
 
-[![Build & Test](https://github.com/cschleiden/go-workflows/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/cschleiden/go-workflows/actions/workflows/go.yml)
+[![Build & Test](https://github.com/ticctech/go-workflows/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/ticctech/go-workflows/actions/workflows/go.yml)
 
 Borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as [DTFx](https://github.com/Azure/durabletask).
 

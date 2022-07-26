@@ -3,8 +3,8 @@ package test
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/internal/history"
 )
 
 type TestBackend interface {

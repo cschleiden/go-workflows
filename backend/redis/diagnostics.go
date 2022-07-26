@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/diag"
 	"github.com/go-redis/redis/v8"
+	"github.com/ticctech/go-workflows/diag"
 )
 
 var _ diag.Backend = (*redisBackend)(nil)

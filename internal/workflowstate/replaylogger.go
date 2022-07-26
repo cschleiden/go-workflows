@@ -1,7 +1,7 @@
 package workflowstate
 
 import (
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/ticctech/go-workflows/log"
 )
 
 type replayLogger struct {

@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/fn"
+	"github.com/ticctech/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/logger"
+	"github.com/ticctech/go-workflows/internal/payload"
+	"github.com/ticctech/go-workflows/internal/task"
+	"github.com/ticctech/go-workflows/internal/workflow"
 )
 
 func TestExecutor_ExecuteActivity(t *testing.T) {

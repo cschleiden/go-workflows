@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/stretchr/testify/require"
+	"github.com/ticctech/go-workflows/internal/fn"
+	"github.com/ticctech/go-workflows/internal/sync"
 )
 
 func reg_workflow1(ctx sync.Context) error {

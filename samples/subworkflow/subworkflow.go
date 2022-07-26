@@ -7,12 +7,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
-	"github.com/cschleiden/go-workflows/worker"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/client"
+	"github.com/ticctech/go-workflows/samples"
+	"github.com/ticctech/go-workflows/worker"
+	"github.com/ticctech/go-workflows/workflow"
 )
 
 func main() {

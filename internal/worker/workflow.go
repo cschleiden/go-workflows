@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/internal/task"
+	"github.com/ticctech/go-workflows/internal/workflow"
+	"github.com/ticctech/go-workflows/log"
 )
 
 type WorkflowWorker interface {

@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/samples"
+	"github.com/ticctech/go-workflows/backend"
+	"github.com/ticctech/go-workflows/client"
+	"github.com/ticctech/go-workflows/samples"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 
-	"github.com/cschleiden/go-workflows/worker"
+	"github.com/ticctech/go-workflows/worker"
 
 	"github.com/google/uuid"
 )

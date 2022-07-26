@@ -10,4 +10,4 @@ linters-settings:
     goworkflows:
       path: ./plugin.so
       description: go-workflows
-      original-url: github.com/cschleiden/go-workflows/analyzer
+      original-url: github.com/ticctech/go-workflows/analyzer

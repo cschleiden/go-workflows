@@ -1,6 +1,6 @@
 package workflow
 
-import "github.com/cschleiden/go-workflows/internal/sync"
+import "github.com/ticctech/go-workflows/internal/sync"
 
 type CancelFunc = sync.CancelFunc
 

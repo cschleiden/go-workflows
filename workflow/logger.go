@@ -1,8 +1,8 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/ticctech/go-workflows/internal/workflowstate"
+	"github.com/ticctech/go-workflows/log"
 )
 
 func Logger(ctx Context) log.Logger {

@@ -1,9 +1,9 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
+	"github.com/ticctech/go-workflows/internal/core"
+	"github.com/ticctech/go-workflows/internal/sync"
+	"github.com/ticctech/go-workflows/internal/workflowstate"
 )
 
 func WorkflowInstance(ctx sync.Context) *core.WorkflowInstance {

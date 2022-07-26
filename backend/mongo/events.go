@@ -3,7 +3,7 @@ package mongo
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/ticctech/go-workflows/internal/history"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )

@@ -3,14 +3,14 @@ package workflow
 import (
 	"fmt"
 
-	a "github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/tracing"
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	a "github.com/ticctech/go-workflows/internal/args"
+	"github.com/ticctech/go-workflows/internal/command"
+	"github.com/ticctech/go-workflows/internal/converter"
+	"github.com/ticctech/go-workflows/internal/fn"
+	"github.com/ticctech/go-workflows/internal/sync"
+	"github.com/ticctech/go-workflows/internal/tracing"
+	"github.com/ticctech/go-workflows/internal/workflowstate"
+	"github.com/ticctech/go-workflows/internal/workflowtracer"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )

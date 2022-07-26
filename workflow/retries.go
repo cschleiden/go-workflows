@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/ticctech/go-workflows/internal/sync"
 )
 
 type RetryOptions struct {

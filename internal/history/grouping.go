@@ -1,6 +1,6 @@
 package history
 
-import "github.com/cschleiden/go-workflows/internal/core"
+import "github.com/ticctech/go-workflows/internal/core"
 
 func EventsByWorkflowInstance(events []WorkflowEvent) map[*core.WorkflowInstance][]Event {
 	groupedEvents := make(map[*core.WorkflowInstance][]Event)
