@@ -27,7 +27,6 @@ type MongoOptions struct {
 
 type MongoBackendOption func(*MongoOptions)
 
-
 func WithBlockTimeout(timeout time.Duration) MongoBackendOption {
 	return func(o *MongoOptions) {
 		o.BlockTimeout = timeout
@@ -118,6 +117,7 @@ func (b *mongoBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	return err
 }
 
+// create a workflow instance
 func createInstance(sessCtx mongo.SessionContext, coll *mongo.Collection, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
 	// don't create duplicate instances
 	if !ignoreDuplicate {
@@ -153,7 +153,7 @@ func createInstance(sessCtx mongo.SessionContext, coll *mongo.Collection, wfi *w
 	return nil
 }
 
-// CancelWorkflowInstance cancels a running workflow instance
+// CancelWorkflowInstance cancels the specified running workflow instance.
 func (b *mongoBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	// create transaction
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
@@ -185,6 +185,7 @@ func (b *mongoBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 	return err
 }
 
+// GetWorkflowInstanceHistory returns history events for the specified workflow instance.
 func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error) {
 	// find matching events
 	filter := bson.M{"instance_id": instance.InstanceID}
@@ -199,7 +200,7 @@ func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	}
 	cursor, err := b.db.Collection("history").Find(ctx, filter, &opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error fetching history: %w", err)
 	}
 	var evts []event
 	if err := cursor.All(ctx, &evts); err != nil {
@@ -209,7 +210,7 @@ func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	// unpack into standard events
 	hevts := make([]history.Event, len(evts))
 	for i := 0; i < len(evts); i++ {
-		attr, err := history.DeserializeAttributes(hevts[i].Type, evts[i].Attributes)
+		attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
 		if err != nil {
 			return nil, fmt.Errorf("deserializing attributes: %w", err)
 		}
@@ -227,6 +228,7 @@ func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	return hevts, nil
 }
 
+// GetWorkflowInstanceState returns the state for the specified workflow instance.
 func (b *mongoBackend) GetWorkflowInstanceState(ctx context.Context, inst *workflow.Instance) (backend.WorkflowState, error) {
 	filter := bson.M{"$and": bson.A{
 		bson.M{"instance_id": inst.InstanceID},
@@ -285,68 +287,47 @@ func (b *mongoBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
 
-	var twf *task.Workflow
-
 	// lock next workflow task by finding an unlocked instance with new events to process.
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		// find an unlocked instance with events to process
-				pl := bson.A{
-			// find matching instances
-			bson.D{{Key: "$match", Value: bson.D{{Key: "$and", Value: bson.A{
-				bson.M{"completed_at": bson.M{"$exists": false}},
-				bson.M{"$or": bson.A{
-					bson.M{"locked_until": bson.M{"$exists": false}},
-					bson.M{"locked_until": bson.M{"$lt": time.Now()}},
-				}},
-				bson.M{"$or": bson.A{
-					bson.M{"sticky_until": bson.M{"$exists": false}},
-					bson.M{"sticky_until": bson.M{"$lt": time.Now()}},
-					bson.M{"worker": bson.M{"$eq": b.workerName}},
-				}},
-			}}}}},
-			// find pending_events ready for processing
-			bson.D{{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "pending_events"},
-				{Key: "localField", Value: "instance_id"},
-				{Key: "foreignField", Value: "instance_id"},
-				{Key: "pipeline", Value: bson.A{
-					bson.D{{Key: "$match",
-						Value: bson.D{{Key: "$or", Value: bson.A{
-							bson.M{"visible_at": bson.M{"$exists": false}},
-							bson.M{"visible_at": bson.M{"$lte": time.Now()}},
-						}}},
-					}},
-					bson.D{{Key: "$project", Value: bson.D{{Key: "instance_id", Value: 1}}}},
-				}},
-				{Key: "as", Value: "pending_events"},
-			}}},
+
+		// find an unlocked instance
+		filter := bson.M{"$and": bson.A{
+			// bson.M{"completed_at": bson.M{"$exists": false}},
+			bson.M{"completed_at": nil},
+			bson.M{"$or": bson.A{
+				bson.M{"locked_until": bson.M{"$lte": time.Now()}},
+				// bson.M{"locked_until": bson.M{"$exists": false}},
+				bson.M{"locked_until": nil},
+			}},
+			bson.M{"$or": bson.A{
+				bson.M{"sticky_until": bson.M{"$lte": time.Now()}},
+				// bson.M{"sticky_until": bson.M{"$exists": false}},
+				bson.M{"sticky_until": nil},
+				bson.M{"worker": b.workerName},
+			}},
+		}}
+
+		var inst instance
+		if err := b.db.Collection("instances").FindOne(ctx, filter).Decode(&inst); err != nil {
+			// exit if no instances
+			if err == mongo.ErrNoDocuments {
+				return nil, nil
+			}
+			return nil, err
 		}
 
-		cursor, err := b.db.Collection("instances").Aggregate(sessCtx, pl)
+		// check to see if instance has events to process
+		matches, err := b.db.Collection("pending_events").CountDocuments(ctx, bson.M{"instance_id": inst.InstanceID})
 		if err != nil {
 			return nil, err
 		}
-		var matches []struct {
-			instance
-			PendingEvents []string `bson:"pending_events"`
-		}
-		if err := cursor.All(sessCtx, &matches); err != nil {
-			return nil, fmt.Errorf("error loading workflow instance(s): %w", err)
-		}
-
-		// we are expecting a single match
-		if len(matches) != 1 {
-			return nil, fmt.Errorf("expecting 1 instance but got %d", len(matches))
-		}
-		res := matches[0]
-
-		// no new events to process, so we can exit
-		if len(res.PendingEvents) == 0 {
+		// exit if no pending events to process
+		if matches == 0 {
 			return nil, nil
 		}
 
-		// lock instance
-		filter := bson.M{"instance_id": res.InstanceID}
+		// must have an event to process: lock instance
+		filter = bson.M{"instance_id": inst.InstanceID}
 		upd := bson.D{{Key: "$set", Value: bson.D{
 			{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
 			{Key: "worker", Value: b.workerName},
@@ -357,14 +338,14 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		//
 		var wfi *workflow.Instance
-		if res.ParentInstanceID != nil {
-			wfi = core.NewSubWorkflowInstance(res.InstanceID, res.ExecutionID, *res.ParentInstanceID, *res.ParentScheduleEventID)
+		if inst.ParentInstanceID != nil {
+			wfi = core.NewSubWorkflowInstance(inst.InstanceID, inst.ExecutionID, *inst.ParentInstanceID, *inst.ParentScheduleEventID)
 		} else {
-			wfi = core.NewWorkflowInstance(res.InstanceID, res.ExecutionID)
+			wfi = core.NewWorkflowInstance(inst.InstanceID, inst.ExecutionID)
 		}
 
 		var metadata *core.WorkflowMetadata
-		if err := json.Unmarshal(res.Metadata, &metadata); err != nil {
+		if err := json.Unmarshal(inst.Metadata, &metadata); err != nil {
 			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
 		}
 
@@ -372,29 +353,29 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		filter = bson.M{"$and": bson.A{
 			bson.M{"instance_id": wfi.InstanceID},
 			bson.M{"$or": bson.A{
-				bson.M{"$set": bson.M{"visible_at": false}},
+				// bson.M{"visible_at": bson.M{"$exists": false}},
+				bson.M{"visible_at": nil},
 				bson.M{"visible_at": bson.M{"$lte": time.Now()}},
 			}},
 		}}
 		opts := options.FindOptions{
-			Sort: bson.M{"id": 1},
+			// Sort: bson.M{"id": 1},
+			Sort: bson.M{"timestamp": 1},
 		}
-
-		cursor, err = b.db.Collection("pending_events").Find(sessCtx, filter, &opts)
+		cursor, err := b.db.Collection("pending_events").Find(sessCtx, filter, &opts)
 		if err != nil {
 			return nil, fmt.Errorf("getting new events: %w", err)
 		}
+
 		var evts []event
 		if err := cursor.All(sessCtx, &evts); err != nil {
 			return nil, fmt.Errorf("loading new events: %w", err)
 		}
-
-		// no new events to process, so we can exit
 		if len(evts) == 0 {
 			return nil, nil
 		}
 
-		twf = &task.Workflow{
+		twf := &task.Workflow{
 			ID:               wfi.InstanceID,
 			WorkflowInstance: wfi,
 			Metadata:         metadata,
@@ -403,33 +384,36 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 		// unpack into standard events
 		for i := 0; i < len(evts); i++ {
-			twf.NewEvents[i].ID = evts[i].EventID
-			twf.NewEvents[i].SequenceID = evts[i].SequenceID
-			twf.NewEvents[i].Type = evts[i].Type
-			twf.NewEvents[i].Timestamp = evts[i].Timestamp
-			twf.NewEvents[i].ScheduleEventID = evts[i].ScheduleEventID
-			twf.NewEvents[i].VisibleAt = evts[i].VisibleAt
-
-			a, err := history.DeserializeAttributes(twf.NewEvents[i].Type, evts[i].Attributes)
+			attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes: %w", err)
 			}
-			twf.NewEvents[i].Attributes = a
+
+			twf.NewEvents[i] = history.Event{
+				ID:              evts[i].EventID,
+				SequenceID:      evts[i].SequenceID,
+				Type:            evts[i].Type,
+				Timestamp:       evts[i].Timestamp,
+				ScheduleEventID: evts[i].ScheduleEventID,
+				VisibleAt:       evts[i].VisibleAt,
+				Attributes:      attr,
+			}
 		}
 
-		// Get most recent sequence id
+		// get most recent sequence id
 		filter = bson.M{"instance_id": wfi.InstanceID}
-		fopts := options.FindOneOptions{Sort: bson.M{"id": -1}}
+		// fopts := options.FindOneOptions{Sort: bson.M{"id": -1}}
+		fopts := options.FindOneOptions{Sort: bson.M{"sequence_id": -1}}
+
 		var evt event
 		if err := b.db.Collection("history").FindOne(sessCtx, filter, &fopts).Decode(&evt); err != nil {
 			if err != mongo.ErrNoDocuments {
-				return nil, errors.New("was expecting to find an event")
+				return nil, fmt.Errorf("getting most recent sequence id: %w", err)
 			}
-			return nil, fmt.Errorf("getting most recent sequence id: %w", err)
 		}
 		twf.LastSequenceID = evt.SequenceID
 
-		return nil, nil
+		return twf, nil
 	}
 
 	// execute
@@ -438,11 +422,13 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		return nil, err
 	}
 	defer session.EndSession(ctx)
-	if _, err := session.WithTransaction(ctx, txn); err != nil {
+
+	res, err := session.WithTransaction(ctx, txn)
+	if err != nil || res == nil {
 		return nil, err
 	}
 
-	return twf, nil
+	return res.(*task.Workflow), nil
 }
 
 // CompleteWorkflowTask completes a workflow task retrieved using GetWorkflowTask
@@ -496,14 +482,13 @@ func (b *mongoBackend) CompleteWorkflowTask(
 				return nil, fmt.Errorf("deleting handled event: %w", err)
 			}
 		}
-
-		// insert new events generated during this workflow execution to the history
+		// ... and add to history
 		coll := b.db.Collection("history")
 		if err := insertEvents(sessCtx, coll, instance.InstanceID, executedEvents); err != nil {
 			return nil, fmt.Errorf("inserting new history events: %w", err)
 		}
 
-		// Schedule activities
+		// schedule activities
 		coll = b.db.Collection("activities")
 		for _, e := range activityEvents {
 			if err := scheduleActivity(sessCtx, coll, instance, e); err != nil {
@@ -511,23 +496,23 @@ func (b *mongoBackend) CompleteWorkflowTask(
 			}
 		}
 
-		// timer events
+		// add new timer events
 		coll = b.db.Collection("pending_events")
 		if err := insertEvents(sessCtx, coll, instance.InstanceID, timerEvents); err != nil {
 			return nil, fmt.Errorf("scheduling timers: %w", err)
 		}
-
-		for _, event := range executedEvents {
-			switch event.Type {
+		// ...and remove cancelled ones
+		for _, e := range executedEvents {
+			switch e.Type {
 			case history.EventType_TimerCanceled:
 				coll := b.db.Collection("pending_events")
-				if err := removeFutureEvent(sessCtx, coll, instance.InstanceID, event.ScheduleEventID); err != nil {
+				if err := removeFutureEvent(sessCtx, coll, instance.InstanceID, e.ScheduleEventID); err != nil {
 					return nil, fmt.Errorf("removing future event: %w", err)
 				}
 			}
 		}
 
-		// Insert new workflow events
+		// insert new workflow events
 		groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
 		for targetInstance, events := range groupedEvents {
@@ -562,6 +547,7 @@ func (b *mongoBackend) CompleteWorkflowTask(
 	return err
 }
 
+// ExtendWorkflowTask extends the lock held by this worker on a workflow task.
 func (b *mongoBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error {
 
 	filter := bson.M{"$and": bson.A{
@@ -586,18 +572,16 @@ func (b *mongoBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
 func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
 
-	var tsk *task.Activity
-
 	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		// get next activity
 		filter := bson.M{"$or": bson.A{
-			bson.M{"$set": bson.M{"locked_until": false}},
+			bson.M{"locked_until": bson.M{"$exists": false}},
 			bson.M{"locked_until": bson.M{"$lt": time.Now()}},
 		}}
 		var act activity
 		if err := b.db.Collection("activities").FindOne(sessCtx, filter).Decode(&act); err != nil {
-			if err != mongo.ErrNoDocuments {
-				return nil, errors.New("was expecting to find an activity")
+			if err == mongo.ErrNoDocuments {
+				return nil, nil
 			}
 			return nil, fmt.Errorf("getting most recent sequence id: %w", err)
 		}
@@ -606,7 +590,7 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 		filter = bson.M{"instance_id": act.InstanceID}
 		var inst instance
 		if err := b.db.Collection("instances").FindOne(sessCtx, filter).Decode(&inst); err != nil {
-			if err != mongo.ErrNoDocuments {
+			if err == mongo.ErrNoDocuments {
 				return nil, errors.New("was expecting to find a matching instance")
 			}
 			return nil, fmt.Errorf("getting instance: %w", err)
@@ -616,7 +600,7 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 		if err := json.Unmarshal(inst.Metadata, &metadata); err != nil {
 			return nil, fmt.Errorf("unmarshaling metadata: %w", err)
 		}
-		a, err := history.DeserializeAttributes(act.EventType, act.Attributes)
+		attr, err := history.DeserializeAttributes(act.EventType, act.Attributes)
 		if err != nil {
 			return nil, fmt.Errorf("deserializing attributes: %w", err)
 		}
@@ -627,7 +611,7 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 			Timestamp:       act.Timestamp,
 			ScheduleEventID: act.ScheduleEventID,
 			VisibleAt:       act.VisibleAt,
-			Attributes:      a,
+			Attributes:      attr,
 		}
 
 		filter = bson.M{"id": act.ID}
@@ -635,18 +619,16 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 			{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
 			{Key: "worker", Value: b.workerName},
 		}}}
-		if err := b.db.Collection("instances").FindOneAndUpdate(sessCtx, filter, upd).Err(); err != nil {
-			return nil, fmt.Errorf("locking workflow instance: %w", err)
+		if err := b.db.Collection("activities").FindOneAndUpdate(sessCtx, filter, upd).Err(); err != nil {
+			return nil, fmt.Errorf("locking activity: %w", err)
 		}
 
-		tsk = &task.Activity{
+		return &task.Activity{
 			ID:               act.ActivityID,
 			WorkflowInstance: core.NewWorkflowInstance(act.InstanceID, act.ExecutionID),
 			Metadata:         metadata,
 			Event:            evt,
-		}
-
-		return nil, nil
+		}, nil
 	}
 
 	session, err := b.db.Client().StartSession()
@@ -654,9 +636,13 @@ func (b *mongoBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 		return nil, err
 	}
 	defer session.EndSession(ctx)
-	_, err = session.WithTransaction(ctx, txn)
 
-	return tsk, nil
+	res, err := session.WithTransaction(ctx, txn)
+	if err != nil || res == nil {
+		return nil, err
+	}
+
+	return res.(*task.Activity), nil
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
