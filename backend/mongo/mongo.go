@@ -20,18 +20,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type mongoBackend struct {
-	db         *mongo.Database
-	workerName string
-	options    backend.Options
-}
-
 type MongoOptions struct {
 	backend.Options
 	BlockTimeout time.Duration
 }
 
 type MongoBackendOption func(*MongoOptions)
+
 
 func WithBlockTimeout(timeout time.Duration) MongoBackendOption {
 	return func(o *MongoOptions) {
@@ -46,6 +41,13 @@ func WithBackendOptions(opts ...backend.BackendOption) MongoBackendOption {
 		}
 	}
 }
+
+type mongoBackend struct {
+	db         *mongo.Database
+	workerName string
+	options    *MongoOptions
+}
+
 func (b *mongoBackend) Logger() log.Logger {
 	return b.options.Logger
 }
@@ -54,11 +56,7 @@ func (b *mongoBackend) Tracer() trace.Tracer {
 	return b.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func NewMongoBackend(uri, app string, opts ...backend.BackendOption) (*mongoBackend, error) {
-	// for _, opt := range opts {
-	// 	opt(&c)
-	// }
-
+func NewMongoBackend(uri, app string, opts ...MongoBackendOption) (*mongoBackend, error) {
 	// connect to db
 	client, err := mongo.Connect(
 		context.Background(),
@@ -70,10 +68,20 @@ func NewMongoBackend(uri, app string, opts ...backend.BackendOption) (*mongoBack
 		return nil, fmt.Errorf("error connecting to mongo: %w", err)
 	}
 
+	// Default options
+	options := &MongoOptions{
+		Options:      backend.ApplyOptions(),
+		BlockTimeout: time.Second * 2,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	return &mongoBackend{
 		db:         client.Database(app),
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
-		options:    backend.ApplyOptions(opts...),
+		options:    options,
 	}, nil
 }
 
