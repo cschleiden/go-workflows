@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -62,6 +63,7 @@ func NewMongoBackend(uri, app string, opts ...MongoBackendOption) (*mongoBackend
 		options.Client().ApplyURI(uri),
 		options.Client().SetAppName(app),
 		options.Client().SetConnectTimeout(2*time.Second),
+		options.Client().SetReadConcern(readconcern.Local()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to mongo: %w", err)
@@ -114,6 +116,11 @@ func (b *mongoBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	}
 	defer session.EndSession(ctx)
 	_, err = session.WithTransaction(ctx, txn)
+
+	// , &options.TransactionOptions{
+	// 	ReadConcern: readconcern.Majority(),
+	// }
+
 	return err
 }
 
@@ -187,68 +194,99 @@ func (b *mongoBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 
 // GetWorkflowInstanceHistory returns history events for the specified workflow instance.
 func (b *mongoBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error) {
-	// find matching events
-	filter := bson.M{"instance_id": instance.InstanceID}
-	if lastSequenceID != nil {
-		filter = bson.M{"$and": bson.A{
-			filter,
-			bson.M{"sequence_id": bson.M{"$gt": *lastSequenceID}},
-		}}
+
+	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		// find matching events
+		filter := bson.M{"instance_id": instance.InstanceID}
+		if lastSequenceID != nil {
+			filter = bson.M{"$and": bson.A{
+				filter,
+				bson.M{"sequence_id": bson.M{"$gt": *lastSequenceID}},
+			}}
+		}
+		opts := options.FindOptions{
+			Sort: bson.M{"sequence_id": 1},
+		}
+		cursor, err := b.db.Collection("history").Find(sessCtx, filter, &opts)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching history: %w", err)
+		}
+		var evts []event
+		if err := cursor.All(sessCtx, &evts); err != nil {
+			return nil, err
+		}
+
+		// unpack into standard events
+		hevts := make([]history.Event, len(evts))
+		for i := 0; i < len(evts); i++ {
+			attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
+			if err != nil {
+				return nil, fmt.Errorf("deserializing attributes: %w", err)
+			}
+			hevts[i] = history.Event{
+				ID:              evts[i].EventID,
+				SequenceID:      evts[i].SequenceID,
+				Type:            evts[i].Type,
+				Timestamp:       evts[i].Timestamp,
+				ScheduleEventID: evts[i].ScheduleEventID,
+				VisibleAt:       evts[i].VisibleAt,
+				Attributes:      attr,
+			}
+		}
+
+		return hevts, nil
 	}
-	opts := options.FindOptions{
-		Sort: bson.M{"sequence_id": 1},
-	}
-	cursor, err := b.db.Collection("history").Find(ctx, filter, &opts)
+
+	session, err := b.db.Client().StartSession()
 	if err != nil {
-		return nil, fmt.Errorf("error fetching history: %w", err)
+		return nil, err
 	}
-	var evts []event
-	if err := cursor.All(ctx, &evts); err != nil {
+	defer session.EndSession(ctx)
+	res, err := session.WithTransaction(ctx, txn)
+	if err != nil || res == nil {
 		return nil, err
 	}
 
-	// unpack into standard events
-	hevts := make([]history.Event, len(evts))
-	for i := 0; i < len(evts); i++ {
-		attr, err := history.DeserializeAttributes(evts[i].Type, evts[i].Attributes)
-		if err != nil {
-			return nil, fmt.Errorf("deserializing attributes: %w", err)
-		}
-		hevts[i] = history.Event{
-			ID:              evts[i].EventID,
-			SequenceID:      evts[i].SequenceID,
-			Type:            evts[i].Type,
-			Timestamp:       evts[i].Timestamp,
-			ScheduleEventID: evts[i].ScheduleEventID,
-			VisibleAt:       evts[i].VisibleAt,
-			Attributes:      attr,
-		}
-	}
+	return res.([]history.Event), nil
 
-	return hevts, nil
 }
 
 // GetWorkflowInstanceState returns the state for the specified workflow instance.
 func (b *mongoBackend) GetWorkflowInstanceState(ctx context.Context, inst *workflow.Instance) (backend.WorkflowState, error) {
-	filter := bson.M{"$and": bson.A{
-		bson.M{"instance_id": inst.InstanceID},
-		bson.M{"execution_id": inst.ExecutionID},
-	}}
 
-	var i instance
-	if err := b.db.Collection("instances").FindOne(ctx, filter).Decode(&i); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return backend.WorkflowStateActive, backend.ErrInstanceNotFound
+	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		filter := bson.M{"$and": bson.A{
+			bson.M{"instance_id": inst.InstanceID},
+			bson.M{"execution_id": inst.ExecutionID},
+		}}
+
+		var i instance
+		if err := b.db.Collection("instances").FindOne(sessCtx, filter).Decode(&i); err != nil {
+			if err == mongo.ErrNoDocuments {
+				return backend.WorkflowStateActive, backend.ErrInstanceNotFound
+			}
+			return backend.WorkflowStateActive, err
 		}
+
+		// CompletedAt set == workflow is finished
+		if i.CompletedAt != nil {
+			return backend.WorkflowStateFinished, nil
+		}
+
+		return backend.WorkflowStateActive, nil
+	}
+
+	session, err := b.db.Client().StartSession()
+	if err != nil {
+		return backend.WorkflowStateActive, err
+	}
+	defer session.EndSession(ctx)
+	res, err := session.WithTransaction(ctx, txn)
+	if err != nil || res == nil {
 		return backend.WorkflowStateActive, err
 	}
 
-	// CompletedAt set == workflow is finished
-	if i.CompletedAt != nil {
-		return backend.WorkflowStateFinished, nil
-	}
-
-	return backend.WorkflowStateActive, nil
+	return res.(backend.WorkflowState), nil
 }
 
 // SignalWorkflow signals a running workflow instance
@@ -308,7 +346,7 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		}}
 
 		var inst instance
-		if err := b.db.Collection("instances").FindOne(ctx, filter).Decode(&inst); err != nil {
+		if err := b.db.Collection("instances").FindOne(sessCtx, filter).Decode(&inst); err != nil {
 			// exit if no instances
 			if err == mongo.ErrNoDocuments {
 				return nil, nil
@@ -317,7 +355,7 @@ func (b *mongoBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		}
 
 		// check to see if instance has events to process
-		matches, err := b.db.Collection("pending_events").CountDocuments(ctx, bson.M{"instance_id": inst.InstanceID})
+		matches, err := b.db.Collection("pending_events").CountDocuments(sessCtx, bson.M{"instance_id": inst.InstanceID})
 		if err != nil {
 			return nil, err
 		}
@@ -550,23 +588,33 @@ func (b *mongoBackend) CompleteWorkflowTask(
 // ExtendWorkflowTask extends the lock held by this worker on a workflow task.
 func (b *mongoBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error {
 
-	filter := bson.M{"$and": bson.A{
-		bson.M{"instance_id": instance.InstanceID},
-		bson.M{"execution_id": instance.ExecutionID},
-		bson.M{"worker": b.workerName},
-	}}
-	upd := bson.D{{Key: "$set", Value: bson.D{
-		{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
-	}}}
+	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		filter := bson.M{"$and": bson.A{
+			bson.M{"instance_id": instance.InstanceID},
+			bson.M{"execution_id": instance.ExecutionID},
+			bson.M{"worker": b.workerName},
+		}}
+		upd := bson.D{{Key: "$set", Value: bson.D{
+			{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
+		}}}
 
-	if err := b.db.Collection("instances").FindOneAndUpdate(ctx, filter, upd).Err(); err != nil {
-		if err != mongo.ErrNoDocuments {
-			return errors.New("could not find workflow task to extend")
+		if err := b.db.Collection("instances").FindOneAndUpdate(sessCtx, filter, upd).Err(); err != nil {
+			if err != mongo.ErrNoDocuments {
+				return nil, errors.New("could not find workflow task to extend")
+			}
+			return nil, fmt.Errorf("error extending workflow task: %w", err)
 		}
-		return fmt.Errorf("error extending workflow task: %w", err)
+
+		return nil, nil
 	}
 
-	return nil
+	session, err := b.db.Client().StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(ctx)
+	_, err = session.WithTransaction(ctx, txn)
+	return err
 }
 
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
@@ -680,18 +728,28 @@ func (b *mongoBackend) CompleteActivityTask(ctx context.Context, instance *workf
 
 func (b *mongoBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
 
-	filter := bson.M{"$and": bson.A{
-		bson.M{"activity_id": activityID},
-		bson.M{"worker": b.workerName},
-	}}
-	upd := bson.D{{Key: "$set", Value: bson.D{
-		{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
-	}}}
-	if err := b.db.Collection("activities").FindOneAndUpdate(ctx, filter, upd).Err(); err != nil {
-		return fmt.Errorf("extending activity lock: %w", err)
+	txn := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		filter := bson.M{"$and": bson.A{
+			bson.M{"activity_id": activityID},
+			bson.M{"worker": b.workerName},
+		}}
+		upd := bson.D{{Key: "$set", Value: bson.D{
+			{Key: "locked_until", Value: time.Now().Add(b.options.WorkflowLockTimeout)},
+		}}}
+		if err := b.db.Collection("activities").FindOneAndUpdate(sessCtx, filter, upd).Err(); err != nil {
+			return nil, fmt.Errorf("extending activity lock: %w", err)
+		}
+
+		return nil, nil
 	}
 
-	return nil
+	session, err := b.db.Client().StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(ctx)
+	_, err = session.WithTransaction(ctx, txn)
+	return err
 }
 
 func scheduleActivity(sessCtx mongo.SessionContext, coll *mongo.Collection, inst *core.WorkflowInstance, event history.Event) error {

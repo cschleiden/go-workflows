@@ -1,8 +1,6 @@
 package mongo
 
 import (
-	"context"
-
 	"github.com/ticctech/go-workflows/internal/history"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -41,6 +39,6 @@ func removeFutureEvent(sessCtx mongo.SessionContext, coll *mongo.Collection, ins
 		bson.M{"schedule_event_id": scheduleEventID},
 		bson.M{"visible_at": bson.M{"$exists": true}},
 	}}
-	_, err := coll.DeleteOne(context.Background(), filter)
+	_, err := coll.DeleteOne(sessCtx, filter)
 	return err
 }
