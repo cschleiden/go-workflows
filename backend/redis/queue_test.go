@@ -73,7 +73,7 @@ func Test_TaskQueue(t *testing.T) {
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
 					return q.Enqueue(ctx, p, "t1", nil)
 				})
-				require.Error(t, errTaskAlreadyInQueue, err)
+				require.NoError(t, err)
 
 				task, err := q.Dequeue(ctx, client, lockTimeout, blockTimeout)
 				require.NoError(t, err)
