@@ -116,7 +116,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			e.workflowCompleted(nil, err)
 			skipNewEvents = true
 		} else if t.LastSequenceID != e.lastSequenceID {
-			logger.Debug("Task has newer history than current state", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
+			logger.Error("After replaying history, task still has newer history than current state", "task_sequence_id", t.LastSequenceID, "local_sequence_id", e.lastSequenceID)
 
 			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
 		}
