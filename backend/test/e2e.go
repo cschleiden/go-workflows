@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	internalwf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -364,30 +365,60 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			b := setup()
-			ctx := context.Background()
-			ctx, cancel := context.WithCancel(ctx)
+	run := func(suffix string, workerOptions *worker.Options) {
+		for _, tt := range tests {
+			t.Run(tt.name+suffix, func(t *testing.T) {
+				b := setup()
+				ctx := context.Background()
+				ctx, cancel := context.WithCancel(ctx)
 
-			c := client.New(b)
-			w := worker.New(b, &worker.DefaultWorkerOptions)
+				c := client.New(b)
+				w := worker.New(b, workerOptions)
 
-			t.Cleanup(func() {
-				cancel()
-				if err := w.WaitForCompletion(); err != nil {
-					log.Println("Worker did not stop in time")
-					t.FailNow()
-				}
+				t.Cleanup(func() {
+					cancel()
+					if err := w.WaitForCompletion(); err != nil {
+						log.Println("Worker did not stop in time")
+						t.FailNow()
+					}
 
-				if teardown != nil {
-					teardown(b)
-				}
+					if teardown != nil {
+						teardown(b)
+					}
+				})
+
+				tt.f(t, ctx, c, w, b)
 			})
-
-			tt.f(t, ctx, c, w, b)
-		})
+		}
 	}
+
+	options := worker.DefaultWorkerOptions
+
+	// Run with cache
+	run("", &options)
+
+	// Disable cache for this execution
+	options.WorkflowExecutorCache = &noopWorkflowExecutorCache{}
+	run("_without_cache", &options)
+}
+
+type noopWorkflowExecutorCache struct {
+}
+
+var _ internalwf.ExecutorCache = (*noopWorkflowExecutorCache)(nil)
+
+// Get implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.WorkflowInstance) (internalwf.WorkflowExecutor, bool, error) {
+	return nil, false, nil
+}
+
+// StartEviction implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) StartEviction(ctx context.Context) {
+}
+
+// Store implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Store(ctx context.Context, instance *core.WorkflowInstance, workflow internalwf.WorkflowExecutor) error {
+	return nil
 }
 
 func register(t *testing.T, ctx context.Context, w worker.Worker, workflows []interface{}, activities []interface{}) {
