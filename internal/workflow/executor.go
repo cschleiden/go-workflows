@@ -162,7 +162,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		workflowEvents = append(workflowEvents, r.WorkflowEvents...)
 	}
 
-	// Events from command don't have to be executed again, add them to the executed events.
+	// Events from commands don't have to be executed again, add them to the executed events.
 	executedEvents = append(executedEvents, newCommandEvents...)
 
 	// Set SequenceIDs for all executed events
