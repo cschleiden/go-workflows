@@ -1,6 +1,10 @@
 package worker
 
-import "time"
+import (
+	"time"
+
+	"github.com/ticctech/go-workflows/internal/workflow"
+)
 
 type Options struct {
 	// WorkflowsPollers is the number of pollers to start. Defaults to 2.
@@ -28,6 +32,16 @@ type Options struct {
 
 	// WorkflowHeartbeatInterval is the interval between heartbeat attempts on workflow tasks, when enabled.
 	WorkflowHeartbeatInterval time.Duration
+
+	// WorkflowExecutorCache is the max size of the workflow executor cache. Defaults to 128
+	WorkflowExecutorCacheSize int
+
+	// WorkflowExecutorCache is the max TTL of the workflow executor cache. Defaults to 10 seconds
+	WorkflowExecutorCacheTTL time.Duration
+
+	// WorkflowExecutorCache is the cache to use for workflow executors. If nil, a default cache implementation
+	// will be used.
+	WorkflowExecutorCache workflow.ExecutorCache
 }
 
 var DefaultOptions = Options{
@@ -37,4 +51,8 @@ var DefaultOptions = Options{
 	MaxParallelActivityTasks:  0,
 	ActivityHeartbeatInterval: 25 * time.Second,
 	WorkflowHeartbeatInterval: 25 * time.Second,
+
+	WorkflowExecutorCacheSize: 128,
+	WorkflowExecutorCacheTTL:  time.Second * 10,
+	WorkflowExecutorCache:     nil,
 }

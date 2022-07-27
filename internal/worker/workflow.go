@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/ticctech/go-workflows/internal/workflow/cache"
 	"github.com/ticctech/go-workflows/backend"
 	"github.com/ticctech/go-workflows/internal/task"
 	"github.com/ticctech/go-workflows/internal/workflow"
@@ -26,7 +27,7 @@ type workflowWorker struct {
 
 	registry *workflow.Registry
 
-	cache workflow.WorkflowExecutorCache
+	cache workflow.ExecutorCache
 
 	workflowTaskQueue chan *task.Workflow
 
@@ -36,6 +37,13 @@ type workflowWorker struct {
 }
 
 func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, options *Options) WorkflowWorker {
+	var c workflow.ExecutorCache
+	if options.WorkflowExecutorCache != nil {
+		c = options.WorkflowExecutorCache
+	} else {
+		c = cache.NewWorkflowExecutorLRUCache(options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
+	}
+
 	return &workflowWorker{
 		backend: backend,
 
@@ -44,7 +52,7 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, opt
 		registry:          registry,
 		workflowTaskQueue: make(chan *task.Workflow),
 
-		cache: workflow.NewWorkflowExecutorCache(workflow.DefaultWorkflowExecutorCacheOptions),
+		cache: c,
 
 		logger: backend.Logger(),
 
@@ -53,8 +61,6 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, opt
 }
 
 func (ww *workflowWorker) Start(ctx context.Context) error {
-	go ww.cache.StartEviction(ctx)
-
 	for i := 0; i <= ww.options.WorkflowPollers; i++ {
 		go ww.runPoll(ctx)
 	}

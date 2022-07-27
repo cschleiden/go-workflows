@@ -7,6 +7,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golangci/golangci-lint v1.45.2
 	github.com/google/uuid v1.3.0
+	github.com/jellydator/ttlcache/v3 v3.0.0
 	github.com/jstemmer/go-junit-report/v2 v2.0.0-beta1
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/stretchr/testify v1.7.1
