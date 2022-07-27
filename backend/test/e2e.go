@@ -166,7 +166,8 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 					return i * 2, nil
 				}
 
-				ch := make(chan struct{}, 1)
+				// Workflow will be executed multiple times, but the test will wait only once. Create buffered channel
+				ch := make(chan struct{}, 10)
 
 				wf := func(ctx workflow.Context) (int, error) {
 					swfs := make([]workflow.Future[int], 0)
@@ -177,6 +178,7 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 					// Unblock test. Should not do this in production code, but here we know that this will be executed in the same process.
 					ch <- struct{}{}
 
+					// Wait for subworkflows to complete
 					r := 0
 
 					for _, f := range swfs {
