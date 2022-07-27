@@ -393,6 +393,19 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 }
 
 func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanceledAttributes) error {
+	// Mark command as done and ensure we executed the same command
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution canceled a timer")
+	}
+
+	if _, ok := c.(*command.CancelTimerCommand); !ok {
+		return fmt.Errorf("previous workflow execution canceled a timer, not: %v", c.Type())
+	}
+
+	c.Done()
+
+	// Cancel a pending future
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		// Timer already canceled ignore
@@ -475,6 +488,18 @@ func (e *executor) handleSignalReceived(event history.Event, a *history.SignalRe
 }
 
 func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow")
+	}
+
+	sec, ok := c.(*command.SideEffectCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow, not: %v", c.Type())
+	}
+
+	sec.Done()
+
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for side effect result event")
