@@ -42,7 +42,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 		// Register a callback for when it's canceled. The only operation on the `Done` channel
 		// is that it's closed when the context is canceled.
 		c.AddReceiveCallback(func(v struct{}, ok bool) {
-			if timerCmd.State() == command.CommandState_Committed {
+			if timerCmd.Committed() {
 				// If the timer command is already committed, create a cancel command to allow the backend
 				// to clean up the scheduled timer message.
 				cancelScheduleEventID := wfState.GetNextScheduleEventID()

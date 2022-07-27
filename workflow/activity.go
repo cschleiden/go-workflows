@@ -66,7 +66,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 		if c, ok := d.(sync.ChannelInternal[struct{}]); ok {
 			if _, ok := c.ReceiveNonBlocking(); ok {
 				// Workflow has been canceled, check if the activity has already been scheduled, no need to schedule otherwise
-				if cmd.State() != command.CommandState_Committed {
+				if !cmd.Committed() {
 					cmd.Done()
 					wfState.RemoveFuture(scheduleEventID)
 					f.Set(*new(TResult), sync.Canceled)
