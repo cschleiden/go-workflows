@@ -234,6 +234,7 @@ func (e *executor) executeEvent(event history.Event) error {
 		"seq_id", event.SequenceID,
 		"event_type", event.Type,
 		"schedule_event_id", event.ScheduleEventID,
+		"is_replaying", e.workflowState.Replaying(),
 	)
 
 	var err error
