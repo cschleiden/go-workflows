@@ -517,7 +517,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 			if event.Type == history.EventType_WorkflowExecutionStarted {
 				a := event.Attributes.(*history.ExecutionStartedAttributes)
 				// Create new instance
-				if err := createInstance(ctx, tx, targetInstance, a.Metadata, true); err != nil {
+				if err := createInstance(ctx, tx, &targetInstance, a.Metadata, true); err != nil {
 					return err
 				}
 
