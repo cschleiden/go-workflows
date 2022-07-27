@@ -434,6 +434,10 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 		return fmt.Errorf("previous workflow execution scheduled different type of sub workflow: %s, %s", a.Name, sswc.Name)
 	}
 
+	// If we are replaying this event, the command will have generated a new instance ID. Ensure we use the same one as
+	// when the command was originally committed.
+	sswc.Instance = a.SubWorkflowInstance
+
 	c.Done()
 
 	return nil
