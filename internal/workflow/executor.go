@@ -116,7 +116,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			e.workflowCompleted(nil, err)
 			skipNewEvents = true
 		} else if t.LastSequenceID != e.lastSequenceID {
-			logger.Debug("Task has newer history than current state", "task_sequence_id", t.LastSequenceID, "sequence_id", e.lastSequenceID)
+			logger.Error("After replaying history, task still has newer history than current state", "task_sequence_id", t.LastSequenceID, "local_sequence_id", e.lastSequenceID)
 
 			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
 		}
@@ -162,7 +162,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		workflowEvents = append(workflowEvents, r.WorkflowEvents...)
 	}
 
-	// Events from command don't have to be executed again, add them to the executed events.
+	// Events from commands don't have to be executed again, add them to the executed events.
 	executedEvents = append(executedEvents, newCommandEvents...)
 
 	// Set SequenceIDs for all executed events
@@ -234,6 +234,7 @@ func (e *executor) executeEvent(event history.Event) error {
 		"seq_id", event.SequenceID,
 		"event_type", event.Type,
 		"schedule_event_id", event.ScheduleEventID,
+		"is_replaying", e.workflowState.Replaying(),
 	)
 
 	var err error
@@ -392,6 +393,19 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 }
 
 func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanceledAttributes) error {
+	// Mark command as done and ensure we executed the same command
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution canceled a timer")
+	}
+
+	if _, ok := c.(*command.CancelTimerCommand); !ok {
+		return fmt.Errorf("previous workflow execution canceled a timer, not: %v", c.Type())
+	}
+
+	c.Done()
+
+	// Cancel a pending future
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		// Timer already canceled ignore
@@ -419,6 +433,10 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 	if a.Name != sswc.Name {
 		return fmt.Errorf("previous workflow execution scheduled different type of sub workflow: %s, %s", a.Name, sswc.Name)
 	}
+
+	// If we are replaying this event, the command will have generated a new instance ID. Ensure we use the same one as
+	// when the command was originally committed.
+	sswc.Instance = a.SubWorkflowInstance
 
 	c.Done()
 
@@ -474,6 +492,18 @@ func (e *executor) handleSignalReceived(event history.Event, a *history.SignalRe
 }
 
 func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow")
+	}
+
+	sec, ok := c.(*command.SideEffectCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution scheduled a sub workflow, not: %v", c.Type())
+	}
+
+	sec.Done()
+
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for side effect result event")

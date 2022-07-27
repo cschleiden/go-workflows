@@ -210,7 +210,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			if event.Type == history.EventType_WorkflowExecutionStarted {
 				// Create new instance
 				a := event.Attributes.(*history.ExecutionStartedAttributes)
-				if err := createInstanceP(ctx, p, targetInstance, a.Metadata, true); err != nil {
+				if err := createInstanceP(ctx, p, &targetInstance, a.Metadata, true); err != nil {
 					return err
 				}
 			}
@@ -222,7 +222,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 
 		// Try to queue workflow task
-		if targetInstance != instance {
+		if targetInstance != *instance {
 			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, nil); err != nil {
 				return fmt.Errorf("enqueuing workflow task: %w", err)
 			}

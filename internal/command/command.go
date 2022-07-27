@@ -7,17 +7,17 @@ import (
 
 type CommandState int
 
-//  ┌───────┐
-//  │Pending├
-//  └───────┘
-//      ▼
-// ┌─────────┐
-// │Committed│
-// └─────────┘
-//      ▼
-//   ┌────┐
-//   │Done│
-//   └────┘
+//        ┌───────┐
+// ┌──────┤Pending│ - Command is pending, has just been added
+// │      └───────┘
+// │          ▼
+// │     ┌─────────┐
+// │     │Committed│ - Command has been committed. Its results (e.g., events) have been checkpointed
+// │     └─────────┘
+// │          ▼
+// │       ┌────┐
+// └──────►│Done│ - Command has been marked as done.
+//         └────┘
 const (
 	CommandState_Pending CommandState = iota
 	CommandState_Committed
@@ -27,15 +27,17 @@ const (
 type Command interface {
 	ID() int64
 
+	Type() string
+
+	State() CommandState
+
+	Committed() bool
+
 	Commit(clock clock.Clock) *CommandResult
 
 	// Done marks the command as done. This transitions the state to done and indicates that the result
 	// of this command has been applied.
 	Done()
-
-	State() CommandState
-
-	Type() string
 }
 
 type CommandResult struct {
@@ -64,10 +66,15 @@ func (c *command) ID() int64 {
 	return c.id
 }
 
+func (c *command) Committed() bool {
+	return c.state >= CommandState_Committed
+}
+
 func (c *command) State() CommandState {
 	return c.state
 }
 
+// Done marks the command as done
 func (c *command) Done() {
 	c.state = CommandState_Done
 }

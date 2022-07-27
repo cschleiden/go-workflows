@@ -49,7 +49,7 @@ func (c *ScheduleSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
 	c.commit()
 
 	return &CommandResult{
-		// Record scheduled sub-workflow
+		// Record scheduled sub-workflow for source workflow instance
 		Events: []history.Event{
 			history.NewPendingEvent(
 				clock.Now(),

@@ -71,7 +71,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
 		c.AddReceiveCallback(func(v struct{}, ok bool) {
-			if cmd.State() == command.CommandState_Committed {
+			if cmd.Committed() {
 				// The command is committed, that means the sub-workflow is already started. Create and add a cancel command
 				// to stop the sub-workflow execution.
 				cancelScheduleEventID := wfState.GetNextScheduleEventID()

@@ -6,16 +6,16 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
-type sideEffectCommand struct {
+type SideEffectCommand struct {
 	command
 
 	result payload.Payload
 }
 
-var _ Command = (*sideEffectCommand)(nil)
+var _ Command = (*SideEffectCommand)(nil)
 
-func NewSideEffectCommand(id int64, result payload.Payload) *sideEffectCommand {
-	return &sideEffectCommand{
+func NewSideEffectCommand(id int64, result payload.Payload) *SideEffectCommand {
+	return &SideEffectCommand{
 		command: command{
 			state: CommandState_Pending,
 			id:    id,
@@ -24,11 +24,11 @@ func NewSideEffectCommand(id int64, result payload.Payload) *sideEffectCommand {
 	}
 }
 
-func (c *sideEffectCommand) Type() string {
+func (c *SideEffectCommand) Type() string {
 	return "SideEffect"
 }
 
-func (c *sideEffectCommand) Commit(clock clock.Clock) *CommandResult {
+func (c *SideEffectCommand) Commit(clock clock.Clock) *CommandResult {
 	c.commit()
 
 	return &CommandResult{
