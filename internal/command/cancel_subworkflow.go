@@ -40,6 +40,7 @@ func (c *CancelSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
 				&history.SubWorkflowCancellationRequestedAttributes{
 					SubWorkflowInstance: c.SubWorkflowInstance,
 				},
+				history.ScheduleEventID(c.id),
 			),
 		},
 
