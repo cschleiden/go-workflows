@@ -5,16 +5,16 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-type cancelTimerCommand struct {
+type CancelTimerCommand struct {
 	command
 
 	TimerScheduleEventID int64
 }
 
-var _ Command = (*cancelTimerCommand)(nil)
+var _ Command = (*CancelTimerCommand)(nil)
 
-func NewCancelTimerCommand(id int64, timerScheduleEventID int64) *cancelTimerCommand {
-	return &cancelTimerCommand{
+func NewCancelTimerCommand(id int64, timerScheduleEventID int64) *CancelTimerCommand {
+	return &CancelTimerCommand{
 		command: command{
 			state: CommandState_Pending,
 			id:    id,
@@ -23,11 +23,11 @@ func NewCancelTimerCommand(id int64, timerScheduleEventID int64) *cancelTimerCom
 	}
 }
 
-func (*cancelTimerCommand) Type() string {
+func (*CancelTimerCommand) Type() string {
 	return "CancelTimer"
 }
 
-func (c *cancelTimerCommand) Commit(clock clock.Clock) *CommandResult {
+func (c *CancelTimerCommand) Commit(clock clock.Clock) *CommandResult {
 	c.commit()
 
 	return &CommandResult{
