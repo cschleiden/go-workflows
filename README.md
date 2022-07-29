@@ -477,14 +477,14 @@ go-workflows includes support for testing workflows, a simple example using mock
 func TestWorkflow(t *testing.T) {
 	tester := tester.NewWorkflowTester[int](Workflow1)
 
-  // Mock two activities
+	// Mock two activities
 	tester.OnActivity(Activity1, mock.Anything, 35, 12).Return(47, nil)
 	tester.OnActivity(Activity2, mock.Anything, mock.Anything, mock.Anything).Return(12, nil)
 
-  // Run workflow with inputs
+	// Run workflow with inputs
 	tester.Execute("Hello world")
 
-  // Workflows always run to completion, or time-out
+	// Workflows always run to completion, or time-out
 	require.True(t, tester.WorkflowFinished())
 
 	wr, werr := tester.WorkflowResult()
