@@ -52,3 +52,14 @@ func Test_GetFunctionName(t *testing.T) {
 		})
 	}
 }
+
+func rf1() (string, error) {
+	return "", nil
+}
+
+func Test_CheckReturn(t *testing.T) {
+	err := CheckReturn[int](rf1)
+
+	require.Error(t, err)
+	require.EqualError(t, err, "expected return value int, but got string")
+}

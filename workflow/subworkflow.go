@@ -49,6 +49,11 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 		return f
 	}
 
+	if err := fn.CheckReturn[TResult](wf); err != nil {
+		f.Set(*new(TResult), fmt.Errorf("checking subworkflow result: %w", err))
+		return f
+	}
+
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
