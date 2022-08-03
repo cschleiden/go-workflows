@@ -36,7 +36,7 @@ func CheckReturn[TResult any](fn interface{}) error {
 	rt := reflect.TypeOf(zr)
 
 	if !firstResult.AssignableTo(rt) {
-		return fmt.Errorf("expected return value %T, but got %v", zr, firstResult.String())
+		return fmt.Errorf("expected return of type %T, but got %v", zr, firstResult.String())
 	}
 
 	return nil
