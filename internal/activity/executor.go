@@ -97,3 +97,18 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 
 	return result, errInterface
 }
+
+func executeActivity(fn reflect.Value, args []reflect.Value) (r []reflect.Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+
+		}
+	}()
+
+	r = fn.Call(args)
+	if len(r) < 1 || len(r) > 2 {
+		return nil, errors.New("activity has to return either (error) or (<result>, error)")
+	}
+
+	return r, nil
+}

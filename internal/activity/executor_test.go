@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -51,6 +53,27 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				require.EqualError(t, err, "converting activity inputs: mismatched argument count: expected 2, got 0")
 			},
 		},
+		{
+			name: "panic during execution",
+			setup: func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes {
+				a := func(context.Context, int, int) error {
+					panic("oops")
+				}
+				require.NoError(t, r.RegisterActivity(a))
+
+				inputs, _ := args.ArgsToInputs(converter.DefaultConverter, 0, 42)
+
+				return &history.ActivityScheduledAttributes{
+					Name:   fn.Name(a),
+					Inputs: inputs,
+				}
+			},
+			result: func(t *testing.T, result payload.Payload, err error) {
+				require.Nil(t, result)
+				require.Error(t, err)
+				require.EqualError(t, err, "oops")
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -65,6 +88,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				ID:               uuid.NewString(),
 				WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 				Event:            history.NewHistoryEvent(1, time.Now(), history.EventType_ActivityScheduled, attr),
+				Metadata:         &core.WorkflowMetadata{},
 			})
 			tt.result(t, got, err)
 		})
