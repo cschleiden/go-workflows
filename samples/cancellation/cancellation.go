@@ -97,6 +97,17 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		InstanceID: uuid.NewString(),
 	}, Workflow2, "hello sub")
 
+	workflow.Select(ctx,
+		workflow.Await(f, func(ctx workflow.Context, f workflow.Future[string]) {
+			rw, err := f.Get(ctx)
+			if err != nil {
+				logger.Debug("error getting workflow2 result", "err", err)
+			} else {
+				logger.Debug("Workflow2 result:", "rw", rw)
+			}
+		}),
+	)
+
 	logger.Debug("schedule ActivitySkip")
 	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySkip, 1, 2).Get(ctx); err != nil {
 		logger.Debug("error getting activity skip result", "err", err)
