@@ -69,7 +69,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering Workflow1", msg)
+	logger.Debug("Entering Workflow1", "msg", msg)
 	defer logger.Debug("Leaving Workflow1")
 
 	defer func() {
@@ -87,25 +87,21 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	logger.Debug("schedule ActivitySuccess")
 	if r0, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySuccess, 1, 2).Get(ctx); err != nil {
-		logger.Debug("error getting activity success result", err)
+		logger.Debug("error getting activity success result", "err", err)
 	} else {
-		logger.Debug("ActivitySuccess result:", r0)
+		logger.Debug("ActivitySuccess result:", "r0", r0)
 	}
 
-	logger.Debug("schedule ActivityCancel")
-	if rw, err := workflow.CreateSubWorkflowInstance[string](ctx, workflow.SubWorkflowOptions{
-		InstanceID: "sub-workflow",
-	}, Workflow2, "hello sub").Get(ctx); err != nil {
-		logger.Debug("error getting workflow2 result", err)
-	} else {
-		logger.Debug("Workflow2 result:", rw)
-	}
+	logger.Debug("Run SubWorkflow: Workflow2")
+	f := workflow.CreateSubWorkflowInstance[string](ctx, workflow.SubWorkflowOptions{
+		InstanceID: uuid.NewString(),
+	}, Workflow2, "hello sub")
 
 	logger.Debug("schedule ActivitySkip")
 	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivitySkip, 1, 2).Get(ctx); err != nil {
-		logger.Debug("error getting activity skip result", err)
+		logger.Debug("error getting activity skip result", "err", err)
 	} else {
-		logger.Debug("ActivitySkip result:", r2)
+		logger.Debug("ActivitySkip result:", "r2", r2)
 	}
 
 	logger.Debug("Workflow finished")
@@ -134,9 +130,9 @@ func Workflow2(ctx workflow.Context, msg string) (ret string, err error) {
 
 	logger.Debug("schedule ActivityCancel")
 	if r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, ActivityCancel, 1, 2).Get(ctx); err != nil {
-		logger.Debug("error getting activity cancel result", err)
+		logger.Debug("error getting activity cancel result", "err", err)
 	} else {
-		logger.Debug("ActivityCancel result:", r1)
+		logger.Debug("ActivityCancel result:", "r1", r1)
 	}
 
 	return "some result", nil
@@ -153,6 +149,7 @@ func ActivityCancel(ctx context.Context, a, b int) (int, error) {
 	log.Println("Entering ActivityCancel")
 	defer log.Println("Leaving ActivityCancel")
 
+	// Wait for 10s, this will cause the cancellation event to be fired while waiting here
 	time.Sleep(10 * time.Second)
 
 	return a + b, nil
