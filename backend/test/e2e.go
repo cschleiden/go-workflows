@@ -289,6 +289,38 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			},
 		},
 		{
+			name: "SubWorkflow_Signal",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					workflow.NewSignalChannel[string](ctx, "signal").Receive(ctx)
+
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					id, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) string {
+						return uuid.New().String()
+					}).Get(ctx)
+
+					f := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: id,
+					}, swf, 1)
+
+					if err := workflow.SignalWorkflow(ctx, id, "signal", "hello"); err != nil {
+						return 0, err
+					}
+
+					return f.Get(ctx)
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.NoError(t, err)
+				require.Equal(t, 2, r)
+			},
+		},
+		{
 			name: "Timer_CancelWorkflowInstance",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {

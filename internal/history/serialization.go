@@ -73,6 +73,9 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 	case EventType_SubWorkflowFailed:
 		attr = &SubWorkflowFailedAttributes{}
 
+	case EventType_SignalWorkflow:
+		attr = &SignalWorkflowAttributes{}
+
 	default:
 		return nil, errors.New("unknown event type when deserializing attributes")
 	}
