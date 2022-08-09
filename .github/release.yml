@@ -11,6 +11,9 @@ changelog:
     - title: Bugfixes
       labels:
         - bug
+    - title: Documentation improvements
+      labels:
+        - docs
     - title: Other Changes
       labels:
         - "*"
