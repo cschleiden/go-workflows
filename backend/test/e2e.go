@@ -298,7 +298,9 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				}
 				wf := func(ctx workflow.Context) (int, error) {
 					id, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) string {
-						return uuid.New().String()
+						id := uuid.New().String()
+						workflow.Logger(ctx).Warn("side effect", "id", id)
+						return id
 					}).Get(ctx)
 
 					f := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
