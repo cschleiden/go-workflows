@@ -22,26 +22,23 @@ func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TR
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
-	if Replaying(ctx) {
-		// There has to be a message in the history with the result, create a new future
-		// and block on it
-		wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(future))
-		return future
-	}
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(future))
 
-	// Execute side effect
-	r := f(ctx)
-
-	// Create command to add it to the history
-	payload, err := converter.DefaultConverter.To(r)
-	if err != nil {
-		future.Set(*new(TResult), err)
-	}
-
-	cmd := command.NewSideEffectCommand(scheduleEventID, payload)
+	cmd := command.NewSideEffectCommand(scheduleEventID)
 	wfState.AddCommand(cmd)
 
-	future.Set(r, nil)
+	if !Replaying(ctx) {
+		// Execute side effect
+		r := f(ctx)
+
+		payload, err := converter.DefaultConverter.To(r)
+		if err != nil {
+			future.Set(*new(TResult), err)
+		}
+
+		cmd.SetResult(payload)
+		future.Set(r, nil)
+	}
 
 	return future
 }

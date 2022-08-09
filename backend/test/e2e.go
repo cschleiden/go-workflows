@@ -20,8 +20,9 @@ import (
 
 func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBackend)) {
 	tests := []struct {
-		name string
-		f    func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
+		name         string
+		withoutCache bool // If set, test will only be run when the cache is disabled
+		f            func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
 	}{
 		{
 			name: "SimpleWorkflow",
@@ -123,6 +124,35 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 
 				require.Zero(t, output)
 				require.ErrorContains(t, err, "converting activity inputs: mismatched argument count: expected 2, got 1")
+			},
+		},
+		{
+			name: "SideEffect_Simple",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				i := 2
+				wf := func(ctx workflow.Context) (int, error) {
+					r1, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) int {
+						i++
+						return i
+					}).Get(ctx)
+
+					// Do something to force the task to end
+					workflow.Sleep(ctx, time.Millisecond*1)
+
+					r2, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) int {
+						i++
+						return i
+					}).Get(ctx)
+
+					return r1 + r2, nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+				require.Equal(t, 7, r)
 			},
 		},
 		{
@@ -363,10 +393,46 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				require.Len(t, futureEvents, 0, "no future events should be scheduled")
 			},
 		},
+		{
+			name:         "NonDeterminism",
+			withoutCache: true,
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				i := 0
+				wf := func(ctx workflow.Context) (int, error) {
+					var r int
+
+					i++
+					if i%2 == 0 {
+						r, _ = workflow.SideEffect(ctx, func(ctx workflow.Context) int {
+							return 1
+						}).Get(ctx)
+					} else {
+						workflow.Sleep(ctx, time.Millisecond*1)
+					}
+
+					// Do something to force the task to end
+					workflow.Sleep(ctx, time.Millisecond*1)
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+				require.Equal(t, 0, r)
+			},
+		},
 	}
 
 	run := func(suffix string, workerOptions *worker.Options) {
 		for _, tt := range tests {
+			if tt.withoutCache && workerOptions.WorkflowExecutorCache != nil {
+				// Skip test
+				continue
+			}
+
 			t.Run(tt.name+suffix, func(t *testing.T) {
 				b := setup()
 				ctx := context.Background()

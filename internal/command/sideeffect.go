@@ -14,14 +14,17 @@ type SideEffectCommand struct {
 
 var _ Command = (*SideEffectCommand)(nil)
 
-func NewSideEffectCommand(id int64, result payload.Payload) *SideEffectCommand {
+func NewSideEffectCommand(id int64) *SideEffectCommand {
 	return &SideEffectCommand{
 		command: command{
 			state: CommandState_Pending,
 			id:    id,
 		},
-		result: result,
 	}
+}
+
+func (c *SideEffectCommand) SetResult(result payload.Payload) {
+	c.result = result
 }
 
 func (c *SideEffectCommand) Type() string {

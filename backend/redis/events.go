@@ -31,7 +31,7 @@ func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string,
 // ARGV[1] - event data as serialized strings
 var addEventsToStreamCmd = redis.NewScript(`
 	local msgID = ""
-	for i = 1, #ARGV,2 do
+	for i = 1, #ARGV, 2 do
 		msgID = redis.call("XADD", KEYS[1], ARGV[i], "event", ARGV[i + 1])
 	end
 	return msgID
@@ -44,6 +44,8 @@ func addEventsToHistoryStreamP(ctx context.Context, p redis.Pipeliner, streamKey
 		if err != nil {
 			return err
 		}
+
+		// log.Println("addEventsToHistoryStreamP:", event.SequenceID, string(eventData))
 
 		eventsData = append(eventsData, historyID(event.SequenceID))
 		eventsData = append(eventsData, string(eventData))

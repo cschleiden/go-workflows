@@ -115,6 +115,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			// Fail workflow with an error. Skip executing new events, but still go through the commands
 			e.workflowCompleted(nil, err)
 			skipNewEvents = true
+
+			// With an error occurred during replay, we need to ensure new events don't get duplicate sequence ids
+			e.lastSequenceID = t.LastSequenceID
 		} else if t.LastSequenceID != e.lastSequenceID {
 			logger.Error("After replaying history, task still has newer history than current state", "task_sequence_id", t.LastSequenceID, "local_sequence_id", e.lastSequenceID)
 
@@ -494,12 +497,12 @@ func (e *executor) handleSignalReceived(event history.Event, a *history.SignalRe
 func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
-		return fmt.Errorf("previous workflow execution scheduled a sub workflow")
+		return fmt.Errorf("previous workflow execution scheduled a side effect")
 	}
 
 	sec, ok := c.(*command.SideEffectCommand)
 	if !ok {
-		return fmt.Errorf("previous workflow execution scheduled a sub workflow, not: %v", c.Type())
+		return fmt.Errorf("previous workflow execution scheduled a side effect, not: %v", c.Type())
 	}
 
 	sec.Done()
