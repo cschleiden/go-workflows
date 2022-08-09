@@ -22,9 +22,16 @@ type SubWorkflowOptions struct {
 	RetryOptions RetryOptions
 }
 
-var DefaultSubWorkflowOptions = SubWorkflowOptions{
-	RetryOptions: DefaultRetryOptions,
-}
+var (
+	DefaultSubWorkflowRetryOptions = RetryOptions{
+		// Disable retries by default for sub-workflows
+		MaxAttempts: 1,
+	}
+
+	DefaultSubWorkflowOptions = SubWorkflowOptions{
+		RetryOptions: DefaultSubWorkflowRetryOptions,
+	}
+)
 
 func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
 	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
