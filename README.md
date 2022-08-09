@@ -348,6 +348,16 @@ func Workflow(ctx workflow.Context) error {
 }
 ```
 
+#### Signaling workflows from within workflows
+
+```go
+func Workflow(ctx workflow.Context) error {
+	if err := workflow.SignalWorkflow(ctx, "sub-instance-id", "signal-name", "value"); err != nil {
+		// Handle error
+	}
+}
+```
+
 ### Executing side effects
 
 Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
