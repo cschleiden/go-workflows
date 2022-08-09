@@ -510,15 +510,6 @@ func (e *executor) handleSignalWorkflow(event history.Event, a *history.SignalWo
 
 	sewc.Done()
 
-	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
-	if !ok {
-		return errors.New("no pending future found for workflow signal requested event")
-	}
-
-	if err := f(nil, nil); err != nil {
-		return fmt.Errorf("setting workflow signal requested result: %w", err)
-	}
-
 	return e.workflow.Continue()
 }
 
