@@ -1,18 +1,16 @@
 package history
 
-import "github.com/cschleiden/go-workflows/internal/core"
-
-func EventsByWorkflowInstance(events []WorkflowEvent) map[core.WorkflowInstance][]Event {
-	groupedEvents := make(map[core.WorkflowInstance][]Event)
+func EventsByWorkflowInstanceID(events []WorkflowEvent) map[string][]WorkflowEvent {
+	groupedEvents := make(map[string][]WorkflowEvent)
 
 	for _, m := range events {
 		instance := *m.WorkflowInstance
 
-		if _, ok := groupedEvents[instance]; !ok {
-			groupedEvents[instance] = []Event{}
+		if _, ok := groupedEvents[instance.InstanceID]; !ok {
+			groupedEvents[instance.InstanceID] = []WorkflowEvent{}
 		}
 
-		groupedEvents[instance] = append(groupedEvents[instance], m.HistoryEvent)
+		groupedEvents[instance.InstanceID] = append(groupedEvents[instance.InstanceID], m)
 	}
 
 	return groupedEvents

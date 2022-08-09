@@ -12,29 +12,50 @@ type EventType uint
 const (
 	_ EventType = iota
 
+	// Workflow has started
 	EventType_WorkflowExecutionStarted
+	// Workflow has finished
 	EventType_WorkflowExecutionFinished
+	// Workflow has been terminated (not yet used)
 	EventType_WorkflowExecutionTerminated
+	// Workflow has been canceled
 	EventType_WorkflowExecutionCanceled
 
+	// Workflow task has been started. This event is added to the history every time a workflow task is
+	// picked up by the worker.
 	EventType_WorkflowTaskStarted
 
+	// SubWorkflow has been scheduled
 	EventType_SubWorkflowScheduled
+	// SubWorkflow cancellation has been requested
 	EventType_SubWorkflowCancellationRequested
+	// SubWorkflow has completed
 	EventType_SubWorkflowCompleted
+	// SubWorkflow has failed
 	EventType_SubWorkflowFailed
 
+	// Activity task has been scheduled
 	EventType_ActivityScheduled
+	// Activity task has been completed
 	EventType_ActivityCompleted
+	// Activity task has failed
 	EventType_ActivityFailed
 
+	// Timer has been scheduled
 	EventType_TimerScheduled
+	// Timer has fired. This is the event received by a workflow when a previously scheduled timer fires.
 	EventType_TimerFired
+	// Timer has been canceled.
 	EventType_TimerCanceled
 
+	// Workflow has received a signal
 	EventType_SignalReceived
 
+	// Recorded result of a side-efect
 	EventType_SideEffectResult
+
+	// Signal other workflow
+	EventType_SignalWorkflow
 )
 
 func (et EventType) String() string {
@@ -79,6 +100,10 @@ func (et EventType) String() string {
 
 	case EventType_SideEffectResult:
 		return "SideEffectResult"
+
+	case EventType_SignalWorkflow:
+		return "WorkflowSignalRequested"
+
 	default:
 		return "Unknown"
 	}

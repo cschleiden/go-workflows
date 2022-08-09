@@ -201,29 +201,29 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	// Send new workflow events to the respective streams
-	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
-	for targetInstance, events := range groupedEvents {
+	groupedEvents := history.EventsByWorkflowInstanceID(workflowEvents)
+	for targetInstanceID, events := range groupedEvents {
 		// Insert pending events for target instance
-		for _, event := range events {
-			event := event
+		for _, m := range events {
+			m := m
 
-			if event.Type == history.EventType_WorkflowExecutionStarted {
+			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 				// Create new instance
-				a := event.Attributes.(*history.ExecutionStartedAttributes)
-				if err := createInstanceP(ctx, p, &targetInstance, a.Metadata, true); err != nil {
+				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+				if err := createInstanceP(ctx, p, m.WorkflowInstance, a.Metadata, true); err != nil {
 					return err
 				}
 			}
 
 			// Add pending event to stream
-			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstance.InstanceID), &event); err != nil {
+			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstanceID), &m.HistoryEvent); err != nil {
 				return err
 			}
 		}
 
 		// Try to queue workflow task
-		if targetInstance != *instance {
-			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstance.InstanceID, nil); err != nil {
+		if targetInstanceID != instance.InstanceID {
+			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstanceID, nil); err != nil {
 				return fmt.Errorf("enqueuing workflow task: %w", err)
 			}
 		}

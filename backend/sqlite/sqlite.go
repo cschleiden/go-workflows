@@ -399,14 +399,14 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 
 	// Insert new workflow events
-	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
+	groupedEvents := history.EventsByWorkflowInstanceID(workflowEvents)
 
-	for targetInstance, events := range groupedEvents {
-		for _, event := range events {
-			if event.Type == history.EventType_WorkflowExecutionStarted {
-				a := event.Attributes.(*history.ExecutionStartedAttributes)
+	for targetInstanceID, events := range groupedEvents {
+		for _, m := range events {
+			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
+				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 				// Create new instance
-				if err := createInstance(ctx, tx, &targetInstance, a.Metadata, true); err != nil {
+				if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata, true); err != nil {
 					return err
 				}
 
@@ -415,7 +415,11 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 
 		// Insert pending events for target instance
-		if err := insertPendingEvents(ctx, tx, targetInstance.InstanceID, events); err != nil {
+		historyEvents := []history.Event{}
+		for _, m := range events {
+			historyEvents = append(historyEvents, m.HistoryEvent)
+		}
+		if err := insertPendingEvents(ctx, tx, targetInstanceID, historyEvents); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
 		}
 	}
