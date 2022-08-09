@@ -317,8 +317,8 @@ func Test_ExecuteWorkflowWithSelector(t *testing.T) {
 	require.Equal(t, 1, workflowWithSelectorHits)
 	require.Len(t, e.workflowState.Commands(), 2)
 
-	require.IsType(t, &command.ScheduleTimerCommand{}, e.workflowState.Commands()[0])
-	require.IsType(t, &command.ScheduleActivityCommand{}, e.workflowState.Commands()[1])
+	require.IsType(t, &command.ScheduleActivityCommand{}, e.workflowState.Commands()[0])
+	require.IsType(t, &command.ScheduleTimerCommand{}, e.workflowState.Commands()[1])
 }
 
 func Test_ExecuteNewEvents(t *testing.T) {
