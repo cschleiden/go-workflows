@@ -254,7 +254,7 @@ if err != nil {
 
 #### Perform any cleanup
 
-If you need to run any activities or make calls using `workflow.Context`.
+If you need to run any activities or make calls using `workflow.Context` you need to create a new context with `workflow.NewDisconnectedContext`, since the original context is canceled at this point.
 
 ```go
 func Workflow2(ctx workflow.Context, msg string) (string, error) {
