@@ -410,6 +410,8 @@ Due its non-deterministic behavior you must not use a `select` statement in work
 var f1 workflow.Future[int]
 var c workflow.Channel[int]
 
+value := 42
+
 workflow.Select(
 	ctx,
 	workflow.Await(f1, func (ctx workflow.Context, f Future[int]) {
@@ -418,6 +420,9 @@ workflow.Select(
 	}),
 	workflow.Receive(c, func (ctx workflow.Context, v int, ok bool) {
 		// use v
+	}),
+	workflow.Send(c, &value, func (ctx workflow.Context) {
+		// value has been sent to the channel
 	}),
 	workflow.Default(ctx, func (ctx workflow.Context) {
 		// ...
