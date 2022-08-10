@@ -155,6 +155,14 @@ func (c *channel[T]) canReceive() bool {
 	return c.hasValue() || len(c.senders) > 0 || c.closed
 }
 
+func (c *channel[T]) canSend() bool {
+	if c.closed {
+		return false
+	}
+
+	return len(c.receivers) > 0 || c.hasCapacity()
+}
+
 func (c *channel[T]) trySend(v T) bool {
 	// If closed, we can't send, panic.
 	if c.closed {
