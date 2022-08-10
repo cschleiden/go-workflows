@@ -12,8 +12,16 @@ func Await[T any](f Future[T], handler func(ctx Context, f Future[T])) SelectCas
 	}
 }
 
+func Send[T any](c Channel[T], v *T, handler func(ctx Context)) SelectCase {
+	return &channelSendCase[T]{
+		c:  c.(*channel[T]),
+		v:  v,
+		fn: handler,
+	}
+}
+
 func Receive[T any](c Channel[T], handler func(ctx Context, v T, ok bool)) SelectCase {
-	return &channelCase[T]{
+	return &channelReceiveCase[T]{
 		c:  c.(*channel[T]),
 		fn: handler,
 	}
@@ -55,18 +63,33 @@ func (fc *futureCase[T]) Handle(ctx Context) {
 	fc.fn(ctx, fc.f)
 }
 
-type channelCase[T any] struct {
+type channelReceiveCase[T any] struct {
 	c  *channel[T]
 	fn func(Context, T, bool)
 }
 
-func (cc *channelCase[T]) Ready() bool {
-	return cc.c.canReceive()
+func (crc *channelReceiveCase[T]) Ready() bool {
+	return crc.c.canReceive()
 }
 
-func (cc *channelCase[T]) Handle(ctx Context) {
-	v, ok := cc.c.Receive(ctx)
-	cc.fn(ctx, v, ok)
+func (crc *channelReceiveCase[T]) Handle(ctx Context) {
+	v, ok := crc.c.Receive(ctx)
+	crc.fn(ctx, v, ok)
+}
+
+type channelSendCase[T any] struct {
+	c  *channel[T]
+	v  *T
+	fn func(Context)
+}
+
+func (csc *channelSendCase[T]) Ready() bool {
+	return csc.c.canSend()
+}
+
+func (csc *channelSendCase[T]) Handle(ctx Context) {
+	csc.c.Send(ctx, *csc.v)
+	csc.fn(ctx)
 }
 
 type defaultCase struct {

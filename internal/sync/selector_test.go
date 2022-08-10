@@ -111,7 +111,7 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 	require.True(t, defaultHandled)
 }
 
-func Test_ChannelSelector_Select(t *testing.T) {
+func Test_ChannelSelector_Receive(t *testing.T) {
 	c := NewChannel[int]()
 
 	reachedEnd := false
@@ -147,4 +147,83 @@ func Test_ChannelSelector_Select(t *testing.T) {
 
 	require.True(t, reachedEnd)
 	require.Equal(t, 42, r)
+}
+
+func Test_ChannelSelector_SendBlocking(t *testing.T) {
+	c := NewChannel[int]()
+	ctx := Background()
+
+	input := 42
+
+	cs := NewCoroutine(ctx, func(ctx Context) error {
+		Select(
+			ctx,
+			Send(c, &input, func(ctx Context) {
+				// Element was sent
+			}),
+		)
+
+		return nil
+	})
+
+	cs.Execute()
+
+	var v int
+	var ok bool
+
+	cr := NewCoroutine(ctx, func(ctx Context) error {
+		v, ok = c.Receive(ctx)
+
+		return nil
+	})
+	// Register receiver
+	cr.Execute()
+
+	// Try to Select again, this time it sends
+	cs.Execute()
+
+	// Allow receiver to finish
+	cr.Execute()
+
+	require.True(t, cs.Finished())
+	require.True(t, cr.Finished())
+	require.Equal(t, 42, v)
+	require.True(t, ok)
+}
+
+func Test_ChannelSelector_SendNonBlocking(t *testing.T) {
+	c := NewBufferedChannel[int](1)
+	ctx := Background()
+
+	cs := NewCoroutine(ctx, func(ctx Context) error {
+		input := 42
+		Select(
+			ctx,
+			Send(c, &input, func(ctx Context) {
+				// Element was sent
+			}),
+		)
+
+		return nil
+	})
+
+	cs.Execute()
+	require.True(t, cs.Finished())
+
+	cs = NewCoroutine(ctx, func(ctx Context) error {
+		input := 23
+		Select(
+			ctx,
+			Send(c, &input, func(ctx Context) {
+				// Element was sent
+			}),
+		)
+
+		return nil
+	})
+
+	cs.Execute()
+
+	// Channel does not have capacity, Select blocks
+	require.False(t, cs.Finished())
 }
