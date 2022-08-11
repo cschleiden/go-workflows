@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/cschleiden/go-workflows/backend"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/converter"
@@ -125,13 +126,21 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 		timeout = time.Second * 20
 	}
 
-	ticker := c.clock.Ticker(time.Second)
+	b := backoff.ExponentialBackOff{
+		InitialInterval:     time.Millisecond * 1,
+		MaxInterval:         time.Second * 1,
+		Multiplier:          1.5,
+		RandomizationFactor: 0.5,
+		MaxElapsedTime:      timeout,
+		Stop:                backoff.Stop,
+		Clock:               c.clock,
+	}
+	b.Reset()
+
+	ticker := backoff.NewTicker(&b)
 	defer ticker.Stop()
 
-	ctx, cancel := c.clock.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	for {
+	for range ticker.C {
 		s, err := c.backend.GetWorkflowInstanceState(ctx, instance)
 		if err != nil {
 			return fmt.Errorf("getting workflow state: %w", err)
@@ -140,16 +149,9 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 		if s == backend.WorkflowStateFinished {
 			return nil
 		}
-
-		ticker.Reset(time.Second)
-		select {
-		case <-ticker.C:
-			continue
-
-		case <-ctx.Done():
-			return errors.New("workflow did not finish in specified timeout")
-		}
 	}
+
+	return errors.New("workflow did not finish in specified timeout")
 }
 
 // GetWorkflowResult gets the workflow result for the given workflow result. It first waits for the workflow to finish or until
