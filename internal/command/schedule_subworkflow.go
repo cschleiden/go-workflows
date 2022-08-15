@@ -9,7 +9,7 @@ import (
 )
 
 type ScheduleSubWorkflowCommand struct {
-	command
+	cancelableCommand
 
 	Instance *core.WorkflowInstance
 	Metadata *core.WorkflowMetadata
@@ -18,7 +18,7 @@ type ScheduleSubWorkflowCommand struct {
 	Inputs []payload.Payload
 }
 
-var _ Command = (*ScheduleSubWorkflowCommand)(nil)
+var _ CancelableCommand = (*ScheduleSubWorkflowCommand)(nil)
 
 func NewScheduleSubWorkflowCommand(
 	id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload, metadata *core.WorkflowMetadata,
@@ -28,9 +28,12 @@ func NewScheduleSubWorkflowCommand(
 	}
 
 	return &ScheduleSubWorkflowCommand{
-		command: command{
-			state: CommandState_Pending,
-			id:    id,
+		cancelableCommand: cancelableCommand{
+			command: command{
+				id:    id,
+				name:  "ScheduleSubWorkflow",
+				state: CommandState_Pending,
+			},
 		},
 
 		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance.InstanceID, id),
@@ -41,43 +44,67 @@ func NewScheduleSubWorkflowCommand(
 	}
 }
 
-func (*ScheduleSubWorkflowCommand) Type() string {
-	return "ScheduleSubWorkflow"
-}
-
-func (c *ScheduleSubWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
-	c.commit()
-
-	return &CommandResult{
-		// Record scheduled sub-workflow for source workflow instance
-		Events: []history.Event{
-			history.NewPendingEvent(
-				clock.Now(),
-				history.EventType_SubWorkflowScheduled,
-				&history.SubWorkflowScheduledAttributes{
-					SubWorkflowInstance: c.Instance,
-					Metadata:            c.Metadata,
-					Name:                c.Name,
-					Inputs:              c.Inputs,
-				},
-				history.ScheduleEventID(c.id),
-			),
-		},
-		// Send event to new workflow instance
-		WorkflowEvents: []history.WorkflowEvent{
-			{
-				WorkflowInstance: c.Instance,
-				HistoryEvent: history.NewPendingEvent(
+func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
+	switch c.state {
+	case CommandState_Pending:
+		c.state = CommandState_Committed
+		return &CommandResult{
+			// Record scheduled sub-workflow for source workflow instance
+			Events: []history.Event{
+				history.NewPendingEvent(
 					clock.Now(),
-					history.EventType_WorkflowExecutionStarted,
-					&history.ExecutionStartedAttributes{
-						Name:     c.Name,
-						Inputs:   c.Inputs,
-						Metadata: c.Metadata,
+					history.EventType_SubWorkflowScheduled,
+					&history.SubWorkflowScheduledAttributes{
+						SubWorkflowInstance: c.Instance,
+						Metadata:            c.Metadata,
+						Name:                c.Name,
+						Inputs:              c.Inputs,
 					},
-					history.ScheduleEventID(0),
+					history.ScheduleEventID(c.id),
 				),
 			},
-		},
+			// Send event to new workflow instance
+			WorkflowEvents: []history.WorkflowEvent{
+				{
+					WorkflowInstance: c.Instance,
+					HistoryEvent: history.NewPendingEvent(
+						clock.Now(),
+						history.EventType_WorkflowExecutionStarted,
+						&history.ExecutionStartedAttributes{
+							Name:     c.Name,
+							Inputs:   c.Inputs,
+							Metadata: c.Metadata,
+						},
+						history.ScheduleEventID(0),
+					),
+				},
+			},
+		}
+	case CommandState_CancelPending:
+		c.state = CommandState_Canceled
+
+		return &CommandResult{
+			// Record that cancellation was requested
+			Events: []history.Event{
+				history.NewPendingEvent(
+					clock.Now(),
+					history.EventType_SubWorkflowCancellationRequested,
+					&history.SubWorkflowCancellationRequestedAttributes{
+						SubWorkflowInstance: c.Instance,
+					},
+					history.ScheduleEventID(c.id),
+				),
+			},
+
+			// Send cancellation event to sub-workflow
+			WorkflowEvents: []history.WorkflowEvent{
+				{
+					WorkflowInstance: c.Instance,
+					HistoryEvent:     history.NewWorkflowCancellationEvent(clock.Now()),
+				},
+			},
+		}
 	}
+
+	return nil
 }

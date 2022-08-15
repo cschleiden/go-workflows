@@ -26,8 +26,9 @@ func NewCompleteWorkflowCommand(id int64, instance *core.WorkflowInstance, resul
 
 	return &CompleteWorkflowCommand{
 		command: command{
-			state: CommandState_Pending,
 			id:    id,
+			name:  "CompleteWorkflow",
+			state: CommandState_Pending,
 		},
 		Instance: instance,
 		Result:   result,
@@ -35,63 +36,74 @@ func NewCompleteWorkflowCommand(id int64, instance *core.WorkflowInstance, resul
 	}
 }
 
-func (*CompleteWorkflowCommand) Type() string {
-	return "CompleteWorkflow"
+func (c *CompleteWorkflowCommand) Commit() {
+	switch c.state {
+	case CommandState_Pending:
+		c.state = CommandState_Done
+
+	default:
+		c.invalidStateTransition(CommandState_Done)
+	}
 }
 
-func (c *CompleteWorkflowCommand) Commit(clock clock.Clock) *CommandResult {
-	c.commit()
+func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
+	switch c.state {
+	case CommandState_Pending:
+		c.state = CommandState_Done
 
-	r := &CommandResult{
-		Completed: true,
-		Events: []history.Event{
-			history.NewPendingEvent(
-				clock.Now(),
-				history.EventType_WorkflowExecutionFinished,
-				&history.ExecutionCompletedAttributes{
-					Result: c.Result,
-					Error:  c.Error,
-				},
-				history.ScheduleEventID(0),
-			),
-		},
-	}
-
-	if c.Instance.SubWorkflow() {
-		// Send completion message back to parent workflow instance
-		var historyEvent history.Event
-
-		if c.Error != "" {
-			// Sub workflow failed
-			historyEvent = history.NewPendingEvent(
-				clock.Now(),
-				history.EventType_SubWorkflowFailed,
-				&history.SubWorkflowFailedAttributes{
-					Error: c.Error,
-				},
-				// Ensure the message gets sent back to the parent workflow with the right schedule event ID
-				history.ScheduleEventID(c.Instance.ParentEventID),
-			)
-		} else {
-			historyEvent = history.NewPendingEvent(
-				clock.Now(),
-				history.EventType_SubWorkflowCompleted,
-				&history.SubWorkflowCompletedAttributes{
-					Result: c.Result,
-				},
-				// Ensure the message gets sent back to the parent workflow with the right schedule event ID
-				history.ScheduleEventID(c.Instance.ParentEventID),
-			)
-		}
-
-		r.WorkflowEvents = []history.WorkflowEvent{
-			{
-				// TODO: Do we need execution id here?
-				WorkflowInstance: core.NewWorkflowInstance(c.Instance.ParentInstanceID, ""),
-				HistoryEvent:     historyEvent,
+		r := &CommandResult{
+			Completed: true,
+			Events: []history.Event{
+				history.NewPendingEvent(
+					clock.Now(),
+					history.EventType_WorkflowExecutionFinished,
+					&history.ExecutionCompletedAttributes{
+						Result: c.Result,
+						Error:  c.Error,
+					},
+					history.ScheduleEventID(0),
+				),
 			},
 		}
+
+		if c.Instance.SubWorkflow() {
+			// Send completion message back to parent workflow instance
+			var historyEvent history.Event
+
+			if c.Error != "" {
+				// Sub workflow failed
+				historyEvent = history.NewPendingEvent(
+					clock.Now(),
+					history.EventType_SubWorkflowFailed,
+					&history.SubWorkflowFailedAttributes{
+						Error: c.Error,
+					},
+					// Ensure the message gets sent back to the parent workflow with the right schedule event ID
+					history.ScheduleEventID(c.Instance.ParentEventID),
+				)
+			} else {
+				historyEvent = history.NewPendingEvent(
+					clock.Now(),
+					history.EventType_SubWorkflowCompleted,
+					&history.SubWorkflowCompletedAttributes{
+						Result: c.Result,
+					},
+					// Ensure the message gets sent back to the parent workflow with the right schedule event ID
+					history.ScheduleEventID(c.Instance.ParentEventID),
+				)
+			}
+
+			r.WorkflowEvents = []history.WorkflowEvent{
+				{
+					// TODO: Do we need execution id here?
+					WorkflowInstance: core.NewWorkflowInstance(c.Instance.ParentInstanceID, ""),
+					HistoryEvent:     historyEvent,
+				},
+			}
+		}
+
+		return r
 	}
 
-	return r
+	return nil
 }
