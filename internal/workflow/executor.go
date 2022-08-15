@@ -152,11 +152,14 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	workflowEvents := make([]history.WorkflowEvent, 0)
 
 	for _, c := range e.workflowState.Commands() {
-		if c.State() != command.CommandState_Pending {
+		if c.State() == command.CommandState_Done {
 			continue
 		}
 
-		r := c.Commit(e.clock)
+		r := c.Execute(e.clock)
+		if r == nil {
+			continue
+		}
 
 		completed = completed || r.Completed
 		newCommandEvents = append(newCommandEvents, r.Events...)
@@ -337,7 +340,7 @@ func (e *executor) handleActivityScheduled(event history.Event, a *history.Activ
 		return fmt.Errorf("previous workflow execution scheduled different type of activity: %s, %s", a.Name, sac.Name)
 	}
 
-	c.Done()
+	c.Commit()
 
 	return nil
 }
@@ -353,6 +356,18 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 		return fmt.Errorf("setting activity completed result: %w", err)
 	}
 
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled an activity which could not be found")
+	}
+
+	sac, ok := c.(*command.ScheduleActivityCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution scheduled an activity, not: %v", c.Type())
+	}
+
+	sac.Done()
+
 	return e.workflow.Continue()
 }
 
@@ -365,6 +380,18 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 	if err := f(nil, errors.New(a.Reason)); err != nil {
 		return fmt.Errorf("setting activity failed result: %w", err)
 	}
+
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution scheduled an activity which could not be found")
+	}
+
+	sac, ok := c.(*command.ScheduleActivityCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution scheduled an activity, not: %v", c.Type())
+	}
+
+	sac.Done()
 
 	return e.workflow.Continue()
 }
@@ -379,7 +406,7 @@ func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerSch
 		return fmt.Errorf("previous workflow execution scheduled a timer, not: %v", c.Type())
 	}
 
-	c.Done()
+	c.Commit()
 
 	return nil
 }
@@ -395,23 +422,34 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 		return fmt.Errorf("setting timer fired result: %w", err)
 	}
 
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("no command found for timer fired event")
+	}
+
+	if _, ok := c.(*command.ScheduleTimerCommand); !ok {
+		return fmt.Errorf("schedule timer command not found, instead: %v", c.Type())
+	}
+
+	c.Done()
+
 	return e.workflow.Continue()
 }
 
 func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanceledAttributes) error {
-	// Mark command as done and ensure we executed the same command
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution canceled a timer")
 	}
 
-	if _, ok := c.(*command.CancelTimerCommand); !ok {
+	stc, ok := c.(*command.ScheduleTimerCommand)
+	if !ok {
 		return fmt.Errorf("previous workflow execution canceled a timer, not: %v", c.Type())
 	}
 
-	c.Done()
+	stc.HandleCancel()
 
-	// Cancel a pending future
+	// Cancel the pending future
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		// Timer already canceled ignore
@@ -444,7 +482,7 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 	// when the command was originally committed.
 	sswc.Instance = a.SubWorkflowInstance
 
-	c.Done()
+	c.Commit()
 
 	return nil
 }
@@ -455,11 +493,12 @@ func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
 	}
 
-	if _, ok := c.(*command.CancelSubWorkflowCommand); !ok {
+	sswc, ok := c.(*command.ScheduleSubWorkflowCommand)
+	if !ok {
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
 	}
 
-	c.Done()
+	sswc.HandleCancel()
 
 	return e.workflow.Continue()
 }
@@ -474,6 +513,19 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 		return fmt.Errorf("setting sub workflow failed result: %w", err)
 	}
 
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		// TODO: Adjust
+		return fmt.Errorf("previous workflow execution scheduled a sub-workflow execution")
+	}
+
+	if _, ok := c.(*command.ScheduleSubWorkflowCommand); !ok {
+		// TODO: Adjust
+		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
+	}
+
+	c.Done()
+
 	return e.workflow.Continue()
 }
 
@@ -486,6 +538,19 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 	if err := f(a.Result, nil); err != nil {
 		return fmt.Errorf("setting sub workflow completed result: %w", err)
 	}
+
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		// TODO: Adjust
+		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
+	}
+
+	if _, ok := c.(*command.ScheduleSubWorkflowCommand); !ok {
+		// TODO: Adjust
+		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
+	}
+
+	c.Done()
 
 	return e.workflow.Continue()
 }
