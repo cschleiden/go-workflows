@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
@@ -487,67 +488,6 @@ func Test_CompletesWorkflowOnError(t *testing.T) {
 	require.True(t, r1.Completed)
 }
 
-func Test_ClearCommandsBetweenTasks(t *testing.T) {
-	r := NewRegistry()
-
-	workflowActivityHit = 0
-
-	r.RegisterWorkflow(workflowWithActivity)
-	r.RegisterActivity(activity1)
-
-	task1 := &task.Workflow{
-		ID:               "oldtaskid",
-		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowMetadata{},
-		NewEvents: []history.Event{
-			history.NewPendingEvent(
-				time.Now(),
-				history.EventType_WorkflowExecutionStarted,
-				&history.ExecutionStartedAttributes{
-					Name:   "workflowWithActivity",
-					Inputs: []payload.Payload{},
-				},
-			),
-		},
-	}
-
-	historyProvider := &testHistoryProvider{[]history.Event{}}
-	e := newExecutor(r, task1.WorkflowInstance, workflowWithActivity, historyProvider)
-
-	r1, err := e.ExecuteTask(context.Background(), task1)
-	require.NoError(t, err)
-	require.NoError(t, e.workflow.err)
-	require.Equal(t, 1, workflowActivityHit)
-	require.False(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 1)
-
-	historyProvider.history = r1.Executed
-
-	task2 := &task.Workflow{
-		ID:               "oldtaskid",
-		WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-		Metadata:         &core.WorkflowMetadata{},
-		NewEvents: []history.Event{
-			history.NewPendingEvent(
-				time.Now(),
-				history.EventType_SignalReceived,
-				&history.SignalReceivedAttributes{
-					Name: "signalr`",
-					Arg:  []byte("arg"),
-				},
-			),
-		},
-		LastSequenceID: r1.Executed[len(r1.Executed)-1].SequenceID,
-	}
-
-	r2, err := e.ExecuteTask(context.Background(), task2)
-	require.NoError(t, err)
-	require.Equal(t, 1, workflowActivityHit)
-	require.False(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 1)
-	require.Len(t, r2.Executed, 2)
-}
-
 func Test_ScheduleSubWorkflow(t *testing.T) {
 	r := NewRegistry()
 
@@ -628,10 +568,15 @@ func Test_ScheduleSubWorkflow_Cancel(t *testing.T) {
 		result.WorkflowEvents[0].WorkflowInstance)
 
 	require.True(t, e.workflow.Completed())
-	require.Len(t, e.workflowState.Commands(), 4)
+	require.Len(t, e.workflowState.Commands(), 3)
 }
 
-func startWorkflowTask(instanceID string, workflow interface{}) *task.Workflow {
+func startWorkflowTask(instanceID string, workflow interface{}, workflowArgs ...interface{}) *task.Workflow {
+	inputs, err := args.ArgsToInputs(converter.DefaultConverter, workflowArgs...)
+	if err != nil {
+		panic(err)
+	}
+
 	return &task.Workflow{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
@@ -642,7 +587,7 @@ func startWorkflowTask(instanceID string, workflow interface{}) *task.Workflow {
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
 					Name:   fn.Name(workflow),
-					Inputs: []payload.Payload{},
+					Inputs: inputs,
 				},
 			),
 		},
