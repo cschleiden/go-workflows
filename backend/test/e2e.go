@@ -393,6 +393,49 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			},
 		},
 		{
+			name: "Timer_CancelTwice",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				a := func(ctx context.Context) error {
+					return nil
+				}
+				wf := func(ctx workflow.Context) error {
+					tctx, cancel := workflow.WithCancel(ctx)
+					f := workflow.ScheduleTimer(tctx, time.Second*10)
+
+					// Force the checkpoint before continuing the execution
+					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+
+					// Cancel timer
+					cancel()
+
+					// Force another checkpoint
+					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+
+					cancel()
+
+					// Force another checkpoint
+					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+
+					if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
+						return err
+					}
+
+					return nil
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				instance := runWorkflow(t, ctx, c, wf)
+				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+
+				historyContains(ctx, t, b, instance, history.EventType_TimerScheduled, history.EventType_TimerCanceled)
+
+				futureEvents, err := b.GetFutureEvents(ctx)
+				require.NoError(t, err)
+				require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			},
+		},
+		{
 			name: "Timer_CancelBeforeFiringRemovesFutureEvent",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
@@ -407,6 +450,9 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 
 					// Cancel timer
 					cancel()
+
+					// Force another checkpoint
+					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
 
 					if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
 						return err
