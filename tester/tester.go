@@ -599,7 +599,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 
 	wt.callbacks <- func() *history.WorkflowEvent {
-		r := command.NewCompleteWorkflowCommand(0, event.WorkflowInstance, workflowResult, workflowErr).Commit(wt.clock)
+		r := command.NewCompleteWorkflowCommand(0, event.WorkflowInstance, workflowResult, workflowErr).Execute(wt.clock)
 
 		return &r.WorkflowEvents[0]
 	}
