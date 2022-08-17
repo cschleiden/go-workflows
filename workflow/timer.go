@@ -41,7 +41,15 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
 		// Register a callback for when it's canceled. The only operation on the `Done` channel
 		// is that it's closed when the context is canceled.
+		canceled := false
+
 		c.AddReceiveCallback(func(v struct{}, ok bool) {
+			// Ignore any future cancelation events for this timer
+			if canceled {
+				return
+			}
+			canceled = true
+
 			timerCmd.Cancel()
 
 			// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired. This is different
