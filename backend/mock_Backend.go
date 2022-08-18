@@ -51,11 +51,12 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state WorkflowState, executedEvents []history.Event, activityEvents []history.Event, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+func (_m *MockBackend) CompleteWorkflowTask(
+	ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []history.Event, activityEvents []history.Event, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
 	ret := _m.Called(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *task.Workflow, *core.WorkflowInstance, WorkflowState, []history.Event, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *task.Workflow, *core.WorkflowInstance, core.WorkflowInstanceState, []history.Event, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
 		r0 = rf(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 	} else {
 		r0 = ret.Error(0)
@@ -153,14 +154,14 @@ func (_m *MockBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 }
 
 // GetWorkflowInstanceState provides a mock function with given fields: ctx, instance
-func (_m *MockBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (WorkflowState, error) {
+func (_m *MockBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (core.WorkflowInstanceState, error) {
 	ret := _m.Called(ctx, instance)
 
-	var r0 WorkflowState
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance) WorkflowState); ok {
+	var r0 core.WorkflowInstanceState
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance) core.WorkflowInstanceState); ok {
 		r0 = rf(ctx, instance)
 	} else {
-		r0 = ret.Get(0).(WorkflowState)
+		r0 = ret.Get(0).(core.WorkflowInstanceState)
 	}
 
 	var r1 error

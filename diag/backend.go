@@ -11,10 +11,10 @@ import (
 // json: serialization in this file needs to be kept in sync with client.ts in the web app
 
 type WorkflowInstanceRef struct {
-	Instance    *core.WorkflowInstance `json:"instance,omitempty"`
-	CreatedAt   time.Time              `json:"created_at,omitempty"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
-	State       backend.WorkflowState  `json:"state"`
+	Instance    *core.WorkflowInstance     `json:"instance,omitempty"`
+	CreatedAt   time.Time                  `json:"created_at,omitempty"`
+	CompletedAt *time.Time                 `json:"completed_at,omitempty"`
+	State       core.WorkflowInstanceState `json:"state"`
 }
 
 type Event struct {

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
 )
@@ -58,9 +57,9 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			return nil, err
 		}
 
-		var state backend.WorkflowState
+		var state core.WorkflowInstanceState
 		if completedAt != nil {
-			state = backend.WorkflowStateFinished
+			state = core.WorkflowInstanceStateFinished
 		}
 
 		instances = append(instances, &diag.WorkflowInstanceRef{
@@ -96,9 +95,9 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 		return nil, err
 	}
 
-	var state backend.WorkflowState
+	var state core.WorkflowInstanceState
 	if completedAt != nil {
-		state = backend.WorkflowStateFinished
+		state = core.WorkflowInstanceStateFinished
 	}
 
 	return &diag.WorkflowInstanceRef{

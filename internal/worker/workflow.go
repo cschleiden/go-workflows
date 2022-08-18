@@ -8,6 +8,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
@@ -132,14 +133,14 @@ func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
 		ww.logger.Panic("could not handle workflow task", "error", err)
 	}
 
-	state := backend.WorkflowStateActive
+	state := core.WorkflowInstanceStateActive
 	if result.Completed {
-		state = backend.WorkflowStateFinished
+		state = core.WorkflowInstanceStateFinished
 	}
 
 	if err := ww.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
-		ww.logger.Panic("Could not complete workflow task", "error", err)
+		ww.logger.Panic("could not complete workflow task", "error", err)
 	}
 }
 

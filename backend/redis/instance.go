@@ -82,10 +82,10 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 	return events, nil
 }
 
-func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (backend.WorkflowState, error) {
+func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (core.WorkflowInstanceState, error) {
 	instanceState, err := readInstance(ctx, rb.rdb, instance.InstanceID)
 	if err != nil {
-		return backend.WorkflowStateActive, err
+		return core.WorkflowInstanceStateActive, err
 	}
 
 	return instanceState.State, nil
@@ -110,8 +110,8 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
-	Instance *core.WorkflowInstance `json:"instance,omitempty"`
-	State    backend.WorkflowState  `json:"state,omitempty"`
+	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
+	State    core.WorkflowInstanceState `json:"state,omitempty"`
 
 	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
 
@@ -128,7 +128,7 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 	b, err := json.Marshal(&instanceState{
 		Instance:  instance,
-		State:     backend.WorkflowStateActive,
+		State:     core.WorkflowInstanceStateActive,
 		Metadata:  metadata,
 		CreatedAt: createdAt,
 	})
