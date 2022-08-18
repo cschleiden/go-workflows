@@ -17,7 +17,7 @@ This will cause the command to **not** produce another event when the workflow y
 
 ## States & Transitions
 
-Commands are a simpel state machine and their states and transitions are the following:
+Commands are a simple state machine and their states and transitions are the following:
 
 ![](./commands.drawio.png)
 
