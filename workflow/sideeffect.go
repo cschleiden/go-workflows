@@ -38,6 +38,7 @@ func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TR
 
 		cmd.SetResult(payload)
 		future.Set(r, nil)
+		wfState.RemoveFuture(scheduleEventID)
 	}
 
 	return future

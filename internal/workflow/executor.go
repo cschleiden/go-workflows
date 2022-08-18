@@ -218,6 +218,11 @@ func (e *executor) executeNewEvents(newEvents []history.Event) ([]history.Event,
 	}
 
 	if e.workflow.Completed() {
+		// TODO: Is this too early? We haven't committed some of the commands
+		if e.workflowState.HasPendingFutures() {
+			panic("Workflow completed, but there are still pending futures")
+		}
+
 		e.workflowCompleted(e.workflow.Result(), e.workflow.Error())
 	}
 
@@ -356,6 +361,8 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 		return fmt.Errorf("setting activity completed result: %w", err)
 	}
 
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
+
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled an activity which could not be found")
@@ -380,6 +387,8 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 	if err := f(nil, errors.New(a.Reason)); err != nil {
 		return fmt.Errorf("setting activity failed result: %w", err)
 	}
+
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
 
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
@@ -422,6 +431,8 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 		return fmt.Errorf("setting timer fired result: %w", err)
 	}
 
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
+
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("no command found for timer fired event")
@@ -459,6 +470,8 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 	if err := f(nil, sync.Canceled); err != nil {
 		return fmt.Errorf("setting timer canceled result: %w", err)
 	}
+
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
 
 	return e.workflow.Continue()
 }
@@ -513,6 +526,8 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 		return fmt.Errorf("setting sub workflow failed result: %w", err)
 	}
 
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
+
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		// TODO: Adjust
@@ -538,6 +553,8 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 	if err := f(a.Result, nil); err != nil {
 		return fmt.Errorf("setting sub workflow completed result: %w", err)
 	}
+
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
 
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
@@ -599,6 +616,8 @@ func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEf
 	if err := f(a.Result, nil); err != nil {
 		return fmt.Errorf("setting side effect result result: %w", err)
 	}
+
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
 
 	return e.workflow.Continue()
 }

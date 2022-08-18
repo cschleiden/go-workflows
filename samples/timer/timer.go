@@ -68,8 +68,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
 
-	tctx, _ := workflow.WithCancel(ctx)
-	// cancel()
+	tctx, cancel := workflow.WithCancel(ctx)
 
 	workflow.Select(
 		ctx,
@@ -89,7 +88,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 			logger.Debug("Activity result", r)
 
 			// Cancel timer
-			// cancel()
+			cancel()
 		}),
 	)
 

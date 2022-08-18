@@ -100,6 +100,10 @@ func (wf *WfState) TrackFuture(scheduleEventID int64, f DecodingSettable) {
 	wf.pendingFutures[scheduleEventID] = f
 }
 
+func (wf *WfState) HasPendingFutures() bool {
+	return len(wf.pendingFutures) > 0
+}
+
 func (wf *WfState) FutureByScheduleEventID(scheduleEventID int64) (DecodingSettable, bool) {
 	f, ok := wf.pendingFutures[scheduleEventID]
 	return f, ok
