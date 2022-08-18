@@ -529,13 +529,15 @@ func Test_Executor(t *testing.T) {
 				workflow := func(ctx wf.Context) error {
 					swctx, cancel := wf.WithCancel(ctx)
 
-					wf.CreateSubWorkflowInstance[any](swctx, wf.SubWorkflowOptions{
+					f := wf.CreateSubWorkflowInstance[any](swctx, wf.SubWorkflowOptions{
 						InstanceID: "subworkflow",
 					}, subworkflow)
 
 					wf.Sleep(ctx, time.Millisecond)
 
 					cancel()
+
+					f.Get(ctx)
 
 					return nil
 				}
@@ -559,6 +561,7 @@ func Test_Executor(t *testing.T) {
 				result, err = e.ExecuteTask(context.Background(), continueTask("instanceID", []history.Event{
 					result.TimerEvents[0],
 				}, result.Executed[len(result.Executed)-1].SequenceID))
+
 				require.NoError(t, err)
 				require.Len(t, result.WorkflowEvents, 1, "Cancellation should have been requested")
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, result.WorkflowEvents[0].HistoryEvent.Type)
@@ -567,8 +570,19 @@ func Test_Executor(t *testing.T) {
 					subWorkflowInstance,
 					result.WorkflowEvents[0].WorkflowInstance)
 
+				require.Len(t, e.workflowState.Commands(), 2)
+
+				// Complete subworkflow
+				swr, _ := converter.DefaultConverter.To(nil)
+				hp.history = append(hp.history, result.Executed...)
+				result, err = e.ExecuteTask(context.Background(), continueTask("instanceID", []history.Event{
+					history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowCompleted, &history.SubWorkflowCompletedAttributes{
+						Result: swr,
+					}, history.ScheduleEventID(1)),
+				}, result.Executed[len(result.Executed)-1].SequenceID))
+
+				require.NoError(t, err)
 				require.True(t, e.workflow.Completed())
-				require.Len(t, e.workflowState.Commands(), 3)
 			},
 		},
 	}
