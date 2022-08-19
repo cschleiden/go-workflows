@@ -146,7 +146,7 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 			return fmt.Errorf("getting workflow state: %w", err)
 		}
 
-		if s == backend.WorkflowStateFinished {
+		if s == core.WorkflowInstanceStateFinished {
 			return nil
 		}
 	}

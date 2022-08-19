@@ -8,6 +8,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
@@ -65,12 +66,14 @@ func (ww *workflowWorker) Start(ctx context.Context) error {
 		go ww.runPoll(ctx)
 	}
 
-	go ww.runDispatcher(ctx)
+	go ww.runDispatcher()
 
 	return nil
 }
 
 func (ww *workflowWorker) WaitForCompletion() error {
+	close(ww.workflowTaskQueue)
+
 	ww.wg.Wait()
 
 	return nil
@@ -96,33 +99,32 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 	}
 }
 
-func (ww *workflowWorker) runDispatcher(ctx context.Context) {
+func (ww *workflowWorker) runDispatcher() {
 	var sem chan (struct{})
 
 	if ww.options.MaxParallelWorkflowTasks > 0 {
 		sem = make(chan struct{}, ww.options.MaxParallelWorkflowTasks)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case t := <-ww.workflowTaskQueue:
-			if sem != nil {
-				sem <- struct{}{}
-			}
-
-			ww.wg.Add(1)
-			go func() {
-				defer ww.wg.Done()
-
-				ww.handle(ctx, t)
-
-				if sem != nil {
-					<-sem
-				}
-			}()
+	for t := range ww.workflowTaskQueue {
+		if sem != nil {
+			sem <- struct{}{}
 		}
+
+		t := t
+
+		ww.wg.Add(1)
+		go func() {
+			defer ww.wg.Done()
+
+			// Create new context to allow workflows to complete when root context is canceled
+			taskCtx := context.Background()
+			ww.handle(taskCtx, t)
+
+			if sem != nil {
+				<-sem
+			}
+		}()
 	}
 }
 
@@ -132,14 +134,14 @@ func (ww *workflowWorker) handle(ctx context.Context, t *task.Workflow) {
 		ww.logger.Panic("could not handle workflow task", "error", err)
 	}
 
-	state := backend.WorkflowStateActive
+	state := core.WorkflowInstanceStateActive
 	if result.Completed {
-		state = backend.WorkflowStateFinished
+		state = core.WorkflowInstanceStateFinished
 	}
 
 	if err := ww.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
-		ww.logger.Panic("Could not complete workflow task", "error", err)
+		ww.logger.Panic("could not complete workflow task", "error", err)
 	}
 }
 

@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -102,30 +100,14 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		newEvents = append(newEvents, event)
 	}
 
-	if instanceState.State == backend.WorkflowStateFinished {
-		l := rb.Logger().With(
-			"task_id", instanceTask.TaskID,
-			"id", instanceTask.ID,
-			"instance_id", instanceState.Instance.InstanceID)
-
-		// This should never happen. For now, log information and then panic.
-		l.Error("got workflow task for finished workflow instance")
-
-		// Log events that lead to this task
-		for _, event := range newEvents {
-			l.Error("pending_event", "id", event.ID, "event_type", event.Type.String(), "schedule_event_id", event.ScheduleEventID)
-		}
-
-		panic("Dequeued already finished workflow instance task")
-	}
-
 	return &task.Workflow{
-		ID:               instanceTask.TaskID,
-		WorkflowInstance: instanceState.Instance,
-		Metadata:         instanceState.Metadata,
-		LastSequenceID:   instanceState.LastSequenceID,
-		NewEvents:        newEvents,
-		CustomData:       msgs[len(msgs)-1].ID, // Id of last pending message in stream at this point
+		ID:                    instanceTask.TaskID,
+		WorkflowInstance:      instanceState.Instance,
+		WorkflowInstanceState: instanceState.State,
+		Metadata:              instanceState.Metadata,
+		LastSequenceID:        instanceState.LastSequenceID,
+		NewEvents:             newEvents,
+		CustomData:            msgs[len(msgs)-1].ID, // Id of last pending message in stream at this point
 	}, nil
 }
 
@@ -167,7 +149,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *task.Workflow,
 	instance *core.WorkflowInstance,
-	state backend.WorkflowState,
+	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
@@ -231,7 +213,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	instanceState.State = state
 
-	if state == backend.WorkflowStateFinished {
+	if state == core.WorkflowInstanceStateFinished {
 		t := time.Now()
 		instanceState.CompletedAt = &t
 	}
@@ -290,7 +272,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		return fmt.Errorf("completing workflow task: %w", err)
 	}
 
-	if state == backend.WorkflowStateFinished {
+	if state == core.WorkflowInstanceStateFinished {
 		ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
 		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
 			trace.WithAttributes(

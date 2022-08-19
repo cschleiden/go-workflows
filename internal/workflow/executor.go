@@ -99,6 +99,18 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	logger.Debug("Executing workflow task", "task_last_sequence_id", t.LastSequenceID)
 
+	if t.WorkflowInstanceState == core.WorkflowInstanceStateFinished {
+		// This should never happen. For now, log information and then panic.
+		logger.Debug("Received workflow task for finished workflow instance, discarding events")
+
+		// Log events that caused this task to be scheduled
+		for _, event := range t.NewEvents {
+			logger.Debug("Discarded event:", "id", event.ID, "event_type", event.Type.String(), "schedule_event_id", event.ScheduleEventID)
+		}
+
+		return &ExecutionResult{}, nil
+	}
+
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {
@@ -195,7 +207,7 @@ func (e *executor) replayHistory(history []history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range history {
 		if event.SequenceID < e.lastSequenceID {
-			panic("history has older events than current state")
+			e.logger.Panic("history has older events than current state")
 		}
 
 		if err := e.executeEvent(event); err != nil {
@@ -220,7 +232,7 @@ func (e *executor) executeNewEvents(newEvents []history.Event) ([]history.Event,
 	if e.workflow.Completed() {
 		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
-			panic("Workflow completed, but there are still pending futures")
+			e.logger.Panic("workflow completed, but there are still pending futures")
 		}
 
 		e.workflowCompleted(e.workflow.Result(), e.workflow.Error())

@@ -176,7 +176,7 @@ func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 	return h, nil
 }
 
-func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (backend.WorkflowState, error) {
+func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
 	row := s.db.QueryRowContext(
 		ctx,
 		"SELECT completed_at FROM instances WHERE id = ? AND execution_id = ?",
@@ -187,15 +187,15 @@ func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 	var completedAt sql.NullTime
 	if err := row.Scan(&completedAt); err != nil {
 		if err == sql.ErrNoRows {
-			return backend.WorkflowStateActive, backend.ErrInstanceNotFound
+			return core.WorkflowInstanceStateActive, backend.ErrInstanceNotFound
 		}
 	}
 
 	if completedAt.Valid {
-		return backend.WorkflowStateFinished, nil
+		return core.WorkflowInstanceStateFinished, nil
 	}
 
-	return backend.WorkflowStateActive, nil
+	return core.WorkflowInstanceStateActive, nil
 }
 
 func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
@@ -322,7 +322,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *task.Workflow,
 	instance *workflow.Instance,
-	state backend.WorkflowState,
+	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
@@ -333,7 +333,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	defer tx.Rollback()
 
 	var completedAt *time.Time
-	if state == backend.WorkflowStateFinished {
+	if state == core.WorkflowInstanceStateFinished {
 		t := time.Now()
 		completedAt = &t
 	}

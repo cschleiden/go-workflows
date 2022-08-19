@@ -15,13 +15,6 @@ import (
 var ErrInstanceNotFound = errors.New("workflow instance not found")
 var ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
 
-type WorkflowState int
-
-const (
-	WorkflowStateActive WorkflowState = iota
-	WorkflowStateFinished
-)
-
 const TracerName = "go-workflow"
 
 //go:generate mockery --name=Backend --inpackage
@@ -33,7 +26,7 @@ type Backend interface {
 	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, cancelEvent *history.Event) error
 
 	// GetWorkflowInstanceState returns the state of the given workflow instance
-	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (WorkflowState, error)
+	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error)
 
 	// GetWorkflowInstanceHistory returns the workflow history for the given instance. When lastSequenceID
 	// is given, only events after that event are returned. Otherwise the full history is returned.
@@ -54,7 +47,7 @@ type Backend interface {
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
-		ctx context.Context, task *task.Workflow, instance *workflow.Instance, state WorkflowState,
+		ctx context.Context, task *task.Workflow, instance *workflow.Instance, state core.WorkflowInstanceState,
 		executedEvents, activityEvents, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities

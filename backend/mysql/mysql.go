@@ -183,7 +183,7 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	return h, nil
 }
 
-func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (backend.WorkflowState, error) {
+func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
 	row := b.db.QueryRowContext(
 		ctx,
 		"SELECT completed_at FROM instances WHERE instance_id = ? AND execution_id = ?",
@@ -194,15 +194,15 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 	var completedAt sql.NullTime
 	if err := row.Scan(&completedAt); err != nil {
 		if err == sql.ErrNoRows {
-			return backend.WorkflowStateActive, backend.ErrInstanceNotFound
+			return core.WorkflowInstanceStateActive, backend.ErrInstanceNotFound
 		}
 	}
 
 	if completedAt.Valid {
-		return backend.WorkflowStateFinished, nil
+		return core.WorkflowInstanceStateFinished, nil
 	}
 
-	return backend.WorkflowStateActive, nil
+	return core.WorkflowInstanceStateActive, nil
 }
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
@@ -427,7 +427,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *task.Workflow,
 	instance *workflow.Instance,
-	state backend.WorkflowState,
+	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
@@ -441,7 +441,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	// Unlock instance, but keep it sticky to the current worker
 	var completedAt *time.Time
-	if state == backend.WorkflowStateFinished {
+	if state == core.WorkflowInstanceStateFinished {
 		t := time.Now()
 		completedAt = &t
 	}

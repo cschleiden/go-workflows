@@ -23,7 +23,7 @@ func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
-	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(backend.WorkflowStateActive, nil)
+	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(core.WorkflowInstanceStateActive, nil)
 
 	c := &client{
 		backend: b,
@@ -46,11 +46,11 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 	r, _ := converter.DefaultConverter.To(42)
 
 	b := &backend.MockBackend{}
-	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(backend.WorkflowStateActive, nil).Once().Run(func(args mock.Arguments) {
+	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(core.WorkflowInstanceStateActive, nil).Once().Run(func(args mock.Arguments) {
 		// After the first call, advance the clock to immediately go to the second call below
 		mockClock.Add(time.Second)
 	})
-	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(backend.WorkflowStateFinished, nil)
+	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(core.WorkflowInstanceStateFinished, nil)
 	b.On("GetWorkflowInstanceHistory", mock.Anything, instance, (*int64)(nil)).Return([]history.Event{
 		history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 		history.NewHistoryEvent(2, time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{
