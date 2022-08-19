@@ -539,13 +539,13 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				w := worker.New(b, workerOptions)
 
 				t.Cleanup(func() {
+					cancel()
+
 					// Wait for in-progress executions to finish
 					if err := w.WaitForCompletion(); err != nil {
 						log.Println("Worker did not stop in time")
 						t.FailNow()
 					}
-
-					cancel()
 
 					if teardown != nil {
 						teardown(b)
