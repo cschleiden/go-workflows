@@ -58,6 +58,8 @@ func (aw *activityWorker) Start(ctx context.Context) error {
 }
 
 func (aw *activityWorker) WaitForCompletion() error {
+	close(aw.activityTaskQueue)
+
 	aw.wg.Wait()
 
 	return nil

@@ -72,6 +72,8 @@ func (ww *workflowWorker) Start(ctx context.Context) error {
 }
 
 func (ww *workflowWorker) WaitForCompletion() error {
+	close(ww.workflowTaskQueue)
+
 	ww.wg.Wait()
 
 	return nil
