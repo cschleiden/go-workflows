@@ -99,6 +99,18 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	logger.Debug("Executing workflow task", "task_last_sequence_id", t.LastSequenceID)
 
+	if t.WorkflowInstanceState == core.WorkflowInstanceStateFinished {
+		// This should never happen. For now, log information and then panic.
+		logger.Debug("Received workflow task for finished workflow instance, discarding events")
+
+		// Log events that caused this task to be scheduled
+		for _, event := range t.NewEvents {
+			logger.Debug("Discarded event:", "id", event.ID, "event_type", event.Type.String(), "schedule_event_id", event.ScheduleEventID)
+		}
+
+		return &ExecutionResult{}, nil
+	}
+
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {

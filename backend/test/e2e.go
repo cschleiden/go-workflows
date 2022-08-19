@@ -156,6 +156,23 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			},
 		},
 		{
+			name: "Signal_after_completion",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				wf := func(ctx workflow.Context) error {
+					return nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				// Run workflow to completion
+				instance := runWorkflow(t, ctx, c, wf)
+				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.NoError(t, err)
+
+				err = c.SignalWorkflow(ctx, instance.InstanceID, "signal", nil)
+				require.NoError(t, err)
+			},
+		},
+		{
 			name: "SubWorkflow_Simple",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
