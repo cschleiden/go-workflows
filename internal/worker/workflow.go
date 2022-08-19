@@ -66,7 +66,7 @@ func (ww *workflowWorker) Start(ctx context.Context) error {
 		go ww.runPoll(ctx)
 	}
 
-	go ww.runDispatcher(ctx)
+	go ww.runDispatcher()
 
 	return nil
 }
@@ -99,33 +99,32 @@ func (ww *workflowWorker) runPoll(ctx context.Context) {
 	}
 }
 
-func (ww *workflowWorker) runDispatcher(ctx context.Context) {
+func (ww *workflowWorker) runDispatcher() {
 	var sem chan (struct{})
 
 	if ww.options.MaxParallelWorkflowTasks > 0 {
 		sem = make(chan struct{}, ww.options.MaxParallelWorkflowTasks)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case t := <-ww.workflowTaskQueue:
-			if sem != nil {
-				sem <- struct{}{}
-			}
-
-			ww.wg.Add(1)
-			go func() {
-				defer ww.wg.Done()
-
-				ww.handle(ctx, t)
-
-				if sem != nil {
-					<-sem
-				}
-			}()
+	for t := range ww.workflowTaskQueue {
+		if sem != nil {
+			sem <- struct{}{}
 		}
+
+		t := t
+
+		ww.wg.Add(1)
+		go func() {
+			defer ww.wg.Done()
+
+			// Create new context to allow workflows to complete when root context is canceled
+			taskCtx := context.Background()
+			ww.handle(taskCtx, t)
+
+			if sem != nil {
+				<-sem
+			}
+		}()
 	}
 }
 

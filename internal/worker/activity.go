@@ -52,7 +52,7 @@ func (aw *activityWorker) Start(ctx context.Context) error {
 		go aw.runPoll(ctx)
 	}
 
-	go aw.runDispatcher(ctx)
+	go aw.runDispatcher(context.Background())
 
 	return nil
 }
@@ -90,28 +90,25 @@ func (aw *activityWorker) runDispatcher(ctx context.Context) {
 		sem = make(chan struct{}, aw.options.MaxParallelActivityTasks)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case task := <-aw.activityTaskQueue:
-			if sem != nil {
-				sem <- struct{}{}
-			}
-
-			aw.wg.Add(1)
-			go func() {
-				defer aw.wg.Done()
-
-				// Create new context to allow activities to complete when root context is canceled
-				taskCtx := context.Background()
-				aw.handleTask(taskCtx, task)
-
-				if sem != nil {
-					<-sem
-				}
-			}()
+	for task := range aw.activityTaskQueue {
+		if sem != nil {
+			sem <- struct{}{}
 		}
+
+		task := task
+
+		aw.wg.Add(1)
+		go func() {
+			defer aw.wg.Done()
+
+			// Create new context to allow activities to complete when root context is canceled
+			taskCtx := context.Background()
+			aw.handleTask(taskCtx, task)
+
+			if sem != nil {
+				<-sem
+			}
+		}()
 	}
 }
 
