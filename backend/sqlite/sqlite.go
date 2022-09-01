@@ -13,7 +13,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	mi "github.com/cschleiden/go-workflows/internal/metrics"
+	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
@@ -68,7 +68,7 @@ func (sb *sqliteBackend) Logger() log.Logger {
 }
 
 func (sb *sqliteBackend) Metrics() metrics.Client {
-	return sb.options.Metrics.WithTags(metrics.Tags{mi.Backend: "mysql"})
+	return sb.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "sqlite"})
 }
 
 func (sb *sqliteBackend) Tracer() trace.Tracer {

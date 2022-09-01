@@ -8,7 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	mi "github.com/cschleiden/go-workflows/internal/metrics"
+	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/go-redis/redis/v8"
@@ -109,7 +109,7 @@ func (rb *redisBackend) Logger() log.Logger {
 }
 
 func (rb *redisBackend) Metrics() metrics.Client {
-	return rb.options.Metrics.WithTags(metrics.Tags{mi.Backend: "mysql"})
+	return rb.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "redis"})
 }
 
 func (rb *redisBackend) Tracer() trace.Tracer {

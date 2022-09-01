@@ -13,7 +13,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	mi "github.com/cschleiden/go-workflows/internal/metrics"
+	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
@@ -97,7 +97,7 @@ func (b *mysqlBackend) Tracer() trace.Tracer {
 }
 
 func (b *mysqlBackend) Metrics() metrics.Client {
-	return b.options.Metrics.WithTags(metrics.Tags{mi.Backend: "mysql"})
+	return b.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
