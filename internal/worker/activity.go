@@ -14,12 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflow"
 )
 
-type ActivityWorker interface {
-	Start(context.Context) error
-	WaitForCompletion() error
-}
-
-type activityWorker struct {
+type ActivityWorker struct {
 	backend backend.Backend
 
 	options *Options
@@ -32,8 +27,8 @@ type activityWorker struct {
 	clock clock.Clock
 }
 
-func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) ActivityWorker {
-	return &activityWorker{
+func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) *ActivityWorker {
+	return &ActivityWorker{
 		backend: backend,
 
 		options: options,
@@ -47,7 +42,7 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 	}
 }
 
-func (aw *activityWorker) Start(ctx context.Context) error {
+func (aw *ActivityWorker) Start(ctx context.Context) error {
 	for i := 0; i <= aw.options.ActivityPollers; i++ {
 		go aw.runPoll(ctx)
 	}
@@ -57,7 +52,7 @@ func (aw *activityWorker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (aw *activityWorker) WaitForCompletion() error {
+func (aw *ActivityWorker) WaitForCompletion() error {
 	close(aw.activityTaskQueue)
 
 	aw.wg.Wait()
@@ -65,7 +60,7 @@ func (aw *activityWorker) WaitForCompletion() error {
 	return nil
 }
 
-func (aw *activityWorker) runPoll(ctx context.Context) {
+func (aw *ActivityWorker) runPoll(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -84,7 +79,7 @@ func (aw *activityWorker) runPoll(ctx context.Context) {
 	}
 }
 
-func (aw *activityWorker) runDispatcher(ctx context.Context) {
+func (aw *ActivityWorker) runDispatcher(ctx context.Context) {
 	var sem chan struct{}
 	if aw.options.MaxParallelActivityTasks > 0 {
 		sem = make(chan struct{}, aw.options.MaxParallelActivityTasks)
@@ -112,7 +107,7 @@ func (aw *activityWorker) runDispatcher(ctx context.Context) {
 	}
 }
 
-func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
+func (aw *ActivityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	// Start heartbeat while activity is running
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 	go func(ctx context.Context) {
@@ -161,7 +156,7 @@ func (aw *activityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	}
 }
 
-func (aw *activityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {
+func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
