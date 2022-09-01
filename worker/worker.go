@@ -81,9 +81,6 @@ func New(backend backend.Backend, options *Options) Worker {
 		activityWorker: internal.NewActivityWorker(backend, registry, clock.New(), options),
 
 		registry: registry,
-
-		workflows:  map[string]interface{}{},
-		activities: map[string]interface{}{},
 	}
 }
 
