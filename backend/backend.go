@@ -8,6 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -62,6 +63,9 @@ type Backend interface {
 	// Logger returns the configured logger for the backend
 	Logger() log.Logger
 
-	// Tracer returns th configured trace provider for the backend
+	// Tracer returns the configured trace provider for the backend
 	Tracer() trace.Tracer
+
+	// Metrics returns the configured metrics client for the backend
+	Metrics() metrics.Client
 }

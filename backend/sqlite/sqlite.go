@@ -13,8 +13,10 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
@@ -63,6 +65,10 @@ type sqliteBackend struct {
 
 func (sb *sqliteBackend) Logger() log.Logger {
 	return sb.options.Logger
+}
+
+func (sb *sqliteBackend) Metrics() metrics.Client {
+	return sb.options.Metrics.WithTags(metrics.Tags{mi.Backend: "mysql"})
 }
 
 func (sb *sqliteBackend) Tracer() trace.Tracer {

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/benbjohnson/clock"
@@ -45,8 +46,8 @@ type worker struct {
 
 	registry *workflowinternal.Registry
 
-	workflowWorker internal.WorkflowWorker
-	activityWorker internal.ActivityWorker
+	workflowWorker *internal.WorkflowWorker
+	activityWorker *internal.ActivityWorker
 
 	workflows  map[string]interface{}
 	activities map[string]interface{}
@@ -85,8 +86,13 @@ func New(backend backend.Backend, options *Options) Worker {
 }
 
 func (w *worker) Start(ctx context.Context) error {
-	w.workflowWorker.Start(ctx)
-	w.activityWorker.Start(ctx)
+	if err := w.workflowWorker.Start(ctx); err != nil {
+		return fmt.Errorf("starting workflow worker: %w", err)
+	}
+
+	if err := w.activityWorker.Start(ctx); err != nil {
+		return fmt.Errorf("starting activity worker: %w", err)
+	}
 
 	return nil
 }

@@ -4,12 +4,16 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/logger"
+	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/metrics"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type Options struct {
 	Logger log.Logger
+
+	Metrics metrics.Client
 
 	TracerProvider trace.TracerProvider
 
@@ -26,6 +30,7 @@ var DefaultOptions Options = Options{
 	ActivityLockTimeout: time.Minute * 2,
 
 	Logger:         logger.NewDefaultLogger(),
+	Metrics:        mi.NewNoopMetricsClient(),
 	TracerProvider: trace.NewNoopTracerProvider(),
 }
 
@@ -40,6 +45,12 @@ func WithStickyTimeout(timeout time.Duration) BackendOption {
 func WithLogger(logger log.Logger) BackendOption {
 	return func(o *Options) {
 		o.Logger = logger
+	}
+}
+
+func WithMetrics(client metrics.Client) BackendOption {
+	return func(o *Options) {
+		o.Metrics = client
 	}
 }
 

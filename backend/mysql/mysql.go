@@ -13,8 +13,10 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -92,6 +94,10 @@ func (b *mysqlBackend) Logger() log.Logger {
 
 func (b *mysqlBackend) Tracer() trace.Tracer {
 	return b.options.TracerProvider.Tracer(backend.TracerName)
+}
+
+func (b *mysqlBackend) Metrics() metrics.Client {
+	return b.options.Metrics.WithTags(metrics.Tags{mi.Backend: "mysql"})
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {

@@ -8,7 +8,9 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
+	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/go-redis/redis/v8"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -104,6 +106,10 @@ type activityData struct {
 
 func (rb *redisBackend) Logger() log.Logger {
 	return rb.options.Logger
+}
+
+func (rb *redisBackend) Metrics() metrics.Client {
+	return rb.options.Metrics.WithTags(metrics.Tags{mi.Backend: "mysql"})
 }
 
 func (rb *redisBackend) Tracer() trace.Tracer {
