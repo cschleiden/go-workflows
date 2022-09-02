@@ -10,6 +10,8 @@ import (
 
 	log "github.com/cschleiden/go-workflows/log"
 
+	metrics "github.com/cschleiden/go-workflows/metrics"
+
 	mock "github.com/stretchr/testify/mock"
 
 	task "github.com/cschleiden/go-workflows/internal/task"
@@ -51,8 +53,7 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(
-	ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []history.Event, activityEvents []history.Event, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []history.Event, activityEvents []history.Event, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
 	ret := _m.Called(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 
 	var r0 error
@@ -207,6 +208,22 @@ func (_m *MockBackend) Logger() log.Logger {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(log.Logger)
+		}
+	}
+
+	return r0
+}
+
+// Metrics provides a mock function with given fields:
+func (_m *MockBackend) Metrics() metrics.Client {
+	ret := _m.Called()
+
+	var r0 metrics.Client
+	if rf, ok := ret.Get(0).(func() metrics.Client); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(metrics.Client)
 		}
 	}
 

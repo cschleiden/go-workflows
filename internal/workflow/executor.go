@@ -101,7 +101,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	if t.WorkflowInstanceState == core.WorkflowInstanceStateFinished {
 		// This should never happen. For now, log information and then panic.
-		logger.Debug("Received workflow task for finished workflow instance, discarding events")
+		logger.Error("Received workflow task for finished workflow instance, discarding events")
 
 		// Log events that caused this task to be scheduled
 		for _, event := range t.NewEvents {
