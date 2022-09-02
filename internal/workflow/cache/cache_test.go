@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/logger"
+	"github.com/cschleiden/go-workflows/internal/metrics"
 	wf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ import (
 )
 
 func Test_Cache_StoreAndGet(t *testing.T) {
-	c := NewWorkflowExecutorLRUCache(1, time.Second*10)
+	c := NewWorkflowExecutorLRUCache(metrics.NewNoopMetricsClient(), 1, time.Second*10)
 
 	r := wf.NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
@@ -51,7 +52,9 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 }
 
 func Test_Cache_Evict(t *testing.T) {
-	c := NewWorkflowExecutorLRUCache(128,
+	c := NewWorkflowExecutorLRUCache(
+		metrics.NewNoopMetricsClient(),
+		128,
 		1, // Should evict immediately
 	)
 

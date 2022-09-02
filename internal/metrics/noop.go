@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	m "github.com/cschleiden/go-workflows/metrics"
+	"github.com/cschleiden/go-workflows/metrics"
 )
 
 type noopMetricsClient struct {
@@ -13,20 +13,21 @@ func NewNoopMetricsClient() *noopMetricsClient {
 	return &noopMetricsClient{}
 }
 
-var _ m.Client = (*noopMetricsClient)(nil)
+var _ metrics.Client = (*noopMetricsClient)(nil)
 
-func (*noopMetricsClient) Counter(name string, tags m.Tags, value float64) {
+func (*noopMetricsClient) Counter(name string, tags metrics.Tags, value int64) {
 }
 
-// Distribution implements metrics.Client
-func (*noopMetricsClient) Distribution(name string, tags m.Tags, value float64) {
+func (*noopMetricsClient) Distribution(name string, tags metrics.Tags, value float64) {
 }
 
-// Timing implements metrics.Client
-func (*noopMetricsClient) Timing(name string, tags m.Tags, duration time.Duration) {
+func (*noopMetricsClient) Gauge(name string, tags metrics.Tags, value int64) {
+
 }
 
-// WithTags implements metrics.Client
-func (nmc *noopMetricsClient) WithTags(tags m.Tags) m.Client {
+func (*noopMetricsClient) Timing(name string, tags metrics.Tags, duration time.Duration) {
+}
+
+func (nmc *noopMetricsClient) WithTags(tags metrics.Tags) metrics.Client {
 	return nmc
 }

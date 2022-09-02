@@ -9,10 +9,12 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
 	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/metrics"
 )
 
 type WorkflowWorker struct {
@@ -36,7 +38,7 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, opt
 	if options.WorkflowExecutorCache != nil {
 		c = options.WorkflowExecutorCache
 	} else {
-		c = cache.NewWorkflowExecutorLRUCache(options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
+		c = cache.NewWorkflowExecutorLRUCache(backend.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
 	}
 
 	return &WorkflowWorker{
@@ -123,6 +125,14 @@ func (ww *WorkflowWorker) runDispatcher() {
 }
 
 func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
+	// Record how long this task was in the queue
+	scheduledAt := t.NewEvents[0].Timestamp // Use the timestamp of the first event as the schedule time
+	timeInQueue := time.Since(scheduledAt)
+	ww.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{}, float64(timeInQueue/time.Millisecond))
+
+	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{})
+	defer timer.Stop()
+
 	result, err := ww.handleTask(ctx, t)
 	if err != nil {
 		ww.logger.Panic("could not handle workflow task", "error", err)
@@ -131,7 +141,11 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	state := core.WorkflowInstanceStateActive
 	if result.Completed {
 		state = core.WorkflowInstanceStateFinished
+
+		ww.backend.Metrics().Counter(metrickeys.WorkflowInstanceFinished, metrics.Tags{}, 1)
 	}
+
+	ww.backend.Metrics().Counter(metrickeys.ActivityTaskScheduled, metrics.Tags{}, int64(len(result.ActivityEvents)))
 
 	if err := ww.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
