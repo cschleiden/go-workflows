@@ -28,5 +28,7 @@ const (
 	// Reason for evicting an entry from the workflow instance cache
 	EvictionReason = "reason"
 
+	SubWorkflow = "subworkflow"
+
 	ActivityName = "activity"
 )

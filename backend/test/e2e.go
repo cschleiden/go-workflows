@@ -170,6 +170,13 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 
 				err = c.SignalWorkflow(ctx, instance.InstanceID, "signal", nil)
 				require.NoError(t, err)
+				_, err = client.GetWorkflowResult[int](ctx, c, instance, time.Millisecond*5)
+				require.NoError(t, err)
+
+				err = c.SignalWorkflow(ctx, instance.InstanceID, "signal", nil)
+				require.NoError(t, err)
+				_, err = client.GetWorkflowResult[int](ctx, c, instance, time.Millisecond*5)
+				require.NoError(t, err)
 			},
 		},
 		{

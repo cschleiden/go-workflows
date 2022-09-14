@@ -89,6 +89,7 @@ func (ww *WorkflowWorker) runPoll(ctx context.Context) {
 			}
 
 			if task != nil {
+				ww.wg.Add(1)
 				ww.workflowTaskQueue <- task
 			}
 		}
@@ -109,7 +110,6 @@ func (ww *WorkflowWorker) runDispatcher() {
 
 		t := t
 
-		ww.wg.Add(1)
 		go func() {
 			defer ww.wg.Done()
 
@@ -131,18 +131,25 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	ww.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{}, float64(timeInQueue/time.Millisecond))
 
 	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{})
-	defer timer.Stop()
 
 	result, err := ww.handleTask(ctx, t)
 	if err != nil {
 		ww.logger.Panic("could not handle workflow task", "error", err)
 	}
 
+	// Only record the time spent in the workflow code
+	timer.Stop()
+
 	state := core.WorkflowInstanceStateActive
 	if result.Completed {
 		state = core.WorkflowInstanceStateFinished
 
-		ww.backend.Metrics().Counter(metrickeys.WorkflowInstanceFinished, metrics.Tags{}, 1)
+		if t.WorkflowInstanceState != state {
+			// If the workflow is now finished, record
+			ww.backend.Metrics().Counter(metrickeys.WorkflowInstanceFinished, metrics.Tags{
+				metrickeys.SubWorkflow: fmt.Sprint(t.WorkflowInstance.SubWorkflow()),
+			}, 1)
+		}
 	}
 
 	ww.backend.Metrics().Counter(metrickeys.ActivityTaskScheduled, metrics.Tags{}, int64(len(result.ActivityEvents)))

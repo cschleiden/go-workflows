@@ -356,10 +356,11 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	}
 
 	t := &task.Workflow{
-		ID:               wfi.InstanceID,
-		WorkflowInstance: wfi,
-		Metadata:         metadata,
-		NewEvents:        []history.Event{},
+		ID:                    wfi.InstanceID,
+		WorkflowInstance:      wfi,
+		WorkflowInstanceState: core.WorkflowInstanceStateActive,
+		Metadata:              metadata,
+		NewEvents:             []history.Event{},
 	}
 
 	// Get new events

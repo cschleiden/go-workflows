@@ -287,10 +287,11 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	t := &task.Workflow{
-		ID:               wfi.InstanceID,
-		WorkflowInstance: wfi,
-		Metadata:         metadata,
-		NewEvents:        []history.Event{},
+		ID:                    wfi.InstanceID,
+		WorkflowInstance:      wfi,
+		WorkflowInstanceState: core.WorkflowInstanceStateActive,
+		Metadata:              metadata,
+		NewEvents:             []history.Event{},
 	}
 
 	// Get new events
