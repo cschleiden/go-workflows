@@ -57,7 +57,7 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 		return b
 
 	case "postgres":
-		return postgres.NewPostgresBackend("localhost", 5432, "postgres", "", name, true, opt...)
+		return postgres.NewPostgresBackend("localhost", 5432, "postgres", "postgres", name, true, opt...)
 
 	default:
 		panic("unknown backend " + *b)
