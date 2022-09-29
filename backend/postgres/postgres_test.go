@@ -14,7 +14,7 @@ import (
 )
 
 const testUser = "postgres"
-const testPassword = "root"
+const testPassword = ""
 
 // Creating and dropping databases is terribly inefficient, but easiest for complete test isolation. For
 // the future consider nested transactions, or manually TRUNCATE-ing the tables in-between tests.
@@ -27,7 +27,7 @@ func Test_PostgresBackend(t *testing.T) {
 	var dbName string
 
 	test.BackendTest(t, func() test.TestBackend {
-		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s password=%s sslmode=disable", testUser, testPassword))
+		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s sslmode=disable", testUser))
 		if err != nil {
 			panic(err)
 		}
@@ -43,7 +43,7 @@ func Test_PostgresBackend(t *testing.T) {
 
 		return NewPostgresBackend("localhost", 5432, testUser, testPassword, dbName, true, backend.WithStickyTimeout(0))
 	}, func(b test.TestBackend) {
-		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s password=%s sslmode=disable", testUser, testPassword))
+		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s sslmode=disable", testUser))
 		if err != nil {
 			panic(err)
 		}
@@ -66,7 +66,7 @@ func TestPostgresBackendE2E(t *testing.T) {
 	var dbName string
 
 	test.EndToEndBackendTest(t, func() test.TestBackend {
-		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s password=%s sslmode=disable", testUser, testPassword))
+		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s sslmode=disable", testUser))
 		if err != nil {
 			panic(err)
 		}
@@ -83,7 +83,7 @@ func TestPostgresBackendE2E(t *testing.T) {
 		return NewPostgresBackend("localhost", 5432, testUser, testPassword, dbName, true, backend.WithStickyTimeout(0))
 	}, func(b test.TestBackend) {
 
-		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s password=%s sslmode=disable", testUser, testPassword))
+		db, err := sql.Open("postgres", fmt.Sprintf("host=localhost port=5432 user=%s sslmode=disable", testUser))
 		if err != nil {
 			panic(err)
 		}

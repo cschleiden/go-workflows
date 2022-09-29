@@ -37,6 +37,9 @@ jobs:
     - name: Start MySQL
       run: sudo /etc/init.d/mysql start
 
+    - name: Start Postgres
+      run: sudo systemctl start postgresql.service
+
     - name: Tests
       run: |
         go install github.com/jstemmer/go-junit-report/v2@latest

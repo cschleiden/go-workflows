@@ -35,7 +35,11 @@ func NewPostgresBackendFromExisting(db *sql.DB, opts ...backend.BackendOption) *
 }
 
 func NewPostgresBackend(host string, port int, user, password, database string, disableSsl bool, opts ...backend.BackendOption) *postgresBackend {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s", host, port, user, password, database)
+	dsn := fmt.Sprintf("host=%s port=%d user=%s dbname=%s", host, port, user, database)
+
+	if len(password) > 0 {
+		dsn = dsn + " password=" + password
+	}
 
 	if disableSsl {
 		dsn = dsn + " sslmode=disable"
