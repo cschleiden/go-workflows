@@ -9,6 +9,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/mysql"
+	"github.com/cschleiden/go-workflows/backend/postgres"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/diag"
@@ -54,6 +55,9 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 		log.Println("Debug UI available at http://localhost:3000/diag")
 
 		return b
+
+	case "postgres":
+		return postgres.NewPostgresBackend("localhost", 5432, "postgres", "root", name, true, opt...)
 
 	default:
 		panic("unknown backend " + *b)
