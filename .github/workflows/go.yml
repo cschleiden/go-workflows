@@ -38,7 +38,10 @@ jobs:
       run: sudo /etc/init.d/mysql start
 
     - name: Start Postgres
-      run: sudo systemctl start postgresql.service
+      uses: harmon758/postgresql-action@v1
+      with:
+        postgresql user: 'postgres'
+        postgresql password: 'postgres'
 
     - name: Tests
       run: |
