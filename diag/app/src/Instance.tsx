@@ -142,6 +142,7 @@ function Instance() {
                     <ScheduleEventID id={event.schedule_event_id!} />
                   )}
                 </div>
+                {event.type !== "WorkflowExecutionStarted" && <div className="flex-grow-1"><code>{event.attributes?.name}</code></div>}
                 <div>{event.timestamp}</div>
               </h5>
             </Accordion.Header>
