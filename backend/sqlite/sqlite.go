@@ -35,7 +35,7 @@ func NewInMemoryBackend(opts ...backend.BackendOption) *sqliteBackend {
 	return b
 }
 
-func NewSqliteBackend(path string, opts ...backend.BackendOption) backend.Backend {
+func NewSqliteBackend(path string, opts ...backend.BackendOption) *sqliteBackend {
 	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
 }
 
