@@ -118,7 +118,7 @@ func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
 			return err
 		}
 
-		name := mt.Name
+		name := fn.Name(mt.Func.Interface())
 		r.activityMap[name] = mv.Interface()
 	}
 

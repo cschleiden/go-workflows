@@ -117,7 +117,7 @@ func Test_Executor(t *testing.T) {
 				inputs, _ := converter.DefaultConverter.To(42)
 				require.IsType(t, &command.ScheduleActivityCommand{}, e.workflowState.Commands()[0])
 				require.Equal(t, command.CommandState_Committed, e.workflowState.Commands()[0].State())
-				require.Equal(t, "activity1", e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Name)
+				require.Equal(t, fn.Name(activity1), e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Name)
 				require.Equal(t, []payload.Payload{inputs}, e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Inputs)
 			},
 		},
@@ -162,7 +162,7 @@ func Test_Executor(t *testing.T) {
 						time.Now(),
 						history.EventType_ActivityScheduled,
 						&history.ActivityScheduledAttributes{
-							Name:   "activity1",
+							Name:   fn.Name(activity1),
 							Inputs: []payload.Payload{inputs},
 						},
 						history.ScheduleEventID(1),
@@ -222,7 +222,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_ActivityScheduled,
 							&history.ActivityScheduledAttributes{
-								Name:   "activity1",
+								Name:   fn.Name(activity1),
 								Inputs: []payload.Payload{inputs},
 							},
 							history.ScheduleEventID(1),

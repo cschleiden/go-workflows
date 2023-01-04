@@ -71,7 +71,7 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
 				require.Zero(t, output)
-				require.ErrorContains(t, err, "workflow 1 not found")
+				require.ErrorContains(t, err, "not found")
 			},
 		},
 		{

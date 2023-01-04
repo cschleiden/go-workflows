@@ -32,17 +32,17 @@ func Test_GetFunctionName(t *testing.T) {
 		{
 			name: "function",
 			i:    bar,
-			want: "bar",
+			want: "github.com/cschleiden/go-workflows/internal/fn.bar",
 		},
 		{
 			name: "struct method",
 			i:    f.bar,
-			want: "bar",
+			want: "github.com/cschleiden/go-workflows/internal/fn.(*foo).bar",
 		},
 		{
 			name: "exported struct method",
 			i:    f.DoSomething,
-			want: "DoSomething",
+			want: "github.com/cschleiden/go-workflows/internal/fn.(*foo).DoSomething",
 		},
 	}
 	for _, tt := range tests {
