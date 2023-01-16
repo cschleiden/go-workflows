@@ -80,7 +80,6 @@ func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 
 func (rb *redisBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
 	itb := diag.NewInstanceTreeBuilder(rb)
-
 	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
 }
 

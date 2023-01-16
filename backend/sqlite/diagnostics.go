@@ -109,5 +109,6 @@ func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID str
 }
 
 func (sb *sqliteBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
-	panic("unimplemented")
+	itb := diag.NewInstanceTreeBuilder(sb)
+	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
 }

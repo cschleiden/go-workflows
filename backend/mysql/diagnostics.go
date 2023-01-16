@@ -109,5 +109,6 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 }
 
 func (mb *mysqlBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
-	panic("unimplemented")
+	itb := diag.NewInstanceTreeBuilder(mb)
+	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
 }
