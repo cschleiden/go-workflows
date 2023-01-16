@@ -107,3 +107,8 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 		State:       state,
 	}, nil
 }
+
+func (mb *mysqlBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
+	itb := diag.NewInstanceTreeBuilder(mb)
+	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
+}

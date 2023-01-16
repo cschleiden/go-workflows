@@ -36,3 +36,8 @@ export interface ExecutionCompletedAttributes {
   result: string;
   error: string;
 }
+
+export type WorkflowInstanceTree = WorkflowInstanceRef & {
+  workflow_name: string;
+  children: WorkflowInstanceTree[];
+};

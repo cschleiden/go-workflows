@@ -75,10 +75,19 @@ func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 		return nil, err
 	}
 
+	return mapWorkflowInstance(instance), nil
+}
+
+func (rb *redisBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
+	itb := diag.NewInstanceTreeBuilder(rb)
+	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
+}
+
+func mapWorkflowInstance(instance *instanceState) *diag.WorkflowInstanceRef {
 	return &diag.WorkflowInstanceRef{
 		Instance:    instance.Instance,
 		CreatedAt:   instance.CreatedAt,
 		CompletedAt: instance.CompletedAt,
 		State:       instance.State,
-	}, nil
+	}
 }

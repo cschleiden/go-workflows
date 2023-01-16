@@ -107,3 +107,8 @@ func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID str
 		State:       state,
 	}, nil
 }
+
+func (sb *sqliteBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
+	itb := diag.NewInstanceTreeBuilder(sb)
+	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
+}
