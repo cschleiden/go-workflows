@@ -107,6 +107,35 @@ func NewServeMux(backend Backend) *http.ServeMux {
 
 			return
 		}
+
+		// /api/{instanceID}/tree
+		if len(segments) == 2 {
+			instanceID := segments[0]
+			op := segments[1]
+			if op != "tree" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			tree, err := backend.GetWorkflowTree(r.Context(), instanceID)
+			if err != nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			if tree == nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			w.Header().Add("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(tree); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			return
+		}
 	})
 
 	// App

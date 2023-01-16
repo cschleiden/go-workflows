@@ -33,9 +33,18 @@ type WorkflowInstanceInfo struct {
 	History []*Event `json:"history,omitempty"`
 }
 
+type WorkflowInstanceTree struct {
+	*WorkflowInstanceRef
+
+	WorkflowName string `json:"workflow_name,omitempty"`
+
+	Children []*WorkflowInstanceTree `json:"children,omitempty"`
+}
+
 type Backend interface {
 	backend.Backend
 
 	GetWorkflowInstance(ctx context.Context, instanceID string) (*WorkflowInstanceRef, error)
 	GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*WorkflowInstanceRef, error)
+	GetWorkflowTree(ctx context.Context, instanceID string) (*WorkflowInstanceTree, error)
 }

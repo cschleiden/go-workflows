@@ -43,6 +43,16 @@ export const Payload: React.FC<{ payloads: string[] }> = ({ payloads }) => {
   );
 };
 
+export const WorkflowInstanceState: React.FC<{ state: number }> = ({
+  state,
+}) => {
+  if (state === 0) {
+    return <Badge bg="info">Active</Badge>;
+  } else {
+    return <Badge bg="success">Completed</Badge>;
+  }
+};
+
 export const EventType: React.FC<{ type: string }> = ({ type }) => {
   const [textColor, bgColor] = eventColor(type);
 

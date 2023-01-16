@@ -1,4 +1,4 @@
-import { Accordion, Alert, Badge, Card } from "react-bootstrap";
+import { Accordion, Alert, Card } from "react-bootstrap";
 import { Link, useParams } from "react-router-dom";
 import {
   ExecutionCompletedAttributes,
@@ -12,9 +12,11 @@ import {
   EventType,
   Payload,
   ScheduleEventID,
+  WorkflowInstanceState,
 } from "./Components";
 
 import useFetch from "react-fetch-hook";
+import { InstanceTree } from "./InstanceTree";
 
 function Instance() {
   let params = useParams();
@@ -92,11 +94,7 @@ function Instance() {
 
         <dt className="col-sm-4">State</dt>
         <dd className="col-sm-8">
-          {instance.state === 0 ? (
-            <Badge bg="info">Active</Badge>
-          ) : (
-            <Badge bg="success">Completed</Badge>
-          )}
+          <WorkflowInstanceState state={instance.state} />
         </dd>
 
         <dt className="col-sm-4">Created at</dt>
@@ -111,7 +109,9 @@ function Instance() {
       <Card>
         <Card.Header as="h5">Input</Card.Header>
         <Card.Body>
-          <Payload payloads={inputs.map((i) => decodePayload(i))} />
+          {inputs && (
+            <Payload payloads={inputs?.map((i) => decodePayload(i))} />
+          )}
         </Card.Body>
       </Card>
 
@@ -122,6 +122,9 @@ function Instance() {
           {wfError && <Payload payloads={[wfError]} />}
         </Card.Body>
       </Card>
+
+      <h2 className="mt-4">Workflow Graph</h2>
+      <InstanceTree instanceId={instance.instance.instance_id} />
 
       <h2 className="mt-3">History</h2>
       <Accordion alwaysOpen>
