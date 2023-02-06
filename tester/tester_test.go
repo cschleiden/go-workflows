@@ -3,6 +3,8 @@ package tester
 import (
 	"context"
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -233,4 +235,33 @@ func workflowSignal(ctx workflow.Context) (string, error) {
 	}
 
 	return val, nil
+}
+
+func Test_WorkflowProperExitAfterSubWorkflow(t *testing.T) {
+	tester := NewWorkflowTester[string](workflowSubWfsSignalsAndActivities)
+	tester.Registry().RegisterWorkflow(workflowSum)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	wfR, wfErr := tester.WorkflowResult()
+	require.Empty(t, wfErr)
+	require.Equal(t, reflect.String, reflect.ValueOf(wfR).Kind())
+}
+
+func workflowSubWfsSignalsAndActivities(ctx workflow.Context) (string, error) {
+	for i := 0; i < 2; i++ {
+		i := i
+		workflow.Go(ctx, func(ctx workflow.Context) {
+			workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+				InstanceID: fmt.Sprintf("subworkflow-%d", i),
+			}, workflowSum, i, i+1).Get(ctx)
+		})
+		workflow.SignalWorkflow(ctx, fmt.Sprintf("subworkflow-%d", i), "test", "")
+	}
+	return "finished without errors!", nil
+}
+
+func workflowSum(ctx workflow.Context, valA, valB int) (int, error) {
+	return valA + valB, nil
 }

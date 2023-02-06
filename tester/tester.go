@@ -287,6 +287,27 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				wt.scheduleActivity(tw.instance, event)
 			}
 
+			// Ensure WorkflowInstance corresponding to each WorkflowEvent has an updated
+			// ParentInstanceID and ParentEventID. This prevents the possibility of early
+			// exit of a workflow when a subworkflow whose ParentInstanceID == ""
+			// completes.
+			wfiMap := make(map[string]*core.WorkflowInstance)
+			for _, workflowEvent := range result.WorkflowEvents {
+				gotNewEvents = true
+				instanceID := workflowEvent.WorkflowInstance.InstanceID
+				if wfi, ok := wfiMap[instanceID]; ok {
+					if wfi.ParentInstanceID != "" && workflowEvent.WorkflowInstance.ParentInstanceID == "" {
+						workflowEvent.WorkflowInstance.ParentInstanceID = wfi.ParentInstanceID
+						workflowEvent.WorkflowInstance.ParentEventID = wfi.ParentEventID
+					} else if wfi.ParentInstanceID == "" && workflowEvent.WorkflowInstance.ParentInstanceID != "" {
+						wfi.ParentInstanceID = workflowEvent.WorkflowInstance.ParentInstanceID
+						wfi.ParentEventID = workflowEvent.WorkflowInstance.ParentEventID
+					}
+				} else {
+					wfiMap[instanceID] = workflowEvent.WorkflowInstance
+				}
+			}
+
 			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
 				wt.logger.Debug("Workflow event", "event_type", workflowEvent.HistoryEvent.Type)
