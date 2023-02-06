@@ -237,8 +237,8 @@ func workflowSignal(ctx workflow.Context) (string, error) {
 	return val, nil
 }
 
-func Test_WorkflowProperExitAfterSubWorkflow(t *testing.T) {
-	tester := NewWorkflowTester[string](workflowSubWfsSignalsAndActivities)
+func Test_WorkflowProperExitAfterSignallingMultipleSubWorkflows(t *testing.T) {
+	tester := NewWorkflowTester[string](workflowSubWorkFlowsAndSignals)
 	tester.Registry().RegisterWorkflow(workflowSum)
 
 	tester.Execute()
@@ -249,7 +249,7 @@ func Test_WorkflowProperExitAfterSubWorkflow(t *testing.T) {
 	require.Equal(t, reflect.String, reflect.ValueOf(wfR).Kind())
 }
 
-func workflowSubWfsSignalsAndActivities(ctx workflow.Context) (string, error) {
+func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
 	for i := 0; i < 2; i++ {
 		i := i
 		workflow.Go(ctx, func(ctx workflow.Context) {
