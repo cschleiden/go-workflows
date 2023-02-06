@@ -290,7 +290,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			// Ensure WorkflowInstance corresponding to each WorkflowEvent has an updated
 			// ParentInstanceID and ParentEventID. This prevents the possibility of early
 			// exit of a workflow when a subworkflow whose ParentInstanceID == ""
-			// completes.
+			// completes. Context: https://github.com/cschleiden/go-workflows/issues/149
 			wfiMap := make(map[string]*core.WorkflowInstance)
 			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
