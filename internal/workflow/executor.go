@@ -54,7 +54,7 @@ type executor struct {
 	wfStartedEventSeen bool
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) WorkflowExecutor {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
 
 	wfTracer := workflowtracer.New(tracer)
@@ -80,7 +80,7 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, his
 		logger:             logger,
 		tracer:             tracer,
 		wfStartedEventSeen: false,
-	}, nil
+	}
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {

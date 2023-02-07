@@ -252,10 +252,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
-			if err != nil {
-				panic("could not create workflow executor" + err.Error())
-			}
+			e := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
 
 			result, err := e.ExecuteTask(context.Background(), t)
 			if err != nil {

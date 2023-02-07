@@ -35,10 +35,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider Workflow
 	logger := logger.NewDefaultLogger()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	e, err := NewExecutor(logger, tracer, r, historyProvider, i, clock.New())
-	if err != nil {
-		panic(err)
-	}
+	e := NewExecutor(logger, tracer, r, historyProvider, i, clock.New())
 
 	return e.(*executor)
 }
