@@ -54,7 +54,7 @@ type executor struct {
 	wfStartedEventSeen bool
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) (WorkflowExecutor, error) {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) WorkflowExecutor {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
 
 	wfTracer := workflowtracer.New(tracer)
@@ -80,7 +80,7 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, his
 		logger:             logger,
 		tracer:             tracer,
 		wfStartedEventSeen: false,
-	}, nil
+	}
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
@@ -141,36 +141,6 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		}
 	} else if t.LastSequenceID < e.lastSequenceID {
 		return nil, fmt.Errorf("task has older history than current state, cannot execute")
-	}
-
-	// Potentially reorder new events here, protecting against
-	// cases in which new events are received for a workflow instance
-	// before the scheduler for that workflow instance has been
-	// created. To reorder, we find the WorkflowExecutionStarted
-	// event, then move it to the first position in t.NewEvents.
-	// t.NewEvents is modified in-place.
-	// See: https://github.com/cschleiden/go-workflows/issues/143
-	if !e.wfStartedEventSeen {
-		for i, ev := range t.NewEvents {
-			if ev.Type == history.EventType_WorkflowExecutionStarted {
-				if i > 0 {
-					// Shift elements before the WorkflowExecutionStarted
-					// event 1 index right, making space at index 0 to reinsert
-					// the WorkflowExecutionStarted event. Shifting instead of
-					// re-slicing and calling append() twice, i.e.:
-					// 		t.NewEvents = append(t.NewEvents[0:i], t.NewEvents[i+1:]...)
-					//		t.NewEvents = append([]history.Event{ev}, t.NewEvents...)
-					// is faster and avoids the possibility of copying
-					// slices if t.NewEvents is large
-					for j := i; j >= 1; j-- {
-						t.NewEvents[j] = t.NewEvents[j-1]
-					}
-					t.NewEvents[0] = ev
-				}
-				e.wfStartedEventSeen = true
-				break
-			}
-		}
 	}
 
 	// Always add a WorkflowTaskStarted event before executing new tasks
@@ -349,9 +319,6 @@ func (e *executor) executeEvent(event history.Event) error {
 		err = e.handleSubWorkflowFailed(event, event.Attributes.(*history.SubWorkflowFailedAttributes))
 	case history.EventType_SubWorkflowCompleted:
 		err = e.handleSubWorkflowCompleted(event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
-
-	case history.EventType_SignalWorkflow:
-		err = e.handleSignalWorkflow(event, event.Attributes.(*history.SignalWorkflowAttributes))
 
 	default:
 		return fmt.Errorf("unknown event type: %v", event.Type)
@@ -584,12 +551,10 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution scheduled a sub-workflow execution")
 	}
 
 	if _, ok := c.(*command.ScheduleSubWorkflowCommand); !ok {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
 	}
 
@@ -612,12 +577,10 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
 	}
 
 	if _, ok := c.(*command.ScheduleSubWorkflowCommand); !ok {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
 	}
 
@@ -629,22 +592,6 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
 	// Send signal to workflow channel
 	workflowstate.ReceiveSignal(e.workflowState, a.Name, a.Arg)
-
-	return e.workflow.Continue()
-}
-
-func (e *executor) handleSignalWorkflow(event history.Event, a *history.SignalWorkflowAttributes) error {
-	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
-	if c == nil {
-		return fmt.Errorf("previous workflow execution requested a signal")
-	}
-
-	sewc, ok := c.(*command.SignalWorkflowCommand)
-	if !ok {
-		return fmt.Errorf("previous workflow execution requested to signal a workflow, not: %v", c.Type())
-	}
-
-	sewc.Done()
 
 	return e.workflow.Continue()
 }

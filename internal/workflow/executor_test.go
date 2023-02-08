@@ -35,10 +35,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider Workflow
 	logger := logger.NewDefaultLogger()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	e, err := NewExecutor(logger, tracer, r, historyProvider, i, clock.New())
-	if err != nil {
-		panic(err)
-	}
+	e := NewExecutor(logger, tracer, r, historyProvider, i, clock.New())
 
 	return e.(*executor)
 }
@@ -583,57 +580,6 @@ func Test_Executor(t *testing.T) {
 
 				require.NoError(t, err)
 				require.True(t, e.workflow.Completed())
-			},
-		},
-		{
-			name: "Reorder events to protect against nil deref error",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
-				workflow := func(ctx wf.Context) error {
-					return nil
-				}
-
-				r.RegisterWorkflow(workflow)
-
-				// Input for signal
-				input, err := converter.DefaultConverter.To("<Insert signal arg here>")
-				if err != nil {
-					require.NoError(t, err)
-				}
-				// Create a SignalReceived event
-				signalReceivedEvent := history.NewPendingEvent(
-					time.Now(),
-					history.EventType_SignalReceived,
-					&history.SignalReceivedAttributes{
-						Name: fn.Name(workflow),
-						Arg:  input,
-					},
-				)
-
-				// Create a TimerFired event
-				timerFiredEvent := history.NewPendingEvent(
-					time.Now(),
-					history.EventType_TimerFired,
-					&history.TimerFiredAttributes{
-						At: time.Now().Add(time.Second),
-					},
-				)
-
-				task := startWorkflowTask("instanceID", workflow)
-				// Here, we reorder the history so that the WorkflowExecutionStarted
-				// event does not appear first. This simulates the condition that caused
-				// the bug previously. To do so, we insert two events in front of the
-				// WorkflowExecutionStarted event.
-				require.False(t, e.wfStartedEventSeen)
-				task.NewEvents = append([]history.Event{signalReceivedEvent, timerFiredEvent}, task.NewEvents...)
-				result, err := e.ExecuteTask(context.Background(), task)
-				require.True(t, e.wfStartedEventSeen)
-				require.NoError(t, err)
-				require.NoError(t, e.workflow.err)
-				require.Len(t, result.Executed, 5)
-				// verify the events were executed in the reordered order
-				require.Equal(t, history.EventType_WorkflowExecutionStarted, result.Executed[1].Type)
-				require.Equal(t, history.EventType_SignalReceived, result.Executed[2].Type)
-				require.Equal(t, history.EventType_TimerFired, result.Executed[3].Type)
 			},
 		},
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
@@ -233,4 +234,32 @@ func workflowSignal(ctx workflow.Context) (string, error) {
 	}
 
 	return val, nil
+}
+
+func Test_SignalSubWorkflowBeforeScheduling(t *testing.T) {
+	tester := NewWorkflowTester[string](workflowSubWorkFlowsAndSignals)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	wfR, wfErr := tester.WorkflowResult()
+	require.Empty(t, wfErr)
+	require.IsType(t, "", wfR)
+}
+
+func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
+	_, err := workflow.SignalWorkflow(ctx, "subworkflow", "test", "").Get(ctx)
+	if err != backend.ErrInstanceNotFound {
+		return "", err
+	}
+
+	workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+		InstanceID: "subworkflow",
+	}, workflowSum, 1, 2).Get(ctx)
+
+	return "finished without errors!", nil
+}
+
+func workflowSum(ctx workflow.Context, valA, valB int) (int, error) {
+	return valA + valB, nil
 }

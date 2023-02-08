@@ -34,6 +34,8 @@ type Backend interface {
 	GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error)
 
 	// SignalWorkflow signals a running workflow instance
+	//
+	// If the given instance does not exist, it will return an error
 	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error
 
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions

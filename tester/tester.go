@@ -19,6 +19,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/signals"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/log"
@@ -66,7 +67,7 @@ type WorkflowTester[TResult any] interface {
 }
 
 type testTimer struct {
-	// At is the timer this timer is scheduled for. This will advance the mock clock
+	// At is the time this timer is scheduled for. This will advance the mock clock
 	// to this timestamp
 	At time.Time
 
@@ -184,6 +185,10 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		tracer: tracer,
 	}
 
+	// Register internal activities
+	signalActivities := &signals.Activities{Signaler: &signaler[TResult]{wt}}
+	registry.RegisterActivity(signalActivities)
+
 	// Always register the workflow under test
 	if err := wt.registry.RegisterWorkflow(wf); err != nil {
 		panic(fmt.Sprintf("could not workflow under test: %v", err))
@@ -252,10 +257,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
-			if err != nil {
-				panic("could not create workflow executor" + err.Error())
-			}
+			e := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
 
 			result, err := e.ExecuteTask(context.Background(), t)
 			if err != nil {
@@ -638,3 +640,13 @@ func getNextWorkflowTask(wfi *core.WorkflowInstance, history []history.Event, ne
 		NewEvents:        newEvents,
 	}
 }
+
+type signaler[T any] struct {
+	wt *workflowTester[T]
+}
+
+func (s *signaler[T]) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
+	return nil
+}
+
+var _ signals.Signaler = (*signaler[any])(nil)
