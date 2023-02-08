@@ -331,7 +331,7 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 						InstanceID: id,
 					}, swf, 1)
 
-					if err := workflow.SignalWorkflow(ctx, id, "signal", "hello"); err != nil {
+					if _, err := workflow.SignalWorkflow(ctx, id, "signal", "hello").Get(ctx); err != nil {
 						return 0, err
 					}
 
@@ -344,6 +344,30 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
 				require.NoError(t, err)
 				require.Equal(t, 2, r)
+			},
+		},
+		{
+			name: "SubWorkflow_Signal_BeforeStarting",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				wf := func(ctx workflow.Context) (int, error) {
+					id, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) string {
+						id := uuid.New().String()
+						workflow.Logger(ctx).Warn("side effect", "id", id)
+						return id
+					}).Get(ctx)
+
+					if _, err := workflow.SignalWorkflow(ctx, id, "signal", "hello").Get(ctx); err != nil {
+						return 0, err
+					}
+
+					return 42, nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.ErrorContains(t, err, backend.ErrInstanceNotFound.Error())
 			},
 		},
 		{

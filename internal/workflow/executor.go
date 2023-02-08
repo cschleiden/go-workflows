@@ -320,9 +320,6 @@ func (e *executor) executeEvent(event history.Event) error {
 	case history.EventType_SubWorkflowCompleted:
 		err = e.handleSubWorkflowCompleted(event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
 
-	case history.EventType_SignalWorkflow:
-		err = e.handleSignalWorkflow(event, event.Attributes.(*history.SignalWorkflowAttributes))
-
 	default:
 		return fmt.Errorf("unknown event type: %v", event.Type)
 	}
@@ -554,12 +551,10 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution scheduled a sub-workflow execution")
 	}
 
 	if _, ok := c.(*command.ScheduleSubWorkflowCommand); !ok {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
 	}
 
@@ -582,12 +577,10 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
 	}
 
 	if _, ok := c.(*command.ScheduleSubWorkflowCommand); !ok {
-		// TODO: Adjust
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution, not: %v", c.Type())
 	}
 
@@ -599,22 +592,6 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
 	// Send signal to workflow channel
 	workflowstate.ReceiveSignal(e.workflowState, a.Name, a.Arg)
-
-	return e.workflow.Continue()
-}
-
-func (e *executor) handleSignalWorkflow(event history.Event, a *history.SignalWorkflowAttributes) error {
-	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
-	if c == nil {
-		return fmt.Errorf("previous workflow execution requested a signal")
-	}
-
-	sewc, ok := c.(*command.SignalWorkflowCommand)
-	if !ok {
-		return fmt.Errorf("previous workflow execution requested to signal a workflow, not: %v", c.Type())
-	}
-
-	sewc.Done()
 
 	return e.workflow.Continue()
 }

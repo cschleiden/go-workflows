@@ -7,6 +7,8 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -71,6 +73,9 @@ func New(backend backend.Backend, options *Options) Worker {
 	}
 
 	registry := workflowinternal.NewRegistry()
+
+	// Register internal activities
+	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)})
 
 	return &worker{
 		backend: backend,

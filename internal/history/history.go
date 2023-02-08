@@ -53,9 +53,6 @@ const (
 
 	// Recorded result of a side-efect
 	EventType_SideEffectResult
-
-	// Signal other workflow
-	EventType_SignalWorkflow
 )
 
 func (et EventType) String() string {
@@ -100,9 +97,6 @@ func (et EventType) String() string {
 
 	case EventType_SideEffectResult:
 		return "SideEffectResult"
-
-	case EventType_SignalWorkflow:
-		return "WorkflowSignalRequested"
 
 	default:
 		return "Unknown"
