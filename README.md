@@ -352,7 +352,7 @@ func Workflow(ctx workflow.Context) error {
 
 ```go
 func Workflow(ctx workflow.Context) error {
-	if err := workflow.SignalWorkflow(ctx, "sub-instance-id", "signal-name", "value"); err != nil {
+	if _, err := workflow.SignalWorkflow(ctx, "sub-instance-id", "signal-name", "value").Get(ctx); err != nil {
 		// Handle error
 	}
 }
