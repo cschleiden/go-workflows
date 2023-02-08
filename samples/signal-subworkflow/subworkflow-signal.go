@@ -66,7 +66,7 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 		InstanceID: subID,
 	}, SubWorkflow1)
 
-	if err := workflow.SignalWorkflow(ctx, subID, "sub-signal", 42); err != nil {
+	if _, err := workflow.SignalWorkflow(ctx, subID, "sub-signal", 42).Get(ctx); err != nil {
 		return "", fmt.Errorf("could not signal sub-workflow: %w", err)
 	}
 
