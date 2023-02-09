@@ -140,7 +140,7 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 	})
 
 	tester.ScheduleCallback(time.Millisecond, func() {
-		tester.SignalWorkflowInstance(subWorkflowInstance, "subworkflow-signal", "42")
+		require.Nil(t, tester.SignalWorkflowInstance(subWorkflowInstance, "subworkflow-signal", "42"))
 	})
 
 	tester.Execute("hello")

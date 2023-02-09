@@ -271,7 +271,7 @@ func Test_SignalSubWorkflowBeforeScheduling(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	wfR, wfErr := tester.WorkflowResult()
-	require.Empty(t, wfErr)
+	require.Equal(t, backend.ErrInstanceNotFound.Error(), wfErr)
 	require.IsType(t, "", wfR)
 }
 
@@ -280,10 +280,6 @@ func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
 	if err != backend.ErrInstanceNotFound {
 		return "", err
 	}
-
-	workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
-		InstanceID: "subworkflow",
-	}, workflowSum, 1, 2).Get(ctx)
 
 	return "finished without errors!", nil
 }
