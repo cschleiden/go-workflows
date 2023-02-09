@@ -286,11 +286,6 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				}
 			}
 
-			// Schedule activities
-			for _, event := range result.ActivityEvents {
-				wt.scheduleActivity(tw.instance, event)
-			}
-
 			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
 				wt.logger.Debug("Workflow event", "event_type", workflowEvent.HistoryEvent.Type)
@@ -309,6 +304,11 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				wt.logger.Debug("Timer event", "event_type", timerEvent.Type)
 
 				wt.scheduleTimer(tw.instance, timerEvent)
+			}
+
+			// Schedule activities
+			for _, event := range result.ActivityEvents {
+				wt.scheduleActivity(tw.instance, event)
 			}
 		}
 
