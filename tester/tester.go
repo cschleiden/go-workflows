@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	margs "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
@@ -50,7 +52,7 @@ type WorkflowTester[TResult any] interface {
 
 	SignalWorkflow(signalName string, value interface{})
 
-	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{})
+	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{}) error
 
 	WorkflowFinished() bool
 
@@ -95,7 +97,9 @@ type workflowTester[TResult any] struct {
 	wfi *core.WorkflowInstance
 
 	// Workflows
-	testWorkflows []*testWorkflow
+	mtw                       sync.RWMutex
+	testWorkflowsByInstanceID map[string]*testWorkflow
+	testWorkflows             []*testWorkflow
 
 	workflowFinished bool
 	workflowResult   payload.Payload
@@ -167,7 +171,8 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		wfi:      wfi,
 		registry: registry,
 
-		testWorkflows: make([]*testWorkflow, 0),
+		testWorkflows:             make([]*testWorkflow, 0),
+		testWorkflowsByInstanceID: make(map[string]*testWorkflow),
 
 		ma:               &mock.Mock{},
 		mockedActivities: make(map[string]bool),
@@ -236,11 +241,8 @@ func (wt *workflowTester[TResult]) OnSubWorkflow(workflow interface{}, args ...i
 
 func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 	// Start workflow under test
-	wt.testWorkflows = append(wt.testWorkflows, &testWorkflow{
-		instance:      wt.wfi,
-		pendingEvents: []history.Event{wt.getInitialEvent(wt.wf, args)},
-		history:       make([]history.Event, 0),
-	})
+	initialEvent := wt.getInitialEvent(wt.wf, args)
+	wt.addWorkflow(wt.wfi, initialEvent)
 
 	for !wt.workflowFinished {
 		// Execute all workflows until no more events?
@@ -356,23 +358,10 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 }
 
 func (wt *workflowTester[TResult]) sendEvent(wfi *core.WorkflowInstance, event history.Event) {
-	var w *testWorkflow
-	for _, tw := range wt.testWorkflows {
-		if tw.instance.InstanceID == wfi.InstanceID {
-			w = tw
-			break
-		}
-	}
+	w := wt.getWorkflow(wfi)
 
 	if w == nil {
-		// Workflow not mocked, create new instance
-		w = &testWorkflow{
-			instance:      wfi,
-			history:       []history.Event{},
-			pendingEvents: []history.Event{},
-		}
-
-		wt.testWorkflows = append(wt.testWorkflows, w)
+		panic(fmt.Sprintf("tried to send event to instance %s which does not exist", wfi.InstanceID))
 	}
 
 	w.pendingEvents = append(w.pendingEvents, event)
@@ -382,7 +371,11 @@ func (wt *workflowTester[TResult]) SignalWorkflow(name string, value interface{}
 	wt.SignalWorkflowInstance(wt.wfi, name, value)
 }
 
-func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInstance, name string, value interface{}) {
+func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInstance, name string, value interface{}) error {
+	if wt.getWorkflow(wfi) == nil {
+		return backend.ErrInstanceNotFound
+	}
+
 	arg, err := converter.DefaultConverter.To(value)
 	if err != nil {
 		panic("Could not convert signal value to string" + err.Error())
@@ -403,6 +396,8 @@ func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInst
 			HistoryEvent:     e,
 		}
 	}
+
+	return nil
 }
 
 func (wt *workflowTester[TResult]) WorkflowFinished() bool {
@@ -538,6 +533,28 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 	})
 }
 
+func (wt *workflowTester[TResult]) getWorkflow(instance *core.WorkflowInstance) *testWorkflow {
+	wt.mtw.RLock()
+	defer wt.mtw.RUnlock()
+
+	return wt.testWorkflowsByInstanceID[instance.InstanceID]
+}
+
+func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, initialEvent history.Event) *testWorkflow {
+	wt.mtw.Lock()
+	defer wt.mtw.Unlock()
+
+	tw := &testWorkflow{
+		instance:      instance,
+		pendingEvents: []history.Event{initialEvent},
+		history:       make([]history.Event, 0),
+	}
+	wt.testWorkflows = append(wt.testWorkflows, tw)
+	wt.testWorkflowsByInstanceID[instance.InstanceID] = tw
+
+	return tw
+}
+
 func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEvent) {
 	a := event.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 
@@ -568,7 +585,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 
 	if !wt.mockedWorkflows[a.Name] {
 		// Workflow not mocked, allow event to be processed
-		wt.sendEvent(event.WorkflowInstance, event.HistoryEvent)
+		wt.addWorkflow(event.WorkflowInstance, event.HistoryEvent)
 		return
 	}
 
@@ -646,7 +663,7 @@ type signaler[T any] struct {
 }
 
 func (s *signaler[T]) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
-	return nil
+	return s.wt.SignalWorkflowInstance(core.NewWorkflowInstance(instanceID, ""), name, arg)
 }
 
 var _ signals.Signaler = (*signaler[any])(nil)

@@ -204,6 +204,34 @@ func workflowTimerCancellation(ctx workflow.Context) (time.Time, error) {
 	return workflow.Now(ctx), nil
 }
 
+func Test_TimerRespondingWithoutNewEvents(t *testing.T) {
+	tester := NewWorkflowTester[time.Time](workflowTimerRespondingWithoutNewEvents)
+
+	tester.ScheduleCallback(time.Duration(2*time.Second), func() {
+		tester.SignalWorkflow("signal", "s42")
+	})
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+
+	_, err := tester.WorkflowResult()
+	require.Empty(t, err)
+}
+
+func workflowTimerRespondingWithoutNewEvents(ctx workflow.Context) error {
+	workflow.ScheduleTimer(ctx, 1*time.Second).Get(ctx)
+
+	workflow.Select(
+		ctx,
+		workflow.Receive(workflow.NewSignalChannel[any](ctx, "signal"), func(ctx workflow.Context, signal any, ok bool) {
+			// do nothing
+		}),
+	)
+
+	return nil
+}
+
 func Test_Signals(t *testing.T) {
 	tester := NewWorkflowTester[string](workflowSignal)
 	tester.ScheduleCallback(time.Duration(5*time.Second), func() {
@@ -243,7 +271,7 @@ func Test_SignalSubWorkflowBeforeScheduling(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	wfR, wfErr := tester.WorkflowResult()
-	require.Empty(t, wfErr)
+	require.Equal(t, backend.ErrInstanceNotFound.Error(), wfErr)
 	require.IsType(t, "", wfR)
 }
 
@@ -253,13 +281,46 @@ func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
 		return "", err
 	}
 
-	workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
-		InstanceID: "subworkflow",
-	}, workflowSum, 1, 2).Get(ctx)
-
 	return "finished without errors!", nil
 }
 
 func workflowSum(ctx workflow.Context, valA, valB int) (int, error) {
 	return valA + valB, nil
+}
+
+func Test_SignalSubWorkflow(t *testing.T) {
+	tester := NewWorkflowTester[int](workflowSubworkflowSignal)
+	require.NoError(t, tester.Registry().RegisterWorkflow(waitForSignal))
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	wfR, wfErr := tester.WorkflowResult()
+	require.Empty(t, wfErr)
+	require.Equal(t, 42, wfR)
+}
+
+func workflowSubworkflowSignal(ctx workflow.Context) (int, error) {
+	sw := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+		InstanceID: "subworkflow",
+	}, waitForSignal)
+
+	_, err := workflow.SignalWorkflow(ctx, "subworkflow", "signal", "").Get(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// Wait for subworkflow and return result
+	return sw.Get(ctx)
+}
+
+func waitForSignal(ctx workflow.Context) (int, error) {
+	workflow.Select(
+		ctx,
+		workflow.Receive(workflow.NewSignalChannel[any](ctx, "signal"), func(ctx workflow.Context, signal any, ok bool) {
+			// Do nothing
+		}),
+	)
+
+	return 42, nil
 }
