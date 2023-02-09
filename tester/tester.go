@@ -646,6 +646,8 @@ type signaler[T any] struct {
 }
 
 func (s *signaler[T]) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
+	s.wt.SignalWorkflowInstance(core.NewWorkflowInstance(instanceID, ""), name, arg)
+
 	return nil
 }
 
