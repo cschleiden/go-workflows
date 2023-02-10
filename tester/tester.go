@@ -69,6 +69,12 @@ type WorkflowTester[TResult any] interface {
 }
 
 type testTimer struct {
+	// Instance is the workflow instance this timer is for
+	Instance *core.WorkflowInstance
+
+	// ScheduleEventID is the ID of the schedule event for this timer
+	ScheduleEventID int64
+
 	// At is the time this timer is scheduled for. This will advance the mock clock
 	// to this timestamp
 	At time.Time
@@ -283,6 +289,9 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 						wt.workflowResult = a.Result
 						wt.workflowErr = a.Error
 					}
+
+				case history.EventType_TimerCanceled:
+					wt.cancelTimer(tw.instance, event)
 				}
 			}
 
@@ -521,7 +530,9 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 	e := event.Attributes.(*history.TimerFiredAttributes)
 
 	wt.timers = append(wt.timers, &testTimer{
-		At: e.At,
+		Instance:        instance,
+		ScheduleEventID: event.ScheduleEventID,
+		At:              e.At,
 		Callback: func() {
 			wt.callbacks <- func() *history.WorkflowEvent {
 				return &history.WorkflowEvent{
@@ -531,6 +542,15 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 			}
 		},
 	})
+}
+
+func (wt *workflowTester[TResult]) cancelTimer(instance *core.WorkflowInstance, event history.Event) {
+	for i, t := range wt.timers {
+		if t.Instance.InstanceID == instance.InstanceID && t.ScheduleEventID == event.ScheduleEventID {
+			wt.timers = append(wt.timers[:i], wt.timers[i+1:]...)
+			break
+		}
+	}
 }
 
 func (wt *workflowTester[TResult]) getWorkflow(instance *core.WorkflowInstance) *testWorkflow {
