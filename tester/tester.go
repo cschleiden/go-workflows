@@ -295,6 +295,16 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				}
 			}
 
+			// Schedule activities
+			for _, event := range result.ActivityEvents {
+				gotNewEvents = true
+
+				a := event.Attributes.(*history.ActivityScheduledAttributes)
+				wt.logger.Debug("Activity event", "activity", a.Name)
+
+				wt.scheduleActivity(tw.instance, event)
+			}
+
 			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
 				wt.logger.Debug("Workflow event", "event_type", workflowEvent.HistoryEvent.Type)
@@ -334,7 +344,8 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			default:
 			}
 
-			if len(wt.timers) > 0 {
+			// If there are no running activities and timers, skip time
+			if wt.runningActivities == 0 && len(wt.timers) > 0 {
 				// Take first timer and execute it
 				sort.SliceStable(wt.timers, func(i, j int) bool {
 					return wt.timers[i].At.Before(wt.timers[j].At)
@@ -431,8 +442,9 @@ func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
 func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, event history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
+	atomic.AddInt32(&wt.runningActivities, 1)
+
 	go func() {
-		atomic.AddInt32(&wt.runningActivities, 1)
 		defer atomic.AddInt32(&wt.runningActivities, -1)
 
 		var activityErr error
