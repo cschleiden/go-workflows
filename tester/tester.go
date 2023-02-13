@@ -558,7 +558,7 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 
 func (wt *workflowTester[TResult]) cancelTimer(instance *core.WorkflowInstance, event history.Event) {
 	for i, t := range wt.timers {
-		if t.Instance.InstanceID == instance.InstanceID && t.ScheduleEventID == event.ScheduleEventID {
+		if t.Instance != nil && t.Instance.InstanceID == instance.InstanceID && t.ScheduleEventID == event.ScheduleEventID {
 			wt.timers = append(wt.timers[:i], wt.timers[i+1:]...)
 			break
 		}
