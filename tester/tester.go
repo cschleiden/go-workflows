@@ -328,11 +328,6 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 
 				wt.scheduleTimer(tw.instance, timerEvent)
 			}
-
-			// Schedule activities
-			for _, event := range result.ActivityEvents {
-				wt.scheduleActivity(tw.instance, event)
-			}
 		}
 
 		for !wt.workflowFinished && !gotNewEvents {
