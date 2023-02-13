@@ -121,6 +121,7 @@ type workflowTester[TResult any] struct {
 
 	workflowHistory []history.Event
 	clock           *clock.Mock
+	startTime       time.Time
 
 	timers    []*testTimer
 	callbacks chan func() *history.WorkflowEvent
@@ -149,7 +150,7 @@ func WithTestTimeout(timeout time.Duration) WorkflowTesterOption {
 }
 
 func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption) WorkflowTester[TResult] {
-	// Start with the current wall-clock tiem
+	// Start with the current wall-clock time
 	clock := clock.NewMock()
 	clock.Set(time.Now())
 
@@ -246,6 +247,9 @@ func (wt *workflowTester[TResult]) OnSubWorkflow(workflow interface{}, args ...i
 }
 
 func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
+	// Record start time of test run
+	wt.startTime = wt.clock.Now()
+
 	// Start workflow under test
 	initialEvent := wt.getInitialEvent(wt.wf, args)
 	wt.addWorkflow(wt.wfi, initialEvent)
@@ -344,13 +348,10 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			default:
 			}
 
-			// If there are no running activities and timers, skip time
-			if wt.runningActivities == 0 && len(wt.timers) > 0 {
-				// Take first timer and execute it
-				sort.SliceStable(wt.timers, func(i, j int) bool {
-					return wt.timers[i].At.Before(wt.timers[j].At)
-				})
+			// If there are no running activities and timers, skip time and jump to the next scheduled timer
 
+			if atomic.LoadInt32(&wt.runningActivities) == 0 && len(wt.timers) > 0 {
+				// Take first timer and execute it
 				t := wt.timers[0]
 				wt.timers = wt.timers[1:]
 
@@ -553,6 +554,10 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 				}
 			}
 		},
+	})
+
+	sort.SliceStable(wt.timers, func(i, j int) bool {
+		return wt.timers[i].At.Before(wt.timers[j].At)
 	})
 }
 
