@@ -51,7 +51,6 @@ type executor struct {
 	logger             log.Logger
 	tracer             trace.Tracer
 	lastSequenceID     int64
-	wfStartedEventSeen bool
 }
 
 func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) WorkflowExecutor {
@@ -79,7 +78,6 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, his
 		clock:              clock,
 		logger:             logger,
 		tracer:             tracer,
-		wfStartedEventSeen: false,
 	}
 }
 
@@ -216,14 +214,6 @@ func (e *executor) replayHistory(h []history.Event) error {
 
 		if err := e.executeEvent(event); err != nil {
 			return err
-		}
-
-		// If we need to replay history before continuing execution of
-		// a new task, the executor must know if WorkflowExecutionStarted
-		// was seen during replay so it can determine if events should
-		// be reordered before it starts executing events for the new task
-		if event.Type == history.EventType_WorkflowExecutionStarted {
-			e.wfStartedEventSeen = true
 		}
 
 		e.lastSequenceID = event.SequenceID
