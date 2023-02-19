@@ -1,7 +1,6 @@
 package history
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -107,7 +106,7 @@ type Event struct {
 	// ID is a unique identifier for this event
 	ID string `json:"id,omitempty"`
 
-	// SequenceID is a monotonically increasing sequence number this event. It's only set for events that have
+	// SequenceID is a monotonically increasing sequence number. It's only set for events that have
 	// been executed and are in the history
 	SequenceID int64 `json:"sid,omitempty"`
 
@@ -115,7 +114,7 @@ type Event struct {
 
 	Timestamp time.Time `json:"ts,omitempty"`
 
-	// ScheduleEventID is used to correlate events belonging together
+	// ScheduleEventID is used to correlate events
 	// For example, if an activity is scheduled, ScheduleEventID of the schedule event and the
 	// completion/failure event are the same.
 	ScheduleEventID int64 `json:"seid,omitempty"`
@@ -127,7 +126,7 @@ type Event struct {
 }
 
 func (e Event) String() string {
-	return strconv.Itoa(int(e.Type))
+	return e.Type.String()
 }
 
 type HistoryEventOption func(e *Event)
