@@ -39,9 +39,11 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		Stream: pendingEventsKey(instance.InstanceID),
 		ID:     "*",
 		Values: map[string]interface{}{
-			"event": string(eventData),
+			"event": event.ID,
 		},
 	})
+
+	p.Set(ctx, eventKey(event.ID), eventData, 0)
 
 	// Queue workflow instance task
 	if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, nil); err != nil {
@@ -69,17 +71,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		return nil, err
 	}
 
-	var events []history.Event
-	for _, msg := range msgs {
-		var event history.Event
-		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
-			return nil, fmt.Errorf("unmarshaling event: %w", err)
-		}
-
-		events = append(events, event)
-	}
-
-	return events, nil
+	return fetchStreamEvents(ctx, rb.rdb, msgs, true)
 }
 
 func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (core.WorkflowInstanceState, error) {

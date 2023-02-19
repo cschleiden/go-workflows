@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -78,6 +77,9 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, nil
 	}
 
+	// From here on the workflow instance is locked. If we hit any errors, the task will eventually be unlocked and picked
+	// up again.
+
 	instanceState, err := readInstance(ctx, rb.rdb, instanceTask.ID)
 	if err != nil {
 		return nil, fmt.Errorf("reading workflow instance: %w", err)
@@ -89,15 +91,9 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
 
-	newEvents := make([]history.Event, 0, len(msgs))
-	for _, msg := range msgs {
-		var event history.Event
-
-		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
-			return nil, fmt.Errorf("unmarshaling event: %w", err)
-		}
-
-		newEvents = append(newEvents, event)
+	newEvents, err := fetchStreamEvents(ctx, rb.rdb, msgs, false)
+	if err != nil {
+		return nil, fmt.Errorf("fetching events: %w", err)
 	}
 
 	return &task.Workflow{
@@ -119,7 +115,7 @@ func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, taskID string, i
 	return err
 }
 
-// Remove all pending events before (and including) a given message id
+// Remove all pending event references before (and including) a given message id
 // KEYS[1] - pending events stream key
 // ARGV[1] - message id
 var removePendingEventsCmd = redis.NewScript(`
@@ -198,7 +194,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 
 			// Add pending event to stream
-			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstanceID), &m.HistoryEvent); err != nil {
+			if err := addPendingEventToStreamP(ctx, p, targetInstanceID, &m.HistoryEvent); err != nil {
 				return err
 			}
 		}
@@ -237,7 +233,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 	}
 
-	// Remove executed pending events
+	// Remove executed pending event references
 	if task.CustomData != nil {
 		lastPendingEventMessageID := task.CustomData.(string)
 		removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance.InstanceID)}, lastPendingEventMessageID)
@@ -251,10 +247,12 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	// If there are pending events, queue the instance again
 	keyInfo := rb.workflowQueue.Keys()
-	requeueInstanceCmd.Run(ctx, p,
+	if err := requeueInstanceCmd.Run(ctx, p,
 		[]string{pendingEventsKey(instance.InstanceID), keyInfo.StreamKey, keyInfo.SetKey},
 		instance.InstanceID,
-	)
+	).Err(); err != nil {
+		return fmt.Errorf("requeuing workflow instance: %w", err)
+	}
 
 	// Commit transaction
 	executedCmds, err := p.Exec(ctx)
@@ -286,7 +284,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
-	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance.InstanceID), event); err != nil {
+	if err := addPendingEventToStreamP(ctx, p, instance.InstanceID, event); err != nil {
 		return err
 	}
 
