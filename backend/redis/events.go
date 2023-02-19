@@ -29,7 +29,7 @@ func addPendingEventToStreamP(ctx context.Context, p redis.Pipeliner, instanceID
 		return fmt.Errorf("adding event to stream: %w", err)
 	}
 
-	// Add payload
+	// Add event data
 	if err := p.Set(ctx, eventKey(event.ID), eventData, 0).Err(); err != nil {
 		return fmt.Errorf("setting event payload: %w", err)
 	}
@@ -113,10 +113,9 @@ func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 // KEYS[1] - future event zset key
 // KEYS[2] - future event key
-// KEYS[3] - event key
 var removeFutureEventCmd = redis.NewScript(`
 	redis.call("ZREM", KEYS[1], KEYS[2])
-	return redis.call("DEL", KEYS[2], KEYS[3])
+	return redis.call("DEL", KEYS[2])
 `)
 
 // removeFutureEvent removes a scheduled future event for the given event. Events are associated via their ScheduleEventID
@@ -124,7 +123,7 @@ func removeFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.W
 	removeFutureEventCmd.Run(
 		ctx,
 		p,
-		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID), eventKey(event.ID)})
+		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID)})
 }
 
 func fetchStreamEvents(ctx context.Context, rdb redis.UniversalClient, msgs []redis.XMessage, historyEvents bool) ([]history.Event, error) {
