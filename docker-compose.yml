@@ -15,7 +15,7 @@ services:
     restart: always
     ports:
       - '6379:6379'
-    command: redis-server --appendonly yes --appendfsync everysec --loglevel warning --requirepass RedisPassw0rd
+    command: redis-server --appendonly yes --appendfsync always --loglevel warning --requirepass RedisPassw0rd
     volumes:
       - cache:/data
 
