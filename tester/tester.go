@@ -168,14 +168,12 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 
 	options := &options{
 		TestTimeout: time.Second * 10,
+		Logger:      logger.NewDefaultLogger(),
+		Converter:   converter.DefaultConverter,
 	}
 
 	for _, o := range opts {
 		o(options)
-	}
-
-	if options.Logger == nil {
-		options.Logger = logger.NewDefaultLogger()
 	}
 
 	tracer := trace.NewNoopTracerProvider().Tracer("workflow-tester")
