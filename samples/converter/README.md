@@ -1,0 +1,1 @@
+Shows how a custom `Converter` can be used for inputs/result serialization. This example uses `gob` binary encoding instead of the default JSON one.

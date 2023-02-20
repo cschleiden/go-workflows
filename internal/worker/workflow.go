@@ -194,7 +194,7 @@ func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 
 	if !ok {
 		executor = workflow.NewExecutor(
-			ww.backend.Logger(), ww.backend.Tracer(), ww.registry, ww.backend, t.WorkflowInstance, clock.New())
+			ww.backend.Logger(), ww.backend.Tracer(), ww.registry, ww.backend.Converter(), ww.backend, t.WorkflowInstance, clock.New())
 	}
 
 	// Cache executor instance for future continuation tasks, or refresh last access time

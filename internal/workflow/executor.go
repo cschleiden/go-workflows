@@ -8,6 +8,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
@@ -40,44 +41,40 @@ type WorkflowExecutor interface {
 }
 
 type executor struct {
-	registry           *Registry
-	historyProvider    WorkflowHistoryProvider
-	workflow           *workflow
-	workflowTracer     *workflowtracer.WorkflowTracer
-	workflowState      *workflowstate.WfState
-	workflowCtx        sync.Context
-	workflowCtxCancel  sync.CancelFunc
-	clock              clock.Clock
-	logger             log.Logger
-	tracer             trace.Tracer
-	lastSequenceID     int64
+	registry          *Registry
+	historyProvider   WorkflowHistoryProvider
+	workflow          *workflow
+	workflowTracer    *workflowtracer.WorkflowTracer
+	workflowState     *workflowstate.WfState
+	workflowCtx       sync.Context
+	workflowCtxCancel sync.CancelFunc
+	clock             clock.Clock
+	logger            log.Logger
+	tracer            trace.Tracer
+	lastSequenceID    int64
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) WorkflowExecutor {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, cv converter.Converter, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) WorkflowExecutor {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
 
 	wfTracer := workflowtracer.New(tracer)
 
-	wfCtx, cancel := sync.WithCancel(
-		workflowstate.WithWorkflowState(
-			workflowtracer.WithWorkflowTracer(
-				sync.Background(),
-				wfTracer,
-			),
-			s,
-		),
-	)
+	wfCtx := sync.Background()
+	wfCtx = converter.WithConverter(wfCtx, cv)
+	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
+	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
+	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	return &executor{
-		registry:           registry,
-		historyProvider:    historyProvider,
-		workflowTracer:     wfTracer,
-		workflowState:      s,
-		workflowCtx:        wfCtx,
-		workflowCtxCancel:  cancel,
-		clock:              clock,
-		logger:             logger,
-		tracer:             tracer,
+		registry:          registry,
+		historyProvider:   historyProvider,
+		workflowTracer:    wfTracer,
+		workflowState:     s,
+		workflowCtx:       wfCtx,
+		workflowCtxCancel: cancel,
+		clock:             clock,
+		logger:            logger,
+		tracer:            tracer,
 	}
 }
 

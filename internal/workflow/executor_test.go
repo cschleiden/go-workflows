@@ -35,7 +35,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider Workflow
 	logger := logger.NewDefaultLogger()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	e := NewExecutor(logger, tracer, r, historyProvider, i, clock.New())
+	e := NewExecutor(logger, tracer, r, converter.DefaultConverter, historyProvider, i, clock.New())
 
 	return e.(*executor)
 }

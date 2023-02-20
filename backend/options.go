@@ -3,6 +3,7 @@ package backend
 import (
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/logger"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/log"
@@ -16,6 +17,10 @@ type Options struct {
 	Metrics metrics.Client
 
 	TracerProvider trace.TracerProvider
+
+	// Converter is the converter to use for serializing and deserializing inputs and results. If not explicitly set
+	// converter.DefaultConverter is used.
+	Converter converter.Converter
 
 	StickyTimeout time.Duration
 
@@ -32,6 +37,7 @@ var DefaultOptions Options = Options{
 	Logger:         logger.NewDefaultLogger(),
 	Metrics:        mi.NewNoopMetricsClient(),
 	TracerProvider: trace.NewNoopTracerProvider(),
+	Converter:      converter.DefaultConverter,
 }
 
 type BackendOption func(*Options)
@@ -57,6 +63,12 @@ func WithMetrics(client metrics.Client) BackendOption {
 func WithTracerProvider(tp trace.TracerProvider) BackendOption {
 	return func(o *Options) {
 		o.TracerProvider = tp
+	}
+}
+
+func WithConverter(converter converter.Converter) BackendOption {
+	return func(o *Options) {
+		o.Converter = converter
 	}
 }
 

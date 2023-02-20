@@ -31,7 +31,8 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 
 func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx sync.Context) error {
-		args, addContext, err := args.InputsToArgs(converter.DefaultConverter, w.fn, inputs)
+		converter := converter.GetConverter(ctx)
+		args, addContext, err := args.InputsToArgs(converter, w.fn, inputs)
 		if err != nil {
 			return fmt.Errorf("converting workflow inputs: %w", err)
 		}
@@ -54,12 +55,12 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 
 		if len(r) > 1 {
 			var err error
-			result, err = converter.DefaultConverter.To(r[0].Interface())
+			result, err = converter.To(r[0].Interface())
 			if err != nil {
 				return fmt.Errorf("converting workflow result: %w", err)
 			}
 		} else {
-			result, err = converter.DefaultConverter.To(nil)
+			result, err = converter.To(nil)
 			if err != nil {
 				return fmt.Errorf("converting workflow result: %w", err)
 			}

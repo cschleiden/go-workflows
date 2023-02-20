@@ -58,6 +58,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 			Error:  "",
 		}),
 	}, nil)
+	b.On("Converter").Return(converter.DefaultConverter)
 
 	c := &client{
 		backend: b,
@@ -77,6 +78,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 
 	b := &backend.MockBackend{}
 	b.On("Logger").Return(logger.NewDefaultLogger())
+	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
@@ -104,6 +106,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 
 	b := &backend.MockBackend{}
 	b.On("Logger").Return(logger.NewDefaultLogger())
+	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test" &&

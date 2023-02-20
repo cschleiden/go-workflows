@@ -38,7 +38,8 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 		return f
 	}
 
-	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
+	cv := converter.GetConverter(ctx)
+	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting activity input: %w", err))
 		return f
@@ -50,7 +51,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	name := fn.Name(activity)
 	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs)
 	wfState.AddCommand(cmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
 
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
 		fmt.Sprintf("ExecuteActivity: %s", name),

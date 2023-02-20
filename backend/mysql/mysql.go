@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
@@ -98,6 +99,10 @@ func (b *mysqlBackend) Tracer() trace.Tracer {
 
 func (b *mysqlBackend) Metrics() metrics.Client {
 	return b.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
+}
+
+func (b *mysqlBackend) Converter() converter.Converter {
+	return b.options.Converter
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
