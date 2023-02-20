@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -228,21 +229,14 @@ func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	done := make(chan struct{})
+	task, err := ww.backend.GetWorkflowTask(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, nil
+		}
 
-	var task *task.Workflow
-	var err error
-
-	go func() {
-		task, err = ww.backend.GetWorkflowTask(ctx)
-		close(done)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, nil
-
-	case <-done:
-		return task, err
+		return nil, err
 	}
+
+	return task, nil
 }

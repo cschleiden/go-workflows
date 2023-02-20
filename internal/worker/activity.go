@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log"
 	"sync"
 	"time"
@@ -179,20 +180,12 @@ func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var task *task.Activity
-	var err error
-
-	done := make(chan struct{})
-
-	go func() {
-		task, err = aw.backend.GetActivityTask(ctx)
-		close(done)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, nil
-	case <-done:
-		return task, err
+	task, err := aw.backend.GetActivityTask(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, nil
+		}
 	}
+
+	return task, nil
 }
