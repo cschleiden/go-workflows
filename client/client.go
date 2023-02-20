@@ -10,7 +10,6 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cschleiden/go-workflows/backend"
 	a "github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -56,7 +55,7 @@ func New(backend backend.Backend) Client {
 }
 
 func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
-	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
+	inputs, err := a.ArgsToInputs(c.backend.Converter(), args...)
 	if err != nil {
 		return nil, fmt.Errorf("converting arguments: %w", err)
 	}
@@ -101,7 +100,7 @@ func (c *client) CancelWorkflowInstance(ctx context.Context, instance *workflow.
 }
 
 func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
-	input, err := converter.DefaultConverter.To(arg)
+	input, err := c.backend.Converter().To(arg)
 	if err != nil {
 		return fmt.Errorf("converting arguments: %w", err)
 	}
@@ -184,7 +183,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 			}
 
 			var r T
-			if err := converter.DefaultConverter.From(a.Result, &r); err != nil {
+			if err := b.Converter().From(a.Result, &r); err != nil {
 				return *new(T), fmt.Errorf("converting result: %w", err)
 			}
 

@@ -93,6 +93,7 @@ type testWorkflow struct {
 type options struct {
 	TestTimeout time.Duration
 	Logger      log.Logger
+	Converter   converter.Converter
 }
 
 type workflowTester[TResult any] struct {
@@ -133,6 +134,8 @@ type workflowTester[TResult any] struct {
 	logger log.Logger
 
 	tracer trace.Tracer
+
+	converter converter.Converter
 }
 
 type WorkflowTesterOption func(*options)
@@ -140,6 +143,12 @@ type WorkflowTesterOption func(*options)
 func WithLogger(logger log.Logger) WorkflowTesterOption {
 	return func(o *options) {
 		o.Logger = logger
+	}
+}
+
+func WithConverter(converter converter.Converter) WorkflowTesterOption {
+	return func(o *options) {
+		o.Converter = converter
 	}
 }
 
@@ -193,8 +202,9 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		timers:    make([]*testTimer, 0),
 		callbacks: make(chan func() *history.WorkflowEvent, 1024),
 
-		logger: options.Logger,
-		tracer: tracer,
+		logger:    options.Logger,
+		tracer:    tracer,
+		converter: options.Converter,
 	}
 
 	// Register internal activities
@@ -269,7 +279,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
+			e := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, converter.DefaultConverter, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
 
 			result, err := e.ExecuteTask(context.Background(), t)
 			if err != nil {
@@ -496,7 +506,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			}
 
 		} else {
-			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.registry)
+			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
 				Metadata:         &core.WorkflowMetadata{},

@@ -19,16 +19,18 @@ import (
 )
 
 type Executor struct {
-	logger log.Logger
-	tracer trace.Tracer
-	r      *workflow.Registry
+	logger    log.Logger
+	tracer    trace.Tracer
+	converter converter.Converter
+	r         *workflow.Registry
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, r *workflow.Registry) Executor {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, r *workflow.Registry) Executor {
 	return Executor{
-		logger: logger,
-		tracer: tracer,
-		r:      r,
+		logger:    logger,
+		tracer:    tracer,
+		converter: converter,
+		r:         r,
 	}
 }
 
@@ -45,7 +47,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		return nil, errors.New("activity not a function")
 	}
 
-	args, addContext, err := args.InputsToArgs(converter.DefaultConverter, activityFn, a.Inputs)
+	args, addContext, err := args.InputsToArgs(e.converter, activityFn, a.Inputs)
 	if err != nil {
 		return nil, fmt.Errorf("converting activity inputs: %w", err)
 	}
@@ -79,7 +81,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 
 	if len(r) > 1 {
 		var err error
-		result, err = converter.DefaultConverter.To(r[0].Interface())
+		result, err = e.converter.To(r[0].Interface())
 		if err != nil {
 			return nil, fmt.Errorf("converting activity result: %w", err)
 		}

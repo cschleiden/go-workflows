@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
@@ -73,6 +74,10 @@ func (sb *sqliteBackend) Metrics() metrics.Client {
 
 func (sb *sqliteBackend) Tracer() trace.Tracer {
 	return sb.options.TracerProvider.Tracer(backend.TracerName)
+}
+
+func (sb *sqliteBackend) Converter() converter.Converter {
+	return sb.options.Converter
 }
 
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {

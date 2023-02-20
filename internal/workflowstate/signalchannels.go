@@ -32,11 +32,13 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 	// Otherwise, create new channel
 	c := sync.NewBufferedChannel[T](100)
 
+	converter := converter.GetConverter(ctx)
+
 	// Add channel to map
 	wf.signalChannels[name] = &signalChannel{
 		receive: func(input payload.Payload) {
 			var t T
-			if err := converter.DefaultConverter.From(input, &t); err != nil {
+			if err := converter.From(input, &t); err != nil {
 				panic(err)
 			}
 
@@ -54,7 +56,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 			payload := pendingSignals[i]
 
 			var s T
-			if err := converter.DefaultConverter.From(payload, &s); err != nil {
+			if err := converter.From(payload, &s); err != nil {
 				panic(err)
 			}
 

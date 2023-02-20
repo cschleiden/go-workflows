@@ -8,6 +8,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/logger"
@@ -26,11 +27,11 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	e := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, &testHistoryProvider{}, i, clock.New())
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
 
 	i2 := core.NewWorkflowInstance("instanceID2", "executionID2")
 	e2 := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, &testHistoryProvider{}, i, clock.New())
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
 
 	err := c.Store(context.Background(), i, e)
 	require.NoError(t, err)
@@ -60,7 +61,7 @@ func Test_Cache_Evict(t *testing.T) {
 	r := wf.NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
 	e := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, &testHistoryProvider{}, i, clock.New())
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
 
 	err := c.Store(context.Background(), i, e)
 	require.NoError(t, err)

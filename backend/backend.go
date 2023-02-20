@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/cschleiden/go-workflows/internal/converter"
 	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -70,4 +71,7 @@ type Backend interface {
 
 	// Metrics returns the configured metrics client for the backend
 	Metrics() metrics.Client
+
+	// Converter returns the configured converter for the backend
+	Converter() converter.Converter
 }

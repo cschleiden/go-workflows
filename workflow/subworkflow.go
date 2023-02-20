@@ -50,7 +50,8 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 
 	name := fn.Name(wf)
 
-	inputs, err := a.ArgsToInputs(converter.DefaultConverter, args...)
+	cv := converter.GetConverter(ctx)
+	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting subworkflow input: %w", err))
 		return f
@@ -73,7 +74,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs, metadata)
 	wfState.AddCommand(cmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(f))
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {

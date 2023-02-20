@@ -37,7 +37,7 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 		options: options,
 
 		activityTaskQueue:    make(chan *task.Activity),
-		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), registry),
+		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), backend.Converter(), registry),
 
 		wg: &sync.WaitGroup{},
 
