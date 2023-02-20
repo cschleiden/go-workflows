@@ -29,11 +29,7 @@ func Benchmark_RedisBackend(b *testing.B) {
 	client := getClient()
 	setup := getCreateBackend(client, true)
 
-	test.SimpleWorkflowBenchmark(b, setup, func(b test.TestBackend) {
-		if err := b.(*redisBackend).Close(); err != nil {
-			panic(err)
-		}
-	})
+	test.SimpleWorkflowBenchmark(b, setup, nil)
 }
 
 func Test_RedisBackend(t *testing.T) {
