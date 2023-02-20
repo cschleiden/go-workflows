@@ -119,29 +119,31 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	ametrics.Distribution(metrickeys.ActivityTaskDelay, metrics.Tags{}, float64(timeInQueue/time.Millisecond))
 
 	// Start heartbeat while activity is running
-	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-	go func(ctx context.Context) {
-		t := time.NewTicker(aw.options.ActivityHeartbeatInterval)
-		defer t.Stop()
+	if aw.options.ActivityHeartbeatInterval > 0 {
+		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+		defer cancelHeartbeat()
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				if err := aw.backend.ExtendActivityTask(ctx, task.ID); err != nil {
-					aw.backend.Logger().Panic("extending activity task", "error", err)
+		go func(ctx context.Context) {
+			t := time.NewTicker(aw.options.ActivityHeartbeatInterval)
+			defer t.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					if err := aw.backend.ExtendActivityTask(ctx, task.ID); err != nil {
+						aw.backend.Logger().Panic("extending activity task", "error", err)
+					}
 				}
 			}
-		}
-	}(heartbeatCtx)
+		}(heartbeatCtx)
+	}
 
 	timer := metrics.Timer(ametrics, metrickeys.ActivityTaskProcessed, metrics.Tags{})
 	defer timer.Stop()
 
 	result, err := aw.activityTaskExecutor.ExecuteActivity(ctx, task)
-
-	cancelHeartbeat()
 
 	var event history.Event
 
