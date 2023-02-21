@@ -15,3 +15,17 @@ func Name(i interface{}) string {
 
 	return strings.TrimSuffix(fnName, "-fm")
 }
+
+func ReturnTypeMatch[TResult any](fn interface{}) bool {
+	fnType := reflect.TypeOf(fn)
+	if fnType.Kind() != reflect.Func {
+		return false
+	}
+
+	if fnType.NumOut() == 1 {
+		return true
+	}
+
+	t := *new(TResult)
+	return fnType.Out(0) == reflect.TypeOf(t)
+}
