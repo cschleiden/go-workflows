@@ -38,6 +38,11 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 		return f
 	}
 
+	if !fn.ReturnTypeMatch[TResult](activity) {
+		f.Set(*new(TResult), fmt.Errorf("activity return type does not match expected type"))
+		return f
+	}
+
 	cv := converter.GetConverter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
