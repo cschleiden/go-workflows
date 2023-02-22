@@ -12,10 +12,32 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/logger"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
+	wf := func(workflow.Context, int) (int, error) {
+		return 0, nil
+	}
+
+	ctx := context.Background()
+
+	b := &backend.MockBackend{}
+	c := &client{
+		backend: b,
+		clock:   clock.New(),
+	}
+
+	result, err := c.CreateWorkflowInstance(ctx, WorkflowInstanceOptions{
+		InstanceID: "id",
+	}, wf, "foo")
+	require.Zero(t, result)
+	require.EqualError(t, err, "arguments do not match workflow parameters")
+	b.AssertExpectations(t)
+}
 
 func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
 	instance := core.NewWorkflowInstance(uuid.NewString(), "test")

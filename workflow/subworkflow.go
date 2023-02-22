@@ -48,8 +48,15 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 		return f
 	}
 
+	// Check return type
 	if !fn.ReturnTypeMatch[TResult](wf) {
 		f.Set(*new(TResult), fmt.Errorf("subworkflow return type does not match expected type"))
+		return f
+	}
+
+	// Check arguments
+	if !fn.ParamsMatch(wf, 1, args...) {
+		f.Set(*new(TResult), fmt.Errorf("subworkflow arguments do not match expected types"))
 		return f
 	}
 

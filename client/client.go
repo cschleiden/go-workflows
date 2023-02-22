@@ -55,6 +55,11 @@ func New(backend backend.Backend) Client {
 }
 
 func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
+	// Check arguments
+	if !fn.ParamsMatch(wf, 1, args...) {
+		return nil, errors.New("arguments do not match workflow parameters")
+	}
+
 	inputs, err := a.ArgsToInputs(c.backend.Converter(), args...)
 	if err != nil {
 		return nil, fmt.Errorf("converting arguments: %w", err)

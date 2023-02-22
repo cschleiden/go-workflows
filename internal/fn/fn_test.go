@@ -113,3 +113,69 @@ func TestReturnTypeMatch(t *testing.T) {
 		})
 	}
 }
+
+func intParam(int) {
+}
+
+func stringParam(string) {
+}
+
+func mixedParams(context.Context, int, string) {
+}
+
+func TestParamsMatch(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func() bool
+		want bool
+	}{
+		{
+			name: "int match",
+			fn: func() bool {
+				return ParamsMatch(intParam, 0, 42)
+			},
+			want: true,
+		},
+		{
+			name: "int mismatch",
+			fn: func() bool {
+				return ParamsMatch(intParam, 0, "")
+			},
+			want: false,
+		},
+		{
+			name: "string mismatch",
+			fn: func() bool {
+				return ParamsMatch(stringParam, 0, 42)
+			},
+			want: false,
+		},
+		{
+			name: "mixed params",
+			fn: func() bool {
+				return ParamsMatch(mixedParams, 1, 42, "")
+			},
+			want: true,
+		},
+		{
+			name: "mixed params - no skip",
+			fn: func() bool {
+				return ParamsMatch(mixedParams, 0, 42, "")
+			},
+			want: false,
+		},
+		{
+			name: "mixed params - wrong params",
+			fn: func() bool {
+				return ParamsMatch(mixedParams, 1, "", 42)
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.fn()
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

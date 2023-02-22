@@ -29,3 +29,22 @@ func ReturnTypeMatch[TResult any](fn interface{}) bool {
 	t := *new(TResult)
 	return fnType.Out(0) == reflect.TypeOf(t)
 }
+
+func ParamsMatch(fn interface{}, skip int, args ...interface{}) bool {
+	fnType := reflect.TypeOf(fn)
+	if fnType.Kind() != reflect.Func {
+		return false
+	}
+
+	if fnType.NumIn() != skip+len(args) {
+		return false
+	}
+
+	for i, arg := range args {
+		if fnType.In(skip+i) != reflect.TypeOf(arg) {
+			return false
+		}
+	}
+
+	return true
+}
