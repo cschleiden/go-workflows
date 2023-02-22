@@ -82,10 +82,12 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				}
 				register(t, ctx, w, []interface{}{wf}, nil)
 
-				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
+				instance, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+					InstanceID: uuid.NewString(),
+				}, wf)
 
-				require.Zero(t, output)
-				require.ErrorContains(t, err, "converting workflow inputs: mismatched argument count: expected 1, got 0")
+				require.Nil(t, instance)
+				require.ErrorContains(t, err, "mismatched argument count: expected 1, got 0")
 			},
 		},
 		{
@@ -123,7 +125,7 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
 
 				require.Zero(t, output)
-				require.ErrorContains(t, err, "converting activity inputs: mismatched argument count: expected 2, got 1")
+				require.ErrorContains(t, err, "mismatched argument count: expected 2, got 1")
 			},
 		},
 		{

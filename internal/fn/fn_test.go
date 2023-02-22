@@ -68,48 +68,54 @@ func errorReturn() error {
 func TestReturnTypeMatch(t *testing.T) {
 	tests := []struct {
 		name string
-		fn   func() bool
-		want bool
+		fn   func() error
+		want string
 	}{
 		{
 			name: "int match",
-			fn: func() bool {
+			fn: func() error {
 				return ReturnTypeMatch[int](intReturn)
 			},
-			want: true,
+			want: "",
 		},
 		{
 			name: "string match",
-			fn: func() bool {
+			fn: func() error {
 				return ReturnTypeMatch[string](stringReturn)
 			},
-			want: true,
+			want: "",
 		},
 		{
 			name: "int mismatch",
-			fn: func() bool {
+			fn: func() error {
 				return ReturnTypeMatch[string](intReturn)
 			},
+			want: "function must return string, got int",
 		},
 		{
 			name: "no param",
-			fn: func() bool {
+			fn: func() error {
 				return ReturnTypeMatch[any](errorReturn)
 			},
-			want: true,
+			want: "",
 		},
 		{
 			name: "no param mismatch",
-			fn: func() bool {
+			fn: func() error {
 				return ReturnTypeMatch[int](errorReturn)
 			},
-			want: true,
+			want: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.fn()
-			require.Equal(t, tt.want, got)
+			if tt.want == "" {
+				require.NoError(t, got)
+			} else {
+				require.Error(t, got)
+				require.Equal(t, tt.want, got.Error())
+			}
 		})
 	}
 }
@@ -129,63 +135,68 @@ func mixedParams(context.Context, int, string) {
 func TestParamsMatch(t *testing.T) {
 	tests := []struct {
 		name string
-		fn   func() bool
-		want bool
+		fn   func() error
+		want string
 	}{
 		{
 			name: "int match",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(intParam, 0, 42)
 			},
-			want: true,
+			want: "",
 		},
 		{
 			name: "int mismatch",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(intParam, 0, "")
 			},
-			want: false,
+			want: "mismatched argument type: expected int, got string",
 		},
 		{
 			name: "string mismatch",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(stringParam, 0, 42)
 			},
-			want: false,
+			want: "mismatched argument type: expected string, got int",
 		},
 		{
 			name: "interface{} ignored",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(interfaceParam, 0, "", 23, 42)
 			},
-			want: true,
+			want: "",
 		},
 		{
 			name: "mixed params",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(mixedParams, 1, 42, "")
 			},
-			want: true,
+			want: "",
 		},
 		{
 			name: "mixed params - no skip",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(mixedParams, 0, 42, "")
 			},
-			want: false,
+			want: "mismatched argument count: expected 2, got 3",
 		},
 		{
 			name: "mixed params - wrong params",
-			fn: func() bool {
+			fn: func() error {
 				return ParamsMatch(mixedParams, 1, "", 42)
 			},
-			want: false,
+			want: "mismatched argument type: expected int, got string",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.fn()
-			require.Equal(t, tt.want, got)
+			if tt.want == "" {
+				require.NoError(t, got)
+			} else {
+				require.Error(t, got)
+				require.Equal(t, tt.want, got.Error())
+			}
 		})
 	}
 }
