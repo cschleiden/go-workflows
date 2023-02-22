@@ -7,7 +7,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event history.Event) error {
+func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event *history.Event) error {
 	attributes, err := history.SerializeAttributes(event.Attributes)
 	if err != nil {
 		return err

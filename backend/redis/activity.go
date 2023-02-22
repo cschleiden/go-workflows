@@ -43,10 +43,10 @@ func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID strin
 	return err
 }
 
-func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event history.Event) error {
+func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event *history.Event) error {
 	p := rb.rdb.TxPipeline()
 
-	if err := rb.addWorkflowInstanceEventP(ctx, p, instance, &event); err != nil {
+	if err := rb.addWorkflowInstanceEventP(ctx, p, instance, event); err != nil {
 		return err
 	}
 

@@ -8,15 +8,15 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
+func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []*history.Event) error {
 	return insertEvents(ctx, tx, "pending_events", instanceID, newEvents)
 }
 
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
+func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []*history.Event) error {
 	return insertEvents(ctx, tx, "history", instanceID, historyEvents)
 }
 
-func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID string, events []history.Event) error {
+func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID string, events []*history.Event) error {
 	const batchSize = 20
 	for batchStart := 0; batchStart < len(events); batchStart += batchSize {
 		batchEnd := batchStart + batchSize

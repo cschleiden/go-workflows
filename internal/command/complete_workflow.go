@@ -53,7 +53,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 
 		r := &CommandResult{
 			Completed: true,
-			Events: []history.Event{
+			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_WorkflowExecutionFinished,
@@ -68,7 +68,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 
 		if c.Instance.SubWorkflow() {
 			// Send completion message back to parent workflow instance
-			var historyEvent history.Event
+			var historyEvent *history.Event
 
 			if c.Error != "" {
 				// Sub workflow failed

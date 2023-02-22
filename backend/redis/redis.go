@@ -102,7 +102,7 @@ type redisBackend struct {
 type activityData struct {
 	Instance *core.WorkflowInstance `json:"instance,omitempty"`
 	ID       string                 `json:"id,omitempty"`
-	Event    history.Event          `json:"event,omitempty"`
+	Event    *history.Event         `json:"event,omitempty"`
 }
 
 func (rb *redisBackend) Logger() log.Logger {

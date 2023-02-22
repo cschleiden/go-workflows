@@ -50,7 +50,7 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 		c.state = CommandState_Committed
 		return &CommandResult{
 			// Record scheduled sub-workflow for source workflow instance
-			Events: []history.Event{
+			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_SubWorkflowScheduled,
@@ -85,7 +85,7 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 
 		return &CommandResult{
 			// Record that cancellation was requested
-			Events: []history.Event{
+			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_SubWorkflowCancellationRequested,

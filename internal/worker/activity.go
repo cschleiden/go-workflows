@@ -146,7 +146,7 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *task.Activity) {
 
 	result, err := aw.activityTaskExecutor.ExecuteActivity(ctx, task)
 
-	var event history.Event
+	var event *history.Event
 
 	if err != nil {
 		event = history.NewPendingEvent(

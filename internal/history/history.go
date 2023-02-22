@@ -144,8 +144,8 @@ func VisibleAt(visibleAt time.Time) HistoryEventOption {
 	}
 }
 
-func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
-	e := Event{
+func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) *Event {
+	e := &Event{
 		ID:         uuid.NewString(),
 		SequenceID: sequenceID,
 		Type:       eventType,
@@ -154,16 +154,16 @@ func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType,
 	}
 
 	for _, opt := range opts {
-		opt(&e)
+		opt(e)
 	}
 
 	return e
 }
 
-func NewPendingEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) Event {
+func NewPendingEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) *Event {
 	return NewHistoryEvent(0, timestamp, eventType, attributes, opts...)
 }
 
-func NewWorkflowCancellationEvent(timestamp time.Time) Event {
+func NewWorkflowCancellationEvent(timestamp time.Time) *Event {
 	return NewPendingEvent(timestamp, EventType_WorkflowExecutionCanceled, &ExecutionCanceledAttributes{})
 }

@@ -26,7 +26,7 @@ func Test_EndToEndSqliteBackend(t *testing.T) {
 
 var _ test.TestBackend = (*sqliteBackend)(nil)
 
-func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]history.Event, error) {
+func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -42,13 +42,13 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]history.Event, 
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
 
-	f := make([]history.Event, 0)
+	f := make([]*history.Event, 0)
 
 	for futureEvents.Next() {
 		var instanceID string
 		var attributes []byte
 
-		fe := history.Event{}
+		fe := &history.Event{}
 
 		if err := futureEvents.Scan(
 			&fe.ID,
