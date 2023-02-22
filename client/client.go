@@ -56,7 +56,7 @@ func New(backend backend.Backend) Client {
 
 func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
 	// Check arguments
-	if err := fn.ParamsMatch(wf, 1, args...); err != nil {
+	if err := a.ParamsMatch(wf, args...); err != nil {
 		return nil, err
 	}
 
