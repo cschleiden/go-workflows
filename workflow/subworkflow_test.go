@@ -15,6 +15,31 @@ import (
 )
 
 func Test_createSubWorkflowInstance_ParamMismatch(t *testing.T) {
+	wf := func(Context, int) (int, error) {
+		return 42, nil
+	}
+
+	ctx := sync.Background()
+	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
+	ctx = workflowstate.WithWorkflowState(
+		ctx,
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New()),
+	)
+	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
+
+	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+		f := createSubWorkflowInstance[int](ctx, DefaultSubWorkflowOptions, 1, wf, "foo")
+		_, err := f.Get(ctx)
+		require.Error(t, err)
+
+		return nil
+	})
+
+	c.Execute()
+	require.True(t, c.Finished())
+}
+
+func Test_createSubWorkflowInstance_ReturnMismatch(t *testing.T) {
 	wf := func(ctx Context) (int, error) {
 		return 42, nil
 	}

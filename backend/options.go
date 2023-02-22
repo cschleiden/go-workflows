@@ -24,8 +24,14 @@ type Options struct {
 
 	StickyTimeout time.Duration
 
+	// WorkflowLockTimeout determines how long a workflow task can be locked for. If the workflow task is not completed
+	// by that timeframe, it's considered abandoned and another worker might pick it up.
+	//
+	// For long running workflow tasks, combine this with heartbearts.
 	WorkflowLockTimeout time.Duration
 
+	// ActivityLockTimeout determines how long an activity task can be locked for. If the activity task is not completed
+	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
 }
 

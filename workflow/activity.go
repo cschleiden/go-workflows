@@ -38,8 +38,15 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 		return f
 	}
 
-	if !fn.ReturnTypeMatch[TResult](activity) {
-		f.Set(*new(TResult), fmt.Errorf("activity return type does not match expected type"))
+	// Check return type
+	if err := fn.ReturnTypeMatch[TResult](activity); err != nil {
+		f.Set(*new(TResult), err)
+		return f
+	}
+
+	// Check arguments
+	if err := fn.ParamsMatch(activity, 1, args...); err != nil {
+		f.Set(*new(TResult), err)
 		return f
 	}
 
