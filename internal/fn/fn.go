@@ -41,6 +41,11 @@ func ParamsMatch(fn interface{}, skip int, args ...interface{}) bool {
 	}
 
 	for i, arg := range args {
+		// if target is interface{} skip
+		if fnType.In(skip+i).Kind() == reflect.Interface {
+			continue
+		}
+
 		if fnType.In(skip+i) != reflect.TypeOf(arg) {
 			return false
 		}

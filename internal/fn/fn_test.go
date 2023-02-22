@@ -120,6 +120,9 @@ func intParam(int) {
 func stringParam(string) {
 }
 
+func interfaceParam(string, interface{}, int) {
+}
+
 func mixedParams(context.Context, int, string) {
 }
 
@@ -149,6 +152,13 @@ func TestParamsMatch(t *testing.T) {
 				return ParamsMatch(stringParam, 0, 42)
 			},
 			want: false,
+		},
+		{
+			name: "interface{} ignored",
+			fn: func() bool {
+				return ParamsMatch(interfaceParam, 0, "", 23, 42)
+			},
+			want: true,
 		},
 		{
 			name: "mixed params",
