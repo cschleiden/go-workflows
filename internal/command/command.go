@@ -28,9 +28,9 @@ type Command interface {
 
 type CommandResult struct {
 	Completed      bool
-	Events         []history.Event
-	ActivityEvents []history.Event
-	TimerEvents    []history.Event
+	Events         []*history.Event
+	ActivityEvents []*history.Event
+	TimerEvents    []*history.Event
 	WorkflowEvents []history.WorkflowEvent
 }
 

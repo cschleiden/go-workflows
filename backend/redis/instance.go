@@ -13,7 +13,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error {
+func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	state, err := readInstance(ctx, rb.rdb, instance.InstanceID)
 	if err != nil && err != backend.ErrInstanceNotFound {
 		return err
@@ -57,7 +57,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 	return nil
 }
 
-func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
+func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
 	start := "-"
 
 	if lastSequenceID != nil {
@@ -69,9 +69,9 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		return nil, err
 	}
 
-	var events []history.Event
+	var events []*history.Event
 	for _, msg := range msgs {
-		var event history.Event
+		var event *history.Event
 		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}

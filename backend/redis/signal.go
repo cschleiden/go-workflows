@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
+func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
 	instanceState, err := readInstance(ctx, rb.rdb, instanceID)
 	if err != nil {
 		return err
@@ -26,7 +26,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 	defer span.End()
 
 	if _, err = rb.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if err := rb.addWorkflowInstanceEventP(ctx, p, instanceState.Instance, &event); err != nil {
+		if err := rb.addWorkflowInstanceEventP(ctx, p, instanceState.Instance, event); err != nil {
 			return fmt.Errorf("adding event to stream: %w", err)
 		}
 

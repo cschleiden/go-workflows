@@ -89,9 +89,9 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
 
-	newEvents := make([]history.Event, 0, len(msgs))
+	newEvents := make([]*history.Event, 0, len(msgs))
 	for _, msg := range msgs {
-		var event history.Event
+		var event *history.Event
 
 		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
@@ -150,7 +150,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	task *task.Workflow,
 	instance *core.WorkflowInstance,
 	state core.WorkflowInstanceState,
-	executedEvents, activityEvents, timerEvents []history.Event,
+	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
 	instanceState, err := readInstance(ctx, rb.rdb, instance.InstanceID)
@@ -171,13 +171,13 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	for _, event := range executedEvents {
 		switch event.Type {
 		case history.EventType_TimerCanceled:
-			removeFutureEventP(ctx, p, instance, &event)
+			removeFutureEventP(ctx, p, instance, event)
 		}
 	}
 
 	// Schedule timers
 	for _, timerEvent := range timerEvents {
-		if err := addFutureEventP(ctx, p, instance, &timerEvent); err != nil {
+		if err := addFutureEventP(ctx, p, instance, timerEvent); err != nil {
 			return err
 		}
 	}
@@ -198,7 +198,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 
 			// Add pending event to stream
-			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstanceID), &m.HistoryEvent); err != nil {
+			if err := addEventToStreamP(ctx, p, pendingEventsKey(targetInstanceID), m.HistoryEvent); err != nil {
 				return err
 			}
 		}

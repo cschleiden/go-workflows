@@ -128,7 +128,7 @@ var _ log.Logger = (*nullLogger)(nil)
 var _ test.TestBackend = (*redisBackend)(nil)
 
 // GetFutureEvents
-func (rb *redisBackend) GetFutureEvents(ctx context.Context) ([]history.Event, error) {
+func (rb *redisBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
 	r, err := rb.rdb.ZRangeByScore(ctx, futureEventsKey(), &redis.ZRangeBy{
 		Min: "-inf",
 		Max: "+inf",
@@ -138,7 +138,7 @@ func (rb *redisBackend) GetFutureEvents(ctx context.Context) ([]history.Event, e
 		return nil, fmt.Errorf("getting future events: %w", err)
 	}
 
-	events := make([]history.Event, 0)
+	events := make([]*history.Event, 0)
 
 	for _, eventID := range r {
 		eventStr, err := rb.rdb.HGet(ctx, eventID, "event").Result()
@@ -146,7 +146,7 @@ func (rb *redisBackend) GetFutureEvents(ctx context.Context) ([]history.Event, e
 			return nil, fmt.Errorf("getting event %v: %w", eventID, err)
 		}
 
-		var event history.Event
+		var event *history.Event
 		if err := json.Unmarshal([]byte(eventStr), &event); err != nil {
 			return nil, fmt.Errorf("unmarshaling event %v: %w", eventID, err)
 		}

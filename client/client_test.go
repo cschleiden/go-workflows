@@ -51,7 +51,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 		mockClock.Add(time.Second)
 	})
 	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(core.WorkflowInstanceStateFinished, nil)
-	b.On("GetWorkflowInstanceHistory", mock.Anything, instance, (*int64)(nil)).Return([]history.Event{
+	b.On("GetWorkflowInstanceHistory", mock.Anything, instance, (*int64)(nil)).Return([]*history.Event{
 		history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 		history.NewHistoryEvent(2, time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{
 			Result: r,
@@ -79,7 +79,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 	b := &backend.MockBackend{}
 	b.On("Logger").Return(logger.NewDefaultLogger())
 	b.On("Converter").Return(converter.DefaultConverter)
-	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
+	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
 	})).Return(nil)
@@ -107,7 +107,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	b := &backend.MockBackend{}
 	b.On("Logger").Return(logger.NewDefaultLogger())
 	b.On("Converter").Return(converter.DefaultConverter)
-	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event history.Event) bool {
+	b.On("SignalWorkflow", ctx, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test" &&
 			bytes.Equal(event.Attributes.(*history.SignalReceivedAttributes).Arg, input)
