@@ -178,7 +178,7 @@ func TestParamsMatch(t *testing.T) {
 			fn: func() error {
 				return ParamsMatch(mixedParams, 0, 42, "")
 			},
-			want: "mismatched argument count: expected 2, got 3",
+			want: "mismatched argument count: expected 3, got 2",
 		},
 		{
 			name: "mixed params - wrong params",

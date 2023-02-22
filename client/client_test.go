@@ -35,7 +35,7 @@ func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
 		InstanceID: "id",
 	}, wf, "foo")
 	require.Zero(t, result)
-	require.EqualError(t, err, "arguments do not match workflow parameters")
+	require.EqualError(t, err, "mismatched argument type: expected int, got string")
 	b.AssertExpectations(t)
 }
 
