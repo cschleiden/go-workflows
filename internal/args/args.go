@@ -2,6 +2,7 @@ package args
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -64,6 +65,80 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 	}
 
 	return args, addContext, nil
+}
+
+func ReturnTypeMatch[TResult any](fn interface{}) error {
+	fnType := reflect.TypeOf(fn)
+	if fnType.Kind() != reflect.Func {
+		return errors.New("not a function")
+	}
+
+	if fnType.NumOut() < 1 {
+		return errors.New("function has no return value, must return at least (error) or (result, error)")
+	}
+
+	if fnType.NumOut() > 2 {
+		return errors.New("function has too many return values, must return at most (error) or (result, error)")
+	}
+
+	errorPosition := 0
+	if fnType.NumOut() == 2 {
+		errorPosition = 1
+
+		t := *new(TResult)
+		if fnType.Out(0) != reflect.TypeOf(t) {
+			return fmt.Errorf("function must return %s, got %s", reflect.TypeOf(t), fnType.Out(0))
+		}
+	}
+
+	// Check if return is error
+	if fnType.Out(errorPosition) != reflect.TypeOf((*error)(nil)).Elem() {
+		return fmt.Errorf("function must return error, got %s", fnType.Out(errorPosition))
+	}
+
+	return nil
+}
+
+func ParamsMatch(fn interface{}, args ...interface{}) error {
+	fnType := reflect.TypeOf(fn)
+	if fnType.Kind() != reflect.Func {
+		return errors.New("not a function")
+	}
+
+	requiredArguments := fnType.NumIn()
+	needsContext := false
+	if fnType.NumIn() > 0 {
+		argT := fnType.In(0)
+
+		if IsOwnContext(argT) || isContext(argT) {
+			needsContext = true
+			requiredArguments--
+		}
+	}
+
+	if requiredArguments != len(args) {
+		return fmt.Errorf("mismatched argument count: expected %d, got %d", requiredArguments, len(args))
+	}
+
+	targetIdx := 0
+	if needsContext {
+		targetIdx = 1
+	}
+
+	for _, arg := range args {
+		// if target is interface{} skip
+		if fnType.In(targetIdx).Kind() == reflect.Interface {
+			continue
+		}
+
+		if fnType.In(targetIdx) != reflect.TypeOf(arg) {
+			return fmt.Errorf("mismatched argument type: expected %s, got %s", fnType.In(targetIdx), reflect.TypeOf(arg))
+		}
+
+		targetIdx++
+	}
+
+	return nil
 }
 
 func IsOwnContext(inType reflect.Type) bool {
