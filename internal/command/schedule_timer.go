@@ -34,7 +34,7 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 		c.state = CommandState_Committed
 
 		return &CommandResult{
-			Events: []history.Event{
+			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_TimerScheduled,
@@ -45,7 +45,7 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 				),
 			},
 
-			TimerEvents: []history.Event{
+			TimerEvents: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_TimerFired,
@@ -62,7 +62,7 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 		c.state = CommandState_Canceled
 
 		return &CommandResult{
-			Events: []history.Event{
+			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_TimerCanceled,

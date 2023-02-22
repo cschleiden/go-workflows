@@ -10,5 +10,5 @@ import (
 type TestBackend interface {
 	backend.Backend
 
-	GetFutureEvents(ctx context.Context) ([]history.Event, error)
+	GetFutureEvents(ctx context.Context) ([]*history.Event, error)
 }

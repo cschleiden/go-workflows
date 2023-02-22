@@ -37,7 +37,7 @@ var addEventsToStreamCmd = redis.NewScript(`
 	return msgID
 `)
 
-func addEventsToHistoryStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, events []history.Event) error {
+func addEventsToHistoryStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, events []*history.Event) error {
 	eventsData := make([]string, 0)
 	for _, event := range events {
 		eventData, err := json.Marshal(event)

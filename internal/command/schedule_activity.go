@@ -42,8 +42,8 @@ func (c *ScheduleActivityCommand) Execute(clock clock.Clock) *CommandResult {
 			history.ScheduleEventID(c.id))
 
 		return &CommandResult{
-			Events:         []history.Event{event},
-			ActivityEvents: []history.Event{event},
+			Events:         []*history.Event{event},
+			ActivityEvents: []*history.Event{event},
 		}
 	}
 

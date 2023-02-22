@@ -10,7 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]history.Event, error) {
+func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]*history.Event, error) {
 	now := time.Now()
 	events, err := tx.QueryContext(ctx, "SELECT * FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
 	defer events.Close()
@@ -19,7 +19,7 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]his
 		return nil, fmt.Errorf("getting new events: %w", err)
 	}
 
-	pendingEvents := make([]history.Event, 0)
+	pendingEvents := make([]*history.Event, 0)
 
 	for events.Next() {
 		pendingEvent, err := scanEvent(events)
@@ -33,7 +33,7 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]his
 	return pendingEvents, nil
 }
 
-func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequenceID *int64) ([]history.Event, error) {
+func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequenceID *int64) ([]*history.Event, error) {
 	var historyEvents *sql.Rows
 	var err error
 	if lastSequenceID != nil {
@@ -46,7 +46,7 @@ func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequence
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
 
-	events := make([]history.Event, 0)
+	events := make([]*history.Event, 0)
 
 	for historyEvents.Next() {
 		historyEvent, err := scanEvent(historyEvents)
@@ -64,11 +64,11 @@ type Scanner interface {
 	Scan(dest ...interface{}) error
 }
 
-func scanEvent(row Scanner) (history.Event, error) {
+func scanEvent(row Scanner) (*history.Event, error) {
 	var instanceID string
 	var attributes []byte
 
-	historyEvent := history.Event{}
+	historyEvent := &history.Event{}
 
 	if err := row.Scan(&historyEvent.ID, &historyEvent.SequenceID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
 		return historyEvent, fmt.Errorf("scanning event: %w", err)
@@ -84,15 +84,15 @@ func scanEvent(row Scanner) (history.Event, error) {
 	return historyEvent, nil
 }
 
-func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []history.Event) error {
+func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []*history.Event) error {
 	return insertEvents(ctx, tx, "pending_events", instanceID, newEvents)
 }
 
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []history.Event) error {
+func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []*history.Event) error {
 	return insertEvents(ctx, tx, "history", instanceID, historyEvents)
 }
 
-func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID string, events []history.Event) error {
+func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID string, events []*history.Event) error {
 	const batchSize = 20
 	for batchStart := 0; batchStart < len(events); batchStart += batchSize {
 		batchEnd := batchStart + batchSize

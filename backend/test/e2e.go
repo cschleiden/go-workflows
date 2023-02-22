@@ -648,7 +648,7 @@ func historyIterate(ctx context.Context, t *testing.T, b TestBackend, instance *
 	events, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
 	require.NoError(t, err)
 	for _, e := range events {
-		if !f(&e) {
+		if !f(e) {
 			break
 		}
 	}

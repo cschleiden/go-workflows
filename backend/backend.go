@@ -22,7 +22,7 @@ const TracerName = "go-workflow"
 //go:generate mockery --name=Backend --inpackage
 type Backend interface {
 	// CreateWorkflowInstance creates a new workflow instance
-	CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event history.Event) error
+	CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error
 
 	// CancelWorkflowInstance cancels a running workflow instance
 	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, cancelEvent *history.Event) error
@@ -32,12 +32,12 @@ type Backend interface {
 
 	// GetWorkflowInstanceHistory returns the workflow history for the given instance. When lastSequenceID
 	// is given, only events after that event are returned. Otherwise the full history is returned.
-	GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]history.Event, error)
+	GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]*history.Event, error)
 
 	// SignalWorkflow signals a running workflow instance
 	//
 	// If the given instance does not exist, it will return an error
-	SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error
+	SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error
 
 	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
@@ -52,13 +52,13 @@ type Backend interface {
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
 		ctx context.Context, task *task.Workflow, instance *workflow.Instance, state core.WorkflowInstanceState,
-		executedEvents, activityEvents, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error
+		executedEvents, activityEvents, timerEvents []*history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context) (*task.Activity, error)
 
 	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
-	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event history.Event) error
+	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event *history.Event) error
 
 	// ExtendActivityTask extends the lock of an activity task
 	ExtendActivityTask(ctx context.Context, activityID string) error

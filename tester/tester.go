@@ -31,10 +31,10 @@ import (
 )
 
 type testHistoryProvider struct {
-	history []history.Event
+	history []*history.Event
 }
 
-func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
+func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
 	return t.history, nil
 }
 
@@ -86,8 +86,8 @@ type testTimer struct {
 
 type testWorkflow struct {
 	instance      *core.WorkflowInstance
-	history       []history.Event
-	pendingEvents []history.Event
+	history       []*history.Event
+	pendingEvents []*history.Event
 }
 
 type options struct {
@@ -120,7 +120,7 @@ type workflowTester[TResult any] struct {
 	mw              *mock.Mock
 	mockedWorkflows map[string]bool
 
-	workflowHistory []history.Event
+	workflowHistory []*history.Event
 	clock           *clock.Mock
 	startTime       time.Time
 
@@ -194,7 +194,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		mw:              &mock.Mock{},
 		mockedWorkflows: make(map[string]bool),
 
-		workflowHistory: make([]history.Event, 0),
+		workflowHistory: make([]*history.Event, 0),
 		clock:           clock,
 
 		timers:    make([]*testTimer, 0),
@@ -383,7 +383,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 	}
 }
 
-func (wt *workflowTester[TResult]) sendEvent(wfi *core.WorkflowInstance, event history.Event) {
+func (wt *workflowTester[TResult]) sendEvent(wfi *core.WorkflowInstance, event *history.Event) {
 	w := wt.getWorkflow(wfi)
 
 	if w == nil {
@@ -445,7 +445,7 @@ func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, event history.Event) {
+func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, event *history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
 	atomic.AddInt32(&wt.runningActivities, 1)
@@ -514,7 +514,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 		}
 
 		wt.callbacks <- func() *history.WorkflowEvent {
-			var ne history.Event
+			var ne *history.Event
 
 			if activityErr != nil {
 				ne = history.NewPendingEvent(
@@ -544,7 +544,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 	}()
 }
 
-func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance, event history.Event) {
+func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance, event *history.Event) {
 	e := event.Attributes.(*history.TimerFiredAttributes)
 
 	wt.timers = append(wt.timers, &testTimer{
@@ -566,7 +566,7 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 	})
 }
 
-func (wt *workflowTester[TResult]) cancelTimer(instance *core.WorkflowInstance, event history.Event) {
+func (wt *workflowTester[TResult]) cancelTimer(instance *core.WorkflowInstance, event *history.Event) {
 	for i, t := range wt.timers {
 		if t.Instance != nil && t.Instance.InstanceID == instance.InstanceID && t.ScheduleEventID == event.ScheduleEventID {
 			wt.timers = append(wt.timers[:i], wt.timers[i+1:]...)
@@ -582,14 +582,14 @@ func (wt *workflowTester[TResult]) getWorkflow(instance *core.WorkflowInstance) 
 	return wt.testWorkflowsByInstanceID[instance.InstanceID]
 }
 
-func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, initialEvent history.Event) *testWorkflow {
+func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, initialEvent *history.Event) *testWorkflow {
 	wt.mtw.Lock()
 	defer wt.mtw.Unlock()
 
 	tw := &testWorkflow{
 		instance:      instance,
-		pendingEvents: []history.Event{initialEvent},
-		history:       make([]history.Event, 0),
+		pendingEvents: []*history.Event{initialEvent},
+		history:       make([]*history.Event, 0),
 	}
 	wt.testWorkflows = append(wt.testWorkflows, tw)
 	wt.testWorkflowsByInstanceID[instance.InstanceID] = tw
@@ -666,7 +666,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 }
 
-func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) history.Event {
+func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) *history.Event {
 	name := fn.Name(wf)
 
 	inputs, err := margs.ArgsToInputs(converter.DefaultConverter, args...)
@@ -686,7 +686,7 @@ func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interf
 	)
 }
 
-func getNextWorkflowTask(wfi *core.WorkflowInstance, history []history.Event, newEvents []history.Event) *task.Workflow {
+func getNextWorkflowTask(wfi *core.WorkflowInstance, history []*history.Event, newEvents []*history.Event) *task.Workflow {
 	var lastSequenceID int64
 	if len(history) > 0 {
 		lastSequenceID = history[len(history)-1].SequenceID

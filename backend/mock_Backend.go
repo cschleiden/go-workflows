@@ -41,11 +41,11 @@ func (_m *MockBackend) CancelWorkflowInstance(ctx context.Context, instance *cor
 }
 
 // CompleteActivityTask provides a mock function with given fields: ctx, instance, activityID, event
-func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event history.Event) error {
+func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event *history.Event) error {
 	ret := _m.Called(ctx, instance, activityID, event)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, string, history.Event) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, string, *history.Event) error); ok {
 		r0 = rf(ctx, instance, activityID, event)
 	} else {
 		r0 = ret.Error(0)
@@ -55,11 +55,11 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []history.Event, activityEvents []history.Event, timerEvents []history.Event, workflowEvents []history.WorkflowEvent) error {
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []*history.Event, activityEvents []*history.Event, timerEvents []*history.Event, workflowEvents []history.WorkflowEvent) error {
 	ret := _m.Called(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *task.Workflow, *core.WorkflowInstance, core.WorkflowInstanceState, []history.Event, []history.Event, []history.Event, []history.WorkflowEvent) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *task.Workflow, *core.WorkflowInstance, core.WorkflowInstanceState, []*history.Event, []*history.Event, []*history.Event, []history.WorkflowEvent) error); ok {
 		r0 = rf(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 	} else {
 		r0 = ret.Error(0)
@@ -85,11 +85,11 @@ func (_m *MockBackend) Converter() converter.Converter {
 }
 
 // CreateWorkflowInstance provides a mock function with given fields: ctx, instance, event
-func (_m *MockBackend) CreateWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event history.Event) error {
+func (_m *MockBackend) CreateWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	ret := _m.Called(ctx, instance, event)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, history.Event) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *history.Event) error); ok {
 		r0 = rf(ctx, instance, event)
 	} else {
 		r0 = ret.Error(0)
@@ -153,19 +153,19 @@ func (_m *MockBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 }
 
 // GetWorkflowInstanceHistory provides a mock function with given fields: ctx, instance, lastSequenceID
-func (_m *MockBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
+func (_m *MockBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
 	ret := _m.Called(ctx, instance, lastSequenceID)
 
-	var r0 []history.Event
+	var r0 []*history.Event
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *int64) ([]history.Event, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *int64) ([]*history.Event, error)); ok {
 		return rf(ctx, instance, lastSequenceID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *int64) []history.Event); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *int64) []*history.Event); ok {
 		r0 = rf(ctx, instance, lastSequenceID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]history.Event)
+			r0 = ret.Get(0).([]*history.Event)
 		}
 	}
 
@@ -261,11 +261,11 @@ func (_m *MockBackend) Metrics() metrics.Client {
 }
 
 // SignalWorkflow provides a mock function with given fields: ctx, instanceID, event
-func (_m *MockBackend) SignalWorkflow(ctx context.Context, instanceID string, event history.Event) error {
+func (_m *MockBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
 	ret := _m.Called(ctx, instanceID, event)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, history.Event) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *history.Event) error); ok {
 		r0 = rf(ctx, instanceID, event)
 	} else {
 		r0 = ret.Error(0)

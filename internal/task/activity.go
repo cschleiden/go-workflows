@@ -12,5 +12,5 @@ type Activity struct {
 
 	Metadata *core.WorkflowMetadata
 
-	Event history.Event
+	Event *history.Event
 }

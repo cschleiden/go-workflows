@@ -6,5 +6,5 @@ import "github.com/cschleiden/go-workflows/internal/core"
 type WorkflowEvent struct {
 	WorkflowInstance *core.WorkflowInstance `json:"workflow_instance,omitempty"`
 
-	HistoryEvent Event `json:"history_event,omitempty"`
+	HistoryEvent *Event `json:"history_event,omitempty"`
 }

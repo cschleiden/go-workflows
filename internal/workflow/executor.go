@@ -24,14 +24,14 @@ import (
 
 type ExecutionResult struct {
 	Completed      bool
-	Executed       []history.Event
-	ActivityEvents []history.Event
-	TimerEvents    []history.Event
+	Executed       []*history.Event
+	ActivityEvents []*history.Event
+	TimerEvents    []*history.Event
 	WorkflowEvents []history.WorkflowEvent
 }
 
 type WorkflowHistoryProvider interface {
-	GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error)
+	GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error)
 }
 
 type WorkflowExecutor interface {
@@ -139,7 +139,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	}
 
 	// Always add a WorkflowTaskStarted event before executing new tasks
-	toExecute := []history.Event{e.createNewEvent(history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})}
+	toExecute := []*history.Event{e.createNewEvent(history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})}
 	executedEvents := toExecute
 
 	toExecute = append(toExecute, t.NewEvents...)
@@ -157,9 +157,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 	// Process any commands added while executing new events
 	completed := false
-	newCommandEvents := make([]history.Event, 0)
-	activityEvents := make([]history.Event, 0)
-	timerEvents := make([]history.Event, 0)
+	newCommandEvents := make([]*history.Event, 0)
+	activityEvents := make([]*history.Event, 0)
+	timerEvents := make([]*history.Event, 0)
 	workflowEvents := make([]history.WorkflowEvent, 0)
 
 	for _, c := range e.workflowState.Commands() {
@@ -202,7 +202,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	}, nil
 }
 
-func (e *executor) replayHistory(h []history.Event) error {
+func (e *executor) replayHistory(h []*history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range h {
 		if event.SequenceID < e.lastSequenceID {
@@ -219,7 +219,7 @@ func (e *executor) replayHistory(h []history.Event) error {
 	return nil
 }
 
-func (e *executor) executeNewEvents(newEvents []history.Event) ([]history.Event, error) {
+func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Event, error) {
 	e.workflowState.SetReplaying(false)
 
 	for i, event := range newEvents {
@@ -249,7 +249,7 @@ func (e *executor) Close() {
 	}
 }
 
-func (e *executor) executeEvent(event history.Event) error {
+func (e *executor) executeEvent(event *history.Event) error {
 	e.logger.Debug("Executing event",
 		"instance_id", e.workflowState.Instance().InstanceID,
 		"event_id", event.ID,
@@ -331,13 +331,13 @@ func (e *executor) handleWorkflowCanceled() error {
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleWorkflowTaskStarted(event history.Event, a *history.WorkflowTaskStartedAttributes) error {
+func (e *executor) handleWorkflowTaskStarted(event *history.Event, a *history.WorkflowTaskStartedAttributes) error {
 	e.workflowState.SetTime(event.Timestamp)
 
 	return nil
 }
 
-func (e *executor) handleActivityScheduled(event history.Event, a *history.ActivityScheduledAttributes) error {
+func (e *executor) handleActivityScheduled(event *history.Event, a *history.ActivityScheduledAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled an activity which could not be found")
@@ -358,7 +358,7 @@ func (e *executor) handleActivityScheduled(event history.Event, a *history.Activ
 	return nil
 }
 
-func (e *executor) handleActivityCompleted(event history.Event, a *history.ActivityCompletedAttributes) error {
+func (e *executor) handleActivityCompleted(event *history.Event, a *history.ActivityCompletedAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return fmt.Errorf("could not find pending future for activity completion")
@@ -386,7 +386,7 @@ func (e *executor) handleActivityCompleted(event history.Event, a *history.Activ
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleActivityFailed(event history.Event, a *history.ActivityFailedAttributes) error {
+func (e *executor) handleActivityFailed(event *history.Event, a *history.ActivityFailedAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future for activity failed event")
@@ -413,7 +413,7 @@ func (e *executor) handleActivityFailed(event history.Event, a *history.Activity
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerScheduledAttributes) error {
+func (e *executor) handleTimerScheduled(event *history.Event, a *history.TimerScheduledAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled a timer")
@@ -428,7 +428,7 @@ func (e *executor) handleTimerScheduled(event history.Event, a *history.TimerSch
 	return nil
 }
 
-func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAttributes) error {
+func (e *executor) handleTimerFired(event *history.Event, a *history.TimerFiredAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		// Timer already canceled ignore
@@ -455,7 +455,7 @@ func (e *executor) handleTimerFired(event history.Event, a *history.TimerFiredAt
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanceledAttributes) error {
+func (e *executor) handleTimerCanceled(event *history.Event, a *history.TimerCanceledAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution canceled a timer")
@@ -484,7 +484,7 @@ func (e *executor) handleTimerCanceled(event history.Event, a *history.TimerCanc
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.SubWorkflowScheduledAttributes) error {
+func (e *executor) handleSubWorkflowScheduled(event *history.Event, a *history.SubWorkflowScheduledAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled a sub workflow")
@@ -508,7 +508,7 @@ func (e *executor) handleSubWorkflowScheduled(event history.Event, a *history.Su
 	return nil
 }
 
-func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *history.SubWorkflowCancellationRequestedAttributes) error {
+func (e *executor) handleSubWorkflowCancellationRequest(event *history.Event, a *history.SubWorkflowCancellationRequestedAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution cancelled a sub-workflow execution")
@@ -524,7 +524,7 @@ func (e *executor) handleSubWorkflowCancellationRequest(event history.Event, a *
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWorkflowFailedAttributes) error {
+func (e *executor) handleSubWorkflowFailed(event *history.Event, a *history.SubWorkflowFailedAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for sub workflow failed event")
@@ -550,7 +550,7 @@ func (e *executor) handleSubWorkflowFailed(event history.Event, a *history.SubWo
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.SubWorkflowCompletedAttributes) error {
+func (e *executor) handleSubWorkflowCompleted(event *history.Event, a *history.SubWorkflowCompletedAttributes) error {
 	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
 	if !ok {
 		return errors.New("no pending future found for sub workflow completed event")
@@ -576,14 +576,14 @@ func (e *executor) handleSubWorkflowCompleted(event history.Event, a *history.Su
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleSignalReceived(event history.Event, a *history.SignalReceivedAttributes) error {
+func (e *executor) handleSignalReceived(event *history.Event, a *history.SignalReceivedAttributes) error {
 	// Send signal to workflow channel
 	workflowstate.ReceiveSignal(e.workflowState, a.Name, a.Arg)
 
 	return e.workflow.Continue()
 }
 
-func (e *executor) handleSideEffectResult(event history.Event, a *history.SideEffectResultAttributes) error {
+func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideEffectResultAttributes) error {
 	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
 	if c == nil {
 		return fmt.Errorf("previous workflow execution scheduled a side effect")
@@ -622,7 +622,7 @@ func (e *executor) nextSequenceID() int64 {
 	return e.lastSequenceID
 }
 
-func (e *executor) createNewEvent(eventType history.EventType, attributes interface{}, opts ...history.HistoryEventOption) history.Event {
+func (e *executor) createNewEvent(eventType history.EventType, attributes interface{}, opts ...history.HistoryEventOption) *history.Event {
 	return history.NewPendingEvent(
 		e.clock.Now(),
 		eventType,

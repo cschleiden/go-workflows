@@ -45,7 +45,7 @@ func (c *SideEffectCommand) Execute(clock clock.Clock) *CommandResult {
 		c.state = CommandState_Done
 
 		return &CommandResult{
-			Events: []history.Event{
+			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
 					history.EventType_SideEffectResult,

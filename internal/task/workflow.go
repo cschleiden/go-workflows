@@ -20,7 +20,7 @@ type Workflow struct {
 	LastSequenceID int64
 
 	// NewEvents are new events since the last task execution
-	NewEvents []history.Event
+	NewEvents []*history.Event
 
 	// Backend specific data, only the producer of the task should rely on this.
 	CustomData any

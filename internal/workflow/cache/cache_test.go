@@ -94,9 +94,9 @@ func activity1(ctx context.Context) (int, error) {
 }
 
 type testHistoryProvider struct {
-	history []history.Event
+	history []*history.Event
 }
 
-func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]history.Event, error) {
+func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
 	return t.history, nil
 }
