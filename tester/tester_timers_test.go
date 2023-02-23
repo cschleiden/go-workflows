@@ -1,7 +1,6 @@
 package tester
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -133,32 +132,4 @@ func workflowTimerRespondingWithoutNewEvents(ctx workflow.Context) error {
 	)
 
 	return nil
-}
-
-func Test_TimerDuringActivities(t *testing.T) {
-	activityFinished := false
-
-	act := func(ctx context.Context) error {
-		time.Sleep(100 * time.Millisecond)
-		activityFinished = true
-		return nil
-	}
-
-	wf := func(ctx workflow.Context) error {
-		_, err := workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, act).Get(ctx)
-		return err
-	}
-
-	tester := NewWorkflowTester[timerResult](wf)
-	tester.Registry().RegisterActivity(act)
-
-	tester.ScheduleCallback(time.Duration(50*time.Millisecond), func() {
-		require.True(t, activityFinished, "Activity should have finished before timer is fired")
-	})
-
-	tester.Execute()
-
-	require.True(t, tester.WorkflowFinished())
-	_, wrErr := tester.WorkflowResult()
-	require.Empty(t, wrErr)
 }

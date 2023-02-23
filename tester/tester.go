@@ -75,13 +75,13 @@ type testTimer struct {
 	// ScheduleEventID is the ID of the schedule event for this timer
 	ScheduleEventID int64
 
-	// At is the time this timer is scheduled for. This will advance the mock clock
-	// to this timestamp
+	// At is the time this timer is scheduled for
 	At time.Time
 
-	// Callback is called when the timer should fire. It can return a history event which
-	// will be added to the event history being executed.
+	// Callback is called when the timer should fire.
 	Callback func()
+
+	wallClockTimer *clock.Timer
 }
 
 type testWorkflow struct {
@@ -122,9 +122,12 @@ type workflowTester[TResult any] struct {
 
 	workflowHistory []*history.Event
 	clock           *clock.Mock
+	wallClock       clock.Clock
 	startTime       time.Time
 
+	sync.Map
 	timers    []*testTimer
+	nextTimer *testTimer
 	callbacks chan func() *history.WorkflowEvent
 
 	subWorkflowListener func(*core.WorkflowInstance, string)
@@ -159,9 +162,13 @@ func WithTestTimeout(timeout time.Duration) WorkflowTesterOption {
 }
 
 func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption) WorkflowTester[TResult] {
-	// Start with the current wall-clock time
-	clock := clock.NewMock()
-	clock.Set(time.Now())
+	if err := margs.ReturnTypeMatch[TResult](wf); err != nil {
+		panic(fmt.Sprintf("workflow return type does not match: %s", err))
+	}
+
+	// Start with the current wall-c time
+	c := clock.NewMock()
+	c.Set(time.Now())
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	registry := workflow.NewRegistry()
@@ -195,12 +202,13 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		mockedWorkflows: make(map[string]bool),
 
 		workflowHistory: make([]*history.Event, 0),
-		clock:           clock,
+		clock:           c,
+		wallClock:       clock.New(),
 
 		timers:    make([]*testTimer, 0),
 		callbacks: make(chan func() *history.WorkflowEvent, 1024),
 
-		logger:    options.Logger,
+		logger:    options.Logger.With("source", "tester"),
 		tracer:    tracer,
 		converter: options.Converter,
 	}
@@ -263,7 +271,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 	wt.addWorkflow(wt.wfi, initialEvent)
 
 	for !wt.workflowFinished {
-		// Execute all workflows until no more events?
+		// Execute all workflows until no more events
 		gotNewEvents := false
 
 		for _, tw := range wt.testWorkflows {
@@ -334,14 +342,14 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			// Schedule timers
 			for _, timerEvent := range result.TimerEvents {
 				gotNewEvents = true
-				wt.logger.Debug("Timer event", "event_type", timerEvent.Type)
+				wt.logger.Debug("Timer future event", "event_type", timerEvent.Type, "at", *timerEvent.VisibleAt)
 
 				wt.scheduleTimer(tw.instance, timerEvent)
 			}
 		}
 
 		for !wt.workflowFinished && !gotNewEvents {
-			// No new events left and the workflow isn't finished yet. Check for timers or callbacks
+			// No new events left and workflows aren't finished yet. Check for callbacks
 			select {
 			case callback := <-wt.callbacks:
 				event := callback()
@@ -353,31 +361,52 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			default:
 			}
 
-			// If there are no running activities and timers, skip time and jump to the next scheduled timer
-
-			if atomic.LoadInt32(&wt.runningActivities) == 0 && len(wt.timers) > 0 {
+			// No callbacks, try to fire any pending timers
+			if len(wt.timers) > 0 && wt.nextTimer == nil {
 				// Take first timer and execute it
 				t := wt.timers[0]
 				wt.timers = wt.timers[1:]
 
-				// Advance workflow clock to fire the timer
-				wt.logger.Debug("Advancing workflow clock to fire timer")
-				wt.clock.Set(t.At)
-				t.Callback()
-			} else {
-				t := time.NewTimer(wt.options.TestTimeout)
+				// If there are no running activities, we can time-travel to the next timer and execute it. Otherwise, if
+				// there are running activities, only fire the timer if it is due.
+				runningActivities := atomic.LoadInt32(&wt.runningActivities)
+				if runningActivities > 0 {
+					// Wall-clock mode
+					wt.logger.Debug("Scheduling wall-clock timer", "at", t.At)
 
-				select {
-				case callback := <-wt.callbacks:
-					event := callback()
-					if event != nil {
-						wt.sendEvent(event.WorkflowInstance, event.HistoryEvent)
-						gotNewEvents = true
-					}
-				case <-t.C:
-					t.Stop()
-					panic("No new events generated during workflow execution and no pending timers, workflow blocked?")
+					wt.nextTimer = t
+
+					remainingTime := wt.clock.Until(t.At)
+					t.wallClockTimer = wt.wallClock.AfterFunc(remainingTime, func() {
+						t.Callback()
+						wt.nextTimer = nil
+					})
+				} else {
+					// Time-travel mode
+					wt.logger.Debug("Advancing workflow clock to fire timer", "to", t.At)
+
+					// Advance workflow clock and fire the timer
+					wt.clock.Set(t.At)
+					t.Callback()
 				}
+
+				continue
+			}
+
+			// Wait until a callback is ready or we hit the test/idle timeout
+			t := time.NewTimer(wt.options.TestTimeout)
+
+			select {
+			case callback := <-wt.callbacks:
+				event := callback()
+				if event != nil {
+					wt.sendEvent(event.WorkflowInstance, event.HistoryEvent)
+					gotNewEvents = true
+				}
+
+			case <-t.C:
+				t.Stop()
+				panic("No new events generated during workflow execution and no pending timers, workflow blocked?")
 			}
 		}
 	}
@@ -569,6 +598,11 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 func (wt *workflowTester[TResult]) cancelTimer(instance *core.WorkflowInstance, event *history.Event) {
 	for i, t := range wt.timers {
 		if t.Instance != nil && t.Instance.InstanceID == instance.InstanceID && t.ScheduleEventID == event.ScheduleEventID {
+			// If this was the next timer to fire, stop the timer
+			if t.wallClockTimer != nil {
+				t.wallClockTimer.Stop()
+			}
+
 			wt.timers = append(wt.timers[:i], wt.timers[i+1:]...)
 			break
 		}
