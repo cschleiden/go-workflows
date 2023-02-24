@@ -219,7 +219,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 
 	// Always register the workflow under test
 	if err := wt.registry.RegisterWorkflow(wf); err != nil {
-		panic(fmt.Sprintf("could not workflow under test: %v", err))
+		panic(fmt.Sprintf("could not register workflow under test: %v", err))
 	}
 
 	return wt
