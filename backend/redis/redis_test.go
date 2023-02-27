@@ -21,17 +21,6 @@ const (
 	password = "RedisPassw0rd"
 )
 
-func Benchmark_RedisBackend(b *testing.B) {
-	if testing.Short() {
-		b.Skip()
-	}
-
-	client := getClient()
-	setup := getCreateBackend(client, true)
-
-	test.SimpleWorkflowBenchmark(b, setup, nil)
-}
-
 func Test_RedisBackend(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
