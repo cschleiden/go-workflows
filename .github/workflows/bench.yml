@@ -10,24 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.19
-          check-latest: true
-          cache: true
-
-      - name: Start Redis
-        uses: shogo82148/actions-setup-redis@v1
-        with:
-          auto-start: true
-          redis-port: 6379
-          redis-version: '6.2'
-          redis-conf: 'requirepass RedisPassw0rd'
-
-      - name: Start MySQL
-        run: sudo /etc/init.d/mysql start
-
       - name: Install Hyperfine
         run: |
           wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
@@ -48,6 +30,13 @@ jobs:
         with:
           ref: ${{ steps.sha.outputs.result || github.sha }}
 
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+          check-latest: true
+          cache: true
+
       - name: Build PR
         run: |
           go build -o bench-pr ./bench
@@ -61,6 +50,17 @@ jobs:
       - name: Build main
         run: |
           go build -o bench-main ./bench
+
+      - name: Start Redis
+        uses: shogo82148/actions-setup-redis@v1
+        with:
+          auto-start: true
+          redis-port: 6379
+          redis-version: '6.2'
+          redis-conf: 'requirepass RedisPassw0rd'
+
+      - name: Start MySQL
+        run: sudo /etc/init.d/mysql start
 
       - name: Run benchmarks - mysql
         run: |
