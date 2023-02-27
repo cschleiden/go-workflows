@@ -57,7 +57,10 @@ jobs:
           auto-start: true
           redis-port: 6379
           redis-version: '6.2'
-          redis-conf: 'requirepass RedisPassw0rd'
+          redis-conf: |
+            requirepass RedisPassw0rd
+            appendonly yes
+            appendfsync always
 
       - name: Start MySQL
         run: sudo /etc/init.d/mysql start
