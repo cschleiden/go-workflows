@@ -29,7 +29,7 @@ import (
 var schema string
 
 func NewInMemoryBackend(opts ...backend.BackendOption) *sqliteBackend {
-	b := newSqliteBackend("file::memory:", opts...)
+	b := newSqliteBackend("file::memory:?_mode=memory", opts...)
 
 	b.db.SetMaxOpenConns(1)
 
@@ -37,7 +37,7 @@ func NewInMemoryBackend(opts ...backend.BackendOption) *sqliteBackend {
 }
 
 func NewSqliteBackend(path string, opts ...backend.BackendOption) *sqliteBackend {
-	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
+	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
 }
 
 func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend {
