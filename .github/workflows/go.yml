@@ -88,9 +88,6 @@ jobs:
         check-latest: true
         cache: true
 
-    - name: Start MySQL
-      run: sudo /etc/init.d/mysql start
-
     - name: Tests
       run: |
         go install github.com/jstemmer/go-junit-report/v2@latest
