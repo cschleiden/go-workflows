@@ -1,0 +1,81 @@
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [ created ]
+
+name: Benchmark
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))
+    steps:
+      - name: Install Hyperfine
+        run: |
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
+          sudo dpkg -i hyperfine_1.11.0_amd64.deb
+
+      - name: Get PR SHA
+        if: github.event_name == 'issue_comment'
+        id: sha
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            const response = await github.request(context.payload.issue.pull_request.url);
+            return response.data.head.sha;
+
+      - name: Checkout PR
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ steps.sha.outputs.result || github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+          check-latest: true
+          cache: true
+
+      - name: Build PR
+        run: |
+          go build -o bench-pr ./bench
+
+      - name: Checkout main branch
+        uses: actions/checkout@v3
+        with:
+          clean: false
+          ref: main
+
+      - name: Build main
+        run: |
+          go build -o bench-main ./bench
+
+      - name: Start Redis
+        uses: shogo82148/actions-setup-redis@v1
+        with:
+          auto-start: true
+          redis-port: 6379
+          redis-version: '6.2'
+          redis-conf: 'requirepass RedisPassw0rd'
+
+      - name: Start MySQL
+        run: sudo /etc/init.d/mysql start
+
+      - name: Run benchmarks - mysql
+        run: |
+          hyperfine --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
+          hyperfine --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
+          hyperfine --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -runs 2 -backend redis' -n 'redis-pr' './bench-pr -runs 2 -backend redis'
+          cat bench-mysql.md > benchmark.md
+          echo $'\n' >> benchmark.md
+          cat bench-sqlite.md >> benchmark.md
+          echo $'\n' >> benchmark.md
+          cat bench-redis.md >> benchmark.md
+
+      - name: Write a new comment
+        uses: peter-evans/create-or-update-comment@v2
+        continue-on-error: true
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body-file: ./benchmark.md
