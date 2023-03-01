@@ -16,7 +16,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
-	redisv8 "github.com/go-redis/redis/v8"
+	redisv8 "github.com/redis/go-redis/v9"
 )
 
 var b = flag.String("backend", "redis", "Backend to use. Supported backends are:\n- redis\n- mysql\n- sqlite\n")
