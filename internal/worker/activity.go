@@ -68,6 +68,8 @@ func (aw *ActivityWorker) WaitForCompletion() error {
 }
 
 func (aw *ActivityWorker) runPoll(ctx context.Context) {
+	defer aw.pollersWg.Done()
+
 	for {
 		select {
 		case <-ctx.Done():
