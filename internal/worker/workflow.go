@@ -227,7 +227,7 @@ func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 		timeout = 30 * time.Second
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	ww.backend.Logger().Debug("[WorkflowWorker] in poll, about to GetWorkflowTask")
