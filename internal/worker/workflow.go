@@ -83,7 +83,7 @@ func (ww *WorkflowWorker) runPoll(ctx context.Context) {
 			return
 
 		default:
-			task, err := ww.poll(ctx, 30*time.Second)
+			task, err := ww.poll(ctx, 5*time.Second)
 			if err != nil {
 				ww.logger.Error("error while polling for workflow task", "error", err)
 				continue
