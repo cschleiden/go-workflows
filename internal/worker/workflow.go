@@ -80,10 +80,11 @@ func (ww *WorkflowWorker) runPoll(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			ww.logger.Error("[WorkflowWorker] context was canceled", "error_reason", ctx.Err())
 			return
 
 		default:
-			task, err := ww.poll(ctx, 5*time.Second)
+			task, err := ww.poll(ctx, 30*time.Second)
 			if err != nil {
 				ww.logger.Error("error while polling for workflow task", "error", err)
 				continue
@@ -229,14 +230,19 @@ func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	ww.backend.Logger().Debug("[WorkflowWorker] in poll, about to GetWorkflowTask")
 	task, err := ww.backend.GetWorkflowTask(ctx)
 	if err != nil {
+		ww.backend.Logger().Debug("[WorkflowWorker] error when calling GetWorkflowTask")
 		if errors.Is(err, context.Canceled) {
+			ww.backend.Logger().Debug("[WorkflowWorker] context.Canceled error when calling GetWorkflowTask")
 			return nil, nil
 		}
 
+		ww.backend.Logger().Debug("[WorkflowWorker] error when calling GetWorkflowTask", "error", err)
 		return nil, err
 	}
+	ww.backend.Logger().Debug("[WorkflowWorker] no errors when calling GetWorkflowTask, returning task", "task", task)
 
 	return task, nil
 }
