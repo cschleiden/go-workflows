@@ -12,7 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/diag"
-	redisv8 "github.com/go-redis/redis/v8"
+	redisv9 "github.com/redis/go-redis/v9"
 )
 
 func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
@@ -30,7 +30,7 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, opt...)
 
 	case "redis":
-		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{
+		rclient := redisv9.NewUniversalClient(&redisv9.UniversalOptions{
 			Addrs:        []string{"localhost:6379"},
 			Username:     "",
 			Password:     "RedisPassw0rd",

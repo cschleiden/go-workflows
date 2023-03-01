@@ -12,7 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
 )
 

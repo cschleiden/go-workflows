@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/go-redis/redis/v8"
+	redis "github.com/redis/go-redis/v9"
 )
 
 var _ diag.Backend = (*redisBackend)(nil)

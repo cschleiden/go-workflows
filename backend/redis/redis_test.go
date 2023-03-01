@@ -12,7 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/log"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
