@@ -31,7 +31,8 @@ type WorkflowWorker struct {
 
 	logger log.Logger
 
-	wg *sync.WaitGroup
+	pollersWg sync.WaitGroup
+	wg        sync.WaitGroup
 }
 
 func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, options *Options) *WorkflowWorker {
@@ -53,13 +54,13 @@ func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, opt
 		cache: c,
 
 		logger: backend.Logger(),
-
-		wg: &sync.WaitGroup{},
 	}
 }
 
 func (ww *WorkflowWorker) Start(ctx context.Context) error {
-	for i := 0; i <= ww.options.WorkflowPollers; i++ {
+	ww.pollersWg.Add(ww.options.WorkflowPollers)
+
+	for i := 0; i < ww.options.WorkflowPollers; i++ {
 		go ww.runPoll(ctx)
 	}
 
@@ -69,14 +70,19 @@ func (ww *WorkflowWorker) Start(ctx context.Context) error {
 }
 
 func (ww *WorkflowWorker) WaitForCompletion() error {
-	close(ww.workflowTaskQueue)
+	// Wait for task pollers to finish
+	ww.pollersWg.Wait()
 
+	// Wait for tasks to finish
 	ww.wg.Wait()
+	close(ww.workflowTaskQueue)
 
 	return nil
 }
 
 func (ww *WorkflowWorker) runPoll(ctx context.Context) {
+	defer ww.pollersWg.Done()
+
 	for {
 		select {
 		case <-ctx.Done():

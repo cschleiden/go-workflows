@@ -25,7 +25,8 @@ type ActivityWorker struct {
 	activityTaskQueue    chan *task.Activity
 	activityTaskExecutor activity.Executor
 
-	wg *sync.WaitGroup
+	wg        sync.WaitGroup
+	pollersWg sync.WaitGroup
 
 	clock clock.Clock
 }
@@ -39,14 +40,14 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 		activityTaskQueue:    make(chan *task.Activity),
 		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), backend.Converter(), registry),
 
-		wg: &sync.WaitGroup{},
-
 		clock: clock,
 	}
 }
 
 func (aw *ActivityWorker) Start(ctx context.Context) error {
-	for i := 0; i <= aw.options.ActivityPollers; i++ {
+	aw.pollersWg.Add(aw.options.ActivityPollers)
+
+	for i := 0; i < aw.options.ActivityPollers; i++ {
 		go aw.runPoll(ctx)
 	}
 
@@ -56,9 +57,12 @@ func (aw *ActivityWorker) Start(ctx context.Context) error {
 }
 
 func (aw *ActivityWorker) WaitForCompletion() error {
-	close(aw.activityTaskQueue)
+	// Wait for task pollers to finish
+	aw.pollersWg.Wait()
 
+	// Wait for tasks to finish
 	aw.wg.Wait()
+	close(aw.activityTaskQueue)
 
 	return nil
 }
