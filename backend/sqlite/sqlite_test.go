@@ -11,6 +11,10 @@ import (
 )
 
 func Test_SqliteBackend(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	test.BackendTest(t, func() test.TestBackend {
 		// Disable sticky workflow behavior for the test execution
 		return NewInMemoryBackend(backend.WithStickyTimeout(0))
@@ -18,6 +22,10 @@ func Test_SqliteBackend(t *testing.T) {
 }
 
 func Test_EndToEndSqliteBackend(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	test.EndToEndBackendTest(t, func() test.TestBackend {
 		// Disable sticky workflow behavior for the test execution
 		return NewInMemoryBackend(backend.WithStickyTimeout(0))
