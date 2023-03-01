@@ -10,7 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
@@ -138,7 +138,7 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 	p.SetNX(ctx, key, string(b), 0)
 
-	p.ZAdd(ctx, instancesByCreation(), &redis.Z{
+	p.ZAdd(ctx, instancesByCreation(), redis.Z{
 		Member: instance.InstanceID,
 		Score:  float64(createdAt.UnixMilli()),
 	})
