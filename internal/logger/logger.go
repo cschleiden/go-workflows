@@ -5,6 +5,7 @@ import (
 	"log"
 
 	lg "github.com/cschleiden/go-workflows/log"
+	"github.com/fatih/color"
 )
 
 type defaultLogger struct {
@@ -42,15 +43,19 @@ func (dl *defaultLogger) With(fields ...interface{}) lg.Logger {
 func (dl *defaultLogger) formatFields(level, msg string, fields ...interface{}) []any {
 	var result []any
 
-	result = append(result, level)
-	result = append(result, msg)
+	result = append(result, color.GreenString("|%s|", level))
+	result = append(result, color.New(color.Bold, color.FgWhite).Sprintf("%-30s", msg))
 
 	for i := 0; i < len(dl.defaultFields)/2; i++ {
-		result = append(result, fmt.Sprintf("%v=%v", dl.defaultFields[i*2], dl.defaultFields[i*2+1]))
+		name := color.New(color.FgHiBlue).Sprintf("%v", dl.defaultFields[i*2])
+		value := color.New(color.Faint).Sprintf("%v", dl.defaultFields[i*2+1])
+		result = append(result, fmt.Sprintf("%v=%v", name, value))
 	}
 
 	for i := 0; i < len(fields)/2; i++ {
-		result = append(result, fmt.Sprintf("%v=%v", fields[i*2], fields[i*2+1]))
+		name := color.New(color.FgHiBlue).Sprintf("%v", fields[i*2])
+		value := color.New(color.Faint).Sprintf("%v", fields[i*2+1])
+		result = append(result, fmt.Sprintf("%v=%v", name, value))
 	}
 
 	return result
