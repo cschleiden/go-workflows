@@ -167,7 +167,10 @@ func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceID str
 	cmd := readInstanceP(ctx, p, instanceID)
 
 	// Error is checked when checking the cmd
-	_, _ = p.Exec(ctx)
+	cmds, err := p.Exec(ctx)
+
+	fmt.Printf("\t\tExecuted commands: %v\n", cmds)
+	fmt.Printf("\t\tErrors while executing commands: %v\n", err)
 
 	return readInstancePipelineCmd(cmd)
 }
@@ -190,7 +193,7 @@ func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 
 	var state instanceState
 	if err := json.Unmarshal([]byte(val), &state); err != nil {
-		return nil, fmt.Errorf("unmarshaling instance state: %w", err)
+		return nil, fmt.Errorf("unmarshaling instance state: %w\nvalue of cmd.Result() creating the error was: %v", err, val)
 	}
 
 	return &state, nil
