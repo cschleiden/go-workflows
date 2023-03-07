@@ -90,7 +90,7 @@ func main() {
 
 	go runWorker(ctx, b)
 
-	c := client.NewClient(b)
+	c := client.New(b)
 
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
