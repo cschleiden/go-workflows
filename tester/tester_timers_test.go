@@ -42,6 +42,21 @@ func workflowTimer(ctx workflow.Context) (timerResult, error) {
 	}, nil
 }
 
+func Test_TimerHanging(t *testing.T) {
+	wf := func(ctx workflow.Context) error {
+		// Schedule timer and don't wait for it
+		workflow.ScheduleTimer(ctx, 30*time.Second)
+
+		return nil
+	}
+
+	tester := NewWorkflowTester[timerResult](wf)
+
+	require.Panics(t, func() {
+		tester.Execute()
+	})
+}
+
 func Test_TimerCancellation(t *testing.T) {
 	tester := NewWorkflowTester[time.Time](workflowTimerCancellation)
 	start := tester.Now()
