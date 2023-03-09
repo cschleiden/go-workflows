@@ -78,14 +78,14 @@ jobs:
           cat bench-redis.md >> benchmark.md
 
           echo "## Large payload run (5MB)" >> benchmark.md
-          hyperfine --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql'
-          hyperfine --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite'
-          hyperfine --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -resultsize 5000000 -runs 2 -backend redis' -n 'redis-pr' './bench-pr -resultsize 5000000 -runs 2 -backend redis'
-          cat bench-mysql.md >> benchmark.md
+          hyperfine --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
+          hyperfine --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
+          hyperfine --warmup 1 --export-markdown bench-redis-l.md -n 'redis-main' './bench-main -resultsize 5000000 -runs 2 -backend redis -timeout 240s' -n 'redis-pr' './bench-pr -resultsize 5000000 -runs 2 -backend redis -timeout 240s'
+          cat bench-mysql-l.md >> benchmark.md
           echo $'\n' >> benchmark.md
-          cat bench-sqlite.md >> benchmark.md
+          cat bench-sqlite-l.md >> benchmark.md
           echo $'\n' >> benchmark.md
-          cat bench-redis.md >> benchmark.md
+          cat bench-redis-l.md >> benchmark.md
 
       - name: Write a new comment
         uses: peter-evans/create-or-update-comment@v2
