@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/cschleiden/go-workflows/internal/core"
@@ -10,8 +11,58 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+type eventWithoutAttributes struct {
+	*history.Event
+}
+
+func (e *eventWithoutAttributes) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		*history.Event
+		Attributes interface{} `json:"attributes"`
+	}{
+		Event:      e.Event,
+		Attributes: nil,
+	})
+}
+
+func marshalEventWithoutAttributes(event *history.Event) (string, error) {
+	data, err := json.Marshal(&eventWithoutAttributes{event})
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
+// KEYS[1..n] - payload keys
+// ARGV[1..n] - payload values
+var addPayloadsCmd = redis.NewScript(`
+	for i = 1, #ARGV do
+		redis.call("SET", KEYS[i], ARGV[i], "NX")
+	end
+
+	return 0
+`)
+
+func addEventPayloads(ctx context.Context, p redis.Pipeliner, events []*history.Event) error {
+	keys := make([]string, 0)
+	values := make([]interface{}, 0)
+
+	for _, event := range events {
+		payload, err := json.Marshal(event.Attributes)
+		if err != nil {
+			return fmt.Errorf("marshaling event payload: %w", err)
+		}
+
+		keys = append(keys, payloadKey(event.ID))
+		values = append(values, string(payload))
+	}
+
+	return addPayloadsCmd.Run(ctx, p, keys, values...).Err()
+}
+
 func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, event *history.Event) error {
-	eventData, err := json.Marshal(event)
+	eventData, err := marshalEventWithoutAttributes(event)
 	if err != nil {
 		return err
 	}
@@ -37,10 +88,10 @@ var addEventsToStreamCmd = redis.NewScript(`
 	return msgID
 `)
 
-func addEventsToHistoryStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, events []*history.Event) error {
+func addEventsToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, events []*history.Event) error {
 	eventsData := make([]string, 0)
 	for _, event := range events {
-		eventData, err := json.Marshal(event)
+		eventData, err := marshalEventWithoutAttributes(event)
 		if err != nil {
 			return err
 		}
@@ -58,40 +109,50 @@ func addEventsToHistoryStreamP(ctx context.Context, p redis.Pipeliner, streamKey
 
 // KEYS[1] - future event zset key
 // KEYS[2] - future event key
+// KEYS[3] - future event payload key
 // ARGV[1] - timestamp
 // ARGV[2] - Instance ID
-// ARGV[3] - event payload
+// ARGV[3] - event data
+// ARGV[4] - event payload
 var addFutureEventCmd = redis.NewScript(`
 	redis.call("ZADD", KEYS[1], ARGV[1], KEYS[2])
-	return redis.call("HSET", KEYS[2], "instance", ARGV[2], "event", ARGV[3])
+	redis.call("HSET", KEYS[2], "instance", ARGV[2], "event", ARGV[3])
+	redis.call("SET", KEYS[3], ARGV[4], "NX")
+	return 0
 `)
 
 func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
-	eventData, err := json.Marshal(event)
+	eventData, err := marshalEventWithoutAttributes(event)
 	if err != nil {
 		return err
 	}
 
-	addFutureEventCmd.Run(
+	payloadEventData, err := json.Marshal(event.Attributes)
+	if err != nil {
+		return err
+	}
+
+	return addFutureEventCmd.Run(
 		ctx, p,
-		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID)},
+		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID), payloadKey(event.ID)},
 		strconv.FormatInt(event.VisibleAt.UnixMilli(), 10),
 		instance.InstanceID,
 		string(eventData),
-	)
-
-	return nil
+		string(payloadEventData),
+	).Err()
 }
 
 // KEYS[1] - future event zset key
 // KEYS[2] - future event key
+// KEYS[3] - future event payload key
 var removeFutureEventCmd = redis.NewScript(`
 	redis.call("ZREM", KEYS[1], KEYS[2])
+	redis.call("DEL", KEYS[3])
 	return redis.call("DEL", KEYS[2])
 `)
 
 // removeFutureEvent removes a scheduled future event for the given event. Events are associated via their ScheduleEventID
 func removeFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) {
 	key := futureEventKey(instance.InstanceID, event.ScheduleEventID)
-	removeFutureEventCmd.Run(ctx, p, []string{futureEventsKey(), key})
+	removeFutureEventCmd.Run(ctx, p, []string{futureEventsKey(), key, payloadKey(event.ID)})
 }

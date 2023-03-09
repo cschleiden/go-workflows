@@ -31,3 +31,7 @@ func futureEventsKey() string {
 func futureEventKey(instanceID string, scheduleEventID int64) string {
 	return fmt.Sprintf("future-event:%v:%v", instanceID, scheduleEventID)
 }
+
+func payloadKey(eventID string) string {
+	return fmt.Sprintf("payload:%v", eventID)
+}

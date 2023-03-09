@@ -29,19 +29,14 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		return err
 	}
 
-	// Create event stream
-	eventData, err := json.Marshal(event)
-	if err != nil {
-		return err
+	// Create event stream with initial event
+	if err := addEventPayloads(ctx, p, []*history.Event{event}); err != nil {
+		return fmt.Errorf("adding event payloads: %w", err)
 	}
 
-	p.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(instance.InstanceID),
-		ID:     "*",
-		Values: map[string]interface{}{
-			"event": string(eventData),
-		},
-	})
+	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance.InstanceID), event); err != nil {
+		return fmt.Errorf("adding event to stream: %w", err)
+	}
 
 	// Queue workflow instance task
 	if err := rb.workflowQueue.Enqueue(ctx, p, instance.InstanceID, nil); err != nil {

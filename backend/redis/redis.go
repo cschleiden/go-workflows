@@ -79,6 +79,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		"removeFutureEventCmd":   removeFutureEventCmd.Load(ctx, rb.rdb),
 		"removePendingEventsCmd": removePendingEventsCmd.Load(ctx, rb.rdb),
 		"requeueInstanceCmd":     requeueInstanceCmd.Load(ctx, rb.rdb),
+		"addPayloadsCmd":         addPayloadsCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
 		// fmt.Println(name, cmd.Val())
