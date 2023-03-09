@@ -67,10 +67,21 @@ jobs:
 
       - name: Run benchmarks - mysql
         run: |
+          echo "## Default run" > benchmark.md
           hyperfine --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
           hyperfine --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
           hyperfine --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -runs 2 -backend redis' -n 'redis-pr' './bench-pr -runs 2 -backend redis'
-          cat bench-mysql.md > benchmark.md
+          cat bench-mysql.md >> benchmark.md
+          echo $'\n' >> benchmark.md
+          cat bench-sqlite.md >> benchmark.md
+          echo $'\n' >> benchmark.md
+          cat bench-redis.md >> benchmark.md
+
+          echo "## Large payload run (5MB)" >> benchmark.md
+          hyperfine --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql'
+          hyperfine --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite'
+          hyperfine --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -resultsize 5000000 -runs 2 -backend redis' -n 'redis-pr' './bench-pr -resultsize 5000000 -runs 2 -backend redis'
+          cat bench-mysql.md >> benchmark.md
           echo $'\n' >> benchmark.md
           cat bench-sqlite.md >> benchmark.md
           echo $'\n' >> benchmark.md
