@@ -65,7 +65,7 @@ jobs:
       - name: Start MySQL
         run: sudo /etc/init.d/mysql start
 
-      - name: Run benchmarks - mysql
+      - name: Run benchmarks
         run: |
           echo "## Default run" > benchmark.md
           hyperfine --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
