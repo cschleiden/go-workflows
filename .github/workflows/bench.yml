@@ -77,6 +77,9 @@ jobs:
           echo $'\n' >> benchmark.md
           cat bench-redis.md >> benchmark.md
 
+      - name: Run large benchmarks
+        if: github.event.issue.pull_request && contains(github.event.comment.body, '!large')
+        run:
           echo "## Large payload run (5MB)" >> benchmark.md
           hyperfine --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
           hyperfine --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
