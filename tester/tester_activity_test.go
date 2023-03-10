@@ -1,9 +1,11 @@
 package tester
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/activity"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -101,5 +103,28 @@ func Test_ActivityRaceWithSignal(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
 	require.Equal(t, "signal", wr)
+	tester.AssertExpectations(t)
+}
+
+func Test_ActivityWithLogger(t *testing.T) {
+	activity1 := func(ctx context.Context) (string, error) {
+		activity.Logger(ctx).Debug("hello from test")
+
+		return "activity", nil
+	}
+
+	wf := func(ctx workflow.Context) error {
+		workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
+
+		return nil
+	}
+
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3))
+
+	tester.Registry().RegisterActivity(activity1)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
 	tester.AssertExpectations(t)
 }
