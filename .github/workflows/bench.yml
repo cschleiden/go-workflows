@@ -79,7 +79,7 @@ jobs:
 
       - name: Run large benchmarks
         if: github.event.issue.pull_request && contains(github.event.comment.body, '!large')
-        run:
+        run: |
           echo "## Large payload run (1MB)" >> benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 1000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 1000000 -runs 2 -backend mysql -timeout 240s'
           hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 1000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 1000000 -runs 2 -backend sqlite -timeout 240s'
@@ -93,7 +93,7 @@ jobs:
 
       - name: Run very large benchmarks
         if: github.event.issue.pull_request && contains(github.event.comment.body, '!verylarge')
-        run:
+        run: |
           echo "## Large payload run (5MB)" >> benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
           hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
