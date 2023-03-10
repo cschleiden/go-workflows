@@ -74,10 +74,34 @@ type testWorkflow struct {
 	pendingEvents []*history.Event
 }
 
-type options struct {
-	TestTimeout time.Duration
-	Logger      log.Logger
-	Converter   converter.Converter
+type WorkflowTester[TResult any] interface {
+	// Now returns the current time of the simulated clock in the tester
+	Now() time.Time
+
+	Execute(args ...interface{})
+
+	Registry() *workflow.Registry
+
+	OnActivity(activity interface{}, args ...interface{}) *mock.Call
+
+	OnSubWorkflow(workflow interface{}, args ...interface{}) *mock.Call
+
+	SignalWorkflow(signalName string, value interface{})
+
+	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{}) error
+
+	WorkflowFinished() bool
+
+	WorkflowResult() (TResult, string)
+
+	// AssertExpectations asserts any assertions set up for mock activities and sub-workflow
+	AssertExpectations(t *testing.T)
+
+	// ScheduleCallback schedules the given callback after the given delay in workflow time (not wall clock).
+	ScheduleCallback(delay time.Duration, callback func())
+
+	// ListenSubWorkflow registers a handler to be called when a sub-workflow is started.
+	ListenSubWorkflow(listener func(instance *core.WorkflowInstance, name string))
 }
 
 type workflowTester[TResult any] struct {
@@ -129,6 +153,8 @@ type workflowTester[TResult any] struct {
 
 	converter converter.Converter
 }
+
+var _ WorkflowTester[any] = (*workflowTester[any])(nil)
 
 func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption) *workflowTester[TResult] {
 	if err := margs.ReturnTypeMatch[TResult](wf); err != nil {

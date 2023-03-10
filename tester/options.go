@@ -7,6 +7,12 @@ import (
 	"github.com/cschleiden/go-workflows/log"
 )
 
+type options struct {
+	TestTimeout time.Duration
+	Logger      log.Logger
+	Converter   converter.Converter
+}
+
 type WorkflowTesterOption func(*options)
 
 func WithLogger(logger log.Logger) WorkflowTesterOption {
