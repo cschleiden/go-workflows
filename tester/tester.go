@@ -477,11 +477,7 @@ func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
 func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, event *history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
-	atomic.AddInt32(&wt.runningActivities, 1)
-
 	go func() {
-		defer atomic.AddInt32(&wt.runningActivities, -1)
-
 		var activityErr error
 		var activityResult payload.Payload
 
@@ -533,6 +529,9 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			}
 
 		} else {
+			atomic.AddInt32(&wt.runningActivities, 1)
+			defer atomic.AddInt32(&wt.runningActivities, -1)
+
 			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
