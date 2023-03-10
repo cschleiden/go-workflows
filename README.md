@@ -518,7 +518,7 @@ func TestWorkflow(t *testing.T) {
 
 #### Activities
 
-Activities can be tested like any other function. If you make use of
+Activities can be tested like any other function. If you make use of the activity context, for example, to retrieve a logger, you can use `activitytester.WithActivityTestState` to provide a test activity context. If you don't specify a logger, the default logger implementation will be used.
 
 
 ```go
