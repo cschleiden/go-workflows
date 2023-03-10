@@ -60,6 +60,8 @@ func Test_LongActivity(t *testing.T) {
 
 func Test_ActivityRaceWithSignal(t *testing.T) {
 	activity1 := func() (string, error) {
+		time.Sleep(200 * time.Millisecond)
+
 		return "activity", nil
 	}
 
@@ -90,9 +92,7 @@ func Test_ActivityRaceWithSignal(t *testing.T) {
 
 	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3))
 
-	tester.OnActivity(activity1).Run(func(args mock.Arguments) {
-		time.Sleep(200 * time.Millisecond)
-	}).Return("activity", nil)
+	tester.OnActivity(activity1).Return("activity", nil)
 
 	tester.ScheduleCallback(time.Millisecond*100, func() {
 		tester.SignalWorkflow("signal", "stop")
