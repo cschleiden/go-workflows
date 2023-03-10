@@ -486,6 +486,8 @@ workflow.Select(
 
 ### Unit testing
 
+#### Workflows
+
 go-workflows includes support for testing workflows, a simple example using mocked activities:
 
 ```go
@@ -513,6 +515,27 @@ func TestWorkflow(t *testing.T) {
 
 - Timers are automatically fired by advancing a mock workflow clock that is used for testing workflows
 - You can register callbacks to fire at specific times (in mock-clock time). Callbacks can send signals, cancel workflows etc.
+
+#### Activities
+
+Activities can be tested like any other function. If you make use of the activity context, for example, to retrieve a logger, you can use `activitytester.WithActivityTestState` to provide a test activity context. If you don't specify a logger, the default logger implementation will be used.
+
+
+```go
+func Activity(ctx context.Context, a int, b int) (int, error) {
+	activity.Logger(ctx).Debug("Activity is called", "a", a)
+
+	return a + b, nil
+}
+
+func TestActivity(t *testing.T) {
+	ctx := activitytester.WithActivityTestState(context.Background(), "activityID", "instanceID", nil)
+
+	r, err := Activity(ctx, 35, 12)
+	require.Equal(t, 47, r)
+	require.NoError(t, err)
+}
+```
 
 ### Logging
 
