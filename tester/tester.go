@@ -48,9 +48,6 @@ type testTimer struct {
 	// At is the time this timer is scheduled for in test time
 	At time.Time
 
-	// WallClockAt is the time this timer is scheduled for in wall-clock time
-	WallClockAt time.Time
-
 	// Callback is called when the timer should fire.
 	Callback *func()
 
@@ -428,28 +425,21 @@ func (wt *workflowTester[TResult]) fireTimer() bool {
 		{
 			t := wt.timers[0]
 
-			wt.logger.Debug("Scheduling wall-clock timer", "at", t.WallClockAt)
+			wt.logger.Debug("Scheduling wall-clock timer", "at", t.At)
 
-			// wt.nextTimer = t
+			// Determine when this should run
+			remainingTime := t.At.Sub(wt.clock.Now())
 
-			if wt.wallClock.Now().After(t.WallClockAt) {
-				// Fire timer
-				wt.timers = wt.timers[1:]
-				wt.callbacks <- t.fire
+			// Schedule timer
+			wt.wallClockTimer = wt.wallClock.AfterFunc(remainingTime, func() {
+				wt.callbacks <- func() *history.WorkflowEvent {
+					// Remove timer
+					wt.timers = wt.timers[1:]
+					wt.wallClockTimer = nil
 
-				return true
-			} else if wt.wallClockTimer == nil {
-				// Schedule timer
-				wt.wallClockTimer = wt.wallClock.AfterFunc(t.WallClockAt.Sub(wt.wallClock.Now()), func() {
-					wt.callbacks <- func() *history.WorkflowEvent {
-						// Remove timer
-						wt.timers = wt.timers[1:]
-						wt.wallClockTimer = nil
-
-						return t.fire()
-					}
-				})
-			}
+					return t.fire()
+				}
+			})
 		}
 	}
 
@@ -633,7 +623,6 @@ func (wt *workflowTester[TResult]) scheduleTimer(instance *core.WorkflowInstance
 		Instance:        instance,
 		ScheduleEventID: event.ScheduleEventID,
 		At:              e.At,
-		WallClockAt:     wt.wallClock.Now().Add(e.At.Sub(wt.clock.Now())),
 		TimerEvent: &history.WorkflowEvent{
 			WorkflowInstance: instance,
 			HistoryEvent:     event,
