@@ -148,3 +148,97 @@ func workflowTimerRespondingWithoutNewEvents(ctx workflow.Context) error {
 
 	return nil
 }
+
+func Test_WallClockTimer_Canceled(t *testing.T) {
+	activity1 := func() (string, error) {
+		return "activity", nil
+	}
+
+	wf := func(ctx workflow.Context) (string, error) {
+		tctx, cancel := workflow.WithCancel(ctx)
+		defer cancel()
+
+		workflow.ScheduleTimer(tctx, time.Millisecond*50)
+		return workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
+	}
+
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3))
+
+	tester.OnActivity(activity1).Return("activity", nil)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	wr, _ := tester.WorkflowResult()
+	require.Equal(t, "activity", wr)
+	tester.AssertExpectations(t)
+}
+
+func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
+	activity1 := func() error {
+		return nil
+	}
+
+	wf := func(ctx workflow.Context) error {
+		tctx, cancel := workflow.WithCancel(ctx)
+
+		// This will be executed in wall-clock mode
+		workflow.ScheduleTimer(tctx, time.Millisecond*50)
+		workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
+		cancel()
+
+		// This will switch to time-travel
+		tctx, cancel = workflow.WithCancel(ctx)
+		workflow.ScheduleTimer(tctx, time.Hour*24).Get(ctx)
+
+		return nil
+	}
+
+	dl := newDebugLogger()
+
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl))
+
+	tester.OnActivity(activity1).Return("activity", nil)
+
+	tester.Execute()
+
+	require.True(t, dl.hasLine("from=WallClock to=TimeTravel"))
+	require.True(t, dl.hasLine("from=TimeTravel to=WallClock"))
+
+	require.True(t, tester.WorkflowFinished())
+	_, werr := tester.WorkflowResult()
+	require.Empty(t, werr)
+	tester.AssertExpectations(t)
+}
+
+func Test_Timers_MultipleTimers(t *testing.T) {
+	activity1 := func() error {
+		return nil
+	}
+
+	wf := func(ctx workflow.Context) error {
+		for i := 0; i < 10; i++ {
+
+			tctx, cancel := workflow.WithCancel(ctx)
+			workflow.ScheduleTimer(tctx, time.Millisecond*10)
+			workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
+
+			cancel()
+		}
+
+		return nil
+	}
+
+	dl := newDebugLogger()
+
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl))
+
+	tester.OnActivity(activity1).Return("activity", nil)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	_, werr := tester.WorkflowResult()
+	require.Empty(t, werr)
+	tester.AssertExpectations(t)
+}
