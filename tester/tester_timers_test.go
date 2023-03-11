@@ -210,3 +210,35 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 	require.Empty(t, werr)
 	tester.AssertExpectations(t)
 }
+
+func Test_Timers_MultipleTimers(t *testing.T) {
+	activity1 := func() error {
+		return nil
+	}
+
+	wf := func(ctx workflow.Context) error {
+		for i := 0; i < 10; i++ {
+
+			tctx, cancel := workflow.WithCancel(ctx)
+			workflow.ScheduleTimer(tctx, time.Millisecond*10)
+			workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
+
+			cancel()
+		}
+
+		return nil
+	}
+
+	dl := newDebugLogger()
+
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl))
+
+	tester.OnActivity(activity1).Return("activity", nil)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	_, werr := tester.WorkflowResult()
+	require.Empty(t, werr)
+	tester.AssertExpectations(t)
+}

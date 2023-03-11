@@ -423,6 +423,11 @@ func (wt *workflowTester[TResult]) fireTimer() bool {
 
 	case TM_WallClock:
 		{
+			if wt.wallClockTimer != nil {
+				// Wall-clock timer already scheduled
+				return false
+			}
+
 			t := wt.timers[0]
 
 			wt.logger.Debug("Scheduling wall-clock timer", "at", t.At)
