@@ -1,7 +1,6 @@
-## Setup MySQL for mysql backend
+## Setup dependencies for development and tests
 
 1. `docker-compose up`
-2. Create database TODO
 
 ### Use custom linter
 
