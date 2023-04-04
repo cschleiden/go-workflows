@@ -24,6 +24,8 @@ type Command interface {
 	// Done marks the command as done. This transitions the state to done and indicates that the result
 	// of this command has been applied.
 	Done()
+
+	WhenDone(fn func())
 }
 
 type CommandResult struct {
@@ -40,6 +42,8 @@ type command struct {
 	state CommandState
 
 	id int64
+
+	whenDone func()
 }
 
 func (c *command) ID() int64 {
@@ -67,9 +71,17 @@ func (c *command) Done() {
 	switch c.state {
 	case CommandState_Committed:
 		c.state = CommandState_Done
+
+		if c.whenDone != nil {
+			c.whenDone()
+		}
 	default:
 		c.invalidStateTransition(CommandState_Done)
 	}
+}
+
+func (c *command) WhenDone(fn func()) {
+	c.whenDone = fn
 }
 
 func (c *command) invalidStateTransition(state CommandState) {

@@ -25,10 +25,26 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	scheduleEventID := wfState.GetNextScheduleEventID()
 	at := Now(ctx).Add(delay)
+
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at)
 	wfState.AddCommand(timerCmd)
-
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(converter.GetConverter(ctx), f))
+
+	cancelReceiver := &sync.Receiver[struct{}]{
+		Receive: func(v struct{}, ok bool) {
+			timerCmd.Cancel()
+
+			// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired. This is different
+			// from subworkflow behavior, where we want to wait for the subworkflow to complete before proceeding. Here we can
+			// continue right away.
+			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
+				if !fi.Ready() {
+					wfState.RemoveFuture(scheduleEventID)
+					f.Set(v, sync.Canceled)
+				}
+			}
+		},
+	}
 
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "ScheduleTimer",
 		trace.WithAttributes(
@@ -42,26 +58,10 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
 		// Register a callback for when it's canceled. The only operation on the `Done` channel
 		// is that it's closed when the context is canceled.
-		canceled := false
+		c.AddReceiveCallback(cancelReceiver)
 
-		c.AddReceiveCallback(func(v struct{}, ok bool) {
-			// Ignore any future cancelation events for this timer
-			if canceled {
-				return
-			}
-			canceled = true
-
-			timerCmd.Cancel()
-
-			// Remove the timer future from the workflow state and mark it as canceled if it hasn't already fired. This is different
-			// from subworkflow behavior, where we want to wait for the subworkflow to complete before proceeding. Here we can
-			// continue right away.
-			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
-				if !fi.Ready() {
-					wfState.RemoveFuture(scheduleEventID)
-					f.Set(v, sync.Canceled)
-				}
-			}
+		timerCmd.WhenDone(func() {
+			c.RemoveReceiveCallback(cancelReceiver)
 		})
 	}
 

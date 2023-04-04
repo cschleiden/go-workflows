@@ -65,6 +65,9 @@ func (c *SideEffectCommand) Done() {
 	switch c.state {
 	case CommandState_Pending, CommandState_Committed:
 		c.state = CommandState_Done
+		if c.whenDone != nil {
+			c.whenDone()
+		}
 
 	default:
 		c.invalidStateTransition(CommandState_Done)
