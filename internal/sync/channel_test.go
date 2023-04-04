@@ -413,3 +413,60 @@ func Test_Channel_Buffered(t *testing.T) {
 		})
 	}
 }
+
+func Test_CancellationHandler_Add(t *testing.T) {
+	ctx, cancel := WithCancel(Background())
+
+	f := 1
+
+	c := NewChannel[int]()
+	ic := c.(*channel[int])
+
+	cr := NewCoroutine(ctx, func(ctx Context) error {
+		r := &Receiver[int]{
+			Receive: func(_ int, ok bool) {
+				f++
+			},
+		}
+
+		ic.AddReceiveCallback(r)
+
+		c.Send(ctx, 42)
+		return nil
+	})
+
+	cr.Execute()
+
+	cancel()
+
+	require.Equal(t, 2, f)
+}
+
+func Test_CancellationHandler_Remove(t *testing.T) {
+	ctx, cancel := WithCancel(Background())
+
+	f := 1
+
+	c := NewChannel[int]()
+	ic := c.(*channel[int])
+
+	cr := NewCoroutine(ctx, func(ctx Context) error {
+		r := &Receiver[int]{
+			Receive: func(_ int, ok bool) {
+				f++
+			},
+		}
+
+		ic.AddReceiveCallback(r)
+		ic.RemoveReceiveCallback(r)
+
+		c.Send(ctx, 42)
+		return nil
+	})
+
+	cr.Execute()
+
+	cancel()
+
+	require.Equal(t, 1, f)
+}
