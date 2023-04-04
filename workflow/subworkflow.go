@@ -85,22 +85,31 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	span.Marshal(metadata)
 
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs, metadata)
+
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
-		c.AddReceiveCallback(func(v struct{}, ok bool) {
-			cmd.Cancel()
-			if cmd.State() == command.CommandState_Canceled {
-				// Remove the sub-workflow future from the workflow state and mark it as canceled if it hasn't already fired
-				if fi, ok := f.(sync.FutureInternal[TResult]); ok {
-					if !fi.Ready() {
-						wfState.RemoveFuture(scheduleEventID)
-						f.Set(*new(TResult), sync.Canceled)
+		cancelReceiver := &sync.Receiver[struct{}]{
+			Receive: func(v struct{}, ok bool) {
+				cmd.Cancel()
+				if cmd.State() == command.CommandState_Canceled {
+					// Remove the sub-workflow future from the workflow state and mark it as canceled if it hasn't already fired
+					if fi, ok := f.(sync.FutureInternal[TResult]); ok {
+						if !fi.Ready() {
+							wfState.RemoveFuture(scheduleEventID)
+							f.Set(*new(TResult), sync.Canceled)
+						}
 					}
 				}
-			}
+			},
+		}
+
+		c.AddReceiveCallback(cancelReceiver)
+
+		cmd.WhenDone(func() {
+			c.RemoveReceiveCallback(cancelReceiver)
 		})
 	}
 

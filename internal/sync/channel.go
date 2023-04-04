@@ -12,6 +12,10 @@ type Channel[T any] interface {
 	Close()
 }
 
+type Receiver[T any] struct {
+	Receive func(v T, ok bool)
+}
+
 type ChannelInternal[T any] interface {
 	Closed() bool
 
@@ -19,7 +23,9 @@ type ChannelInternal[T any] interface {
 
 	// AddReceiveCallback adds a callback that is called once when a value is sent to the channel. This is similar
 	// to the blocking `Receive` method, but is not blocking a coroutine.
-	AddReceiveCallback(cb func(v T, ok bool))
+	AddReceiveCallback(rcb *Receiver[T])
+
+	RemoveReceiveCallback(rcb *Receiver[T])
 }
 
 // Ensure channel implementation support internal interface
@@ -40,7 +46,7 @@ func NewBufferedChannel[T any](size int) Channel[T] {
 
 type channel[T any] struct {
 	c         []T
-	receivers []func(value T, ok bool)
+	receivers []*Receiver[T]
 	senders   []func() T
 	closed    bool
 	size      int
@@ -62,7 +68,7 @@ func (c *channel[T]) Close() {
 
 		// Send zero value to pending receiver
 		var v T
-		r(v, false)
+		r.Receive(v, false)
 	}
 }
 
@@ -119,10 +125,12 @@ func (c *channel[T]) Receive(ctx Context) (v T, ok bool) {
 
 		// Register handler to receive value once
 		if !addedListener {
-			cb := func(rv T, rok bool) {
-				receivedValue = true
-				v = rv
-				ok = rok
+			cb := &Receiver[T]{
+				Receive: func(rv T, rok bool) {
+					receivedValue = true
+					v = rv
+					ok = rok
+				},
 			}
 
 			c.receivers = append(c.receivers, cb)
@@ -176,7 +184,7 @@ func (c *channel[T]) trySend(v T) bool {
 		c.receivers[0] = nil
 		c.receivers = c.receivers[1:]
 
-		r(v, true)
+		r.Receive(v, true)
 
 		return true
 	}
@@ -223,8 +231,18 @@ func (c *channel[T]) hasCapacity() bool {
 	return len(c.c) < c.size
 }
 
-func (c *channel[T]) AddReceiveCallback(cb func(v T, ok bool)) {
+func (c *channel[T]) AddReceiveCallback(cb *Receiver[T]) {
 	c.receivers = append(c.receivers, cb)
+}
+
+func (c *channel[T]) RemoveReceiveCallback(cb *Receiver[T]) {
+	for i, r := range c.receivers {
+		if r == cb {
+			c.receivers[i] = nil
+			c.receivers = append(c.receivers[:i], c.receivers[i+1:]...)
+			return
+		}
+	}
 }
 
 func (c *channel[T]) Closed() bool {

@@ -38,6 +38,10 @@ func (c *cancelableCommand) Done() {
 	switch c.state {
 	case CommandState_Committed, CommandState_Canceled:
 		c.state = CommandState_Done
+		if c.whenDone != nil {
+			c.whenDone()
+		}
+
 	default:
 		c.invalidStateTransition(CommandState_Done)
 	}
