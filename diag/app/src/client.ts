@@ -1,7 +1,6 @@
 export interface WorkflowInstance {
   instance_id: string;
   parent_instance: string;
-  execution_id: string;
 }
 
 export interface WorkflowInstanceRef {

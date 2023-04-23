@@ -40,7 +40,7 @@ func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
 }
 
 func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
-	instance := core.NewWorkflowInstance(uuid.NewString(), "test")
+	instance := core.NewWorkflowInstance(uuid.NewString())
 
 	ctx := context.Background()
 
@@ -59,7 +59,7 @@ func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
 }
 
 func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
-	instance := core.NewWorkflowInstance(uuid.NewString(), "test")
+	instance := core.NewWorkflowInstance(uuid.NewString())
 
 	ctx := context.Background()
 

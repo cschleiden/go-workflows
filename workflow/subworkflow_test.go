@@ -23,7 +23,7 @@ func Test_createSubWorkflowInstance_ParamMismatch(t *testing.T) {
 	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New()),
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a"), logger.NewDefaultLogger(), clock.New()),
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
@@ -48,7 +48,7 @@ func Test_createSubWorkflowInstance_ReturnMismatch(t *testing.T) {
 	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New()),
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a"), logger.NewDefaultLogger(), clock.New()),
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
