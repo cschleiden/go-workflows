@@ -162,7 +162,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 	c := clock.NewMock()
 	c.Set(time.Now())
 
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+	wfi := core.NewWorkflowInstance(uuid.NewString())
 	registry := workflow.NewRegistry()
 
 	options := &options{
@@ -783,7 +783,7 @@ type signaler[T any] struct {
 }
 
 func (s *signaler[T]) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
-	return s.wt.SignalWorkflowInstance(core.NewWorkflowInstance(instanceID, ""), name, arg)
+	return s.wt.SignalWorkflowInstance(core.NewWorkflowInstance(instanceID), name, arg)
 }
 
 var _ signals.Signaler = (*signaler[any])(nil)

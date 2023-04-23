@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS `instances` (
   `id` TEXT PRIMARY KEY,
-  `execution_id` TEXT NO NULL,
   `parent_instance_id` TEXT NULL,
   `parent_schedule_event_id` INTEGER NULL,
   `metadata` TEXT NULL,
@@ -45,7 +44,6 @@ CREATE INDEX IF NOT EXISTS `idx_history_instance_sequence_id` ON `history` (`ins
 CREATE TABLE IF NOT EXISTS `activities` (
   `id` TEXT PRIMARY KEY,
   `instance_id` TEXT NOT NULL,
-  `execution_id` TEXT NOT NULL,
   `event_type` INTEGER NOT NULL,
   `timestamp` DATETIME NOT NULL,
   `schedule_event_id` INT NOT NULL,

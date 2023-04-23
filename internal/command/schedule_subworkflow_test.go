@@ -94,7 +94,7 @@ func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			clock := clock.NewMock()
 
-			parentInstance := core.NewWorkflowInstance(uuid.NewString(), "")
+			parentInstance := core.NewWorkflowInstance(uuid.NewString())
 
 			cmd := NewScheduleSubWorkflowCommand(1, parentInstance, uuid.NewString(), "SubWorkflow", []payload.Payload{}, &core.WorkflowMetadata{})
 

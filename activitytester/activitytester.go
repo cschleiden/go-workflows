@@ -14,5 +14,5 @@ func WithActivityTestState(ctx context.Context, activityID, instanceID string, l
 		logger = dlogger.NewDefaultLogger()
 	}
 
-	return activity.WithActivityState(ctx, activity.NewActivityState(activityID, core.NewWorkflowInstance(instanceID, ""), logger))
+	return activity.WithActivityState(ctx, activity.NewActivityState(activityID, core.NewWorkflowInstance(instanceID), logger))
 }

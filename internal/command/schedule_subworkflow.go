@@ -36,7 +36,7 @@ func NewScheduleSubWorkflowCommand(
 			},
 		},
 
-		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance.InstanceID, id),
+		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, parentInstance.InstanceID, id),
 		Metadata: metadata,
 
 		Name:   name,

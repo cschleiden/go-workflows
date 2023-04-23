@@ -25,11 +25,11 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	r := wf.NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
 
-	i := core.NewWorkflowInstance("instanceID", "executionID")
+	i := core.NewWorkflowInstance("instanceID")
 	e := wf.NewExecutor(
 		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
 
-	i2 := core.NewWorkflowInstance("instanceID2", "executionID2")
+	i2 := core.NewWorkflowInstance("instanceID2")
 	e2 := wf.NewExecutor(
 		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
 
@@ -57,7 +57,7 @@ func Test_Cache_Evict(t *testing.T) {
 		1, // Should evict immediately
 	)
 
-	i := core.NewWorkflowInstance("instanceID", "executionID")
+	i := core.NewWorkflowInstance("instanceID")
 	r := wf.NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
 	e := wf.NewExecutor(

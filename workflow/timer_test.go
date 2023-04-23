@@ -16,7 +16,7 @@ import (
 )
 
 func Test_Timer_Cancellation(t *testing.T) {
-	state := workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New())
+	state := workflowstate.NewWorkflowState(core.NewWorkflowInstance("a"), logger.NewDefaultLogger(), clock.New())
 
 	ctx, cancel := sync.WithCancel(sync.Background())
 	ctx = converter.WithConverter(ctx, converter.DefaultConverter)

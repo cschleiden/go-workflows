@@ -17,7 +17,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -65,7 +64,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, fmt.Errorf("converting arguments: %w", err)
 	}
 
-	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
+	wfi := core.NewWorkflowInstance(options.InstanceID)
 	metadata := &workflow.Metadata{}
 
 	workflowName := fn.Name(wf)
@@ -92,7 +91,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 
-	c.backend.Logger().Debug("Created workflow instance", "instance_id", wfi.InstanceID, "execution_id", wfi.ExecutionID)
+	c.backend.Logger().Debug("Created workflow instance", "instance_id", wfi.InstanceID)
 
 	c.backend.Metrics().Counter(metrickeys.WorkflowInstanceCreated, metrics.Tags{}, 1)
 

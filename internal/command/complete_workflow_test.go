@@ -39,7 +39,7 @@ func TestCompleteWorkflowCommand_StateTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clock := clock.NewMock()
-			cmd := NewCompleteWorkflowCommand(1, core.NewWorkflowInstance(uuid.NewString(), ""), payload.Payload{}, nil)
+			cmd := NewCompleteWorkflowCommand(1, core.NewWorkflowInstance(uuid.NewString()), payload.Payload{}, nil)
 
 			tt.f(t, cmd, clock)
 		})

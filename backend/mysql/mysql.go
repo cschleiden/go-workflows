@@ -197,9 +197,8 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
 	row := b.db.QueryRowContext(
 		ctx,
-		"SELECT completed_at FROM instances WHERE instance_id = ? AND execution_id = ?",
+		"SELECT completed_at FROM instances WHERE instance_id = ?",
 		instance.InstanceID,
-		instance.ExecutionID,
 	)
 
 	var completedAt sql.NullTime
@@ -234,9 +233,8 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 
 	res, err := tx.ExecContext(
 		ctx,
-		"INSERT IGNORE INTO `instances` (instance_id, execution_id, parent_instance_id, parent_schedule_event_id, metadata) VALUES (?, ?, ?, ?, ?)",
+		"INSERT IGNORE INTO `instances` (instance_id, parent_instance_id, parent_schedule_event_id, metadata) VALUES (?, ?, ?, ?)",
 		wfi.InstanceID,
-		wfi.ExecutionID,
 		parentInstanceID,
 		parentEventID,
 		string(metadataJson),
@@ -296,7 +294,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	now := time.Now()
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_schedule_event_id, i.metadata, i.sticky_until
+		`SELECT i.id, i.instance_id, i.parent_instance_id, i.parent_schedule_event_id, i.metadata, i.sticky_until
 			FROM instances i
 			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
 			WHERE
@@ -313,12 +311,12 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 	)
 
 	var id int
-	var instanceID, executionID string
+	var instanceID string
 	var parentInstanceID *string
 	var parentEventID *int64
 	var metadataJson sql.NullString
 	var stickyUntil *time.Time
-	if err := row.Scan(&id, &instanceID, &executionID, &parentInstanceID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
+	if err := row.Scan(&id, &instanceID, &parentInstanceID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -348,9 +346,9 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 
 	var wfi *workflow.Instance
 	if parentInstanceID != nil {
-		wfi = core.NewSubWorkflowInstance(instanceID, executionID, *parentInstanceID, *parentEventID)
+		wfi = core.NewSubWorkflowInstance(instanceID, *parentInstanceID, *parentEventID)
 	} else {
-		wfi = core.NewWorkflowInstance(instanceID, executionID)
+		wfi = core.NewWorkflowInstance(instanceID)
 	}
 
 	var metadata *core.WorkflowMetadata
@@ -460,11 +458,10 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	res, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
+		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ? WHERE instance_id = ? AND worker = ?`,
 		time.Now().Add(b.options.StickyTimeout),
 		completedAt,
 		instance.InstanceID,
-		instance.ExecutionID,
 		b.workerName,
 	)
 	if err != nil {
@@ -564,10 +561,9 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 	until := time.Now().Add(b.options.WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
+		`UPDATE instances SET locked_until = ? WHERE instance_id = ? AND worker = ?`,
 		until,
 		instance.InstanceID,
-		instance.ExecutionID,
 		b.workerName,
 	)
 	if err != nil {
@@ -597,7 +593,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	now := time.Now()
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT activities.id, activity_id, activities.instance_id, activities.execution_id,
+		`SELECT activities.id, activity_id, activities.instance_id,
 			instances.metadata, event_type, timestamp, schedule_event_id, attributes, visible_at
 			FROM activities
 				INNER JOIN instances ON activities.instance_id = instances.instance_id
@@ -608,13 +604,13 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	)
 
 	var id int64
-	var instanceID, executionID string
+	var instanceID string
 	var attributes []byte
 	var metadataJson sql.NullString
 	event := &history.Event{}
 
 	if err := res.Scan(
-		&id, &event.ID, &instanceID, &executionID, &metadataJson, &event.Type,
+		&id, &event.ID, &instanceID, &metadataJson, &event.Type,
 		&event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -647,7 +643,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 
 	t := &task.Activity{
 		ID:               event.ID,
-		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
+		WorkflowInstance: core.NewWorkflowInstance(instanceID),
 		Metadata:         metadata,
 		Event:            event,
 	}
@@ -672,10 +668,9 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workf
 	// Remove activity
 	if res, err := tx.ExecContext(
 		ctx,
-		`DELETE FROM activities WHERE activity_id = ? AND instance_id = ? AND execution_id = ? AND worker = ?`,
+		`DELETE FROM activities WHERE activity_id = ? AND instance_id = ? AND worker = ?`,
 		id,
 		instance.InstanceID,
-		instance.ExecutionID,
 		b.workerName,
 	); err != nil {
 		return fmt.Errorf("completing activity: %w", err)
@@ -739,10 +734,9 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowIn
 	_, err = tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
-			(activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			(activity_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
 		instance.InstanceID,
-		instance.ExecutionID,
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,
