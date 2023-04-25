@@ -56,6 +56,19 @@ func Test_Activity(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
+func Test_OverrideActivity(t *testing.T) {
+	tester := NewWorkflowTester[int](workflowWithActivity)
+
+	tester.OnActivityByName("activity1", activity1, mock.Anything).Return(23, nil)
+
+	tester.Execute()
+
+	require.True(t, tester.WorkflowFinished())
+	wr, _ := tester.WorkflowResult()
+	require.Equal(t, 23, wr)
+	tester.AssertExpectations(t)
+}
+
 func Test_FailingActivity(t *testing.T) {
 	tester := NewWorkflowTester[int](workflowWithActivity)
 

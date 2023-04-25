@@ -42,10 +42,7 @@ func (e *ErrInvalidActivity) Error() string {
 	return e.msg
 }
 
-func (r *Registry) RegisterWorkflow(workflow Workflow) error {
-	r.Lock()
-	defer r.Unlock()
-
+func (r *Registry) RegisterWorkflowByName(name string, workflow Workflow) error {
 	wfType := reflect.TypeOf(workflow)
 	if wfType.Kind() != reflect.Func {
 		return &ErrInvalidWorkflow{"workflow is not a function"}
@@ -73,16 +70,20 @@ func (r *Registry) RegisterWorkflow(workflow Workflow) error {
 		return &ErrInvalidWorkflow{"workflow must return error as last return value"}
 	}
 
-	name := fn.Name(workflow)
+	r.Lock()
+	defer r.Unlock()
+
 	r.workflowMap[name] = workflow
 
 	return nil
 }
 
-func (r *Registry) RegisterActivity(activity interface{}) error {
-	r.Lock()
-	defer r.Unlock()
+func (r *Registry) RegisterWorkflow(workflow Workflow) error {
+	name := fn.Name(workflow)
+	return r.RegisterWorkflowByName(name, workflow)
+}
 
+func (r *Registry) RegisterActivityByName(name string, activity interface{}) error {
 	t := reflect.TypeOf(activity)
 
 	// Activities on struct
@@ -95,10 +96,17 @@ func (r *Registry) RegisterActivity(activity interface{}) error {
 		return err
 	}
 
-	name := fn.Name(activity)
+	r.Lock()
+	defer r.Unlock()
+
 	r.activityMap[name] = activity
 
 	return nil
+}
+
+func (r *Registry) RegisterActivity(activity interface{}) error {
+	name := fn.Name(activity)
+	return r.RegisterActivityByName(name, activity)
 }
 
 func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
