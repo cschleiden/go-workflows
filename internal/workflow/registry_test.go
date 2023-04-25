@@ -15,6 +15,7 @@ func reg_workflow1(ctx sync.Context) error {
 
 func TestRegistry_RegisterWorkflow(t *testing.T) {
 	type args struct {
+		name     string
 		workflow Workflow
 	}
 	tests := []struct {
@@ -29,6 +30,14 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 				workflow: reg_workflow1,
 			},
 			wantName: "reg_workflow1",
+		},
+		{
+			name: "valid workflow by name",
+			args: args{
+				name:     "CustomName",
+				workflow: reg_workflow1,
+			},
+			wantName: "CustomName",
 		},
 		{
 			name: "valid workflow with results",
@@ -74,7 +83,15 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewRegistry()
-			if err := r.RegisterWorkflow(tt.args.workflow); (err != nil) != tt.wantErr {
+			var err error
+
+			if tt.args.name != "" {
+				err = r.RegisterWorkflowByName(tt.args.name, tt.args.workflow)
+			} else {
+				err = r.RegisterWorkflow(tt.args.workflow)
+			}
+
+			if (err != nil) != tt.wantErr {
 				t.Errorf("Registry.RegisterWorkflow() error = %v, wantErr %v", err, tt.wantErr)
 				t.FailNow()
 			}
@@ -107,6 +124,12 @@ func Test_ActivityRegistration(t *testing.T) {
 	require.NotNil(t, fn)
 
 	err = fn(context.Background())
+	require.NoError(t, err)
+
+	err = r.RegisterActivityByName("CustomName", reg_activity)
+	require.NoError(t, err)
+
+	x, err = r.GetActivity("CustomName")
 	require.NoError(t, err)
 }
 

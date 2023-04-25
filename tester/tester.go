@@ -79,9 +79,13 @@ type WorkflowTester[TResult any] interface {
 
 	Registry() *workflow.Registry
 
-	OnActivity(activity interface{}, args ...interface{}) *mock.Call
+	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
 
-	OnSubWorkflow(workflow interface{}, args ...interface{}) *mock.Call
+	OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call
+
+	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
+
+	OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call
 
 	SignalWorkflow(signalName string, value interface{})
 
@@ -238,7 +242,15 @@ func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.Workflo
 	wt.subWorkflowListener = listener
 }
 
-func (wt *workflowTester[TResult]) OnActivity(activity interface{}, args ...interface{}) *mock.Call {
+func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call {
+	// Register activity so that we can correctly identify its arguments later
+	wt.registry.RegisterActivityByName(name, activity)
+
+	wt.mockedActivities[name] = true
+	return wt.ma.On(name, args...)
+}
+
+func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
 
@@ -247,7 +259,15 @@ func (wt *workflowTester[TResult]) OnActivity(activity interface{}, args ...inte
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnSubWorkflow(workflow interface{}, args ...interface{}) *mock.Call {
+func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call {
+	// Register workflow so that we can correctly identify its arguments later
+	wt.registry.RegisterWorkflowByName(name, workflow)
+
+	wt.mockedWorkflows[name] = true
+	return wt.mw.On(name, args...)
+}
+
+func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
 	wt.registry.RegisterWorkflow(workflow)
 
