@@ -554,6 +554,28 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				require.Equal(t, 0, r)
 			},
 		},
+		{
+			name: "RemoveWorkflowInstance",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				wf := func(ctx workflow.Context, msg string) (string, error) {
+					return msg + " world", nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf, "hello")
+
+				r, err := client.GetWorkflowResult[string](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+				require.Equal(t, "hello world", r)
+
+				err = c.RemoveWorkflowInstance(ctx, instance)
+				require.NoError(t, err)
+
+				_, err = client.GetWorkflowResult[string](ctx, c, instance, time.Second*5)
+				require.Error(t, err)
+				require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+			},
+		},
 	}
 
 	run := func(suffix string, workerOptions *worker.Options) {

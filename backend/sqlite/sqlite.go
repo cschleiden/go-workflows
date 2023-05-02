@@ -64,6 +64,8 @@ type sqliteBackend struct {
 	options    backend.Options
 }
 
+var _ backend.Backend = (*sqliteBackend)(nil)
+
 func (sb *sqliteBackend) Logger() log.Logger {
 	return sb.options.Logger
 }
@@ -143,6 +145,39 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 	}
 
 	return nil
+}
+
+func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	instanceID := instance.InstanceID
+
+	row := tx.QueryRowContext(ctx, "SELECT completed_at FROM `instances` WHERE id = ? LIMIT 1", instanceID)
+	var completedAt sql.NullTime
+	if err := row.Scan(&completedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return backend.ErrInstanceNotFound
+		}
+	}
+
+	if !completedAt.Valid {
+		return backend.ErrInstanceNotFinished
+	}
+
+	// Delete from instances and history tables
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `instances` WHERE id = ?", instanceID); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `history` WHERE instance_id = ?", instanceID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {

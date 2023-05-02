@@ -16,6 +16,7 @@ import (
 
 var ErrInstanceNotFound = errors.New("workflow instance not found")
 var ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
+var ErrInstanceNotFinished = errors.New("workflow instance is not finished")
 
 const TracerName = "go-workflow"
 
@@ -26,6 +27,9 @@ type Backend interface {
 
 	// CancelWorkflowInstance cancels a running workflow instance
 	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, cancelEvent *history.Event) error
+
+	// RemoveWorkflowInstance removes a workflow instance
+	RemoveWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
 
 	// GetWorkflowInstanceState returns the state of the given workflow instance
 	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error)

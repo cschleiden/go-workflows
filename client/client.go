@@ -36,6 +36,8 @@ type Client interface {
 
 	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
 
+	RemoveWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
+
 	WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error
 
 	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
@@ -202,4 +204,8 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 	}
 
 	return *new(T), errors.New("workflow finished, but could not find result event")
+}
+
+func (c *client) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+	return c.backend.RemoveWorkflowInstance(ctx, instance)
 }

@@ -82,6 +82,33 @@ func BackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBac
 			},
 		},
 		{
+			name: "RemoveWorkflowInstance_ErrorWhenInstanceInProgress",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				instanceID := uuid.NewString()
+				wfi := core.NewWorkflowInstance(instanceID)
+
+				err := b.CreateWorkflowInstance(
+					ctx, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				)
+				require.NoError(t, err)
+
+				err = b.RemoveWorkflowInstance(ctx, wfi)
+				require.Error(t, err)
+				require.Equal(t, backend.ErrInstanceNotFinished, err)
+			},
+		},
+		{
+			name: "RemoveWorkflowInstance_ErrorWhenInstanceDoesNotExist",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				instanceID := uuid.NewString()
+				wfi := core.NewWorkflowInstance(instanceID)
+
+				err := b.RemoveWorkflowInstance(ctx, wfi)
+				require.Error(t, err)
+				require.Equal(t, backend.ErrInstanceNotFound, err)
+			},
+		},
+		{
 			name: "GetWorkflowTask_ReturnsNilWhenTimeout",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)

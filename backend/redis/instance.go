@@ -109,6 +109,20 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 	return nil
 }
 
+func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+	i, err := readInstance(ctx, rb.rdb, instance.InstanceID)
+	if err != nil {
+		return err
+	}
+
+	// Check state
+	if i.State != core.WorkflowInstanceStateFinished {
+		return backend.ErrInstanceNotFinished
+	}
+
+	return deleteInstance(ctx, rb.rdb, instance.InstanceID)
+}
+
 type instanceState struct {
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`

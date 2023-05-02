@@ -69,7 +69,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		activityQueue: activityQueue,
 	}
 
-	// Preload scripts here. Usually redis-go attempts to execute them first, and the if redis doesn't know
+	// Preload scripts here. Usually redis-go attempts to execute them first, and if redis doesn't know
 	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
 	ctx := context.Background()
 	cmds := map[string]*redis.StringCmd{
@@ -79,6 +79,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		"removeFutureEventCmd":   removeFutureEventCmd.Load(ctx, rb.rdb),
 		"removePendingEventsCmd": removePendingEventsCmd.Load(ctx, rb.rdb),
 		"requeueInstanceCmd":     requeueInstanceCmd.Load(ctx, rb.rdb),
+		"deleteInstanceCmd":      deleteCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
 		// fmt.Println(name, cmd.Val())

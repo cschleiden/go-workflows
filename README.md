@@ -236,6 +236,19 @@ wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 	InstanceID: uuid.NewString(),
 }, Workflow1, "input-for-workflow")
 if err != nil {
+	// ...
+}
+```
+
+### Removing workflow instances
+
+`RemoveWorkflowInstance` on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.
+
+```go
+err = c.RemoveWorkflowInstance(ctx, workflowInstance)
+if err != nil {
+	// ...
+}
 ```
 
 ### Canceling workflows
