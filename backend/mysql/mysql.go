@@ -62,7 +62,22 @@ type mysqlBackend struct {
 	options    backend.Options
 }
 
-// CreateWorkflowInstance creates a new workflow instance
+func (b *mysqlBackend) Logger() log.Logger {
+	return b.options.Logger
+}
+
+func (b *mysqlBackend) Tracer() trace.Tracer {
+	return b.options.TracerProvider.Tracer(backend.TracerName)
+}
+
+func (b *mysqlBackend) Metrics() metrics.Client {
+	return b.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
+}
+
+func (b *mysqlBackend) Converter() converter.Converter {
+	return b.options.Converter
+}
+
 func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
@@ -89,20 +104,37 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	return nil
 }
 
-func (b *mysqlBackend) Logger() log.Logger {
-	return b.options.Logger
-}
+func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+	tx, err := b.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-func (b *mysqlBackend) Tracer() trace.Tracer {
-	return b.options.TracerProvider.Tracer(backend.TracerName)
-}
+	instanceID := instance.InstanceID
 
-func (b *mysqlBackend) Metrics() metrics.Client {
-	return b.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
-}
+	row := tx.QueryRowContext(ctx, "SELECT completed_at FROM `instances` WHERE instance_id = ? LIMIT 1", instanceID)
+	var completedAt sql.NullTime
+	if err := row.Scan(&completedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return backend.ErrInstanceNotFound
+		}
+	}
 
-func (b *mysqlBackend) Converter() converter.Converter {
-	return b.options.Converter
+	if !completedAt.Valid {
+		return backend.ErrInstanceNotFinished
+	}
+
+	// Delete from instances and history tables
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `instances` WHERE instance_id = ?", instanceID); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `history` WHERE instance_id = ?", instanceID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
