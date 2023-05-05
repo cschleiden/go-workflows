@@ -16,28 +16,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type RedisOptions struct {
-	backend.Options
-
-	BlockTimeout time.Duration
-}
-
-type RedisBackendOption func(*RedisOptions)
-
-func WithBlockTimeout(timeout time.Duration) RedisBackendOption {
-	return func(o *RedisOptions) {
-		o.BlockTimeout = timeout
-	}
-}
-
-func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
-	return func(o *RedisOptions) {
-		for _, opt := range opts {
-			opt(&o.Options)
-		}
-	}
-}
-
 var _ backend.Backend = (*redisBackend)(nil)
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
