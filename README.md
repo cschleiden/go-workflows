@@ -145,7 +145,8 @@ b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 #### Redis
 
 ```go
-b, err := redis.NewRedisBackend("localhost:6379", "user", "RedisPassw0rd", 0)
+redisClient := ...
+b, err := redis.NewRedisBackend(redisClient)
 if err != nil {
 	panic(err)
 }
@@ -249,6 +250,15 @@ err = c.RemoveWorkflowInstance(ctx, workflowInstance)
 if err != nil {
 	// ...
 }
+```
+
+#### Automatically expiring finished workflow instances
+
+For now this is only supported for the Redis backend. When an `AutoExpiration` is passed to the backend, finished workflow instances will be automatically removed after the specified duration. This works by setting a TTL on the Redis keys for finished workflow instances. If `AutoExpiration` is set to `0` (the default), no TTL will be set.
+
+```go
+b, err := redis.NewRedisBackend(redisClient, redis.WithAutoExpiration(time.Hour * 48))
+// ...
 ```
 
 ### Canceling workflows

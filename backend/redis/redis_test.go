@@ -8,10 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -27,7 +25,7 @@ func Test_RedisBackend(t *testing.T) {
 	}
 
 	client := getClient()
-	setup := getCreateBackend(client, false)
+	setup := getCreateBackend(client)
 
 	test.BackendTest(t, setup, nil)
 }
@@ -38,7 +36,7 @@ func Test_EndToEndRedisBackend(t *testing.T) {
 	}
 
 	client := getClient()
-	setup := getCreateBackend(client, false)
+	setup := getCreateBackend(client)
 
 	test.EndToEndBackendTest(t, setup, nil)
 }
@@ -54,7 +52,7 @@ func getClient() redis.UniversalClient {
 	return client
 }
 
-func getCreateBackend(client redis.UniversalClient, ignoreLog bool) func() test.TestBackend {
+func getCreateBackend(client redis.UniversalClient, additionalOptions ...RedisBackendOption) func() test.TestBackend {
 	return func() test.TestBackend {
 		// Flush database
 		if err := client.FlushDB(context.Background()).Err(); err != nil {
@@ -74,9 +72,7 @@ func getCreateBackend(client redis.UniversalClient, ignoreLog bool) func() test.
 			WithBlockTimeout(time.Millisecond * 10),
 		}
 
-		if ignoreLog {
-			options = append(options, WithBackendOptions(backend.WithLogger(&nullLogger{})))
-		}
+		options = append(options, additionalOptions...)
 
 		b, err := NewRedisBackend(client, options...)
 		if err != nil {
@@ -86,33 +82,6 @@ func getCreateBackend(client redis.UniversalClient, ignoreLog bool) func() test.
 		return b
 	}
 }
-
-type nullLogger struct {
-	defaultFields []interface{}
-}
-
-// Debug implements log.Logger
-func (*nullLogger) Debug(msg string, fields ...interface{}) {
-}
-
-// Error implements log.Logger
-func (*nullLogger) Error(msg string, fields ...interface{}) {
-}
-
-// Panic implements log.Logger
-func (*nullLogger) Panic(msg string, fields ...interface{}) {
-}
-
-// Warn implements log.Logger
-func (*nullLogger) Warn(msg string, fields ...interface{}) {
-}
-
-// With implements log.Logger
-func (nl *nullLogger) With(fields ...interface{}) log.Logger {
-	return nl
-}
-
-var _ log.Logger = (*nullLogger)(nil)
 
 var _ test.TestBackend = (*redisBackend)(nil)
 

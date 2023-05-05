@@ -203,7 +203,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 		}
 
-		// Try to queue workflow task
+		// Try to enqueue workflow task
 		if targetInstanceID != instance.InstanceID {
 			if err := rb.workflowQueue.Enqueue(ctx, p, targetInstanceID, nil); err != nil {
 				return fmt.Errorf("enqueuing workflow task: %w", err)
@@ -273,12 +273,19 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	}
 
 	if state == core.WorkflowInstanceStateFinished {
+		// Trace workflow completion
 		ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
 		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
 			trace.WithAttributes(
 				attribute.String("workflow_instance_id", instanceState.Instance.InstanceID),
 			))
 		span.End()
+
+		if rb.options.AutoExpiration > 0 {
+			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance.InstanceID, rb.options.AutoExpiration); err != nil {
+				return fmt.Errorf("setting workflow instance expiration: %w", err)
+			}
+		}
 	}
 
 	return nil
