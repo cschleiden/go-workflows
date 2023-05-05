@@ -95,7 +95,6 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 
 			r.WorkflowEvents = []history.WorkflowEvent{
 				{
-					// TODO: Do we need execution id here?
 					WorkflowInstance: core.NewWorkflowInstance(c.Instance.ParentInstanceID),
 					HistoryEvent:     historyEvent,
 				},

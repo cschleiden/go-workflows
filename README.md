@@ -575,7 +575,7 @@ For logging in workflows, you can get a logger using
 logger := workflow.Logger(ctx)
 ```
 
-The returned `logger` implements the `Logger` interface, and already has the workflow instance and execution IDs set as default fields.
+The returned `logger` implements the `Logger` interface, and already has the workflow instance set as default field.
 
 #### Activities
 
@@ -585,7 +585,7 @@ For logging in activities, you can get a logger using
 logger := activity.Logger(ctx)
 ```
 
-The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance and execution IDs set as default fields.
+The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance set as default field.
 
 ### Tracing
 
