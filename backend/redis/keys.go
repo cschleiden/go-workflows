@@ -14,6 +14,10 @@ func instancesByCreation() string {
 	return "instances-by-creation"
 }
 
+func instancesExpiring() string {
+	return "instances-expiring"
+}
+
 func pendingEventsKey(instanceID string) string {
 	return fmt.Sprintf("pending-events:%v", instanceID)
 }
