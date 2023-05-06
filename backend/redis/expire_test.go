@@ -7,6 +7,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -35,6 +36,8 @@ func Test_AutoExpiration(t *testing.T) {
 		return nil
 	}
 
+	w.RegisterWorkflow(wf)
+
 	wfi, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, wf)
@@ -45,6 +48,67 @@ func Test_AutoExpiration(t *testing.T) {
 	// Wait for redis to expire the keys
 	time.Sleep(autoExpirationTime)
 
+	_, err = b.GetWorkflowInstanceState(ctx, wfi)
+	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+
+	cancel()
+	require.NoError(t, w.WaitForCompletion())
+}
+
+func Test_AutoExpiration_SubWorkflow(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	autoExpirationTime := time.Second * 1
+
+	redisClient := getClient()
+	setup := getCreateBackend(redisClient, WithAutoExpiration(autoExpirationTime))
+	b := setup()
+
+	c := client.New(b)
+	w := worker.New(b, &worker.DefaultWorkerOptions)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	require.NoError(t, w.Start(ctx))
+
+	swf := func(ctx workflow.Context) (int, error) {
+		return 42, nil
+	}
+
+	swfInstanceID := uuid.NewString()
+
+	wf := func(ctx workflow.Context) (int, error) {
+		r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+			InstanceID: swfInstanceID,
+		}, swf).Get(ctx)
+
+		workflow.ScheduleTimer(ctx, time.Second*2).Get(ctx)
+
+		return r, err
+	}
+
+	w.RegisterWorkflow(wf)
+	w.RegisterWorkflow(swf)
+
+	wfi, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+		InstanceID: uuid.NewString(),
+	}, wf)
+	require.NoError(t, err)
+
+	r, err := client.GetWorkflowResult[int](ctx, c, wfi, time.Second*10)
+	require.NoError(t, err)
+	require.Equal(t, 42, r)
+
+	// Subworkflow should be expired by now
+	_, err = b.GetWorkflowInstanceState(ctx, core.NewWorkflowInstance(swfInstanceID))
+	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+
+	// Wait for redis to expire the keys
+	time.Sleep(autoExpirationTime)
+
+	// Main workflow should now be expired
 	_, err = b.GetWorkflowInstanceState(ctx, wfi)
 	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 
