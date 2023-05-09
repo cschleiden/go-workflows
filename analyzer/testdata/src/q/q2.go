@@ -1,7 +1,6 @@
 // nolint
 package q
 
-// Work around module issues. The analyzer just looks for `workflow.Context` currently
 import (
 	wf "github.com/cschleiden/go-workflows/workflow"
 )

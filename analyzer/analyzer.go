@@ -9,11 +9,19 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-var Analyzer = &analysis.Analyzer{
-	Name:     "goworkflows",
-	Doc:      "Checks for common errors when writing workflows",
-	Run:      run,
-	Requires: []*analysis.Analyzer{inspect.Analyzer},
+var checkPrivateReturnValues bool
+
+func New() *analysis.Analyzer {
+	a := &analysis.Analyzer{
+		Name:     "goworkflows",
+		Doc:      "Checks for common errors when writing workflows",
+		Run:      run,
+		Requires: []*analysis.Analyzer{inspect.Analyzer},
+	}
+
+	a.Flags.BoolVar(&checkPrivateReturnValues, "checkprivatereturnvalues", false, "Check return values of workflows which aren't exported")
+
+	return a
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -25,7 +33,20 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	workflowImportName := "workflow"
 
-	inspector.Nodes(nil, func(node ast.Node, push bool) bool {
+	inspector.Nodes([]ast.Node{
+		(*ast.File)(nil),
+		(*ast.FuncDecl)(nil),
+		(*ast.ImportSpec)(nil),
+		(*ast.RangeStmt)(nil),
+		(*ast.SelectStmt)(nil),
+		(*ast.GoStmt)(nil),
+		(*ast.CallExpr)(nil),
+	}, func(node ast.Node, push bool) bool {
+		if _, ok := node.(*ast.File); ok {
+			// New file, reset state
+			inWorkflow = true
+		}
+
 		if _, ok := node.(*ast.FuncDecl); ok {
 			if !push {
 				// Finished with the current workflow
@@ -59,17 +80,19 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			inWorkflow = true
 
 			// Check return types
-			if n.Type.Results == nil || len(n.Type.Results.List) == 0 {
-				pass.Reportf(n.Pos(), "workflow `%v` doesn't return anything. needs to return at least `error`", n.Name.Name)
-			} else {
-				if len(n.Type.Results.List) > 2 {
-					pass.Reportf(n.Pos(), "workflow `%v` returns more than two values", n.Name.Name)
-					return true
-				}
+			if n.Name.IsExported() || checkPrivateReturnValues {
+				if n.Type.Results == nil || len(n.Type.Results.List) == 0 {
+					pass.Reportf(n.Pos(), "workflow `%v` doesn't return anything. needs to return at least `error`", n.Name.Name)
+				} else {
+					if len(n.Type.Results.List) > 2 {
+						pass.Reportf(n.Pos(), "workflow `%v` returns more than two values", n.Name.Name)
+						return true
+					}
 
-				lastResult := n.Type.Results.List[len(n.Type.Results.List)-1]
-				if types.ExprString(lastResult.Type) != "error" {
-					pass.Reportf(n.Pos(), "workflow `%v` doesn't return `error` as last return value", n.Name.Name)
+					lastResult := n.Type.Results.List[len(n.Type.Results.List)-1]
+					if types.ExprString(lastResult.Type) != "error" {
+						pass.Reportf(n.Pos(), "workflow `%v` doesn't return `error` as last return value", n.Name.Name)
+					}
 				}
 			}
 

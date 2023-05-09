@@ -1,7 +1,6 @@
 // nolint
 package p
 
-// Work around module issues. The analyzer just looks for `workflow.Context` currently
 import (
 	"context"
 	"fmt"
