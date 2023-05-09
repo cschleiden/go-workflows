@@ -68,7 +68,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		switch n := node.(type) {
 		case *ast.ImportSpec:
 			if n.Path.Value == `"github.com/cschleiden/go-workflows/workflow"` {
-				workflowImportName = n.Name.Name
+				if n.Name != nil {
+					workflowImportName = n.Name.Name
+				} else {
+					workflowImportName = "workflow"
+				}
 			}
 
 		case *ast.FuncDecl:
