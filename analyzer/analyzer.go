@@ -23,8 +23,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	// AST node is a descendant of a workflow FuncDecl.
 	inWorkflow := true
 
-	inspector.Nodes(nil, func(node ast.Node, push bool) bool {
+	workflowImportName := "workflow"
 
+	inspector.Nodes(nil, func(node ast.Node, push bool) bool {
 		if _, ok := node.(*ast.FuncDecl); ok {
 			if !push {
 				// Finished with the current workflow
@@ -44,9 +45,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 
 		switch n := node.(type) {
+		case *ast.ImportSpec:
+			if n.Path.Value == `"github.com/cschleiden/go-workflows/workflow"` {
+				workflowImportName = n.Name.Name
+			}
+
 		case *ast.FuncDecl:
 			// Only check functions that look like workflows
-			if !isWorkflow(n) {
+			if !isWorkflow(workflowImportName, n) {
 				return false
 			}
 
@@ -170,7 +176,7 @@ func checkNamed(pass *analysis.Pass, ref types.Object, named *types.Named) {
 
 }
 
-func isWorkflow(funcDecl *ast.FuncDecl) bool {
+func isWorkflow(workflowImportName string, funcDecl *ast.FuncDecl) bool {
 	params := funcDecl.Type.Params.List
 
 	// Need at least workflow.Context
@@ -189,7 +195,7 @@ func isWorkflow(funcDecl *ast.FuncDecl) bool {
 	}
 
 	selname := firstParam.Sel.Name
-	if xname.Name+"."+selname != "workflow.Context" {
+	if xname.Name+"."+selname != workflowImportName+".Context" {
 		return false
 	}
 
