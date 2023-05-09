@@ -92,9 +92,11 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	// execution to be associated with the span for the WorkflowTaskExecution.
 	e.workflowTracer.UpdateExecution(span)
 
-	logger := e.logger.With("task_id", t.ID, "instance_id", t.WorkflowInstance.InstanceID)
+	logger := e.logger.With(
+		log.TaskIDKey, t.ID,
+		log.InstanceIDKey, t.WorkflowInstance.InstanceID)
 
-	logger.Debug("Executing workflow task", "task_last_sequence_id", t.LastSequenceID)
+	logger.Debug("Executing workflow task", log.TaskLastSequenceIDKey, t.LastSequenceID)
 
 	if t.WorkflowInstanceState == core.WorkflowInstanceStateFinished {
 		// This could happen if signals are delivered after the workflow is finished
@@ -102,7 +104,10 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 
 		// Log events that caused this task to be scheduled
 		for _, event := range t.NewEvents {
-			logger.Debug("Discarded event:", "id", event.ID, "event_type", event.Type.String(), "schedule_event_id", event.ScheduleEventID)
+			logger.Debug("Discarded event:",
+				log.EventIDKey, event.ID,
+				log.EventTypeKey, event.Type.String(),
+				log.ScheduleEventIDKey, event.ScheduleEventID)
 		}
 
 		return &ExecutionResult{
@@ -113,7 +118,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {
-		logger.Debug("Task has newer history than current state, fetching and replaying history", "task_sequence_id", t.LastSequenceID, "local_sequence_id", e.lastSequenceID)
+		logger.Debug("Task has newer history than current state, fetching and replaying history",
+			log.TaskSequenceIDKey, t.LastSequenceID,
+			log.LocalSequenceIDKey, e.lastSequenceID)
 
 		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
 		if err != nil {
@@ -130,7 +137,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			// With an error occurred during replay, we need to ensure new events don't get duplicate sequence ids
 			e.lastSequenceID = t.LastSequenceID
 		} else if t.LastSequenceID != e.lastSequenceID {
-			logger.Error("After replaying history, task still has newer history than current state", "task_sequence_id", t.LastSequenceID, "local_sequence_id", e.lastSequenceID)
+			logger.Error("After replaying history, task still has newer history than current state",
+				log.TaskSequenceIDKey, t.LastSequenceID,
+				log.LocalSequenceIDKey, e.lastSequenceID)
 
 			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
 		}
@@ -188,9 +197,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	}
 
 	logger.Debug("Finished workflow task",
-		"executed", len(executedEvents),
-		"last_sequence_id", e.lastSequenceID,
-		"completed", completed,
+		log.ExecutedEventsKey, len(executedEvents),
+		log.TaskLastSequenceIDKey, e.lastSequenceID,
+		log.WorkflowCompletedKey, completed,
 	)
 
 	return &ExecutionResult{
@@ -242,7 +251,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 
 func (e *executor) Close() {
 	if e.workflow != nil {
-		e.logger.Debug("Stopping workflow executor", "instance_id", e.workflowState.Instance().InstanceID)
+		e.logger.Debug("Stopping workflow executor", log.InstanceIDKey, e.workflowState.Instance().InstanceID)
 
 		// End workflow if running to prevent leaking goroutines
 		e.workflow.Close()
@@ -251,12 +260,12 @@ func (e *executor) Close() {
 
 func (e *executor) executeEvent(event *history.Event) error {
 	e.logger.Debug("Executing event",
-		"instance_id", e.workflowState.Instance().InstanceID,
-		"event_id", event.ID,
-		"seq_id", event.SequenceID,
-		"event_type", event.Type,
-		"schedule_event_id", event.ScheduleEventID,
-		"is_replaying", e.workflowState.Replaying(),
+		log.InstanceIDKey, e.workflowState.Instance().InstanceID,
+		log.EventIDKey, event.ID,
+		log.SeqIDKey, event.SequenceID,
+		log.EventTypeKey, event.Type,
+		log.ScheduleEventIDKey, event.ScheduleEventID,
+		log.IsReplayingKey, e.workflowState.Replaying(),
 	)
 
 	var err error

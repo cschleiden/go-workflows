@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cschleiden/go-workflows/diag"
+	"github.com/cschleiden/go-workflows/log"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -21,7 +22,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		}
 
 		if len(scores) == 0 {
-			rb.Logger().Error("could not find instance %v", "afterInstanceID", afterInstanceID)
+			rb.Logger().Error("could not find instance %v", log.NamespaceKey+".redis.afterInstanceID", afterInstanceID)
 			return nil, nil
 		}
 

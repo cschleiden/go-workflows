@@ -312,7 +312,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			tw.history = append(tw.history, result.Executed...)
 
 			for _, event := range result.Executed {
-				wt.logger.Debug("Event", "event_type", event.Type)
+				wt.logger.Debug("Event", log.EventTypeKey, event.Type)
 
 				switch event.Type {
 				case history.EventType_WorkflowExecutionFinished:
@@ -332,7 +332,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			// Schedule sub-workflows and handle x-workflow events
 			for _, workflowEvent := range result.WorkflowEvents {
 				gotNewEvents = true
-				wt.logger.Debug("Workflow event", "event_type", workflowEvent.HistoryEvent.Type)
+				wt.logger.Debug("Workflow event", log.EventTypeKey, workflowEvent.HistoryEvent.Type)
 
 				switch workflowEvent.HistoryEvent.Type {
 				case history.EventType_WorkflowExecutionStarted:
@@ -348,7 +348,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				gotNewEvents = true
 
 				a := event.Attributes.(*history.ActivityScheduledAttributes)
-				wt.logger.Debug("Activity event", "activity", a.Name)
+				wt.logger.Debug("Activity event", log.ActivityNameKey, a.Name)
 
 				wt.scheduleActivity(tw.instance, event)
 			}
@@ -356,7 +356,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			// Schedule timers
 			for _, timerEvent := range result.TimerEvents {
 				gotNewEvents = true
-				wt.logger.Debug("Timer future event", "event_type", timerEvent.Type, "at", *timerEvent.VisibleAt)
+				wt.logger.Debug("Timer future event", log.EventTypeKey, timerEvent.Type, "at", *timerEvent.VisibleAt)
 
 				wt.scheduleTimer(tw.instance, timerEvent)
 			}
