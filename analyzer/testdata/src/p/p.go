@@ -1,19 +1,20 @@
-//nolint
+// nolint
 package p
 
 // Work around module issues. The analyzer just looks for `workflow.Context` currently
 import (
 	"context"
-	workflow "context"
 	"fmt"
 	"time"
+
+	workflow "github.com/cschleiden/go-workflows/workflow"
 
 	"sync"
 )
 
 var foo int = 42
 
-func wf(ctx workflow.Context) error {
+func wfSimple(ctx workflow.Context) error {
 	fmt.Println(foo)
 
 	return nil

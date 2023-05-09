@@ -7,5 +7,5 @@ import (
 )
 
 func TestAll(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), Analyzer, "p")
+	analysistest.Run(t, analysistest.TestData(), Analyzer, "p", "q")
 }
