@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	workflow "github.com/cschleiden/go-workflows/workflow"
+	"github.com/cschleiden/go-workflows/workflow"
 
 	"sync"
 )
