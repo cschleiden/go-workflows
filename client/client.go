@@ -102,11 +102,22 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 }
 
 func (c *client) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
+	ctx, span := c.backend.Tracer().Start(ctx, "CancelWorkflowInstance", trace.WithAttributes(
+		attribute.String(log.InstanceIDKey, instance.InstanceID),
+	))
+	defer span.End()
+
 	cancellationEvent := history.NewWorkflowCancellationEvent(time.Now())
 	return c.backend.CancelWorkflowInstance(ctx, instance, cancellationEvent)
 }
 
 func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
+	ctx, span := c.backend.Tracer().Start(ctx, "SignalWorkflow", trace.WithAttributes(
+		attribute.String(log.InstanceIDKey, instanceID),
+		attribute.String(log.SignalNameKey, name),
+	))
+	defer span.End()
+
 	input, err := c.backend.Converter().To(arg)
 	if err != nil {
 		return fmt.Errorf("converting arguments: %w", err)
@@ -135,6 +146,11 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 	if timeout == 0 {
 		timeout = time.Second * 20
 	}
+
+	ctx, span := c.backend.Tracer().Start(ctx, "WaitForWorkflowInstance", trace.WithAttributes(
+		attribute.String(log.InstanceIDKey, instance.InstanceID),
+	))
+	defer span.End()
 
 	b := backoff.ExponentialBackOff{
 		InitialInterval:     time.Millisecond * 1,
@@ -167,12 +183,17 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 // GetWorkflowResult gets the workflow result for the given workflow result. It first waits for the workflow to finish or until
 // the given timeout has expired.
 func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.Instance, timeout time.Duration) (T, error) {
+	ic := c.(*client)
+	b := ic.backend
+
+	ctx, span := b.Tracer().Start(ctx, "GetWorkflowResult", trace.WithAttributes(
+		attribute.String(log.InstanceIDKey, instance.InstanceID),
+	))
+	defer span.End()
+
 	if err := c.WaitForWorkflowInstance(ctx, instance, timeout); err != nil {
 		return *new(T), fmt.Errorf("workflow did not finish in time: %w", err)
 	}
-
-	ic := c.(*client)
-	b := ic.backend
 
 	h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
 	if err != nil {
@@ -208,5 +229,10 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 }
 
 func (c *client) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+	ctx, span := c.backend.Tracer().Start(ctx, "RemoveWorkflowInstance", trace.WithAttributes(
+		attribute.String(log.InstanceIDKey, instance.InstanceID),
+	))
+	defer span.End()
+
 	return c.backend.RemoveWorkflowInstance(ctx, instance)
 }
