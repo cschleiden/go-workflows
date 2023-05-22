@@ -81,9 +81,9 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, cv 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
 	ctx = tracing.UnmarshalSpan(ctx, t.Metadata)
 	ctx, span := e.tracer.Start(ctx, "WorkflowTaskExecution", trace.WithAttributes(
-		attribute.String(tracing.WorkflowInstanceID, t.WorkflowInstance.InstanceID),
-		attribute.String(tracing.WorkflowTaskID, t.ID),
-		attribute.Int(tracing.WorkflowTaskEvents, len(t.NewEvents)),
+		attribute.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
+		attribute.String(log.TaskIDKey, t.ID),
+		attribute.Int(log.NewEventsKey, len(t.NewEvents)),
 	))
 	defer span.End()
 

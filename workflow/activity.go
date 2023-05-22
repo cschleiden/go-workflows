@@ -8,9 +8,9 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -68,9 +68,9 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
 		fmt.Sprintf("ExecuteActivity: %s", name),
 		trace.WithAttributes(
-			attribute.String("name", name),
-			attribute.Int64(tracing.ScheduleEventID, scheduleEventID),
-			attribute.Int("attempt", attempt),
+			attribute.String(log.ActivityNameKey, name),
+			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
+			attribute.Int(log.AttemptKey, attempt),
 		))
 	defer span.End()
 

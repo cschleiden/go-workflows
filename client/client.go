@@ -74,8 +74,8 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 
 	// Start new span and add to metadata
 	sctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(
-		attribute.String(tracing.WorkflowInstanceID, wfi.InstanceID),
-		attribute.String(tracing.WorkflowName, workflowName),
+		attribute.String(log.InstanceIDKey, wfi.InstanceID),
+		attribute.String(log.WorkflowNameKey, workflowName),
 	))
 	defer span.End()
 

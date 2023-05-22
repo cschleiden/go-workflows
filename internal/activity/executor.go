@@ -60,10 +60,10 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 	activityCtx := WithActivityState(ctx, as)
 
 	activityCtx = tracing.UnmarshalSpan(activityCtx, task.Metadata)
-	activityCtx, span := e.tracer.Start(activityCtx, "ActivityTaskExecution", trace.WithAttributes(
-		attribute.String("activity", a.Name),
-		attribute.String(tracing.WorkflowInstanceID, task.WorkflowInstance.InstanceID),
-		attribute.String(tracing.ActivityTaskID, task.ID),
+	activityCtx, span := e.tracer.Start(activityCtx, fmt.Sprintf("ActivityTaskExecution: %s", a.Name), trace.WithAttributes(
+		attribute.String(log.ActivityNameKey, a.Name),
+		attribute.String(log.InstanceIDKey, task.WorkflowInstance.InstanceID),
+		attribute.String(log.ActivityIDKey, task.ID),
 	))
 	defer span.End()
 

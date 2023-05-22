@@ -6,6 +6,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -20,8 +21,8 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 	ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
 	a := event.Attributes.(*history.SignalReceivedAttributes)
 	_, span := rb.Tracer().Start(ctx, fmt.Sprintf("SignalWorkflow: %s", a.Name), trace.WithAttributes(
-		attribute.String(tracing.WorkflowInstanceID, instanceID),
-		attribute.String("signal.name", event.Attributes.(*history.SignalReceivedAttributes).Name),
+		attribute.String(log.InstanceIDKey, instanceID),
+		attribute.String(log.SignalNameKey, event.Attributes.(*history.SignalReceivedAttributes).Name),
 	))
 	defer span.End()
 

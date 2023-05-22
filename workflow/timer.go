@@ -8,6 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -48,9 +49,9 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "ScheduleTimer",
 		trace.WithAttributes(
-			attribute.Int64("duration_ms", int64(delay/time.Millisecond)),
-			attribute.String("now", Now(ctx).String()),
-			attribute.String("at", at.String()),
+			attribute.Int64(log.DurationKey, int64(delay/time.Millisecond)),
+			attribute.String(log.NowKey, Now(ctx).String()),
+			attribute.String(log.AtKey, at.String()),
 		))
 	defer span.End()
 
