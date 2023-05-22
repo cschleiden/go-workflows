@@ -278,7 +278,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
 		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
 			trace.WithAttributes(
-				attribute.String("workflow_instance_id", instanceState.Instance.InstanceID),
+				attribute.String(log.NamespaceKey+log.InstanceIDKey, instanceState.Instance.InstanceID),
 			))
 		span.End()
 
