@@ -356,7 +356,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			// Schedule timers
 			for _, timerEvent := range result.TimerEvents {
 				gotNewEvents = true
-				wt.logger.Debug("Timer future event", log.EventTypeKey, timerEvent.Type, "at", *timerEvent.VisibleAt)
+				wt.logger.Debug("Timer future event", log.EventTypeKey, timerEvent.Type, log.AtKey, *timerEvent.VisibleAt)
 
 				wt.scheduleTimer(tw.instance, timerEvent)
 			}
@@ -409,7 +409,7 @@ func (wt *workflowTester[TResult]) fireTimer() bool {
 	// Determine mode we should be in and transition if it doesn't match the current one
 	newMode := wt.newTimerMode()
 	if wt.timerMode != newMode {
-		wt.logger.Debug("Transitioning timer mode", "from", wt.timerMode, "to", newMode)
+		wt.logger.Debug("Transitioning timer mode", log.TimerModeFrom, wt.timerMode, log.TimerModeTo, newMode)
 
 		// Transition timer mode
 		switch newMode {
@@ -433,7 +433,7 @@ func (wt *workflowTester[TResult]) fireTimer() bool {
 			t := wt.timers[0]
 			wt.timers = wt.timers[1:]
 
-			wt.logger.Debug("Advancing workflow clock to fire timer", "to", t.At)
+			wt.logger.Debug("Advancing workflow clock to fire timer", log.ToKey, t.At)
 
 			// Advance workflow clock and fire the timer
 			wt.clock.Set(t.At)
@@ -450,7 +450,7 @@ func (wt *workflowTester[TResult]) fireTimer() bool {
 
 			t := wt.timers[0]
 
-			wt.logger.Debug("Scheduling wall-clock timer", "at", t.At)
+			wt.logger.Debug("Scheduling wall-clock timer", log.AtKey, t.At)
 
 			// Determine when this should run
 			remainingTime := t.At.Sub(wt.clock.Now())

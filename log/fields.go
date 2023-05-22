@@ -33,4 +33,9 @@ const (
 	NowKey = NamespaceKey + ".timer.now"
 	// At is the time at which a timer is scheduled to fire
 	AtKey = NamespaceKey + ".timer.at"
+	// To is the time a simulated timer is advanced to
+	ToKey = NamespaceKey + ".timer.to"
+
+	TimerModeFrom = NamespaceKey + ".timer.mode.from"
+	TimerModeTo   = NamespaceKey + ".timer.mode.to"
 )
