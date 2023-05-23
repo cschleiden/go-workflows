@@ -18,8 +18,8 @@ func NewActivityState(activityID string, instance *workflow.Instance, logger log
 		activityID,
 		instance,
 		logger.With(
-			"activity_id", activityID,
-			"instance_id", instance.InstanceID,
+			log.ActivityIDKey, activityID,
+			log.InstanceIDKey, instance.InstanceID,
 		)}
 }
 

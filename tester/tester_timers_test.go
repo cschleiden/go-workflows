@@ -202,8 +202,8 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	tester.Execute()
 
-	require.True(t, dl.hasLine("from=WallClock to=TimeTravel"))
-	require.True(t, dl.hasLine("from=TimeTravel to=WallClock"))
+	require.True(t, dl.hasLine("workflows.timer.mode.from=WallClock workflows.timer.mode.to=TimeTravel"))
+	require.True(t, dl.hasLine("workflows.timer.mode.from=TimeTravel workflows.timer.mode.to=WallClock"))
 
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()

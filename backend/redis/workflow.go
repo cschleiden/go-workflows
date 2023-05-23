@@ -11,6 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/log"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -265,7 +266,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 		for _, cmd := range executedCmds {
 			if cmdErr := cmd.Err(); cmdErr != nil {
-				rb.Logger().Debug("redis command error", "cmd", cmd.FullName(), "cmdErr", cmdErr.Error())
+				rb.Logger().Debug("redis command error", log.NamespaceKey+".redis.cmd", cmd.FullName(), log.NamespaceKey+".redis.cmdErr", cmdErr.Error())
 			}
 		}
 
@@ -277,7 +278,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
 		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
 			trace.WithAttributes(
-				attribute.String("workflow_instance_id", instanceState.Instance.InstanceID),
+				attribute.String(log.NamespaceKey+log.InstanceIDKey, instanceState.Instance.InstanceID),
 			))
 		span.End()
 
