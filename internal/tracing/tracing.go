@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"go.opentelemetry.io/otel/propagation"
@@ -14,11 +15,11 @@ var propagator propagation.TextMapPropagator = propagation.NewCompositeTextMapPr
 	propagation.Baggage{},
 )
 
-func MarshalSpan(ctx context.Context, metadata *core.WorkflowMetadata) {
+func InjectSpan(ctx context.Context, metadata *core.WorkflowMetadata) {
 	propagator.Inject(ctx, metadata)
 }
 
-func UnmarshalSpan(ctx context.Context, metadata *core.WorkflowMetadata) context.Context {
+func ExtractSpan(ctx context.Context, metadata *core.WorkflowMetadata) context.Context {
 	return propagator.Extract(ctx, metadata)
 }
 
@@ -36,4 +37,30 @@ func SpanFromWorkflowContext(ctx sync.Context) trace.Span {
 	}
 
 	panic("no span in context")
+}
+
+type TracingContextPropagator struct {
+}
+
+var _ contextpropagation.ContextPropagator = &TracingContextPropagator{}
+
+func (*TracingContextPropagator) Inject(ctx context.Context, metadata *core.WorkflowMetadata) error {
+	InjectSpan(ctx, metadata)
+	return nil
+}
+
+func (*TracingContextPropagator) Extract(ctx context.Context, metadata *core.WorkflowMetadata) (context.Context, error) {
+	return ExtractSpan(ctx, metadata), nil
+}
+
+func (*TracingContextPropagator) InjectFromWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata) error {
+	// Ignore
+
+	return nil
+}
+
+func (*TracingContextPropagator) ExtractToWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata) (sync.Context, error) {
+	// Ignore
+
+	return ctx, nil
 }

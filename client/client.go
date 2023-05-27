@@ -14,7 +14,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -27,9 +26,6 @@ var ErrWorkflowTerminated = errors.New("workflow terminated")
 
 type WorkflowInstanceOptions struct {
 	InstanceID string
-
-	// FUTURE: Expose this to callers of the API. Use it only internally for now.
-	// Metadata *core.WorkflowInstanceMetadata
 }
 
 type Client interface {
@@ -72,14 +68,16 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 
 	workflowName := fn.Name(wf)
 
-	// Start new span and add to metadata
-	sctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(
+	// Start new span for the workflow instance
+	ctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, wfi.InstanceID),
 		attribute.String(log.WorkflowNameKey, workflowName),
 	))
 	defer span.End()
 
-	tracing.MarshalSpan(sctx, metadata)
+	for _, propagator := range c.backend.ContextPropagators() {
+		propagator.Inject(ctx, metadata)
+	}
 
 	startedEvent := history.NewPendingEvent(
 		c.clock.Now(),

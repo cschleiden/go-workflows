@@ -3,9 +3,7 @@ package workflowtracer
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -89,8 +87,4 @@ func (s *Span) End() {
 		// Only end the trace when we are not replaying
 		s.span.End()
 	}
-}
-
-func (s *Span) Marshal(metadata *core.WorkflowMetadata) {
-	tracing.MarshalSpan(trace.ContextWithSpan(context.Background(), s.span), metadata)
 }

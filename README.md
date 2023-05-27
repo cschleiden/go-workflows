@@ -632,6 +632,22 @@ func Workflow(ctx workflow.Context) error {
 	span.End()
 ```
 
+### Context Propagation
+
+In go programs it is common to use `context.Context` to pass around request-scoped data. This library supports context propagation between activities and workflows. When you create a workflow, you can pass a `ContextPropagator` to the backend to propagate context values. The interface is:
+
+```go
+type ContextPropagator interface {
+	Inject(context.Context, *Metadata) error
+	Extract(context.Context, *Metadata) (context.Context, error)
+
+	InjectFromWorkflow(Context, *Metadata) error
+	ExtractToWorkflow(Context, *Metadata) (Context, error)
+}
+```
+
+The `context-propagation` sample shows an example of how to use this.
+
 ## Tools
 
 ### Analyzer

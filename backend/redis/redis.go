@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -99,6 +100,10 @@ func (rb *redisBackend) Tracer() trace.Tracer {
 
 func (rb *redisBackend) Converter() converter.Converter {
 	return rb.options.Converter
+}
+
+func (rb *redisBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+	return rb.options.ContextPropagators
 }
 
 func (rb *redisBackend) Close() error {

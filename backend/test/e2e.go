@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync/atomic"
 	"testing"
@@ -18,9 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b TestBackend)) {
+func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOption) TestBackend, teardown func(b TestBackend)) {
 	tests := []struct {
 		name         string
+		options      []backend.BackendOption
 		withoutCache bool // If set, test will only be run when the cache is disabled
 		f            func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
 	}{
@@ -576,6 +578,41 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 				require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 			},
 		},
+		{
+			name:    "ContextPropagation",
+			options: []backend.BackendOption{backend.WithContextPropagator(&testContextPropagator{})},
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				a := func(ctx context.Context) (int, error) {
+					d := myValues(ctx)
+					return d.Count, nil
+				}
+
+				wf := func(ctx workflow.Context, msg string) (string, error) {
+					// Get values from context
+					d := myValuesWf(ctx)
+
+					// Update context before calling activity
+					ctx = withMyValuesWf(ctx, &myData{Name: d.Name, Count: d.Count - 19})
+
+					ar, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+					if err != nil {
+						return "", err
+					}
+
+					return fmt.Sprintf("%s-%d", d.Name, ar), nil
+				}
+
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				ctx = withMyValues(ctx, &myData{Name: "hello", Count: 42})
+
+				instance := runWorkflow(t, ctx, c, wf, "hello")
+
+				r, err := client.GetWorkflowResult[string](ctx, c, instance, time.Second*5)
+				require.NoError(t, err)
+				require.Equal(t, "hello-23", r)
+			},
+		},
 	}
 
 	run := func(suffix string, workerOptions *worker.Options) {
@@ -586,7 +623,7 @@ func EndToEndBackendTest(t *testing.T, setup func() TestBackend, teardown func(b
 			}
 
 			t.Run(tt.name+suffix, func(t *testing.T) {
-				b := setup()
+				b := setup(tt.options...)
 				ctx := context.Background()
 				ctx, cancel := context.WithCancel(ctx)
 

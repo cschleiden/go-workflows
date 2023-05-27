@@ -50,7 +50,7 @@ func Test_LongActivity(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	}).Return("activity", nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -98,7 +98,7 @@ func Test_ActivityRaceWithSignal(t *testing.T) {
 		tester.SignalWorkflow("signal", "stop")
 	})
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -123,7 +123,7 @@ func Test_ActivityWithLogger(t *testing.T) {
 
 	tester.Registry().RegisterActivity(activity1)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	tester.AssertExpectations(t)

@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -19,14 +18,8 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 		return nil, nil
 	}
 
-	instanceState, err := readInstance(ctx, rb.rdb, activityTask.Data.Instance.InstanceID)
-	if err != nil {
-		return nil, fmt.Errorf("reading workflow instance for activity task: %w", err)
-	}
-
 	return &task.Activity{
 		WorkflowInstance: activityTask.Data.Instance,
-		Metadata:         instanceState.Metadata,
 		ID:               activityTask.TaskID, // Use the queue generated ID here
 		Event:            activityTask.Data.Event,
 	}, nil

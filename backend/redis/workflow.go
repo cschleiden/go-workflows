@@ -275,7 +275,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	if state == core.WorkflowInstanceStateFinished {
 		// Trace workflow completion
-		ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
+		ctx = tracing.ExtractSpan(ctx, instanceState.Metadata)
 		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
 			trace.WithAttributes(
 				attribute.String(log.NamespaceKey+log.InstanceIDKey, instanceState.Instance.InstanceID),

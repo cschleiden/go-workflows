@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -80,6 +81,10 @@ func (sb *sqliteBackend) Tracer() trace.Tracer {
 
 func (sb *sqliteBackend) Converter() converter.Converter {
 	return sb.options.Converter
+}
+
+func (b *sqliteBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+	return b.options.ContextPropagators
 }
 
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
@@ -557,7 +562,6 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	t := &task.Activity{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID),
-		Metadata:         metadata,
 		Event:            event,
 	}
 

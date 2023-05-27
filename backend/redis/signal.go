@@ -18,7 +18,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 		return err
 	}
 
-	ctx = tracing.UnmarshalSpan(ctx, instanceState.Metadata)
+	ctx = tracing.ExtractSpan(ctx, instanceState.Metadata)
 	a := event.Attributes.(*history.SignalReceivedAttributes)
 	_, span := rb.Tracer().Start(ctx, fmt.Sprintf("SignalWorkflow: %s", a.Name), trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instanceID),

@@ -10,5 +10,5 @@ type ActivityScheduledAttributes struct {
 
 	Inputs []payload.Payload `json:"inputs,omitempty"`
 
-	Metadata core.WorkflowMetadata `json:"metadata,omitempty"`
+	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
 }
