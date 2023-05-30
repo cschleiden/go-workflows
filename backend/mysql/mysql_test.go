@@ -26,7 +26,7 @@ func Test_MysqlBackend(t *testing.T) {
 
 	var dbName string
 
-	test.BackendTest(t, func() test.TestBackend {
+	test.BackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -41,7 +41,9 @@ func Test_MysqlBackend(t *testing.T) {
 			panic(err)
 		}
 
-		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
+		options = append(options, backend.WithStickyTimeout(0))
+
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, options...)
 	}, func(b test.TestBackend) {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
@@ -65,7 +67,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 
 	var dbName string
 
-	test.EndToEndBackendTest(t, func() test.TestBackend {
+	test.EndToEndBackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -80,7 +82,9 @@ func TestMySqlBackendE2E(t *testing.T) {
 			panic(err)
 		}
 
-		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, backend.WithStickyTimeout(0))
+		options = append(options, backend.WithStickyTimeout(0))
+
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, options...)
 	}, func(b test.TestBackend) {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {

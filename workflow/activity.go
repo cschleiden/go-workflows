@@ -5,7 +5,9 @@ import (
 
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
@@ -61,7 +63,16 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	name := fn.Name(activity)
-	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs)
+
+	// Capture context
+	propagators := contextpropagation.Propagators(ctx)
+	metadata := &core.WorkflowMetadata{}
+	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
+		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
+		return f
+	}
+
+	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs, metadata)
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
 

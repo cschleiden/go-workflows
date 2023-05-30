@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -76,6 +77,10 @@ func (b *mysqlBackend) Metrics() metrics.Client {
 
 func (b *mysqlBackend) Converter() converter.Converter {
 	return b.options.Converter
+}
+
+func (b *mysqlBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+	return b.options.ContextPropagators
 }
 
 func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
@@ -626,9 +631,8 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	res := tx.QueryRowContext(
 		ctx,
 		`SELECT activities.id, activity_id, activities.instance_id,
-			instances.metadata, event_type, timestamp, schedule_event_id, attributes, visible_at
+			event_type, timestamp, schedule_event_id, attributes, visible_at
 			FROM activities
-				INNER JOIN instances ON activities.instance_id = instances.instance_id
 			WHERE activities.locked_until IS NULL OR activities.locked_until < ?
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED`,
@@ -638,22 +642,16 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	var id int64
 	var instanceID string
 	var attributes []byte
-	var metadataJson sql.NullString
 	event := &history.Event{}
 
 	if err := res.Scan(
-		&id, &event.ID, &instanceID, &metadataJson, &event.Type,
+		&id, &event.ID, &instanceID, &event.Type,
 		&event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 
 		return nil, fmt.Errorf("finding activity task to lock: %w", err)
-	}
-
-	var metadata *workflow.Metadata
-	if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
-		return nil, fmt.Errorf("unmarshaling metadata: %w", err)
 	}
 
 	a, err := history.DeserializeAttributes(event.Type, attributes)
@@ -676,7 +674,6 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 	t := &task.Activity{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID),
-		Metadata:         metadata,
 		Event:            event,
 	}
 

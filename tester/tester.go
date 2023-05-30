@@ -15,6 +15,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/activity"
 	margs "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
@@ -67,6 +68,7 @@ func (tt *testTimer) fire() *history.WorkflowEvent {
 
 type testWorkflow struct {
 	instance      *core.WorkflowInstance
+	metadata      *core.WorkflowMetadata
 	history       []*history.Event
 	pendingEvents []*history.Event
 }
@@ -75,7 +77,7 @@ type WorkflowTester[TResult any] interface {
 	// Now returns the current time of the simulated clock in the tester
 	Now() time.Time
 
-	Execute(args ...interface{})
+	Execute(ctx context.Context, args ...interface{})
 
 	Registry() *workflow.Registry
 
@@ -111,6 +113,7 @@ type workflowTester[TResult any] struct {
 	// Workflow under test
 	wf  interface{}
 	wfi *core.WorkflowInstance
+	wfm *core.WorkflowMetadata
 
 	// Workflows
 	mtw                       sync.RWMutex
@@ -153,6 +156,8 @@ type workflowTester[TResult any] struct {
 	tracer trace.Tracer
 
 	converter converter.Converter
+
+	propagators []contextpropagation.ContextPropagator
 }
 
 var _ WorkflowTester[any] = (*workflowTester[any])(nil)
@@ -186,6 +191,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 
 		wf:       wf,
 		wfi:      wfi,
+		wfm:      &core.WorkflowMetadata{},
 		registry: registry,
 
 		testWorkflows:             make([]*testWorkflow, 0),
@@ -205,9 +211,10 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 		callbacks: make(chan func() *history.WorkflowEvent, 1024),
 		timerMode: TM_TimeTravel,
 
-		logger:    options.Logger.With("source", "tester"),
-		tracer:    tracer,
-		converter: options.Converter,
+		logger:      options.Logger.With("source", "tester"),
+		tracer:      tracer,
+		converter:   options.Converter,
+		propagators: options.Propagators,
 	}
 
 	// Register internal activities
@@ -276,13 +283,19 @@ func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, arg
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
+func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...interface{}) {
+	for _, propagator := range wt.propagators {
+		if err := propagator.Inject(ctx, wt.wfm); err != nil {
+			panic(fmt.Errorf("failed to inject context: %w", err))
+		}
+	}
+
 	// Record start time of test run
 	wt.startTime = wt.clock.Now()
 
 	// Start workflow under test
 	initialEvent := wt.getInitialEvent(wt.wf, args)
-	wt.addWorkflow(wt.wfi, initialEvent)
+	wt.addWorkflow(wt.wfi, wt.wfm, initialEvent)
 
 	for !wt.workflowFinished {
 		// Execute all workflows until no more events
@@ -299,9 +312,12 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, converter.DefaultConverter, &testHistoryProvider{tw.history}, tw.instance, wt.clock)
+			e, err := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, wt.converter, wt.propagators, &testHistoryProvider{tw.history}, tw.instance, tw.metadata, wt.clock)
+			if err != nil {
+				panic(fmt.Errorf("could not create workflow executor: %v", err))
+			}
 
-			result, err := e.ExecuteTask(context.Background(), t)
+			result, err := e.ExecuteTask(ctx, t)
 			if err != nil {
 				panic("Error while executing workflow" + err.Error())
 			}
@@ -350,7 +366,7 @@ func (wt *workflowTester[TResult]) Execute(args ...interface{}) {
 				a := event.Attributes.(*history.ActivityScheduledAttributes)
 				wt.logger.Debug("Activity event", log.ActivityNameKey, a.Name)
 
-				wt.scheduleActivity(tw.instance, event)
+				wt.scheduleActivity(tw.instance, tw.metadata, event)
 			}
 
 			// Schedule timers
@@ -542,7 +558,7 @@ func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, event *history.Event) {
+func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, wfm *core.WorkflowMetadata, event *history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
 	atomic.AddInt32(&wt.runningActivities, 1)
@@ -568,7 +584,16 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			args := make([]interface{}, len(argValues))
 			for i, arg := range argValues {
 				if i == 0 && addContext {
-					args[i] = context.Background()
+					ctx := context.Background()
+
+					for _, propagator := range wt.propagators {
+						ctx, err = propagator.Extract(ctx, wfm)
+						if err != nil {
+							panic(fmt.Errorf("could not extract context from workflow metadata: %w", err))
+						}
+					}
+
+					args[i] = ctx
 					continue
 				}
 
@@ -601,10 +626,9 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			}
 
 		} else {
-			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.registry)
+			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.propagators, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
-				Metadata:         &core.WorkflowMetadata{},
 				WorkflowInstance: wfi,
 				Event:            event,
 			})
@@ -680,12 +704,13 @@ func (wt *workflowTester[TResult]) getWorkflow(instance *core.WorkflowInstance) 
 	return wt.testWorkflowsByInstanceID[instance.InstanceID]
 }
 
-func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, initialEvent *history.Event) *testWorkflow {
+func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, initialEvent *history.Event) *testWorkflow {
 	wt.mtw.Lock()
 	defer wt.mtw.Unlock()
 
 	tw := &testWorkflow{
 		instance:      instance,
+		metadata:      metadata,
 		pendingEvents: []*history.Event{initialEvent},
 		history:       make([]*history.Event, 0),
 	}
@@ -725,7 +750,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 
 	if !wt.mockedWorkflows[a.Name] {
 		// Workflow not mocked, allow event to be processed
-		wt.addWorkflow(event.WorkflowInstance, event.HistoryEvent)
+		wt.addWorkflow(event.WorkflowInstance, a.Metadata, event.HistoryEvent)
 		return
 	}
 

@@ -8,17 +8,16 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/cschleiden/go-workflows/log"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -52,9 +51,20 @@ type executor struct {
 	logger            log.Logger
 	tracer            trace.Tracer
 	lastSequenceID    int64
+	parentSpan        trace.Span
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, cv converter.Converter, historyProvider WorkflowHistoryProvider, instance *core.WorkflowInstance, clock clock.Clock) WorkflowExecutor {
+func NewExecutor(
+	logger log.Logger,
+	tracer trace.Tracer,
+	registry *Registry,
+	cv converter.Converter,
+	propagators []contextpropagation.ContextPropagator,
+	historyProvider WorkflowHistoryProvider,
+	instance *core.WorkflowInstance,
+	metadata *core.WorkflowMetadata,
+	clock clock.Clock,
+) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
 
 	wfTracer := workflowtracer.New(tracer)
@@ -63,7 +73,19 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, cv 
 	wfCtx = converter.WithConverter(wfCtx, cv)
 	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
+	wfCtx = contextpropagation.WithPropagators(wfCtx, propagators)
 	wfCtx, cancel := sync.WithCancel(wfCtx)
+
+	for _, propagator := range propagators {
+		var err error
+		wfCtx, err = propagator.ExtractToWorkflow(wfCtx, metadata)
+		if err != nil {
+			return nil, fmt.Errorf("extracting context: %w", err)
+		}
+	}
+
+	// Get span from the workflow context, set by the default context propagator
+	parentSpan := workflowtracer.SpanFromContext(wfCtx)
 
 	return &executor{
 		registry:          registry,
@@ -75,23 +97,11 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, registry *Registry, cv 
 		clock:             clock,
 		logger:            logger,
 		tracer:            tracer,
-	}
+		parentSpan:        parentSpan,
+	}, nil
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
-	ctx = tracing.UnmarshalSpan(ctx, t.Metadata)
-	ctx, span := e.tracer.Start(ctx, "WorkflowTaskExecution", trace.WithAttributes(
-		attribute.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
-		attribute.String(log.TaskIDKey, t.ID),
-		attribute.Int(log.NewEventsKey, len(t.NewEvents)),
-	))
-	defer span.End()
-
-	// Make the current span available to the tracer that we pass into the workflow execution. With caching
-	// the executor instance might be used for multiple workflow tasks and we want calls made in each task
-	// execution to be associated with the span for the WorkflowTaskExecution.
-	e.workflowTracer.UpdateExecution(span)
-
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
 		log.InstanceIDKey, t.WorkflowInstance.InstanceID)

@@ -7,11 +7,11 @@ import (
 	"reflect"
 
 	"github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,18 +19,20 @@ import (
 )
 
 type Executor struct {
-	logger    log.Logger
-	tracer    trace.Tracer
-	converter converter.Converter
-	r         *workflow.Registry
+	logger      log.Logger
+	tracer      trace.Tracer
+	converter   converter.Converter
+	propagators []contextpropagation.ContextPropagator
+	r           *workflow.Registry
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, r *workflow.Registry) Executor {
+func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, propagators []contextpropagation.ContextPropagator, r *workflow.Registry) Executor {
 	return Executor{
-		logger:    logger,
-		tracer:    tracer,
-		converter: converter,
-		r:         r,
+		logger:      logger,
+		tracer:      tracer,
+		converter:   converter,
+		propagators: propagators,
+		r:           r,
 	}
 }
 
@@ -59,7 +61,13 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 		e.logger)
 	activityCtx := WithActivityState(ctx, as)
 
-	activityCtx = tracing.UnmarshalSpan(activityCtx, task.Metadata)
+	for _, propagator := range e.propagators {
+		activityCtx, err = propagator.Extract(activityCtx, a.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("extracting context from propagator: %w", err)
+		}
+	}
+
 	activityCtx, span := e.tracer.Start(activityCtx, fmt.Sprintf("ActivityTaskExecution: %s", a.Name), trace.WithAttributes(
 		attribute.String(log.ActivityNameKey, a.Name),
 		attribute.String(log.InstanceIDKey, task.WorkflowInstance.InstanceID),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -26,14 +27,20 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	r.RegisterWorkflow(workflowWithActivity)
 
 	i := core.NewWorkflowInstance("instanceID")
-	e := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
+	e, err := wf.NewExecutor(
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
+		[]contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New(),
+	)
+	require.NoError(t, err)
 
 	i2 := core.NewWorkflowInstance("instanceID2")
-	e2 := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
+	e2, err := wf.NewExecutor(
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
+		[]contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New(),
+	)
+	require.NoError(t, err)
 
-	err := c.Store(context.Background(), i, e)
+	err = c.Store(context.Background(), i, e)
 	require.NoError(t, err)
 
 	re, ok, err := c.Get(context.Background(), i)
@@ -60,10 +67,11 @@ func Test_Cache_Evict(t *testing.T) {
 	i := core.NewWorkflowInstance("instanceID")
 	r := wf.NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
-	e := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, &testHistoryProvider{}, i, clock.New())
+	e, err := wf.NewExecutor(
+		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New())
+	require.NoError(t, err)
 
-	err := c.Store(context.Background(), i, e)
+	err = c.Store(context.Background(), i, e)
 	require.NoError(t, err)
 
 	go c.StartEviction(context.Background())

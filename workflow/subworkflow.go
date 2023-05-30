@@ -5,6 +5,7 @@ import (
 
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
@@ -81,8 +82,13 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 		))
 	defer span.End()
 
+	// Capture context
+	propagators := contextpropagation.Propagators(ctx)
 	metadata := &core.WorkflowMetadata{}
-	span.Marshal(metadata)
+	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
+		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
+		return f
+	}
 
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs, metadata)
 

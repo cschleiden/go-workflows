@@ -3,6 +3,8 @@ package log
 const (
 	NamespaceKey = "workflows"
 
+	ErrorKey = "error"
+
 	ActivityIDKey   = NamespaceKey + ".activity.id"
 	ActivityNameKey = NamespaceKey + ".activity.name"
 	InstanceIDKey   = NamespaceKey + ".instance.id"

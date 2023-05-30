@@ -20,7 +20,7 @@ func Test_Workflow(t *testing.T) {
 
 	tester := NewWorkflowTester[int](workflowWithoutActivity)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -32,7 +32,7 @@ func Test_WorkflowBlocked(t *testing.T) {
 	tester := NewWorkflowTester[any](workflowBlocked, WithTestTimeout(time.Second*1))
 
 	require.Panics(t, func() {
-		tester.Execute()
+		tester.Execute(context.Background())
 	})
 }
 
@@ -48,7 +48,7 @@ func Test_Activity(t *testing.T) {
 
 	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -61,7 +61,7 @@ func Test_OverrideActivity(t *testing.T) {
 
 	tester.OnActivityByName("activity1", activity1, mock.Anything).Return(23, nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -74,7 +74,7 @@ func Test_FailingActivity(t *testing.T) {
 
 	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error"))
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, werr := tester.WorkflowResult()
@@ -92,7 +92,7 @@ func Test_FailingActivity(t *testing.T) {
 // 		t,
 // 		"Unexpected number of results returned for mocked activity activityPanics, expected 1 or 2, got 3",
 // 		func() {
-// 			tester.Execute()
+// 			tester.Execute(context.Background())
 // 		})
 // }
 
@@ -103,7 +103,7 @@ func Test_Activity_Retries(t *testing.T) {
 	tester.OnActivity(activity1, mock.Anything).Return(0, errors.New("error")).Once()
 	tester.OnActivity(activity1, mock.Anything).Return(42, nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	r, _ := tester.WorkflowResult()
 	require.Equal(t, 42, r)
@@ -114,7 +114,7 @@ func Test_Activity_WithoutMock(t *testing.T) {
 
 	tester.Registry().RegisterActivity(activity1)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	r, errStr := tester.WorkflowResult()
@@ -144,7 +144,7 @@ func Test_Activity_LongRunning(t *testing.T) {
 	tester := NewWorkflowTester[any](workflowLongRunningActivity)
 	tester.Registry().RegisterActivity(activityLongRunning)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 }
@@ -167,7 +167,7 @@ func Test_Signals(t *testing.T) {
 		tester.SignalWorkflow("signal", "s42")
 	})
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -196,7 +196,7 @@ func workflowSignal(ctx workflow.Context) (string, error) {
 func Test_SignalSubWorkflowBeforeScheduling(t *testing.T) {
 	tester := NewWorkflowTester[string](workflowSubWorkFlowsAndSignals)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wfR, wfErr := tester.WorkflowResult()
@@ -221,7 +221,7 @@ func Test_SignalSubWorkflow(t *testing.T) {
 	tester := NewWorkflowTester[int](workflowSubworkflowSignal)
 	require.NoError(t, tester.Registry().RegisterWorkflow(waitForSignal))
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wfR, wfErr := tester.WorkflowResult()

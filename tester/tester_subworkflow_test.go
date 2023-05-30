@@ -1,6 +1,7 @@
 package tester
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func Test_SubWorkflow(t *testing.T) {
 	tester := NewWorkflowTester[string](workflowWithSub)
 	tester.Registry().RegisterWorkflow(subWorkflow)
 
-	tester.Execute("hello")
+	tester.Execute(context.Background(), "hello")
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -65,7 +66,7 @@ func Test_SubWorkflow_Mocked(t *testing.T) {
 	tester.Registry().RegisterWorkflow(subWorkflow)
 	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return("sresult2", nil)
 
-	tester.Execute("hello")
+	tester.Execute(context.Background(), "hello")
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -97,7 +98,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 	tester.Registry().RegisterWorkflow(subWorkflow)
 	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return(nil, errors.New("error"))
 
-	tester.Execute("hello")
+	tester.Execute(context.Background(), "hello")
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -143,7 +144,7 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 		require.Nil(t, tester.SignalWorkflowInstance(subWorkflowInstance, "subworkflow-signal", "42"))
 	})
 
-	tester.Execute("hello")
+	tester.Execute(context.Background(), "hello")
 
 	require.True(t, tester.WorkflowFinished())
 

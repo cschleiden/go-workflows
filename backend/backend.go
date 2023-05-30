@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -78,4 +79,7 @@ type Backend interface {
 
 	// Converter returns the configured converter for the backend
 	Converter() converter.Converter
+
+	// ContextPropagators returns the configured context propagators for the backend
+	ContextPropagators() []contextpropagation.ContextPropagator
 }

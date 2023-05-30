@@ -16,6 +16,7 @@ import (
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 
 	"github.com/cschleiden/go-workflows/worker"
 
@@ -32,11 +33,6 @@ func main() {
 		attribute.String("environment", "sample"),
 	)
 
-	// stdoutexp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-	// if err != nil {
-	// 	panic(err)
-	// }
-
 	oclient := otlptracehttp.NewClient(
 		// otlptracehttp.WithEndpoint("localhost:8360"),
 		// otlptracehttp.WithURLPath("/traces/otlp/v0.9"),
@@ -48,8 +44,13 @@ func main() {
 		panic(err)
 	}
 
+	stdoutexp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	if err != nil {
+		panic(err)
+	}
+
 	tp := trace.NewTracerProvider(
-		// trace.WithSyncer(stdoutexp),
+		trace.WithSyncer(stdoutexp),
 		trace.WithBatcher(exp),
 		trace.WithResource(r),
 	)
@@ -87,7 +88,7 @@ func runWorkflow(ctx context.Context, c client.Client) {
 	}
 
 	// Test signal
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Second * 5)
 	c.SignalWorkflow(ctx, wf.InstanceID, "test-signal", "")
 
 	result, err := client.GetWorkflowResult[int](ctx, c, wf, time.Second*120)

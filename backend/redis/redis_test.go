@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/redis/go-redis/v9"
@@ -52,8 +53,8 @@ func getClient() redis.UniversalClient {
 	return client
 }
 
-func getCreateBackend(client redis.UniversalClient, additionalOptions ...RedisBackendOption) func() test.TestBackend {
-	return func() test.TestBackend {
+func getCreateBackend(client redis.UniversalClient, additionalOptions ...RedisBackendOption) func(options ...backend.BackendOption) test.TestBackend {
+	return func(options ...backend.BackendOption) test.TestBackend {
 		// Flush database
 		if err := client.FlushDB(context.Background()).Err(); err != nil {
 			panic(err)
@@ -68,13 +69,14 @@ func getCreateBackend(client redis.UniversalClient, additionalOptions ...RedisBa
 			panic("Keys should've been empty" + strings.Join(r, ", "))
 		}
 
-		options := []RedisBackendOption{
+		redisOptions := []RedisBackendOption{
 			WithBlockTimeout(time.Millisecond * 10),
+			WithBackendOptions(options...),
 		}
 
-		options = append(options, additionalOptions...)
+		redisOptions = append(redisOptions, additionalOptions...)
 
-		b, err := NewRedisBackend(client, options...)
+		b, err := NewRedisBackend(client, redisOptions...)
 		if err != nil {
 			panic(err)
 		}

@@ -1,6 +1,7 @@
 package tester
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ func Test_Timer(t *testing.T) {
 	tester := NewWorkflowTester[timerResult](workflowTimer)
 	start := tester.Now()
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -53,7 +54,7 @@ func Test_TimerHanging(t *testing.T) {
 	tester := NewWorkflowTester[timerResult](wf)
 
 	require.Panics(t, func() {
-		tester.Execute()
+		tester.Execute(context.Background())
 	})
 }
 
@@ -61,7 +62,7 @@ func Test_TimerCancellation(t *testing.T) {
 	tester := NewWorkflowTester[time.Time](workflowTimerCancellation)
 	start := tester.Now()
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -83,7 +84,7 @@ func Test_TimerSubworkflowCancellation(t *testing.T) {
 	tester := NewWorkflowTester[time.Time](workflowSubWorkflowTimerCancellation)
 	tester.Registry().RegisterWorkflow(timerCancellationSubWorkflow)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -128,7 +129,7 @@ func Test_TimerRespondingWithoutNewEvents(t *testing.T) {
 		tester.SignalWorkflow("signal", "s42")
 	})
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 
@@ -166,7 +167,7 @@ func Test_WallClockTimer_Canceled(t *testing.T) {
 
 	tester.OnActivity(activity1).Return("activity", nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	wr, _ := tester.WorkflowResult()
@@ -200,7 +201,7 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	tester.OnActivity(activity1).Return("activity", nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, dl.hasLine("workflows.timer.mode.from=WallClock workflows.timer.mode.to=TimeTravel"))
 	require.True(t, dl.hasLine("workflows.timer.mode.from=TimeTravel workflows.timer.mode.to=WallClock"))
@@ -235,7 +236,7 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	tester.OnActivity(activity1).Return("activity", nil)
 
-	tester.Execute()
+	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()

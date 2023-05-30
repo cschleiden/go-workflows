@@ -9,6 +9,7 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
@@ -31,13 +32,13 @@ func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, in
 	return t.history, nil
 }
 
-func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) *executor {
+func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) (*executor, error) {
 	logger := logger.NewDefaultLogger()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	e := NewExecutor(logger, tracer, r, converter.DefaultConverter, historyProvider, i, clock.New())
+	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, historyProvider, i, &core.WorkflowMetadata{}, clock.New())
 
-	return e.(*executor)
+	return e.(*executor), err
 }
 
 func activity1(ctx context.Context, r int) (int, error) {
@@ -590,7 +591,8 @@ func Test_Executor(t *testing.T) {
 
 			i := core.NewWorkflowInstance(uuid.NewString())
 			hp := &testHistoryProvider{}
-			e := newExecutor(r, i, hp)
+			e, err := newExecutor(r, i, hp)
+			require.NoError(t, err)
 			tt.f(t, r, e, i, hp)
 		})
 	}

@@ -21,14 +21,18 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 	logger.Debug("Entering Workflow1", "msg", msg, "times", times, "inputs", inputs)
 	defer logger.Debug("Leaving Workflow1")
 
-	ctx, span := workflow.Tracer(ctx).Start(ctx, "Workflow1 span", trace.WithAttributes(
+	tracer := workflow.Tracer(ctx)
+	ctx, span := tracer.Start(ctx, "Workflow1")
+	defer span.End()
+
+	_, customSpan := tracer.Start(ctx, "Workflow1 span", trace.WithAttributes(
 		// Add additional
 		attribute.String("msg", "hello world"),
 	))
 
 	// Do something
 
-	span.End()
+	customSpan.End()
 
 	workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 
@@ -37,6 +41,10 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 	workflow.CreateSubWorkflowInstance[any](ctx, workflow.DefaultSubWorkflowOptions, Subworkflow).Get(ctx)
 
 	workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
+
+	_, span = workflow.Tracer(ctx).Start(ctx, "Wait-for-signal")
+	workflow.NewSignalChannel[string](ctx, "test-signal").Receive(ctx)
+	span.End()
 
 	r1, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
 

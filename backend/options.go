@@ -3,11 +3,14 @@ package backend
 import (
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/logger"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
+	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -21,6 +24,9 @@ type Options struct {
 	// Converter is the converter to use for serializing and deserializing inputs and results. If not explicitly set
 	// converter.DefaultConverter is used.
 	Converter converter.Converter
+
+	// ContextPropagators is a list of context propagators to use for passing context into workflows and activities.
+	ContextPropagators []contextpropagation.ContextPropagator
 
 	StickyTimeout time.Duration
 
@@ -44,6 +50,8 @@ var DefaultOptions Options = Options{
 	Metrics:        mi.NewNoopMetricsClient(),
 	TracerProvider: trace.NewNoopTracerProvider(),
 	Converter:      converter.DefaultConverter,
+
+	ContextPropagators: []contextpropagation.ContextPropagator{&tracing.TracingContextPropagator{}},
 }
 
 type BackendOption func(*Options)
@@ -75,6 +83,12 @@ func WithTracerProvider(tp trace.TracerProvider) BackendOption {
 func WithConverter(converter converter.Converter) BackendOption {
 	return func(o *Options) {
 		o.Converter = converter
+	}
+}
+
+func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
+	return func(o *Options) {
+		o.ContextPropagators = append(o.ContextPropagators, prop)
 	}
 }
 
