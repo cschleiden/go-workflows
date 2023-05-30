@@ -15,11 +15,9 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/cschleiden/go-workflows/log"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -53,6 +51,7 @@ type executor struct {
 	logger            log.Logger
 	tracer            trace.Tracer
 	lastSequenceID    int64
+	parentSpan        trace.Span
 }
 
 func NewExecutor(
@@ -85,6 +84,9 @@ func NewExecutor(
 		}
 	}
 
+	// Get span from the workflow context, set by the default context propagator
+	parentSpan := workflowtracer.SpanFromContext(wfCtx)
+
 	return &executor{
 		registry:          registry,
 		historyProvider:   historyProvider,
@@ -95,23 +97,11 @@ func NewExecutor(
 		clock:             clock,
 		logger:            logger,
 		tracer:            tracer,
+		parentSpan:        parentSpan,
 	}, nil
 }
 
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
-	ctx = tracing.ExtractSpan(ctx, t.Metadata)
-	ctx, span := e.tracer.Start(ctx, "WorkflowTaskExecution", trace.WithAttributes(
-		attribute.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
-		attribute.String(log.TaskIDKey, t.ID),
-		attribute.Int(log.NewEventsKey, len(t.NewEvents)),
-	))
-	defer span.End()
-
-	// Make the current span available to the tracer that we pass into the workflow execution. With caching
-	// the executor instance might be used for multiple workflow tasks and we want calls made in each task
-	// execution to be associated with the new span for the WorkflowTaskExecution.
-	e.workflowTracer.UpdateExecution(span)
-
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
 		log.InstanceIDKey, t.WorkflowInstance.InstanceID)

@@ -32,9 +32,9 @@ func ContextWithSpan(ctx sync.Context, span trace.Span) sync.Context {
 	return sync.WithValue(ctx, spanKey, span)
 }
 
-func SpanFromContext(ctx sync.Context) *trace.Span {
+func SpanFromContext(ctx sync.Context) trace.Span {
 	if span, ok := ctx.Value(spanKey).(trace.Span); ok {
-		return &span
+		return span
 	}
 
 	return nil
@@ -51,21 +51,10 @@ func New(tracer trace.Tracer) *WorkflowTracer {
 	}
 }
 
-func (wt *WorkflowTracer) UpdateExecution(span trace.Span) {
-	wt.parentSpan = span
-}
-
 func (wt *WorkflowTracer) Start(ctx sync.Context, name string, opts ...trace.SpanStartOption) (sync.Context, Span) {
-	parentSpan := wt.parentSpan
-
-	// Try to get parent span from ctx, otherwise use the one from the tracer instance
-	if span := SpanFromContext(ctx); span != nil {
-		parentSpan = *span
-	}
-
 	state := workflowstate.WorkflowState(ctx)
 
-	sctx := trace.ContextWithSpan(context.Background(), parentSpan)
+	sctx := trace.ContextWithSpan(context.Background(), SpanFromContext(ctx))
 	opts = append(opts, trace.WithTimestamp(state.Time()))
 	sctx, span := wt.tracer.Start(sctx, name, opts...)
 
