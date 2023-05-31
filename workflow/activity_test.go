@@ -23,7 +23,7 @@ func Test_executeActivity_ResultMismatch(t *testing.T) {
 	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a"), logger.NewDefaultLogger(), clock.New()),
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New()),
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
@@ -47,7 +47,7 @@ func Test_executeActivity_ParamMismatch(t *testing.T) {
 	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a"), logger.NewDefaultLogger(), clock.New()),
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New()),
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 

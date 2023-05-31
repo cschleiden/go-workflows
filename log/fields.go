@@ -8,6 +8,7 @@ const (
 	ActivityIDKey   = NamespaceKey + ".activity.id"
 	ActivityNameKey = NamespaceKey + ".activity.name"
 	InstanceIDKey   = NamespaceKey + ".instance.id"
+	ExecutionIDKey  = NamespaceKey + ".execution.id"
 
 	WorkflowNameKey = NamespaceKey + ".workflow.name"
 

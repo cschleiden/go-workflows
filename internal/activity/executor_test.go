@@ -63,7 +63,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 			}
 			got, err := e.ExecuteActivity(context.Background(), &task.Activity{
 				ID:               uuid.NewString(),
-				WorkflowInstance: core.NewWorkflowInstance("instanceID"),
+				WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 				Event:            history.NewHistoryEvent(1, time.Now(), history.EventType_ActivityScheduled, attr),
 			})
 			tt.result(t, got, err)

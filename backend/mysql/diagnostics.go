@@ -23,7 +23,7 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	if afterInstanceID != "" {
 		rows, err = tx.QueryContext(
 			ctx,
-			`SELECT i.instance_id, i.created_at, i.completed_at
+			`SELECT i.instance_id, i.execution_id, i.created_at, i.completed_at
 			FROM instances i
 			INNER JOIN (SELECT instance_id, created_at FROM instances WHERE id = ?) ii
 				ON i.created_at < ii.created_at OR (i.created_at = ii.created_at AND i.instance_id < ii.instance_id)
@@ -35,7 +35,7 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	} else {
 		rows, err = tx.QueryContext(
 			ctx,
-			`SELECT i.instance_id, i.created_at, i.completed_at
+			`SELECT i.instance_id, i.execution_id, i.created_at, i.completed_at
 			FROM instances i
 			ORDER BY i.created_at DESC, i.instance_id DESC
 			LIMIT ?`,
@@ -49,10 +49,10 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	var instances []*diag.WorkflowInstanceRef
 
 	for rows.Next() {
-		var id string
+		var id, executionID string
 		var createdAt time.Time
 		var completedAt *time.Time
-		err = rows.Scan(&id, &createdAt, &completedAt)
+		err = rows.Scan(&id, &executionID, &createdAt, &completedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		}
 
 		instances = append(instances, &diag.WorkflowInstanceRef{
-			Instance:    core.NewWorkflowInstance(id),
+			Instance:    core.NewWorkflowInstance(id, executionID),
 			CreatedAt:   createdAt,
 			CompletedAt: completedAt,
 			State:       state,
@@ -80,13 +80,13 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 	}
 	defer tx.Rollback()
 
-	res := tx.QueryRowContext(ctx, "SELECT instance_id, created_at, completed_at FROM instances WHERE instance_id = ?", instanceID)
+	res := tx.QueryRowContext(ctx, "SELECT instance_id, execution_id, created_at, completed_at FROM instances WHERE instance_id = ?", instanceID)
 
-	var id string
+	var id, executionID string
 	var createdAt time.Time
 	var completedAt *time.Time
 
-	err = res.Scan(&id, &createdAt, &completedAt)
+	err = res.Scan(&id, &executionID, &createdAt, &completedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -101,7 +101,7 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 	}
 
 	return &diag.WorkflowInstanceRef{
-		Instance:    core.NewWorkflowInstance(id),
+		Instance:    core.NewWorkflowInstance(id, executionID),
 		CreatedAt:   createdAt,
 		CompletedAt: completedAt,
 		State:       state,

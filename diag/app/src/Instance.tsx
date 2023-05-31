@@ -1,19 +1,19 @@
 import { Accordion, Alert, Card } from "react-bootstrap";
 import { Link, useParams } from "react-router-dom";
 import {
-  EventType,
-  Payload,
-  ScheduleEventID,
-  WorkflowInstanceState,
-  decodePayload,
-  decodePayloads,
-} from "./Components";
-import {
   ExecutionCompletedAttributes,
   ExecutionStartedAttributes,
   HistoryEvent,
   WorkflowInstanceInfo,
 } from "./client";
+import {
+  decodePayload,
+  decodePayloads,
+  EventType,
+  Payload,
+  ScheduleEventID,
+  WorkflowInstanceState,
+} from "./Components";
 
 import useFetch from "react-fetch-hook";
 import { InstanceTree } from "./InstanceTree";
@@ -74,6 +74,11 @@ function Instance() {
         <dt className="col-sm-4">InstanceID</dt>
         <dd className="col-sm-8">
           <code>{instance.instance.instance_id}</code>
+        </dd>
+
+        <dt className="col-sm-4">ExecutionID</dt>
+        <dd className="col-sm-8">
+          <code>{instance.instance.execution_id}</code>
         </dd>
 
         {!!instance.instance.parent_instance && (
@@ -137,11 +142,7 @@ function Instance() {
                     <ScheduleEventID id={event.schedule_event_id!} />
                   )}
                 </div>
-                {event.type !== "WorkflowExecutionStarted" && (
-                  <div className="flex-grow-1">
-                    <code>{event.attributes?.name}</code>
-                  </div>
-                )}
+                {event.type !== "WorkflowExecutionStarted" && <div className="flex-grow-1"><code>{event.attributes?.name}</code></div>}
                 <div>{event.timestamp}</div>
               </h5>
             </Accordion.Header>

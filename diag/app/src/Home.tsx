@@ -39,6 +39,7 @@ function Home() {
             <thead>
               <tr>
                 <th>Instance ID</th>
+                <th>Execution ID</th>
                 <th>Parent Instance ID</th>
                 <th>Created At</th>
               </tr>
@@ -50,6 +51,9 @@ function Home() {
                     <Link to={`/${i.instance.instance_id}`}>
                       <code>{i.instance.instance_id}</code>
                     </Link>
+                  </td>
+                  <td>
+                    <code>{i.instance.execution_id}</code>
                   </td>
                   <td>
                     <Link to={`/${i.instance.parent_instance}`}>

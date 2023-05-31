@@ -14,7 +14,7 @@ import (
 )
 
 func Test_PendingFutures(t *testing.T) {
-	i := core.NewWorkflowInstance(uuid.NewString())
+	i := core.NewWorkflowInstance(uuid.NewString(), "")
 
 	wfState := NewWorkflowState(i, logger.NewDefaultLogger(), clock.New())
 
