@@ -261,10 +261,42 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				time.Sleep(time.Second)
 
 				db := b.(diag.Backend)
-				s, err := db.GetWorkflowInstance(ctx, wfi.InstanceID)
+				s, err := db.GetWorkflowInstance(ctx, wfi)
 				require.NoError(t, err)
 				require.Equal(t, core.WorkflowInstanceStateFinished, s.State)
 				require.NotNil(t, s.CompletedAt)
+			},
+		},
+		{
+			name: "CompleteWorkflowTask_SendsInstanceEvents",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				c := client.New(b)
+				instance := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+
+				subInstance1 := core.NewSubWorkflowInstance(uuid.NewString(), uuid.NewString(), instance, 1)
+				startWorkflow(t, ctx, b, c, subInstance1)
+
+				// Create parent instance
+				err := b.CreateWorkflowInstance(ctx, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
+				require.NoError(t, err)
+
+				// Simulate context and sub-workflow cancellation
+				task, err := b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+				err = b.CompleteWorkflowTask(ctx, task, instance, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []history.WorkflowEvent{
+					{
+						WorkflowInstance: subInstance1,
+						HistoryEvent: history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionCanceled, &history.SubWorkflowCancellationRequestedAttributes{
+							SubWorkflowInstance: subInstance1,
+						}),
+					},
+				})
+				require.NoError(t, err)
+
+				task, err = b.GetWorkflowTask(ctx)
+				require.NoError(t, err)
+				require.Equal(t, subInstance1, task.WorkflowInstance)
+				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
 			},
 		},
 		{
@@ -298,38 +330,6 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				task, err := b.GetWorkflowTask(ctx)
 				require.NoError(t, err)
 
-				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
-			},
-		},
-		{
-			name: "CompleteWorkflowTask_SendsInstanceEvents",
-			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
-				c := client.New(b)
-				instance := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-
-				subInstance1 := core.NewSubWorkflowInstance(uuid.NewString(), uuid.NewString(), instance.InstanceID, 1)
-				startWorkflow(t, ctx, b, c, subInstance1)
-
-				// Create parent instance
-				err := b.CreateWorkflowInstance(ctx, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
-				require.NoError(t, err)
-
-				// Simulate context and sub-workflow cancellation
-				task, err := b.GetWorkflowTask(ctx)
-				require.NoError(t, err)
-				err = b.CompleteWorkflowTask(ctx, task, instance, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []history.WorkflowEvent{
-					{
-						WorkflowInstance: subInstance1,
-						HistoryEvent: history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionCanceled, &history.SubWorkflowCancellationRequestedAttributes{
-							SubWorkflowInstance: subInstance1,
-						}),
-					},
-				})
-				require.NoError(t, err)
-
-				task, err = b.GetWorkflowTask(ctx)
-				require.NoError(t, err)
-				require.Equal(t, subInstance1, task.WorkflowInstance)
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
 			},
 		},

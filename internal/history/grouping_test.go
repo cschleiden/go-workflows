@@ -11,20 +11,21 @@ import (
 
 func TestGrouping_MultipleEventsSameInstance(t *testing.T) {
 	id := uuid.NewString()
+	instance := core.NewWorkflowInstance(id, "exid")
 
-	r := EventsByWorkflowInstanceID([]WorkflowEvent{
+	r := EventsByWorkflowInstance([]WorkflowEvent{
 		{
-			WorkflowInstance: core.NewWorkflowInstance(id, "exid"),
+			WorkflowInstance: instance,
 			HistoryEvent:     NewPendingEvent(time.Now(), EventType_SubWorkflowScheduled, &SubWorkflowScheduledAttributes{}),
 		},
 		{
-			WorkflowInstance: core.NewWorkflowInstance(id, ""),
+			WorkflowInstance: instance,
 			HistoryEvent:     NewPendingEvent(time.Now(), EventType_SignalReceived, &SubWorkflowScheduledAttributes{}),
 		},
 	})
 
 	require.Len(t, r, 1)
-	require.Len(t, r[id], 2)
-	require.Equal(t, r[id][0].HistoryEvent.Type, EventType_SubWorkflowScheduled)
-	require.Equal(t, r[id][1].HistoryEvent.Type, EventType_SignalReceived)
+	require.Len(t, r[*instance], 2)
+	require.Equal(t, r[*instance][0].HistoryEvent.Type, EventType_SubWorkflowScheduled)
+	require.Equal(t, r[*instance][1].HistoryEvent.Type, EventType_SignalReceived)
 }

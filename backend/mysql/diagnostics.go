@@ -11,7 +11,7 @@ import (
 
 var _ diag.Backend = (*mysqlBackend)(nil)
 
-func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*diag.WorkflowInstanceRef, error) {
+func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	var err error
 	tx, err := mb.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -25,11 +25,12 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			ctx,
 			`SELECT i.instance_id, i.execution_id, i.created_at, i.completed_at
 			FROM instances i
-			INNER JOIN (SELECT instance_id, created_at FROM instances WHERE id = ?) ii
+			INNER JOIN (SELECT instance_id, created_at FROM instances WHERE id = ? AND execution_id = ?) ii
 				ON i.created_at < ii.created_at OR (i.created_at = ii.created_at AND i.instance_id < ii.instance_id)
 			ORDER BY i.created_at DESC, i.instance_id DESC
 			LIMIT ?`,
 			afterInstanceID,
+			afterExecutionID,
 			count,
 		)
 	} else {
@@ -73,14 +74,16 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	return instances, nil
 }
 
-func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*diag.WorkflowInstanceRef, error) {
+func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
 	tx, err := mb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	res := tx.QueryRowContext(ctx, "SELECT instance_id, execution_id, created_at, completed_at FROM instances WHERE instance_id = ?", instanceID)
+	res := tx.QueryRowContext(
+		ctx,
+		"SELECT instance_id, execution_id, created_at, completed_at FROM instances WHERE instance_id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID)
 
 	var id, executionID string
 	var createdAt time.Time
@@ -108,7 +111,7 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instanceID stri
 	}, nil
 }
 
-func (mb *mysqlBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
+func (mb *mysqlBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {
 	itb := diag.NewInstanceTreeBuilder(mb)
-	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
+	return itb.BuildWorkflowInstanceTree(ctx, instance)
 }

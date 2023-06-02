@@ -147,14 +147,13 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	// Only record the time spent in the workflow code
 	timer.Stop()
 
-	state := core.WorkflowInstanceStateActive
-	if result.Completed {
-		state = core.WorkflowInstanceStateFinished
-
+	state := result.State
+	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
 		if t.WorkflowInstanceState != state {
 			// If the workflow is now finished, record
 			ww.backend.Metrics().Counter(metrickeys.WorkflowInstanceFinished, metrics.Tags{
-				metrickeys.SubWorkflow: fmt.Sprint(t.WorkflowInstance.SubWorkflow()),
+				metrickeys.SubWorkflow:    fmt.Sprint(t.WorkflowInstance.SubWorkflow()),
+				metrickeys.ContinuedAsNew: fmt.Sprint(state == core.WorkflowInstanceStateContinuedAsNew),
 			}, 1)
 		}
 	}

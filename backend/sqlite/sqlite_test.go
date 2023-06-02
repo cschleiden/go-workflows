@@ -48,7 +48,7 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 	// There is no index on `visible_at`, but this is okay for test only usage.
 	futureEvents, err := tx.QueryContext(
 		ctx,
-		"SELECT id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE visible_at IS NOT NULL",
+		"SELECT id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE visible_at IS NOT NULL",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
@@ -57,7 +57,7 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 	f := make([]*history.Event, 0)
 
 	for futureEvents.Next() {
-		var instanceID string
+		var instanceID, executionID string
 		var attributes []byte
 
 		fe := &history.Event{}
@@ -66,6 +66,7 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 			&fe.ID,
 			&fe.SequenceID,
 			&instanceID,
+			&executionID,
 			&fe.Type,
 			&fe.Timestamp,
 			&fe.ScheduleEventID,

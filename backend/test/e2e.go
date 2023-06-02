@@ -173,14 +173,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				require.NoError(t, err)
 
 				err = c.SignalWorkflow(ctx, instance.InstanceID, "signal", nil)
-				require.NoError(t, err)
-				_, err = client.GetWorkflowResult[int](ctx, c, instance, time.Millisecond*5)
-				require.NoError(t, err)
-
-				err = c.SignalWorkflow(ctx, instance.InstanceID, "signal", nil)
-				require.NoError(t, err)
-				_, err = client.GetWorkflowResult[int](ctx, c, instance, time.Millisecond*5)
-				require.NoError(t, err)
+				require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 			},
 		},
 		{
@@ -611,6 +604,57 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				r, err := client.GetWorkflowResult[string](ctx, c, instance, time.Second*5)
 				require.NoError(t, err)
 				require.Equal(t, "hello-23", r)
+			},
+		},
+		{
+			name: "ContinueAsNew",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				wf := func(ctx workflow.Context, run int) (int, error) {
+					run = run + 1
+					if run < 3 {
+						return run, workflow.ContinueAsNew(ctx, run)
+					}
+
+					return run, nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf, 0)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
+				require.NoError(t, err)
+				require.Equal(t, 1, r)
+
+				state, err := b.GetWorkflowInstanceState(ctx, instance)
+				require.NoError(t, err)
+				require.Equal(t, core.WorkflowInstanceStateContinuedAsNew, state)
+			},
+		},
+		{
+			name: "ContinueAsNew_Subworkflow",
+			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+				swf := func(ctx workflow.Context, run int) (int, error) {
+					l := workflow.Logger(ctx)
+
+					run = run + 1
+					if run < 3 {
+						l.Debug("continue as new", "run", run)
+						return run, workflow.ContinueAsNew(ctx, run)
+					}
+
+					return run, nil
+				}
+
+				wf := func(ctx workflow.Context, run int) (int, error) {
+					return workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, run).Get(ctx)
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf, 0)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
+				require.NoError(t, err)
+				require.Equal(t, 3, r)
 			},
 		},
 	}

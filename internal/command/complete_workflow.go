@@ -52,7 +52,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 		c.state = CommandState_Done
 
 		r := &CommandResult{
-			Completed: true,
+			State: core.WorkflowInstanceStateFinished,
 			Events: []*history.Event{
 				history.NewPendingEvent(
 					clock.Now(),
@@ -95,7 +95,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 
 			r.WorkflowEvents = []history.WorkflowEvent{
 				{
-					WorkflowInstance: core.NewWorkflowInstance(c.Instance.ParentInstanceID, ""), // TODO: Do we need execution id here?
+					WorkflowInstance: c.Instance.Parent,
 					HistoryEvent:     historyEvent,
 				},
 			}

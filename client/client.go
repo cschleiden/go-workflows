@@ -133,6 +133,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 
 	err = c.backend.SignalWorkflow(ctx, instanceID, signalEvent)
 	if err != nil {
+		span.RecordError(err)
 		return err
 	}
 
@@ -171,7 +172,7 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 			return fmt.Errorf("getting workflow state: %w", err)
 		}
 
-		if s == core.WorkflowInstanceStateFinished {
+		if s == core.WorkflowInstanceStateFinished || s == core.WorkflowInstanceStateContinuedAsNew {
 			return nil
 		}
 	}
@@ -208,6 +209,16 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 			if a.Error != "" {
 				return *new(T), errors.New(a.Error)
 			}
+
+			var r T
+			if err := b.Converter().From(a.Result, &r); err != nil {
+				return *new(T), fmt.Errorf("converting result: %w", err)
+			}
+
+			return r, nil
+
+		case history.EventType_WorkflowExecutionContinuedAsNew:
+			a := event.Attributes.(*history.ExecutionContinuedAsNewAttributes)
 
 			var r T
 			if err := b.Converter().From(a.Result, &r); err != nil {

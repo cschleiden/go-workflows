@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/core"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -19,14 +20,14 @@ import (
 // ARGV[1] - current timestamp
 // ARGV[2] - expiration time in seconds
 // ARGV[3] - expiration timestamp in unix milliseconds
-// ARGV[4] - instance ID
+// ARGV[4] - instance segment
 var expireCmd = redis.NewScript(
 	`-- Find instances which have already expired and remove from the index set
 	local expiredInstances = redis.call("ZRANGE", KEYS[2], "-inf", ARGV[1], "BYSCORE")
 	for i = 1, #expiredInstances do
-		local instanceID = expiredInstances[i]
-		redis.call("ZREM", KEYS[1], instanceID) -- index set
-		redis.call("ZREM", KEYS[2], instanceID) -- expiration set
+		local instanceSegment = expiredInstances[i]
+		redis.call("ZREM", KEYS[1], instanceSegment) -- index set
+		redis.call("ZREM", KEYS[2], instanceSegment) -- expiration set
 	end
 
 	-- Add expiration time for future cleanup
@@ -41,7 +42,7 @@ var expireCmd = redis.NewScript(
 	`,
 )
 
-func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClient, instanceID string, expiration time.Duration) error {
+func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, expiration time.Duration) error {
 	now := time.Now().UnixMilli()
 	nowStr := strconv.FormatInt(now, 10)
 
@@ -51,13 +52,13 @@ func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClien
 	return expireCmd.Run(ctx, rdb, []string{
 		instancesByCreation(),
 		instancesExpiring(),
-		instanceKey(instanceID),
-		pendingEventsKey(instanceID),
-		historyKey(instanceID),
+		instanceKey(instance),
+		pendingEventsKey(instance),
+		historyKey(instance),
 	},
 		nowStr,
 		expiration.Seconds(),
 		expStr,
-		instanceID,
+		instanceSegment(instance),
 	).Err()
 }

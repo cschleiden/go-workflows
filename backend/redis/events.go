@@ -59,7 +59,7 @@ func addEventsToHistoryStreamP(ctx context.Context, p redis.Pipeliner, streamKey
 // KEYS[1] - future event zset key
 // KEYS[2] - future event key
 // ARGV[1] - timestamp
-// ARGV[2] - Instance ID
+// ARGV[2] - Instance segment
 // ARGV[3] - event payload
 var addFutureEventCmd = redis.NewScript(`
 	redis.call("ZADD", KEYS[1], ARGV[1], KEYS[2])
@@ -74,9 +74,9 @@ func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 	addFutureEventCmd.Run(
 		ctx, p,
-		[]string{futureEventsKey(), futureEventKey(instance.InstanceID, event.ScheduleEventID)},
+		[]string{futureEventsKey(), futureEventKey(instance, event.ScheduleEventID)},
 		strconv.FormatInt(event.VisibleAt.UnixMilli(), 10),
-		instance.InstanceID,
+		instanceSegment(instance),
 		string(eventData),
 	)
 
@@ -92,6 +92,6 @@ var removeFutureEventCmd = redis.NewScript(`
 
 // removeFutureEvent removes a scheduled future event for the given event. Events are associated via their ScheduleEventID
 func removeFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) {
-	key := futureEventKey(instance.InstanceID, event.ScheduleEventID)
+	key := futureEventKey(instance, event.ScheduleEventID)
 	removeFutureEventCmd.Run(ctx, p, []string{futureEventsKey(), key})
 }

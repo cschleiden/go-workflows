@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/cschleiden/go-workflows/internal/core"
 )
 
 //go:embed app/build
@@ -42,8 +44,15 @@ func NewServeMux(backend Backend) *http.ServeMux {
 					return
 				}
 			}
+			after := query.Get("after")
+			segments := strings.Split(after, ":")
+			var afterInstanceID, afterExecutionID string
+			if len(segments) == 2 {
+				afterInstanceID = segments[0]
+				afterExecutionID = segments[1]
+			}
 
-			instances, err := backend.GetWorkflowInstances(r.Context(), query.Get("after"), count)
+			instances, err := backend.GetWorkflowInstances(r.Context(), afterInstanceID, afterExecutionID, count)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
@@ -60,22 +69,24 @@ func NewServeMux(backend Backend) *http.ServeMux {
 
 		segments := strings.Split(relativeURL, "/")
 
-		// /api/{instanceID}
-		if len(segments) == 1 {
+		// /api/{instanceID}/{executionID}
+		if len(segments) == 2 {
 			instanceID := segments[0]
+			executionID := segments[1]
+			instance := core.NewWorkflowInstance(instanceID, executionID)
 
-			instance, err := backend.GetWorkflowInstance(r.Context(), instanceID)
+			instanceRef, err := backend.GetWorkflowInstance(r.Context(), instance)
 			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 
-			if instance == nil {
+			if instanceRef == nil {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 
-			history, err := backend.GetWorkflowInstanceHistory(r.Context(), instance.Instance, nil)
+			history, err := backend.GetWorkflowInstanceHistory(r.Context(), instanceRef.Instance, nil)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
@@ -95,7 +106,7 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			}
 
 			result := &WorkflowInstanceInfo{
-				WorkflowInstanceRef: instance,
+				WorkflowInstanceRef: instanceRef,
 				History:             newHistory,
 			}
 
@@ -108,16 +119,17 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			return
 		}
 
-		// /api/{instanceID}/tree
-		if len(segments) == 2 {
+		// /api/{instanceID}/{executionID}/tree
+		if len(segments) == 3 {
 			instanceID := segments[0]
-			op := segments[1]
+			executionID := segments[1]
+			op := segments[2]
 			if op != "tree" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 
-			tree, err := backend.GetWorkflowTree(r.Context(), instanceID)
+			tree, err := backend.GetWorkflowTree(r.Context(), core.NewWorkflowInstance(instanceID, executionID))
 			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
 				return

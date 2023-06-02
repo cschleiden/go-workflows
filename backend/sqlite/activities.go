@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID string, event *history.Event) error {
+func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event *history.Event) error {
 	attributes, err := history.SerializeAttributes(event.Attributes)
 	if err != nil {
 		return err
@@ -18,8 +19,8 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, instanceID, executionID s
 		`INSERT INTO activities
 			(id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
-		instanceID,
-		executionID,
+		instance.InstanceID,
+		instance.ExecutionID,
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,

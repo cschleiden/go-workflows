@@ -1,6 +1,6 @@
 export interface WorkflowInstance {
   instance_id: string;
-  parent_instance: string;
+  parent?: WorkflowInstance;
   execution_id: string;
 }
 
@@ -35,6 +35,10 @@ export interface ExecutionStartedAttributes {
 export interface ExecutionCompletedAttributes {
   result: string;
   error: string;
+}
+
+export interface ExecutionContinuedAsNewAttributes {
+  result: string;
 }
 
 export type WorkflowInstanceTree = WorkflowInstanceRef & {

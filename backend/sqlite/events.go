@@ -7,12 +7,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]*history.Event, error) {
+func getPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance) ([]*history.Event, error) {
 	now := time.Now()
-	events, err := tx.QueryContext(ctx, "SELECT * FROM `pending_events` WHERE instance_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)", instanceID, now)
+	events, err := tx.QueryContext(
+		ctx,
+		"SELECT * FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)",
+		instance.InstanceID,
+		instance.ExecutionID,
+		now,
+	)
 	defer events.Close()
 
 	if err != nil {
@@ -33,13 +40,15 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string) ([]*hi
 	return pendingEvents, nil
 }
 
-func getHistory(ctx context.Context, tx *sql.Tx, instanceID string, lastSequenceID *int64) ([]*history.Event, error) {
+func getHistory(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
 	var historyEvents *sql.Rows
 	var err error
 	if lastSequenceID != nil {
-		historyEvents, err = tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ? AND sequence_id > ?", instanceID, *lastSequenceID)
+		historyEvents, err = tx.QueryContext(
+			ctx, "SELECT * FROM `history` WHERE instance_id = ? AND execution_id = ? AND sequence_id > ?", instance.InstanceID, instance.ExecutionID, *lastSequenceID)
 	} else {
-		historyEvents, err = tx.QueryContext(ctx, "SELECT * FROM `history` WHERE instance_id = ?", instanceID)
+		historyEvents, err = tx.QueryContext(
+			ctx, "SELECT * FROM `history` WHERE instance_id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID)
 	}
 	defer historyEvents.Close()
 	if err != nil {
@@ -65,12 +74,22 @@ type Scanner interface {
 }
 
 func scanEvent(row Scanner) (*history.Event, error) {
-	var instanceID string
+	var instanceID, executionID string
 	var attributes []byte
 
 	historyEvent := &history.Event{}
 
-	if err := row.Scan(&historyEvent.ID, &historyEvent.SequenceID, &instanceID, &historyEvent.Type, &historyEvent.Timestamp, &historyEvent.ScheduleEventID, &attributes, &historyEvent.VisibleAt); err != nil {
+	if err := row.Scan(
+		&historyEvent.ID,
+		&historyEvent.SequenceID,
+		&instanceID,
+		&executionID,
+		&historyEvent.Type,
+		&historyEvent.Timestamp,
+		&historyEvent.ScheduleEventID,
+		&attributes,
+		&historyEvent.VisibleAt,
+	); err != nil {
 		return historyEvent, fmt.Errorf("scanning event: %w", err)
 	}
 
@@ -84,15 +103,15 @@ func scanEvent(row Scanner) (*history.Event, error) {
 	return historyEvent, nil
 }
 
-func insertPendingEvents(ctx context.Context, tx *sql.Tx, instanceID string, newEvents []*history.Event) error {
-	return insertEvents(ctx, tx, "pending_events", instanceID, newEvents)
+func insertPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, newEvents []*history.Event) error {
+	return insertEvents(ctx, tx, "pending_events", instance, newEvents)
 }
 
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instanceID string, historyEvents []*history.Event) error {
-	return insertEvents(ctx, tx, "history", instanceID, historyEvents)
+func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, historyEvents []*history.Event) error {
+	return insertEvents(ctx, tx, "history", instance, historyEvents)
 }
 
-func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID string, events []*history.Event) error {
+func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *core.WorkflowInstance, events []*history.Event) error {
 	const batchSize = 20
 	for batchStart := 0; batchStart < len(events); batchStart += batchSize {
 		batchEnd := batchStart + batchSize
@@ -101,8 +120,8 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 		}
 		batchEvents := events[batchStart:batchEnd]
 
-		query := "INSERT INTO `" + tableName + "` (id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
-			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+		query := "INSERT INTO `" + tableName + "` (id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)" +
+			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
 
 		args := make([]interface{}, 0, len(batchEvents)*7)
 
@@ -112,7 +131,8 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 				return err
 			}
 
-			args = append(args, newEvent.ID, newEvent.SequenceID, instanceID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
+			args = append(
+				args, newEvent.ID, newEvent.SequenceID, instance.InstanceID, instance.ExecutionID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
 		}
 
 		_, err := tx.ExecContext(
@@ -128,11 +148,12 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instanceID 
 	return nil
 }
 
-func removeFutureEvent(ctx context.Context, tx *sql.Tx, instanceID string, scheduleEventID int64) error {
+func removeFutureEvent(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, scheduleEventID int64) error {
 	_, err := tx.ExecContext(
 		ctx,
-		"DELETE FROM `pending_events` WHERE instance_id = ? AND schedule_event_id = ? AND visible_at IS NOT NULL",
-		instanceID,
+		"DELETE FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND schedule_event_id = ? AND visible_at IS NOT NULL",
+		instance.InstanceID,
+		instance.ExecutionID,
 		scheduleEventID,
 	)
 

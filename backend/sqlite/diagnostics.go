@@ -11,7 +11,7 @@ import (
 
 var _ diag.Backend = (*sqliteBackend)(nil)
 
-func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*diag.WorkflowInstanceRef, error) {
+func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	var err error
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -25,11 +25,12 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 			ctx,
 			`SELECT i.id, i.execution_id, i.created_at, i.completed_at
 			FROM instances i
-			INNER JOIN (SELECT id, created_at FROM instances WHERE id = ?) ii
+			INNER JOIN (SELECT id, created_at FROM instances WHERE id = ? AND execution_id = ?) ii
 				ON i.created_at < ii.created_at OR (i.created_at = ii.created_at AND i.id < ii.id)
 			ORDER BY i.created_at DESC, i.id DESC
 			LIMIT ?`,
 			afterInstanceID,
+			afterExecutionID,
 			count,
 		)
 	} else {
@@ -73,14 +74,14 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 	return instances, nil
 }
 
-func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*diag.WorkflowInstanceRef, error) {
+func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	res := tx.QueryRowContext(ctx, "SELECT id, execution_id, created_at, completed_at FROM instances WHERE id = ?", instanceID)
+	res := tx.QueryRowContext(ctx, "SELECT id, execution_id, created_at, completed_at FROM instances WHERE id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID)
 
 	var id, executionID string
 	var createdAt time.Time
@@ -108,7 +109,7 @@ func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instanceID str
 	}, nil
 }
 
-func (sb *sqliteBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
+func (sb *sqliteBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {
 	itb := diag.NewInstanceTreeBuilder(sb)
-	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
+	return itb.BuildWorkflowInstanceTree(ctx, instance)
 }

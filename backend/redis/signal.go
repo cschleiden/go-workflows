@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/log"
@@ -13,7 +14,17 @@ import (
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
-	instanceState, err := readInstance(ctx, rb.rdb, instanceID)
+	// Get current execution of the instance
+	instance, err := readActiveInstanceExecution(ctx, rb.rdb, instanceID)
+	if err != nil {
+		return fmt.Errorf("reading active instance execution: %w", err)
+	}
+
+	if instance == nil {
+		return backend.ErrInstanceNotFound
+	}
+
+	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
 	if err != nil {
 		return err
 	}

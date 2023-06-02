@@ -44,7 +44,7 @@ type WorkflowInstanceTree struct {
 type Backend interface {
 	backend.Backend
 
-	GetWorkflowInstance(ctx context.Context, instanceID string) (*WorkflowInstanceRef, error)
-	GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*WorkflowInstanceRef, error)
-	GetWorkflowTree(ctx context.Context, instanceID string) (*WorkflowInstanceTree, error)
+	GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*WorkflowInstanceRef, error)
+	GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*WorkflowInstanceRef, error)
+	GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*WorkflowInstanceTree, error)
 }

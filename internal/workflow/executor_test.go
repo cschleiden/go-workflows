@@ -486,7 +486,7 @@ func Test_Executor(t *testing.T) {
 				require.True(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 1)
 				require.Len(t, pendingCommands(e.workflowState.Commands()), 0)
-				require.True(t, r1.Completed)
+				require.Equal(t, core.WorkflowInstanceStateFinished, r1.State)
 			},
 		},
 		{

@@ -4,8 +4,8 @@ import Tree from "react-d3-tree";
 import { Point } from "react-d3-tree/lib/types/types/common";
 import useFetch from "react-fetch-hook";
 import { Link } from "react-router-dom";
-import { WorkflowInstanceTree } from "./client";
 import { WorkflowInstanceState } from "./Components";
+import { WorkflowInstanceTree } from "./client";
 
 function useCenteredTree(
   data: unknown
@@ -27,15 +27,21 @@ function useCenteredTree(
   return [translate, treeContainerRef];
 }
 
-export const InstanceTree: React.FC<{ instanceId: string }> = ({
-  instanceId,
-}) => {
+export const InstanceTree: React.FC<{
+  instanceId: string;
+  executionId: string;
+}> = ({ instanceId, executionId }) => {
   const {
     isLoading,
     data: instanceTree,
     error,
   } = useFetch<WorkflowInstanceTree>(
-    document.location.pathname + "api/" + instanceId + "/tree"
+    document.location.pathname +
+      "api/" +
+      instanceId +
+      "/" +
+      executionId +
+      "/tree"
   );
 
   const [translate, containerRef] = useCenteredTree(instanceTree);
@@ -82,7 +88,11 @@ export const InstanceTree: React.FC<{ instanceId: string }> = ({
               ></circle>
               <foreignObject width={200} height={50} x={20} y={-25}>
                 <div>
-                  <Link to={`/${x.instance.instance_id}`}>{x.name}</Link>
+                  <Link
+                    to={`/${x.instance.instance_id}/${x.instance.execution_id}`}
+                  >
+                    {x.name}
+                  </Link>
                   <br />
                   <WorkflowInstanceState state={x.state} />
                 </div>

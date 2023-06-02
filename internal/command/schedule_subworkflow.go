@@ -36,7 +36,7 @@ func NewScheduleSubWorkflowCommand(
 			},
 		},
 
-		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance.InstanceID, id),
+		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance, id),
 		Metadata: metadata,
 
 		Name:   name,
@@ -75,7 +75,6 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 							Inputs:   c.Inputs,
 							Metadata: c.Metadata,
 						},
-						history.ScheduleEventID(0),
 					),
 				},
 			},
