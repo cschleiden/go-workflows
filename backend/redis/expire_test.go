@@ -7,7 +7,6 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -100,10 +99,6 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	r, err := client.GetWorkflowResult[int](ctx, c, wfi, time.Second*10)
 	require.NoError(t, err)
 	require.Equal(t, 42, r)
-
-	// Subworkflow should be expired by now
-	_, err = b.GetWorkflowInstanceState(ctx, core.NewWorkflowInstance(swfInstanceID))
-	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 
 	// Wait for redis to expire the keys
 	time.Sleep(autoExpirationTime)

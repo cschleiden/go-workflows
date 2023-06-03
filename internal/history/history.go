@@ -16,6 +16,8 @@ const (
 	EventType_WorkflowExecutionStarted
 	// Workflow has finished
 	EventType_WorkflowExecutionFinished
+	// Workflow has continued as new
+	EventType_WorkflowExecutionContinuedAsNew
 	// Workflow has been terminated (not yet used)
 	EventType_WorkflowExecutionTerminated
 	// Workflow has been canceled
@@ -61,6 +63,8 @@ func (et EventType) String() string {
 		return "WorkflowExecutionStarted"
 	case EventType_WorkflowExecutionFinished:
 		return "WorkflowExecutionFinished"
+	case EventType_WorkflowExecutionContinuedAsNew:
+		return "WorkflowExecutionContinuedAsNew"
 	case EventType_WorkflowExecutionTerminated:
 		return "WorkflowExecutionTerminated"
 	case EventType_WorkflowExecutionCanceled:

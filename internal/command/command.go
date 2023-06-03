@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
@@ -29,7 +30,7 @@ type Command interface {
 }
 
 type CommandResult struct {
-	Completed      bool
+	State          core.WorkflowInstanceState
 	Events         []*history.Event
 	ActivityEvents []*history.Event
 	TimerEvents    []*history.Event

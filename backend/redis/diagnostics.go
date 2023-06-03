@@ -6,23 +6,28 @@ import (
 	"fmt"
 
 	"github.com/cschleiden/go-workflows/diag"
+	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/log"
 	redis "github.com/redis/go-redis/v9"
 )
 
 var _ diag.Backend = (*redisBackend)(nil)
 
-func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID string, count int) ([]*diag.WorkflowInstanceRef, error) {
+func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	max := "+inf"
 
 	if afterInstanceID != "" {
-		scores, err := rb.rdb.ZMScore(ctx, instancesByCreation(), afterInstanceID).Result()
+		afterID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
+		scores, err := rb.rdb.ZMScore(ctx, instancesByCreation(), afterID).Result()
 		if err != nil {
-			return nil, fmt.Errorf("getting instance score for %v: %w", afterInstanceID, err)
+			return nil, fmt.Errorf("getting instance score for %v: %w", afterID, err)
 		}
 
 		if len(scores) == 0 {
-			rb.Logger().Error("could not find instance %v", log.NamespaceKey+".redis.afterInstanceID", afterInstanceID)
+			rb.Logger().Error("could not find instance %v",
+				log.NamespaceKey+".redis.afterInstanceID", afterInstanceID,
+				log.NamespaceKey+".redis.afterExecutionID", afterExecutionID,
+			)
 			return nil, nil
 		}
 
@@ -41,13 +46,13 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		return nil, fmt.Errorf("getting instances after %v: %w", max, err)
 	}
 
-	instanceIDs := make([]string, 0)
+	instanceKeys := make([]string, 0)
 	for _, r := range result {
-		instanceID := r
-		instanceIDs = append(instanceIDs, instanceKey(instanceID))
+		instanceSegment := r
+		instanceKeys = append(instanceKeys, instanceKeyFromSegment(instanceSegment))
 	}
 
-	instances, err := rb.rdb.MGet(ctx, instanceIDs...).Result()
+	instances, err := rb.rdb.MGet(ctx, instanceKeys...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %w", err)
 	}
@@ -70,18 +75,18 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	return instanceRefs, nil
 }
 
-func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instanceID string) (*diag.WorkflowInstanceRef, error) {
-	instance, err := readInstance(ctx, rb.rdb, instanceID)
+func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
+	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
 	if err != nil {
 		return nil, err
 	}
 
-	return mapWorkflowInstance(instance), nil
+	return mapWorkflowInstance(instanceState), nil
 }
 
-func (rb *redisBackend) GetWorkflowTree(ctx context.Context, instanceID string) (*diag.WorkflowInstanceTree, error) {
+func (rb *redisBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {
 	itb := diag.NewInstanceTreeBuilder(rb)
-	return itb.BuildWorkflowInstanceTree(ctx, instanceID)
+	return itb.BuildWorkflowInstanceTree(ctx, instance)
 }
 
 func mapWorkflowInstance(instance *instanceState) *diag.WorkflowInstanceRef {

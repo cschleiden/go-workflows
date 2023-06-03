@@ -1,6 +1,7 @@
 import React from "react";
 import { Badge } from "react-bootstrap";
 import { Color } from "react-bootstrap/esm/types";
+import { WorkflowInstance as Instance } from "./client";
 
 export function decodePayload(payload: string): string {
   try {
@@ -43,11 +44,29 @@ export const Payload: React.FC<{ payloads: string[] }> = ({ payloads }) => {
   );
 };
 
+export const WorkflowInstance: React.FC<{ instance: Instance }> = ({
+  instance,
+}) => {
+  return (
+    <div>
+      <code>{instance.instance_id}</code>
+      <br />
+      <small>{instance.execution_id}</small>
+    </div>
+  );
+};
+
 export const WorkflowInstanceState: React.FC<{ state: number }> = ({
   state,
 }) => {
   if (state === 0) {
     return <Badge bg="info">Active</Badge>;
+  } else if (state === 1) {
+    return (
+      <Badge bg="light" text="dark">
+        ContinuedAsNew
+      </Badge>
+    );
   } else {
     return <Badge bg="success">Completed</Badge>;
   }
@@ -121,8 +140,15 @@ function eventColor(event: string): [Color, string] {
     case "WorkflowTaskStarted":
       return ["dark", "light"];
 
-    default:
+    case "WorkflowExecutionStarted":
       return ["dark", "info"];
+    case "WorkflowExecutionFinished":
+      return ["light", "success"];
+    case "WorkflowExecutionContinuedAsNew":
+      return ["dark", "light"];
+
+    default:
+      return ["dark", "light"];
   }
 }
 

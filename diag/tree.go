@@ -20,14 +20,14 @@ func NewInstanceTreeBuilder(db Backend) *instanceTreeBuilder {
 	}
 }
 
-func (itb *instanceTreeBuilder) BuildWorkflowInstanceTree(ctx context.Context, instanceID string) (*WorkflowInstanceTree, error) {
-	instance, err := itb.getInstance(ctx, instanceID)
+func (itb *instanceTreeBuilder) BuildWorkflowInstanceTree(ctx context.Context, instance *core.WorkflowInstance) (*WorkflowInstanceTree, error) {
+	instanceState, err := itb.getInstance(ctx, instance)
 	if err != nil {
 		return nil, fmt.Errorf("getting instance: %w", err)
 	}
 
 	// Get root instance of tree
-	rootInstance, err := itb.getRoot(ctx, instance)
+	rootInstance, err := itb.getRoot(ctx, instanceState)
 	if err != nil {
 		return nil, fmt.Errorf("getting root instance: %w", err)
 	}
@@ -70,19 +70,19 @@ func (itb *instanceTreeBuilder) BuildWorkflowInstanceTree(ctx context.Context, i
 	return root, nil
 }
 
-func (itb *instanceTreeBuilder) getRoot(ctx context.Context, instance *WorkflowInstanceRef) (*WorkflowInstanceRef, error) {
-	parentInstanceID := instance.Instance.ParentInstanceID
-	for parentInstanceID != "" {
+func (itb *instanceTreeBuilder) getRoot(ctx context.Context, instanceRef *WorkflowInstanceRef) (*WorkflowInstanceRef, error) {
+	parentInstance := instanceRef.Instance.Parent
+	for parentInstance != nil {
 		var err error
-		instance, err = itb.getInstance(ctx, parentInstanceID)
+		instanceRef, err = itb.getInstance(ctx, parentInstance)
 		if err != nil {
 			return nil, err
 		}
 
-		parentInstanceID = instance.Instance.ParentInstanceID
+		parentInstance = instanceRef.Instance.Parent
 	}
 
-	return instance, nil
+	return instanceRef, nil
 }
 
 func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance *core.WorkflowInstance) (string, []*WorkflowInstanceRef, error) {
@@ -97,7 +97,7 @@ func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance
 	for _, event := range h {
 		switch event.Type {
 		case history.EventType_SubWorkflowScheduled:
-			childInstance, err := itb.getInstance(ctx, event.Attributes.(*history.SubWorkflowScheduledAttributes).SubWorkflowInstance.InstanceID)
+			childInstance, err := itb.getInstance(ctx, event.Attributes.(*history.SubWorkflowScheduledAttributes).SubWorkflowInstance)
 			if err != nil {
 				return "", nil, fmt.Errorf("getting child instance: %w", err)
 			}
@@ -112,17 +112,19 @@ func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance
 	return workflowName, children, nil
 }
 
-func (itb *instanceTreeBuilder) getInstance(ctx context.Context, instanceID string) (*WorkflowInstanceRef, error) {
-	if instance, ok := itb.instanceByID[instanceID]; ok {
-		return instance, nil
+func (itb *instanceTreeBuilder) getInstance(ctx context.Context, instance *core.WorkflowInstance) (*WorkflowInstanceRef, error) {
+	instanceKey := fmt.Sprintf("%s:%s", instance.InstanceID, instance.ExecutionID)
+
+	if instanceRef, ok := itb.instanceByID[instanceKey]; ok {
+		return instanceRef, nil
 	}
 
-	instance, err := itb.b.GetWorkflowInstance(ctx, instanceID)
+	instanceRef, err := itb.b.GetWorkflowInstance(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
 
-	itb.instanceByID[instanceID] = instance
+	itb.instanceByID[instanceKey] = instanceRef
 
-	return instance, nil
+	return instanceRef, nil
 }

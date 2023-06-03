@@ -4,6 +4,7 @@ import {
   EventType,
   Payload,
   ScheduleEventID,
+  WorkflowInstance,
   WorkflowInstanceState,
   decodePayload,
   decodePayloads,
@@ -22,13 +23,14 @@ function Instance() {
   let params = useParams();
 
   const instanceId = params.instanceId;
+  const executionId = params.executionId;
 
   const {
     isLoading,
     data: instance,
     error,
   } = useFetch<WorkflowInstanceInfo>(
-    document.location.pathname + "api/" + instanceId
+    document.location.pathname + "api/" + instanceId + "/" + executionId
   );
 
   if (isLoading) {
@@ -55,8 +57,10 @@ function Instance() {
   let wfResult: string | undefined;
   let wfError: string | undefined;
   const finishedEvent = instance.history.find(
-    (e) => e.type === "WorkflowExecutionFinished"
-  ) as HistoryEvent<ExecutionCompletedAttributes>;
+    (e) =>
+      e.type === "WorkflowExecutionFinished" ||
+      e.type === "WorkflowExecutionContinuedAsNew"
+  ) as HistoryEvent<ExecutionCompletedAttributes>; // | ExecutionContinuedAsNewAttributes
   if (finishedEvent) {
     wfResult = finishedEvent.attributes.result;
     wfError = finishedEvent.attributes.error;
@@ -76,13 +80,22 @@ function Instance() {
           <code>{instance.instance.instance_id}</code>
         </dd>
 
-        {!!instance.instance.parent_instance && (
+        <dt className="col-sm-4">ExecutionID</dt>
+        <dd className="col-sm-8">
+          <code>{instance.instance.execution_id}</code>
+        </dd>
+
+        {!!instance.instance.parent && (
           <>
             <dt className="col-sm-4">Parent InstanceID</dt>
             <dd className="col-sm-8">
-              <Link to={`/${instance.instance.parent_instance}`}>
-                {instance.instance.parent_instance}
-              </Link>
+              {instance.instance.parent && (
+                <Link
+                  to={`/${instance.instance.parent.instance_id}/${instance.instance.parent.execution_id}`}
+                >
+                  <WorkflowInstance instance={instance.instance.parent} />
+                </Link>
+              )}
             </dd>
           </>
         )}
@@ -119,7 +132,10 @@ function Instance() {
       </Card>
 
       <h2 className="mt-4">Workflow Graph</h2>
-      <InstanceTree instanceId={instance.instance.instance_id} />
+      <InstanceTree
+        instanceId={instance.instance.instance_id}
+        executionId={instance.instance.execution_id}
+      />
 
       <h2 className="mt-3">History</h2>
       <Accordion alwaysOpen>
@@ -137,6 +153,16 @@ function Instance() {
                     <ScheduleEventID id={event.schedule_event_id!} />
                   )}
                 </div>
+                {event.type === "WorkflowExecutionContinuedAsNew" &&
+                  event.attributes?.continued_execution_id && (
+                    <div className="flex-grow-1 text-secondary small">
+                      <Link
+                        to={`/${instanceId}/${event.attributes.continued_execution_id}`}
+                      >
+                        Continued execution
+                      </Link>
+                    </div>
+                  )}
                 {event.type !== "WorkflowExecutionStarted" && (
                   <div className="flex-grow-1">
                     <code>{event.attributes?.name}</code>

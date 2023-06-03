@@ -77,7 +77,7 @@ func NewWorkflowState(instance *core.WorkflowInstance, logger log.Logger, clock 
 
 	state.logger = NewReplayLogger(state, logger.With(
 		log.InstanceIDKey, instance.InstanceID,
-	))
+		log.ExecutionIDKey, instance.ExecutionID))
 
 	return state
 }

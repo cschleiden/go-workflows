@@ -9,6 +9,7 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
+	"github.com/cschleiden/go-workflows/internal/continueasnew"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
@@ -22,7 +23,7 @@ import (
 )
 
 type ExecutionResult struct {
-	Completed      bool
+	State          core.WorkflowInstanceState
 	Executed       []*history.Event
 	ActivityEvents []*history.Event
 	TimerEvents    []*history.Event
@@ -43,6 +44,7 @@ type executor struct {
 	registry          *Registry
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
+	workflowName      string
 	workflowTracer    *workflowtracer.WorkflowTracer
 	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
@@ -104,7 +106,9 @@ func NewExecutor(
 func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
-		log.InstanceIDKey, t.WorkflowInstance.InstanceID)
+		log.InstanceIDKey, t.WorkflowInstance.InstanceID,
+		log.ExecutionIDKey, t.WorkflowInstance.ExecutionID,
+	)
 
 	logger.Debug("Executing workflow task", log.TaskLastSequenceIDKey, t.LastSequenceID)
 
@@ -121,7 +125,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 		}
 
 		return &ExecutionResult{
-			Completed: true,
+			State: core.WorkflowInstanceStateFinished,
 		}, nil
 	}
 
@@ -175,7 +179,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	}
 
 	// Process any commands added while executing new events
-	completed := false
+	state := core.WorkflowInstanceStateActive
 	newCommandEvents := make([]*history.Event, 0)
 	activityEvents := make([]*history.Event, 0)
 	timerEvents := make([]*history.Event, 0)
@@ -191,7 +195,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 			continue
 		}
 
-		completed = completed || r.Completed
+		if r.State > state {
+			state = r.State
+		}
 		newCommandEvents = append(newCommandEvents, r.Events...)
 		activityEvents = append(activityEvents, r.ActivityEvents...)
 		timerEvents = append(timerEvents, r.TimerEvents...)
@@ -209,11 +215,11 @@ func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*Executio
 	logger.Debug("Finished workflow task",
 		log.ExecutedEventsKey, len(executedEvents),
 		log.TaskLastSequenceIDKey, e.lastSequenceID,
-		log.WorkflowCompletedKey, completed,
+		log.WorkflowInstanceStateKey, state,
 	)
 
 	return &ExecutionResult{
-		Completed:      completed,
+		State:          state,
 		Executed:       executedEvents,
 		ActivityEvents: activityEvents,
 		TimerEvents:    timerEvents,
@@ -253,7 +259,11 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 			e.logger.Panic("workflow completed, but there are still pending futures")
 		}
 
-		e.workflowCompleted(e.workflow.Result(), e.workflow.Error())
+		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
+			e.workflowRestarted(e.workflow.Result(), canErr)
+		} else {
+			e.workflowCompleted(e.workflow.Result(), e.workflow.Error())
+		}
 	}
 
 	return newEvents, nil
@@ -334,6 +344,8 @@ func (e *executor) executeEvent(event *history.Event) error {
 }
 
 func (e *executor) handleWorkflowExecutionStarted(a *history.ExecutionStartedAttributes) error {
+	e.workflowName = a.Name
+
 	wfFn, err := e.registry.GetWorkflow(a.Name)
 	if err != nil {
 		return fmt.Errorf("workflow %s not found", a.Name)
@@ -633,6 +645,13 @@ func (e *executor) workflowCompleted(result payload.Payload, err error) {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, err)
+	e.workflowState.AddCommand(cmd)
+}
+
+func (e *executor) workflowRestarted(result payload.Payload, continueAsNew *continueasnew.Error) {
+	eventId := e.workflowState.GetNextScheduleEventID()
+
+	cmd := command.NewContinueAsNewCommand(eventId, e.workflowState.Instance(), result, e.workflowName, continueAsNew.Metadata, continueAsNew.Inputs)
 	e.workflowState.AddCommand(cmd)
 }
 

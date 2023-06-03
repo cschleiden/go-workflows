@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import React from "react";
 import useFetch from "react-fetch-hook";
 import { LinkContainer } from "react-router-bootstrap";
+import { WorkflowInstance, WorkflowInstanceState } from "./Components";
 import { WorkflowInstanceRef } from "./client";
 
 function useQuery() {
@@ -19,7 +20,7 @@ function Home() {
   const afterId = query.get("after");
   const page = +(query.get("page") || 1);
 
-  const { isLoading, data, error } = useFetch<WorkflowInstanceRef[]>(
+  const { isLoading, data } = useFetch<WorkflowInstanceRef[]>(
     document.location.pathname +
       `api/?count=${count}` +
       (afterId ? `&after=${afterId}` : "")
@@ -41,23 +42,37 @@ function Home() {
                 <th>Instance ID</th>
                 <th>Parent Instance ID</th>
                 <th>Created At</th>
+                <th>Completed At</th>
+                <th style={{ textAlign: "center" }}>State</th>
               </tr>
             </thead>
             <tbody>
               {(data || []).map((i) => (
                 <tr key={i.instance.instance_id}>
                   <td>
-                    <Link to={`/${i.instance.instance_id}`}>
-                      <code>{i.instance.instance_id}</code>
+                    <Link
+                      to={`/${i.instance.instance_id}/${i.instance.execution_id}`}
+                    >
+                      <WorkflowInstance instance={i.instance} />
                     </Link>
                   </td>
                   <td>
-                    <Link to={`/${i.instance.parent_instance}`}>
-                      <code>{i.instance.parent_instance}</code>
-                    </Link>
+                    {i.instance.parent && (
+                      <Link
+                        to={`/${i.instance.parent.instance_id}/${i.instance.parent.execution_id}`}
+                      >
+                        <WorkflowInstance instance={i.instance.parent} />
+                      </Link>
+                    )}
                   </td>
                   <td>
                     <code>{i.created_at}</code>
+                  </td>
+                  <td>
+                    <code>{i.completed_at}</code>
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <WorkflowInstanceState state={i.state} />
                   </td>
                 </tr>
               ))}
@@ -72,7 +87,11 @@ function Home() {
               <Pagination.Item active>{page}</Pagination.Item>
               <LinkContainer
                 to={`/?after=${
-                  (data && data[data.length - 1].instance.instance_id) || ""
+                  (data &&
+                    `${data[data.length - 1].instance.instance_id}:${
+                      data[data.length - 1].instance.execution_id
+                    }`) ||
+                  ""
                 }&page=${page + 1}`}
               >
                 <Pagination.Next disabled={!data || data.length < count} />

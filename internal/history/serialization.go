@@ -36,6 +36,8 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 	switch eventType {
 	case EventType_WorkflowExecutionStarted:
 		attr = &ExecutionStartedAttributes{}
+	case EventType_WorkflowExecutionContinuedAsNew:
+		attr = &ExecutionContinuedAsNewAttributes{}
 	case EventType_WorkflowExecutionFinished:
 		attr = &ExecutionCompletedAttributes{}
 	case EventType_WorkflowExecutionCanceled:

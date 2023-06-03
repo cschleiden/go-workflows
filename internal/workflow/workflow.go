@@ -66,18 +66,17 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 			}
 		}
 
+		w.result = result
+
 		errResult := r[len(r)-1]
-		if errResult.IsNil() {
-			w.result = result
-			return nil
-		}
+		if !errResult.IsNil() {
+			errInterface, ok := errResult.Interface().(error)
+			if !ok {
+				return fmt.Errorf("workflow error result does not satisfy error interface (%T): %v", errResult, errResult)
+			}
 
-		errInterface, ok := errResult.Interface().(error)
-		if !ok {
-			return fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult)
+			w.err = errInterface
 		}
-
-		w.err = errInterface
 
 		return nil
 	})

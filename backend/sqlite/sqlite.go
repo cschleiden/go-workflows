@@ -99,7 +99,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 		return err
 	}
 
-	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []*history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance, []*history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new event: %w", err)
 	}
 
@@ -111,14 +111,12 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 }
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
-	var parentInstanceID *string
+	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	if wfi.SubWorkflow() {
-		i := wfi.ParentInstanceID
-		parentInstanceID = &i
-
-		n := wfi.ParentEventID
-		parentEventID = &n
+		parentInstanceID = &wfi.Parent.InstanceID
+		parentExecutionID = &wfi.Parent.ExecutionID
+		parentEventID = &wfi.ParentEventID
 	}
 
 	metadataJson, err := json.Marshal(metadata)
@@ -128,11 +126,14 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 
 	res, err := tx.ExecContext(
 		ctx,
-		"INSERT OR IGNORE INTO `instances` (id, parent_instance_id, parent_schedule_event_id, metadata) VALUES (?, ?, ?, ?)",
+		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		wfi.InstanceID,
+		wfi.ExecutionID,
 		parentInstanceID,
+		parentExecutionID,
 		parentEventID,
 		string(metadataJson),
+		core.WorkflowInstanceStateActive,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting workflow instance: %w", err)
@@ -160,25 +161,27 @@ func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 	defer tx.Rollback()
 
 	instanceID := instance.InstanceID
+	executionID := instance.ExecutionID
 
-	row := tx.QueryRowContext(ctx, "SELECT completed_at FROM `instances` WHERE id = ? LIMIT 1", instanceID)
-	var completedAt sql.NullTime
-	if err := row.Scan(&completedAt); err != nil {
+	// Check status of the instance
+	row := tx.QueryRowContext(ctx, "SELECT state FROM `instances` WHERE id = ? AND execution_id = ? LIMIT 1", instanceID, executionID)
+	var state core.WorkflowInstanceState
+	if err := row.Scan(&state); err != nil {
 		if err == sql.ErrNoRows {
 			return backend.ErrInstanceNotFound
 		}
 	}
 
-	if !completedAt.Valid {
+	if state == core.WorkflowInstanceStateActive {
 		return backend.ErrInstanceNotFinished
 	}
 
 	// Delete from instances and history tables
-	if _, err := tx.ExecContext(ctx, "DELETE FROM `instances` WHERE id = ?", instanceID); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `instances` WHERE id = ? AND execution_id = ?", instanceID, executionID); err != nil {
 		return err
 	}
 
-	if _, err := tx.ExecContext(ctx, "DELETE FROM `history` WHERE instance_id = ?", instanceID); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `history` WHERE instance_id = ? AND execution_id = ?", instanceID, executionID); err != nil {
 		return err
 	}
 
@@ -193,9 +196,10 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 	defer tx.Rollback()
 
 	instanceID := instance.InstanceID
+	executionID := instance.ExecutionID
 
 	// TODO: Combine with event insertion
-	res := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? LIMIT 1", instanceID)
+	res := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? AND execution_id = ? LIMIT 1", instanceID, executionID)
 	if err := res.Scan(new(int)); err != nil {
 		if err == sql.ErrNoRows {
 			return backend.ErrInstanceNotFound
@@ -204,7 +208,7 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 		return err
 	}
 
-	if err := insertPendingEvents(ctx, tx, instanceID, []*history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance, []*history.Event{event}); err != nil {
 		return fmt.Errorf("inserting cancellation event: %w", err)
 	}
 
@@ -218,7 +222,7 @@ func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 	}
 	defer tx.Rollback()
 
-	h, err := getHistory(ctx, tx, instance.InstanceID, lastSequenceID)
+	h, err := getHistory(ctx, tx, instance, lastSequenceID)
 	if err != nil {
 		return nil, fmt.Errorf("getting workflow history: %w", err)
 	}
@@ -229,22 +233,19 @@ func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
 	row := s.db.QueryRowContext(
 		ctx,
-		"SELECT completed_at FROM instances WHERE id = ?",
+		"SELECT state FROM instances WHERE id = ? AND execution_id = ?",
 		instance.InstanceID,
+		instance.ExecutionID,
 	)
 
-	var completedAt sql.NullTime
-	if err := row.Scan(&completedAt); err != nil {
+	var state core.WorkflowInstanceState
+	if err := row.Scan(&state); err != nil {
 		if err == sql.ErrNoRows {
 			return core.WorkflowInstanceStateActive, backend.ErrInstanceNotFound
 		}
 	}
 
-	if completedAt.Valid {
-		return core.WorkflowInstanceStateFinished, nil
-	}
-
-	return core.WorkflowInstanceStateActive, nil
+	return state, nil
 }
 
 func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
@@ -255,12 +256,13 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	defer tx.Rollback()
 
 	// TODO: Combine this with the event insertion
-	res := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? LIMIT 1", instanceID)
-	if err := res.Scan(nil); err == sql.ErrNoRows {
+	var executionID string
+	res := tx.QueryRowContext(ctx, "SELECT execution_id FROM `instances` WHERE id = ? AND state = ? LIMIT 1", instanceID, core.WorkflowInstanceStateActive)
+	if err := res.Scan(&executionID); err == sql.ErrNoRows {
 		return backend.ErrInstanceNotFound
 	}
 
-	if err := insertPendingEvents(ctx, tx, instanceID, []*history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, core.NewWorkflowInstance(instanceID, executionID), []*history.Event{event}); err != nil {
 		return fmt.Errorf("inserting signal event: %w", err)
 	}
 
@@ -290,10 +292,10 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 						AND EXISTS (
 							SELECT 1
 								FROM pending_events
-								WHERE instance_id = i.id AND (visible_at IS NULL OR visible_at <= ?)
+								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 						)
 					LIMIT 1
-			) RETURNING id, parent_instance_id, parent_schedule_event_id, metadata, sticky_until`,
+			) RETURNING id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`,
 		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
 		now,           // locked_until
@@ -302,12 +304,12 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		now,           // event.visible_at
 	)
 
-	var instanceID string
-	var parentInstanceID *string
+	var instanceID, executionID string
+	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	var metadataJson sql.NullString
 	var stickyUntil *time.Time
-	if err := row.Scan(&instanceID, &parentInstanceID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
+	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentExecutionID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -317,9 +319,9 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	var wfi *workflow.Instance
 	if parentInstanceID != nil {
-		wfi = core.NewSubWorkflowInstance(instanceID, *parentInstanceID, *parentEventID)
+		wfi = core.NewSubWorkflowInstance(instanceID, executionID, core.NewWorkflowInstance(*parentInstanceID, *parentExecutionID), *parentEventID)
 	} else {
-		wfi = core.NewWorkflowInstance(instanceID)
+		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
 	var metadata *core.WorkflowMetadata
@@ -338,7 +340,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 	}
 
 	// Get new events
-	pendingEvents, err := getPendingEvents(ctx, tx, instanceID)
+	pendingEvents, err := getPendingEvents(ctx, tx, wfi)
 	if err != nil {
 		return nil, fmt.Errorf("getting pending events: %w", err)
 	}
@@ -352,7 +354,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	// Get only most recent sequence ID
 	// TODO: Denormalize to instances table
-	row = tx.QueryRowContext(ctx, "SELECT sequence_id FROM `history` WHERE instance_id = ? ORDER BY rowid DESC LIMIT 1", instanceID)
+	row = tx.QueryRowContext(ctx, "SELECT sequence_id FROM `history` WHERE instance_id = ? AND execution_id = ? ORDER BY rowid DESC LIMIT 1", instanceID, executionID)
 	if err := row.Scan(&t.LastSequenceID); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("getting most recent sequence id: %w", err)
@@ -365,8 +367,6 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 	return t, nil
 }
-
-// CompleteWorkflowTask(ctx context.Context, instance *workflow.Instance, executedEvents []*history.Event, workflowEvents []history.WorkflowEvent) error
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
@@ -383,7 +383,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	defer tx.Rollback()
 
 	var completedAt *time.Time
-	if state == core.WorkflowInstanceStateFinished {
+	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
 		t := time.Now()
 		completedAt = &t
 	}
@@ -391,10 +391,12 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	// Unlock instance, but keep it sticky to the current worker
 	if res, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ? WHERE id = ? AND worker = ?`,
+		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ?, state = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
 		time.Now().Add(sb.options.StickyTimeout),
 		completedAt,
+		state,
 		instance.InstanceID,
+		instance.ExecutionID,
 		sb.workerName,
 	); err != nil {
 		return fmt.Errorf("unlocking workflow instance: %w", err)
@@ -407,14 +409,14 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	// Remove handled events from task
 	if len(executedEvents) > 0 {
 		args := make([]interface{}, 0, len(executedEvents)+1)
-		args = append(args, instance.InstanceID)
+		args = append(args, instance.InstanceID, instance.ExecutionID)
 		for _, e := range executedEvents {
 			args = append(args, e.ID)
 		}
 
 		if _, err := tx.ExecContext(
 			ctx,
-			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(executedEvents)-1)),
+			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND execution_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(executedEvents)-1)),
 			args...,
 		); err != nil {
 			return fmt.Errorf("deleting handled new events: %w", err)
@@ -422,35 +424,35 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 
 	// Add events from last execution to history
-	if err := insertHistoryEvents(ctx, tx, instance.InstanceID, executedEvents); err != nil {
+	if err := insertHistoryEvents(ctx, tx, instance, executedEvents); err != nil {
 		return fmt.Errorf("inserting new history events: %w", err)
 	}
 
 	// Schedule activities
 	for _, event := range activityEvents {
-		if err := scheduleActivity(ctx, tx, instance.InstanceID, event); err != nil {
+		if err := scheduleActivity(ctx, tx, instance, event); err != nil {
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}
 
 	// Timer events
-	if err := insertPendingEvents(ctx, tx, instance.InstanceID, timerEvents); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance, timerEvents); err != nil {
 		return fmt.Errorf("scheduling timers: %w", err)
 	}
 
 	for _, event := range executedEvents {
 		switch event.Type {
 		case history.EventType_TimerCanceled:
-			if err := removeFutureEvent(ctx, tx, instance.InstanceID, event.ScheduleEventID); err != nil {
+			if err := removeFutureEvent(ctx, tx, instance, event.ScheduleEventID); err != nil {
 				return fmt.Errorf("removing future event: %w", err)
 			}
 		}
 	}
 
 	// Insert new workflow events
-	groupedEvents := history.EventsByWorkflowInstanceID(workflowEvents)
+	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
-	for targetInstanceID, events := range groupedEvents {
+	for targetInstance, events := range groupedEvents {
 		for _, m := range events {
 			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
@@ -468,7 +470,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		for _, m := range events {
 			historyEvents = append(historyEvents, m.HistoryEvent)
 		}
-		if err := insertPendingEvents(ctx, tx, targetInstanceID, historyEvents); err != nil {
+		if err := insertPendingEvents(ctx, tx, &targetInstance, historyEvents); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
 		}
 	}
@@ -486,9 +488,10 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 	until := time.Now().Add(sb.options.WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
-		`UPDATE instances SET locked_until = ? WHERE id = ? AND worker = ?`,
+		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
 		until,
 		instance.InstanceID,
+		instance.ExecutionID,
 		sb.workerName,
 	)
 	if err != nil {
@@ -520,7 +523,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 			SET locked_until = ?, worker = ?
 			WHERE rowid = (
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
-			) RETURNING id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at`,
+			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at`,
 		now.Add(sb.options.ActivityLockTimeout),
 		sb.workerName,
 		now,
@@ -529,11 +532,20 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		return nil, err
 	}
 
-	var instanceID string
+	var instanceID, executionID string
 	var attributes []byte
 	event := &history.Event{}
 
-	if err := row.Scan(&event.ID, &instanceID, &event.Type, &event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
+	if err := row.Scan(
+		&event.ID,
+		&instanceID,
+		&executionID,
+		&event.Type,
+		&event.Timestamp,
+		&event.ScheduleEventID,
+		&attributes,
+		&event.VisibleAt,
+	); err != nil {
 		if err == sql.ErrNoRows {
 			// No rows locked, just return
 			return nil, nil
@@ -561,7 +573,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 
 	t := &task.Activity{
 		ID:               event.ID,
-		WorkflowInstance: core.NewWorkflowInstance(instanceID),
+		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,
 	}
 
@@ -582,8 +594,9 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	// Remove activity
 	if res, err := tx.ExecContext(
 		ctx,
-		`DELETE FROM activities WHERE instance_id = ? AND id = ? AND worker = ?`,
+		`DELETE FROM activities WHERE instance_id = ? AND execution_id = ? AND id = ? AND worker = ?`,
 		instance.InstanceID,
+		instance.ExecutionID,
 		id,
 		sb.workerName,
 	); err != nil {
@@ -595,7 +608,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertPendingEvents(ctx, tx, instance.InstanceID, []*history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, instance, []*history.Event{event}); err != nil {
 		return fmt.Errorf("inserting new events for completed activity: %w", err)
 	}
 

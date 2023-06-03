@@ -17,6 +17,7 @@ import (
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -63,7 +64,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, fmt.Errorf("converting arguments: %w", err)
 	}
 
-	wfi := core.NewWorkflowInstance(options.InstanceID)
+	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 	metadata := &workflow.Metadata{}
 
 	workflowName := fn.Name(wf)
@@ -92,7 +93,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 
-	c.backend.Logger().Debug("Created workflow instance", log.InstanceIDKey, wfi.InstanceID)
+	c.backend.Logger().Debug("Created workflow instance", log.InstanceIDKey, wfi.InstanceID, log.ExecutionIDKey, wfi.ExecutionID)
 
 	c.backend.Metrics().Counter(metrickeys.WorkflowInstanceCreated, metrics.Tags{}, 1)
 
@@ -132,6 +133,7 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 
 	err = c.backend.SignalWorkflow(ctx, instanceID, signalEvent)
 	if err != nil {
+		span.RecordError(err)
 		return err
 	}
 
@@ -170,7 +172,7 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 			return fmt.Errorf("getting workflow state: %w", err)
 		}
 
-		if s == core.WorkflowInstanceStateFinished {
+		if s == core.WorkflowInstanceStateFinished || s == core.WorkflowInstanceStateContinuedAsNew {
 			return nil
 		}
 	}
@@ -207,6 +209,16 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 			if a.Error != "" {
 				return *new(T), errors.New(a.Error)
 			}
+
+			var r T
+			if err := b.Converter().From(a.Result, &r); err != nil {
+				return *new(T), fmt.Errorf("converting result: %w", err)
+			}
+
+			return r, nil
+
+		case history.EventType_WorkflowExecutionContinuedAsNew:
+			a := event.Attributes.(*history.ExecutionContinuedAsNewAttributes)
 
 			var r T
 			if err := b.Converter().From(a.Result, &r); err != nil {

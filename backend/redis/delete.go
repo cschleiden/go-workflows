@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cschleiden/go-workflows/internal/core"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -11,7 +12,7 @@ import (
 // KEYS[2] - pending events key
 // KEYS[3] - history key
 // KEYS[4] - instances-by-creation key
-// ARGV[1] - instance ID
+// ARGV[1] - instance segment
 var deleteCmd = redis.NewScript(
 	`redis.call("DEL", KEYS[1], KEYS[2], KEYS[3])
 	return redis.call("ZREM", KEYS[4], ARGV[1])`)
@@ -20,13 +21,13 @@ var deleteCmd = redis.NewScript(
 // workflow tasks. It's assumed that the instance is in the finished state.
 //
 // Note: might want to revisit this in the future if we want to support removing hung instances.
-func deleteInstance(ctx context.Context, rdb redis.UniversalClient, instanceID string) error {
+func deleteInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance) error {
 	if err := deleteCmd.Run(ctx, rdb, []string{
-		instanceKey(instanceID),
-		pendingEventsKey(instanceID),
-		historyKey(instanceID),
+		instanceKey(instance),
+		pendingEventsKey(instance),
+		historyKey(instance),
 		instancesByCreation(),
-	}, instanceID).Err(); err != nil {
+	}, instanceSegment(instance)).Err(); err != nil {
 		return fmt.Errorf("failed to delete instance: %w", err)
 	}
 
