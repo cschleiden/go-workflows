@@ -423,7 +423,24 @@ func SubWorkflow(ctx workflow.Context, msg string) (int, error) {
 
 Similar to timer cancellation, you can pass a cancelable context to `CreateSubWorkflowInstance` and cancel the sub-workflow that way. Reacting to the cancellation is the same as canceling a workflow via the `Client`. See [Canceling workflows](#canceling-workflows) for more details.
 
+### `ContinueAsNew`
 
+```ContinueAsNew` allows you to restart workflow execution with different inputs. The purpose is to keep the history size small enough to avoid hitting size limits, running out of memory and impacting performance. It works by returning a special `error` from your workflow that contains the new inputs:
+
+```go
+wf := func(ctx workflow.Context, run int) (int, error) {
+	run = run + 1
+	if run < 3 {
+		return run, workflow.ContinueAsNew(ctx, run)
+	}
+
+	return run, nil
+}
+```
+
+Here the workflow is going to be restarted when `workflow.ContinueAsNew` is returned. Internally the new execution starts with a fresh history. It uses the same `InstanceID` but a different `ExecutionID`.
+
+If a sub-workflow is restarted, the caller doesn't notice this, only once it ends without being restarted the caller will get the result and control will be passed back.
 
 ### `select`
 
