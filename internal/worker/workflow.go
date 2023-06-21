@@ -143,12 +143,16 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 		scheduledAt = firstEvent.Timestamp // Use the timestamp of the first event as the schedule time
 	}
 
+	eventName := fmt.Sprint(firstEvent.Type)
+
 	timeInQueue := time.Since(scheduledAt)
 	ww.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{
-		metrickeys.EventName: fmt.Sprint(t.NewEvents[0].Type),
+		metrickeys.EventName: eventName,
 	}, float64(timeInQueue/time.Millisecond))
 
-	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{})
+	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{
+		metrickeys.EventName: eventName,
+	})
 
 	result, err := ww.handleTask(ctx, t)
 	if err != nil {
