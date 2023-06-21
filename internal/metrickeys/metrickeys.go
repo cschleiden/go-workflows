@@ -7,7 +7,6 @@ const (
 	WorkflowInstanceCreated  = Prefix + "workflow.created"
 	WorkflowInstanceFinished = Prefix + "workflow.finished"
 
-	WorkflowTaskScheduled = Prefix + "workflow.task.scheduled"
 	WorkflowTaskProcessed = Prefix + "workflow.task.processed"
 	WorkflowTaskDelay     = Prefix + "workflow.task.time_in_queue"
 
@@ -32,4 +31,5 @@ const (
 	ContinuedAsNew = "continued_as_new"
 
 	ActivityName = "activity"
+	EventName    = "event"
 )
