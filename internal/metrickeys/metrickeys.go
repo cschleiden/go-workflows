@@ -32,4 +32,5 @@ const (
 	ContinuedAsNew = "continued_as_new"
 
 	ActivityName = "activity"
+	EventName   = "event"
 )
