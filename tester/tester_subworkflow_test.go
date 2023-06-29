@@ -96,7 +96,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 
 	tester := NewWorkflowTester[string](workflow)
 	tester.Registry().RegisterWorkflow(subWorkflow)
-	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return(nil, errors.New("error"))
+	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return(nil, errors.New("swf error"))
 
 	tester.Execute(context.Background(), "hello")
 
@@ -104,7 +104,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 
 	wfR, wfE := tester.WorkflowResult()
 	require.Equal(t, "", wfR)
-	require.Equal(t, "error", wfE)
+	require.EqualError(t, wfE, "swf error")
 
 	tester.AssertExpectations(t)
 }

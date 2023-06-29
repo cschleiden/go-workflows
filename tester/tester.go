@@ -25,6 +25,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/signals"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -95,7 +96,7 @@ type WorkflowTester[TResult any] interface {
 
 	WorkflowFinished() bool
 
-	WorkflowResult() (TResult, string)
+	WorkflowResult() (TResult, error)
 
 	// AssertExpectations asserts any assertions set up for mock activities and sub-workflow
 	AssertExpectations(t *testing.T)
@@ -122,7 +123,7 @@ type workflowTester[TResult any] struct {
 
 	workflowFinished bool
 	workflowResult   payload.Payload
-	workflowErr      string
+	workflowErr      *workflowerrors.Error
 
 	registry *workflow.Registry
 
@@ -515,7 +516,7 @@ func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInst
 		return backend.ErrInstanceNotFound
 	}
 
-	arg, err := converter.DefaultConverter.To(value)
+	arg, err := wt.converter.To(value)
 	if err != nil {
 		panic("Could not convert signal value to string" + err.Error())
 	}
@@ -543,15 +544,16 @@ func (wt *workflowTester[TResult]) WorkflowFinished() bool {
 	return wt.workflowFinished
 }
 
-func (wt *workflowTester[TResult]) WorkflowResult() (TResult, string) {
+func (wt *workflowTester[TResult]) WorkflowResult() (TResult, error) {
 	var r TResult
 	if wt.workflowResult != nil {
-		if err := converter.DefaultConverter.From(wt.workflowResult, &r); err != nil {
+		if err := wt.converter.From(wt.workflowResult, &r); err != nil {
 			panic("could not convert workflow result to expected type" + err.Error())
 		}
 	}
 
-	return r, wt.workflowErr
+	err := workflowerrors.ToError(wt.workflowErr)
+	return r, err
 }
 
 func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
@@ -576,7 +578,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 				panic("Could not find activity " + e.Name + " in registry")
 			}
 
-			argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(afn), e.Inputs)
+			argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
 			if err != nil {
 				panic("Could not convert activity inputs to args: " + err.Error())
 			}
@@ -609,7 +611,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 				activityResult = nil
 			case 2:
 				result := results.Get(0)
-				activityResult, err = converter.DefaultConverter.To(result)
+				activityResult, err = wt.converter.To(result)
 				if err != nil {
 					panic("Could not convert result for activity " + e.Name + ": " + err.Error())
 				}
@@ -638,11 +640,13 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			var ne *history.Event
 
 			if activityErr != nil {
+				aerr := workflowerrors.FromError(activityErr)
+
 				ne = history.NewPendingEvent(
 					wt.clock.Now(),
 					history.EventType_ActivityFailed,
 					&history.ActivityFailedAttributes{
-						Reason: activityErr.Error(),
+						Error: aerr,
 					},
 					history.ScheduleEventID(event.ScheduleEventID),
 				)
@@ -733,7 +737,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 		panic("Could not find workflow " + a.Name + " in registry")
 	}
 
-	argValues, addContext, err := margs.InputsToArgs(converter.DefaultConverter, reflect.ValueOf(wfn), a.Inputs)
+	argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
 	if err != nil {
 		panic("Could not convert workflow inputs to args: " + err.Error())
 	}
@@ -754,7 +758,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 		return
 	}
 
-	var workflowErr error
+	var workflowRawErr error
 	var workflowResult payload.Payload
 
 	results := wt.mw.MethodCalled(a.Name, args...)
@@ -762,16 +766,16 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	switch len(results) {
 	case 1:
 		// Expect only error
-		workflowErr = results.Error(0)
+		workflowRawErr = results.Error(0)
 		workflowResult = nil
 	case 2:
 		result := results.Get(0)
-		workflowResult, err = converter.DefaultConverter.To(result)
+		workflowResult, err = wt.converter.To(result)
 		if err != nil {
 			panic("Could not convert result for mocked workflow " + a.Name + ": " + err.Error())
 		}
 
-		workflowErr = results.Error(1)
+		workflowRawErr = results.Error(1)
 	default:
 		panic(
 			fmt.Sprintf(
@@ -783,7 +787,9 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 
 	wt.callbacks <- func() *history.WorkflowEvent {
-		r := command.NewCompleteWorkflowCommand(0, event.WorkflowInstance, workflowResult, workflowErr).Execute(wt.clock)
+		r := command.NewCompleteWorkflowCommand(
+			0, event.WorkflowInstance, workflowResult, workflowerrors.FromError(workflowRawErr),
+		).Execute(wt.clock)
 
 		return &r.WorkflowEvents[0]
 	}
@@ -792,7 +798,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) *history.Event {
 	name := fn.Name(wf)
 
-	inputs, err := margs.ArgsToInputs(converter.DefaultConverter, args...)
+	inputs, err := margs.ArgsToInputs(wt.converter, args...)
 	if err != nil {
 		panic(err)
 	}

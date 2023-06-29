@@ -35,7 +35,7 @@ var (
 )
 
 func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
-	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
 		return createSubWorkflowInstance[TResult](ctx, options, attempt, workflow, args...)
 	})
 }

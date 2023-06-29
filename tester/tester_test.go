@@ -79,7 +79,7 @@ func Test_FailingActivity(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 	wr, werr := tester.WorkflowResult()
 	require.Equal(t, 0, wr)
-	require.Equal(t, "error", werr)
+	require.EqualError(t, werr, "error")
 	tester.AssertExpectations(t)
 }
 
@@ -200,7 +200,7 @@ func Test_SignalSubWorkflowBeforeScheduling(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	wfR, wfErr := tester.WorkflowResult()
-	require.Equal(t, backend.ErrInstanceNotFound.Error(), wfErr)
+	require.EqualError(t, wfErr, backend.ErrInstanceNotFound.Error())
 	require.IsType(t, "", wfR)
 }
 

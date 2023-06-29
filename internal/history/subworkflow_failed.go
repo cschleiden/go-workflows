@@ -1,5 +1,7 @@
 package history
 
+import "github.com/cschleiden/go-workflows/internal/workflowerrors"
+
 type SubWorkflowFailedAttributes struct {
-	Error string `json:"error,omitempty"`
+	Error *workflowerrors.Error `json:"error,omitempty"`
 }

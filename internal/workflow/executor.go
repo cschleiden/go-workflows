@@ -16,6 +16,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/cschleiden/go-workflows/log"
@@ -49,6 +50,7 @@ type executor struct {
 	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
+	cv                converter.Converter
 	clock             clock.Clock
 	logger            log.Logger
 	tracer            trace.Tracer
@@ -96,6 +98,7 @@ func NewExecutor(
 		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
+		cv:                cv,
 		clock:             clock,
 		logger:            logger,
 		tracer:            tracer,
@@ -423,7 +426,8 @@ func (e *executor) handleActivityFailed(event *history.Event, a *history.Activit
 		return errors.New("no pending future for activity failed event")
 	}
 
-	if err := f(nil, errors.New(a.Reason)); err != nil {
+	actErr := workflowerrors.ToError(a.Error)
+	if err := f(nil, actErr); err != nil {
 		return fmt.Errorf("setting activity failed result: %w", err)
 	}
 
@@ -561,7 +565,9 @@ func (e *executor) handleSubWorkflowFailed(event *history.Event, a *history.SubW
 		return errors.New("no pending future found for sub workflow failed event")
 	}
 
-	if err := f(nil, errors.New(a.Error)); err != nil {
+	wfErr := workflowerrors.ToError(a.Error)
+
+	if err := f(nil, wfErr); err != nil {
 		return fmt.Errorf("setting sub workflow failed result: %w", err)
 	}
 
@@ -641,11 +647,13 @@ func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideE
 	return e.workflow.Continue()
 }
 
-func (e *executor) workflowCompleted(result payload.Payload, err error) {
+func (e *executor) workflowCompleted(result payload.Payload, wfErr error) error {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
-	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, err)
+	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr)) // TODO: can we have a more specific error? can we accept *Error for the function?
 	e.workflowState.AddCommand(cmd)
+
+	return nil
 }
 
 func (e *executor) workflowRestarted(result payload.Payload, continueAsNew *continueasnew.Error) {

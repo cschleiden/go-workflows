@@ -13,6 +13,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -26,8 +27,8 @@ type Executor struct {
 	r           *workflow.Registry
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, propagators []contextpropagation.ContextPropagator, r *workflow.Registry) Executor {
-	return Executor{
+func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, propagators []contextpropagation.ContextPropagator, r *workflow.Registry) *Executor {
+	return &Executor{
 		logger:      logger,
 		tracer:      tracer,
 		converter:   converter,
@@ -46,12 +47,12 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 
 	activityFn := reflect.ValueOf(activity)
 	if activityFn.Type().Kind() != reflect.Func {
-		return nil, errors.New("activity not a function")
+		return nil, workflowerrors.NewPermanentError(errors.New("activity not a function"))
 	}
 
 	args, addContext, err := args.InputsToArgs(e.converter, activityFn, a.Inputs)
 	if err != nil {
-		return nil, fmt.Errorf("converting activity inputs: %w", err)
+		return nil, workflowerrors.NewPermanentError(fmt.Errorf("converting activity inputs: %w", err))
 	}
 
 	// Add activity state to context
@@ -64,7 +65,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 	for _, propagator := range e.propagators {
 		activityCtx, err = propagator.Extract(activityCtx, a.Metadata)
 		if err != nil {
-			return nil, fmt.Errorf("extracting context from propagator: %w", err)
+			return nil, workflowerrors.NewPermanentError(fmt.Errorf("extracting context from propagator: %w", err))
 		}
 	}
 
@@ -79,31 +80,52 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (pa
 	if addContext {
 		args[0] = reflect.ValueOf(activityCtx)
 	}
-	r := activityFn.Call(args)
 
-	if len(r) < 1 || len(r) > 2 {
-		return nil, errors.New("activity has to return either (error) or (<result>, error)")
+	done := make(chan struct{})
+	var rv []reflect.Value
+
+	go func() {
+		// Recover any panic encountered during activity execution
+		defer func() {
+			if r := recover(); r != nil {
+				err = workflowerrors.NewPanicError(fmt.Sprintf("panic: %v", r))
+				rv = []reflect.Value{reflect.ValueOf(err)}
+			}
+
+			close(done)
+		}()
+
+		rv = activityFn.Call(args)
+	}()
+
+	<-done
+
+	if len(rv) < 1 || len(rv) > 2 {
+		return nil, workflowerrors.NewPermanentError(errors.New("activity has to return either (error) or (<result>, error)"))
 	}
 
 	var result payload.Payload
 
-	if len(r) > 1 {
+	// Convert activity result to payload. We always expect at least an error
+	if len(rv) > 1 {
 		var err error
-		result, err = e.converter.To(r[0].Interface())
+		result, err = e.converter.To(rv[0].Interface())
 		if err != nil {
-			return nil, fmt.Errorf("converting activity result: %w", err)
+			return nil, workflowerrors.NewPermanentError(fmt.Errorf("converting activity result: %w", err))
 		}
 	}
 
-	errResult := r[len(r)-1]
+	// Was an error returned?
+	errResult := rv[len(rv)-1]
 	if errResult.IsNil() {
+		// No error from activity execution
 		return result, nil
 	}
 
-	errInterface, ok := errResult.Interface().(error)
+	err, ok := errResult.Interface().(error)
 	if !ok {
-		return nil, fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult)
+		return nil, workflowerrors.NewPermanentError(fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult))
 	}
 
-	return result, errInterface
+	return result, workflowerrors.FromError(err)
 }

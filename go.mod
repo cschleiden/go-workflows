@@ -26,6 +26,7 @@ require (
 	github.com/breml/bidichk v0.2.3 // indirect
 	github.com/curioswitch/go-reassign v0.2.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
+	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.2 // indirect
 	github.com/lufeee/execinquery v1.2.1 // indirect

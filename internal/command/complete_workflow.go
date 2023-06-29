@@ -5,6 +5,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 )
 
 type CompleteWorkflowCommand struct {
@@ -12,18 +13,12 @@ type CompleteWorkflowCommand struct {
 
 	Instance *core.WorkflowInstance
 	Result   payload.Payload
-	Error    string
+	Error    *workflowerrors.Error
 }
 
 var _ Command = (*CompleteWorkflowCommand)(nil)
 
-func NewCompleteWorkflowCommand(id int64, instance *core.WorkflowInstance, result payload.Payload, err error) *CompleteWorkflowCommand {
-	// TODO: ERRORS: Better error handling
-	var error string
-	if err != nil {
-		error = err.Error()
-	}
-
+func NewCompleteWorkflowCommand(id int64, instance *core.WorkflowInstance, result payload.Payload, err *workflowerrors.Error) *CompleteWorkflowCommand {
 	return &CompleteWorkflowCommand{
 		command: command{
 			id:    id,
@@ -32,7 +27,7 @@ func NewCompleteWorkflowCommand(id int64, instance *core.WorkflowInstance, resul
 		},
 		Instance: instance,
 		Result:   result,
-		Error:    error,
+		Error:    err,
 	}
 }
 
@@ -70,7 +65,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 			// Send completion message back to parent workflow instance
 			var historyEvent *history.Event
 
-			if c.Error != "" {
+			if c.Error != nil { // TODO: Is this enough?
 				// Sub workflow failed
 				historyEvent = history.NewPendingEvent(
 					clock.Now(),
