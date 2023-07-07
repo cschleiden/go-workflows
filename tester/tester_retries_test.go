@@ -38,7 +38,9 @@ func Test_withRetries_permanent(t *testing.T) {
 
 	attempts, err := tester.WorkflowResult()
 	require.Equal(t, 1, attempts)
-	require.NotEmpty(t, err) // TODO: Check for permanent error here ..
+	var permanentErr *workflowerrors.Error
+	require.ErrorAs(t, err, &permanentErr)
+	require.True(t, permanentErr.Permanent)
 	tester.AssertExpectations(t)
 
 	require.Equal(t, 1, attempts)

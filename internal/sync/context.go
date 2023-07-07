@@ -104,7 +104,7 @@ type Context interface {
 // Canceled is the error returned by Context.Err when the context is canceled.
 //
 //lint:ignore ST1012 for compat with "context" package
-var Canceled = errors.New("context canceled") // TODO: Need to make this a workflow.Error
+var Canceled = errors.New("context canceled")
 
 // An emptyCtx is never canceled, has no values, and has no deadline. It is not
 // struct{}, since vars of this type must have distinct addresses.

@@ -2,7 +2,6 @@ package sync
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -177,19 +176,4 @@ func Test_Coroutine_Panic(t *testing.T) {
 	require.True(t, c.Finished())
 	require.Error(t, c.Error())
 	require.Equal(t, c.Error().Error(), "panic: test panic")
-}
-
-func Test_Coroutine_CallPanicHandlerIfSet(t *testing.T) {
-	c := NewCoroutine(Background(), func(ctx Context) error {
-		panic("test panic")
-	})
-
-	c.SetPanicHandler(func(r interface{}) error {
-		return fmt.Errorf("handled panic: %v", r)
-	})
-
-	c.Execute()
-
-	require.True(t, c.Finished())
-	require.EqualError(t, c.Error(), "handled panic: test panic")
 }

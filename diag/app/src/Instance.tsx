@@ -55,7 +55,7 @@ function Instance() {
   const inputs = startedEvent.attributes.inputs;
 
   let wfResult: string | undefined;
-  let wfError: string | undefined;
+  let wfError: {} | undefined;
   const finishedEvent = instance.history.find(
     (e) =>
       e.type === "WorkflowExecutionFinished" ||
@@ -127,7 +127,11 @@ function Instance() {
         <Card.Header as="h5">Result</Card.Header>
         <Card.Body>
           {wfResult && <Payload payloads={[decodePayload(wfResult)]} />}
-          {wfError && <Payload payloads={[wfError]} />}
+          {wfError && (
+            <Payload
+              payloads={[JSON.stringify(decodePayloads(wfError), undefined, 2)]}
+            />
+          )}
         </Card.Body>
       </Card>
 

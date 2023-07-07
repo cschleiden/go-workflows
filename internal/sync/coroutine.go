@@ -33,8 +33,6 @@ type Coroutine interface {
 	Error() error
 
 	SetCoroutineCreator(creator CoroutineCreator)
-
-	SetPanicHandler(handler func(interface{}) error)
 }
 
 type key int
@@ -53,8 +51,7 @@ type coState struct {
 	shouldExit atomic.Value // coroutine should exit
 	progress   atomic.Value // did the coroutine make progress since last yield?
 
-	err          error
-	panicHandler func(interface{}) error
+	err error
 
 	logger logger
 
@@ -71,11 +68,7 @@ func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 		defer s.finish() // Ensure we always mark the coroutine as finished
 		defer func() {
 			if r := recover(); r != nil {
-				if s.panicHandler != nil {
-					s.err = s.panicHandler(r)
-				} else {
-					s.err = fmt.Errorf("panic: %v", r)
-				}
+				s.err = fmt.Errorf("panic: %v", r)
 			}
 		}()
 
@@ -112,10 +105,6 @@ func (s *coState) finish() {
 
 func (s *coState) SetCoroutineCreator(creator CoroutineCreator) {
 	s.creator = creator
-}
-
-func (s *coState) SetPanicHandler(handler func(interface{}) error) {
-	s.panicHandler = handler
 }
 
 func (s *coState) Finished() bool {

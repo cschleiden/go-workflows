@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
@@ -20,6 +22,16 @@ func main() {
 	ctx := context.Background()
 
 	b := samples.GetBackend("errors")
+
+	db, ok := b.(diag.Backend)
+	if !ok {
+		panic("backend does not implement diag.Backend")
+	}
+
+	// Start diagnostic server under /diag
+	m := http.NewServeMux()
+	m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(db)))
+	go http.ListenAndServe(":3000", m)
 
 	// Run worker
 	go RunWorker(ctx, b)

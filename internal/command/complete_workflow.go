@@ -65,7 +65,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 			// Send completion message back to parent workflow instance
 			var historyEvent *history.Event
 
-			if c.Error != nil { // TODO: Is this enough?
+			if c.Error != nil {
 				// Sub workflow failed
 				historyEvent = history.NewPendingEvent(
 					clock.Now(),

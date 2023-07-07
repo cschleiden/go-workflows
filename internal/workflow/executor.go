@@ -650,7 +650,7 @@ func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideE
 func (e *executor) workflowCompleted(result payload.Payload, wfErr error) error {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
-	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr)) // TODO: can we have a more specific error? can we accept *Error for the function?
+	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr))
 	e.workflowState.AddCommand(cmd)
 
 	return nil

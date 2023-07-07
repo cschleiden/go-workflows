@@ -482,7 +482,7 @@ func Test_Executor(t *testing.T) {
 
 				r1, err := e.ExecuteTask(context.Background(), task1)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.Error(t, e.workflow.err)
 				require.True(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 1)
 				require.Len(t, pendingCommands(e.workflowState.Commands()), 0)

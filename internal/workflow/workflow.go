@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 )
 
 type Workflow interface{}
@@ -22,9 +23,6 @@ type workflow struct {
 
 func NewWorkflow(workflowFn reflect.Value) *workflow {
 	s := sync.NewScheduler()
-	s.SetPanicHandler(func(i interface{}) error {
-		return workflowerrors.
-	})
 
 	return &workflow{
 		s:  s,
@@ -45,6 +43,13 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 		}
 
 		args[0] = reflect.ValueOf(ctx)
+
+		// Handle panics in workflows
+		defer func() {
+			if r := recover(); r != nil {
+				w.err = workflowerrors.NewPanicError(fmt.Sprintf("panic in workflow: %v", r))
+			}
+		}()
 
 		// Call workflow function
 		r := w.fn.Call(args)

@@ -1,8 +1,7 @@
 package sync
 
 type Scheduler struct {
-	coroutines   []Coroutine
-	panicHandler func(interface{}) error
+	coroutines []Coroutine
 }
 
 func NewScheduler() *Scheduler {
@@ -11,16 +10,9 @@ func NewScheduler() *Scheduler {
 	}
 }
 
-func (s *Scheduler) SetPanicHandler(handler func(interface{}) error) {
-	s.panicHandler = handler
-}
-
 // Starts a new co-routine and tracks it in this scheduler
 func (s *Scheduler) NewCoroutine(ctx Context, fn func(Context) error) {
 	c := NewCoroutine(ctx, fn)
-	if s.panicHandler != nil {
-		c.SetPanicHandler(s.panicHandler)
-	}
 	s.coroutines = append(s.coroutines, c)
 	c.SetCoroutineCreator(s)
 }
