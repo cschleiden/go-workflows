@@ -14,7 +14,7 @@ import (
 type Workflow interface{}
 
 type workflow struct {
-	s      sync.Scheduler
+	s      *sync.Scheduler
 	fn     reflect.Value
 	result payload.Payload
 	err    error
@@ -22,6 +22,9 @@ type workflow struct {
 
 func NewWorkflow(workflowFn reflect.Value) *workflow {
 	s := sync.NewScheduler()
+	s.SetPanicHandler(func(i interface{}) error {
+		return workflowerrors.
+	})
 
 	return &workflow{
 		s:  s,

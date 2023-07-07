@@ -11,6 +11,10 @@ import (
 
 const DeadlockDetection = 40 * time.Second
 
+type CoroutineCreator interface {
+	NewCoroutine(ctx Context, fn func(Context) error)
+}
+
 type Coroutine interface {
 	// Execute continues execution of a blocked corouting and waits until
 	// it is finished or blocked again
@@ -28,7 +32,9 @@ type Coroutine interface {
 
 	Error() error
 
-	SetScheduler(s Scheduler)
+	SetCoroutineCreator(creator CoroutineCreator)
+
+	SetPanicHandler(handler func(interface{}) error)
 }
 
 type key int
@@ -47,13 +53,14 @@ type coState struct {
 	shouldExit atomic.Value // coroutine should exit
 	progress   atomic.Value // did the coroutine make progress since last yield?
 
-	err error
+	err          error
+	panicHandler func(interface{}) error
 
 	logger logger
 
 	deadlockDetection time.Duration
 
-	scheduler Scheduler
+	creator CoroutineCreator
 }
 
 func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
@@ -64,7 +71,11 @@ func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 		defer s.finish() // Ensure we always mark the coroutine as finished
 		defer func() {
 			if r := recover(); r != nil {
-				s.err = fmt.Errorf("panic: %v", r)
+				if s.panicHandler != nil {
+					s.err = s.panicHandler(r)
+				} else {
+					s.err = fmt.Errorf("panic: %v", r)
+				}
 			}
 		}()
 
@@ -99,8 +110,12 @@ func (s *coState) finish() {
 	s.logger.Println("finish")
 }
 
-func (s *coState) SetScheduler(scheduler Scheduler) {
-	s.scheduler = scheduler
+func (s *coState) SetCoroutineCreator(creator CoroutineCreator) {
+	s.creator = creator
+}
+
+func (s *coState) SetPanicHandler(handler func(interface{}) error) {
+	s.panicHandler = handler
 }
 
 func (s *coState) Finished() bool {

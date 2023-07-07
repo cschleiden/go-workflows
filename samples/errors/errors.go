@@ -47,6 +47,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(SubWorkflow)
 
 	w.RegisterActivity(GenericErrorActivity)
 	w.RegisterActivity(PanicActivity)
@@ -70,28 +71,37 @@ func Workflow1(ctx workflow.Context, msg string) error {
 
 	_, err := workflow.ExecuteActivity[int](ctx, actOptions, GenericErrorActivity).Get(ctx)
 	if err != nil {
-		handleActivityError(ctx, "GenericError", logger, err)
+		handleError(ctx, "GenericError", logger, err)
 	}
 
 	_, err = workflow.ExecuteActivity[int](ctx, actOptions, CustomErrorActivity).Get(ctx)
 	if err != nil {
-		handleActivityError(ctx, "CustomError", logger, err)
+		handleError(ctx, "CustomError", logger, err)
 	}
 
 	_, err = workflow.ExecuteActivity[int](ctx, actOptions, PanicActivity).Get(ctx)
 	if err != nil {
-		handleActivityError(ctx, "Panic", logger, err)
+		handleError(ctx, "Panic", logger, err)
 	}
 
 	_, err = workflow.ExecuteActivity[int](ctx, actOptions, WrappedErrorActivity).Get(ctx)
 	if err != nil {
-		handleActivityError(ctx, "Wrapped", logger, err)
+		handleError(ctx, "Wrapped", logger, err)
+	}
+
+	wfOptions := workflow.DefaultSubWorkflowOptions
+	wfOptions.RetryOptions = workflow.RetryOptions{
+		MaxAttempts: 1,
+	}
+	_, err = workflow.CreateSubWorkflowInstance[int](ctx, wfOptions, SubWorkflow).Get(ctx)
+	if err != nil {
+		handleError(ctx, "SubWorkflow", logger, err)
 	}
 
 	return nil
 }
 
-func handleActivityError(ctx workflow.Context, name string, logger log.Logger, err error) {
+func handleError(ctx workflow.Context, name string, logger log.Logger, err error) {
 	logger = logger.With("activity", name)
 
 	var werr *workflow.Error
@@ -102,12 +112,13 @@ func handleActivityError(ctx workflow.Context, name string, logger log.Logger, e
 			return
 		}
 
+		logger.Error("Generic workflow error", "err", werr, "stack", werr.Stack())
 		return
 	}
 
 	var perr *workflow.PanicError
 	if errors.As(err, &perr) {
-		logger.Error("Panic", "err", perr)
+		logger.Error("Panic", "err", perr, "stack", perr.Stack())
 		return
 	}
 
@@ -143,4 +154,8 @@ func someFunc() int {
 
 func WrappedErrorActivity(ctx context.Context) (int, error) {
 	return 0, fmt.Errorf("wrapped error: %w", errors.New("inner error"))
+}
+
+func SubWorkflow(ctx workflow.Context) (int, error) {
+	panic("swf panic!")
 }

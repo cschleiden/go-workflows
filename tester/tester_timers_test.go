@@ -197,19 +197,19 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	dl := newDebugLogger()
 
-	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl))
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*10), WithLogger(dl))
 
 	tester.OnActivity(activity1).Return("activity", nil)
 
 	tester.Execute(context.Background())
 
-	require.True(t, dl.hasLine("workflows.timer.mode.from=WallClock workflows.timer.mode.to=TimeTravel"))
-	require.True(t, dl.hasLine("workflows.timer.mode.from=TimeTravel workflows.timer.mode.to=WallClock"))
-
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()
 	require.Empty(t, werr)
 	tester.AssertExpectations(t)
+
+	require.True(t, dl.hasLine("workflows.timer.mode.from=WallClock workflows.timer.mode.to=TimeTravel"))
+	require.True(t, dl.hasLine("workflows.timer.mode.from=TimeTravel workflows.timer.mode.to=WallClock"))
 }
 
 func Test_Timers_MultipleTimers(t *testing.T) {

@@ -1,34 +1,32 @@
 package sync
 
-type Scheduler interface {
-	// Starts a new co-routine and tracks it in this scheduler
-	NewCoroutine(ctx Context, fn func(Context) error)
-
-	// Execute executes all coroutines until they are all blocked
-	Execute() error
-
-	RunningCoroutines() int
-
-	Exit()
+type Scheduler struct {
+	coroutines   []Coroutine
+	panicHandler func(interface{}) error
 }
 
-type scheduler struct {
-	coroutines []Coroutine
-}
-
-func NewScheduler() Scheduler {
-	return &scheduler{
+func NewScheduler() *Scheduler {
+	return &Scheduler{
 		coroutines: make([]Coroutine, 0),
 	}
 }
 
-func (s *scheduler) NewCoroutine(ctx Context, fn func(Context) error) {
-	c := NewCoroutine(ctx, fn)
-	s.coroutines = append(s.coroutines, c)
-	c.SetScheduler(s)
+func (s *Scheduler) SetPanicHandler(handler func(interface{}) error) {
+	s.panicHandler = handler
 }
 
-func (s *scheduler) Execute() error {
+// Starts a new co-routine and tracks it in this scheduler
+func (s *Scheduler) NewCoroutine(ctx Context, fn func(Context) error) {
+	c := NewCoroutine(ctx, fn)
+	if s.panicHandler != nil {
+		c.SetPanicHandler(s.panicHandler)
+	}
+	s.coroutines = append(s.coroutines, c)
+	c.SetCoroutineCreator(s)
+}
+
+// Execute executes all coroutines until they are all blocked
+func (s *Scheduler) Execute() error {
 	allBlocked := false
 	for !allBlocked {
 		allBlocked = true
@@ -60,11 +58,11 @@ func (s *scheduler) Execute() error {
 	return nil
 }
 
-func (s *scheduler) RunningCoroutines() int {
+func (s *Scheduler) RunningCoroutines() int {
 	return len(s.coroutines)
 }
 
-func (s *scheduler) Exit() {
+func (s *Scheduler) Exit() {
 	for _, c := range s.coroutines {
 		c.Exit()
 	}

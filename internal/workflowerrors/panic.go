@@ -9,12 +9,13 @@ func (pe *PanicError) Error() string {
 	return pe.message
 }
 
-func (pe *PanicError) Stacktrace() string {
+func (pe *PanicError) Stack() string {
 	return pe.stacktrace
 }
 
-func NewPanicError(msg string) error {
+func NewPanicError(msg string) *PanicError {
 	return &PanicError{
-		message: msg,
+		message:    msg,
+		stacktrace: stack(3), // Skip new panic error and immediate caller
 	}
 }

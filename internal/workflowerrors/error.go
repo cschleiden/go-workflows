@@ -1,6 +1,9 @@
 package workflowerrors
 
-import "errors"
+import (
+	"encoding/json"
+	"errors"
+)
 
 type Error struct {
 	Type    string `json:"type,omitempty"`
@@ -8,7 +11,24 @@ type Error struct {
 
 	Permanent  bool   `json:"permanent,omitempty"`
 	Cause      error  `json:"cause,omitempty"`
-	StackTrace string `json:"stackTrace,omitempty"`
+	Stacktrace string `json:"stacktrace,omitempty"`
+}
+
+func (e *Error) UnmarshalJSON(b []byte) error {
+	type Alias Error
+	a := &struct {
+		Cause *Error `json:"cause,omitempty"`
+		*Alias
+	}{}
+
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+
+	*e = *(*Error)(a.Alias)
+	e.Cause = a.Cause
+
+	return nil
 }
 
 func (we *Error) Error() string {
@@ -17,6 +37,10 @@ func (we *Error) Error() string {
 
 func (we *Error) Unwrap() error {
 	return we.Cause
+}
+
+func (we *Error) Stack() string {
+	return we.Stacktrace
 }
 
 var _ error = (*Error)(nil)
@@ -37,6 +61,10 @@ func FromError(err error) *Error {
 		Message: err.Error(),
 	}
 
+	if stackTracer, ok := err.(interface{ Stack() string }); ok {
+		e.Stacktrace = stackTracer.Stack()
+	}
+
 	if cause := errors.Unwrap(err); cause != nil {
 		e.Cause = FromError(cause)
 	}
@@ -55,7 +83,7 @@ func ToError(err *Error) error {
 
 	switch err.Type {
 	case getErrorType(&PanicError{}):
-		return &PanicError{message: e.Message, stacktrace: e.StackTrace}
+		return &PanicError{message: e.Message, stacktrace: e.Stacktrace}
 
 	default:
 		// Keep *Error
