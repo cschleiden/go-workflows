@@ -165,7 +165,8 @@ func Test_ContextPropagation_Subworkflow(t *testing.T) {
 	tester.Execute(ctx)
 
 	require.True(t, tester.WorkflowFinished())
-	wr, _ := tester.WorkflowResult()
+	wr, werr := tester.WorkflowResult()
+	require.NoError(t, werr)
 	require.Equal(t, "foo42foo42foo", wr)
 
 	tester.AssertExpectations(t)

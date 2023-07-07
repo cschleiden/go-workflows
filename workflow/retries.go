@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 )
 
 type RetryOptions struct {
@@ -29,7 +30,7 @@ var DefaultRetryOptions = RetryOptions{
 	BackoffCoefficient: 1,
 }
 
-func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx sync.Context, attempt int) Future[T]) Future[T] {
+func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Context, attempt int) Future[T]) Future[T] {
 	attempt := 0
 	firstAttempt := Now(ctx)
 
@@ -43,7 +44,7 @@ func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx
 	// Start a separate co-routine for retries
 	r := sync.NewFuture[T]()
 
-	sync.Go(ctx, func(ctx sync.Context) {
+	Go(ctx, func(ctx sync.Context) {
 		var result T
 		var err error
 
@@ -59,7 +60,12 @@ func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx
 				break
 			}
 
-			if err == sync.Canceled {
+			if err == Canceled {
+				break
+			}
+
+			// If inner fn indicated that we shouldn't retry, abort retries
+			if !workflowerrors.CanRetry(err) {
 				break
 			}
 
@@ -83,7 +89,7 @@ func withRetries[T any](ctx sync.Context, retryOptions RetryOptions, fn func(ctx
 				break
 			}
 
-			f = fn(ctx, attempt+1)
+			f = fn(ctx, attempt)
 		}
 
 		r.Set(result, err)

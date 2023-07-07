@@ -102,6 +102,7 @@ type Context interface {
 }
 
 // Canceled is the error returned by Context.Err when the context is canceled.
+//
 //lint:ignore ST1012 for compat with "context" package
 var Canceled = errors.New("context canceled")
 

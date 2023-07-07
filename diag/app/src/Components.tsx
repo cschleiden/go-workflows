@@ -20,8 +20,16 @@ export function decodePayloads(payload: { [key: string]: any }): any {
         r[key] = payload[key].map((p: any) => decodePayload(p));
         break;
 
+      case "error":
+        r[key] = decodePayloads(payload[key]);
+        break;
+
       case "result":
         r[key] = decodePayload(payload[key]);
+        break;
+
+      case "stacktrace":
+        r[key] = ("" + payload[key]).replaceAll("\t", "    ").split("\n");
         break;
 
       default:

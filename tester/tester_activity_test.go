@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_LongActivity(t *testing.T) {
+func Test_Activity_Long(t *testing.T) {
 	activity1 := func() (string, error) {
 		return "activity", nil
 	}
@@ -58,7 +58,7 @@ func Test_LongActivity(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_ActivityRaceWithSignal(t *testing.T) {
+func Test_Activity_RaceWithSignal(t *testing.T) {
 	activity1 := func() (string, error) {
 		return "activity", nil
 	}
@@ -106,7 +106,7 @@ func Test_ActivityRaceWithSignal(t *testing.T) {
 	tester.AssertExpectations(t)
 }
 
-func Test_ActivityWithLogger(t *testing.T) {
+func Test_Activity_WithLogger(t *testing.T) {
 	activity1 := func(ctx context.Context) (string, error) {
 		activity.Logger(ctx).Debug("hello from test")
 
@@ -126,5 +126,26 @@ func Test_ActivityWithLogger(t *testing.T) {
 	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
+	tester.AssertExpectations(t)
+}
+
+func Test_Activity_Panic(t *testing.T) {
+	activity1 := func(ctx context.Context) (string, error) {
+		panic("activity panic")
+	}
+
+	wf := func(ctx workflow.Context) error {
+		_, err := workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
+		return err
+	}
+
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3))
+	tester.Registry().RegisterActivity(activity1)
+	tester.Execute(context.Background())
+
+	require.True(t, tester.WorkflowFinished())
+	var pe *workflow.PanicError
+	_, err := tester.WorkflowResult()
+	require.ErrorAs(t, err, &pe)
 	tester.AssertExpectations(t)
 }

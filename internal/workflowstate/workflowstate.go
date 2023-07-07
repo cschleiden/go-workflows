@@ -21,21 +21,20 @@ type DecodingSettable func(v payload.Payload, err error) error
 
 // Use this to track futures for the workflow state. It's required to map the generic Future interface
 // to a type without type parameters.
-func AsDecodingSettable[T any](converter converter.Converter, f sync.SettableFuture[T]) DecodingSettable {
+func AsDecodingSettable[T any](cv converter.Converter, f sync.SettableFuture[T]) DecodingSettable {
 	return func(v payload.Payload, err error) error {
 		if f.HasValue() {
 			return fmt.Errorf("future already has value")
 		}
 
+		var t T
 		if v != nil {
-			var t T
-			if err := converter.From(v, &t); err != nil {
+			if err := cv.From(v, &t); err != nil {
 				return fmt.Errorf("failed to decode future: %v", err)
 			}
-			f.Set(t, err)
-		} else {
-			f.Set(*new(T), err)
 		}
+
+		f.Set(t, err)
 
 		return nil
 	}

@@ -12,8 +12,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/metrics"
 )
 
@@ -23,7 +25,7 @@ type ActivityWorker struct {
 	options *Options
 
 	activityTaskQueue    chan *task.Activity
-	activityTaskExecutor activity.Executor
+	activityTaskExecutor *activity.Executor
 
 	wg        sync.WaitGroup
 	pollersWg sync.WaitGroup
@@ -151,31 +153,32 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *task.Activity) {
 	defer timer.Stop()
 
 	result, err := aw.activityTaskExecutor.ExecuteActivity(ctx, task)
-
-	var event *history.Event
-
-	if err != nil {
-		event = history.NewPendingEvent(
-			aw.clock.Now(),
-			history.EventType_ActivityFailed,
-			&history.ActivityFailedAttributes{
-				Reason: err.Error(),
-			},
-			history.ScheduleEventID(task.Event.ScheduleEventID),
-		)
-	} else {
-		event = history.NewPendingEvent(
-			aw.clock.Now(),
-			history.EventType_ActivityCompleted,
-			&history.ActivityCompletedAttributes{
-				Result: result,
-			},
-			history.ScheduleEventID(task.Event.ScheduleEventID))
-	}
+	event := aw.resultToEvent(task.Event.ScheduleEventID, result, err)
 
 	if err := aw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
 		aw.backend.Logger().Panic("completing activity task", "error", err)
 	}
+}
+
+func (aw *ActivityWorker) resultToEvent(ScheduleEventID int64, result payload.Payload, err error) *history.Event {
+	if err != nil {
+		return history.NewPendingEvent(
+			aw.clock.Now(),
+			history.EventType_ActivityFailed,
+			&history.ActivityFailedAttributes{
+				Error: workflowerrors.FromError(err),
+			},
+			history.ScheduleEventID(ScheduleEventID),
+		)
+	}
+
+	return history.NewPendingEvent(
+		aw.clock.Now(),
+		history.EventType_ActivityCompleted,
+		&history.ActivityCompletedAttributes{
+			Result: result,
+		},
+		history.ScheduleEventID(ScheduleEventID))
 }
 
 func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {
