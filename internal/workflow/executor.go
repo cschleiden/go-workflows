@@ -295,8 +295,8 @@ func (e *executor) executeEvent(event *history.Event) error {
 	attributesFields := getAttributeLoggingFields(event)
 	if attributesFields != nil {
 		fields = append(fields, attributesFields...)
-		e.logger.Debug("Executing event", fields)
 	}
+	e.logger.Debug("Executing event", fields)
 
 	var err error
 
