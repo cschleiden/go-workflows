@@ -291,11 +291,11 @@ func (e *executor) executeEvent(event *history.Event) error {
 		log.IsReplayingKey, e.workflowState.Replaying(),
 	}
 
-	// Add the attributes fields
-	attributesFields := getAttributeLoggingFields(event)
+	attributesFields := getAttributesLoggingFields(event)
 	if attributesFields != nil {
 		fields = append(fields, attributesFields...)
 	}
+
 	e.logger.Debug("Executing event", fields)
 
 	var err error
@@ -684,7 +684,7 @@ func (e *executor) createNewEvent(eventType history.EventType, attributes interf
 	)
 }
 
-func getAttributeLoggingFields(event *history.Event) []any {
+func getAttributesLoggingFields(event *history.Event) []any {
 	switch event.Type {
 	case history.EventType_WorkflowExecutionStarted:
 		attributes := event.Attributes.(*history.ExecutionStartedAttributes)
