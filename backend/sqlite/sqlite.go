@@ -83,8 +83,8 @@ func (sb *sqliteBackend) Converter() converter.Converter {
 	return sb.options.Converter
 }
 
-func (b *sqliteBackend) ContextPropagators() []contextpropagation.ContextPropagator {
-	return b.options.ContextPropagators
+func (sb *sqliteBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+	return sb.options.ContextPropagators
 }
 
 func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {

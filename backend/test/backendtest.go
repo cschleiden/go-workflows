@@ -343,6 +343,24 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				require.Nil(t, task)
 			},
 		},
+		{
+			name: "Stats_ActiveWorkflowInstances",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				instanceID := uuid.NewString()
+
+				err := b.CreateWorkflowInstance(
+					ctx,
+					core.NewWorkflowInstance(instanceID, uuid.NewString()),
+					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				)
+				require.NoError(t, err)
+
+				s, err := b.GetStats(ctx)
+				require.NoError(t, err)
+
+				require.Equal(t, int64(1), s.ActiveWorkflowInstances)
+			},
+		},
 	}
 
 	for _, tt := range tests {

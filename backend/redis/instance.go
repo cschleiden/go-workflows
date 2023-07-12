@@ -160,6 +160,8 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 		Score:  float64(createdAt.UnixMilli()),
 	})
 
+	p.SAdd(ctx, activeInstances(), instanceSegment(instance))
+
 	return nil
 }
 
@@ -172,6 +174,10 @@ func updateInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	}
 
 	p.Set(ctx, key, string(b), 0)
+
+	if state.State != core.WorkflowInstanceStateActive {
+		p.SRem(ctx, activeInstances(), instanceSegment(instance))
+	}
 
 	// CreatedAt does not change, so skip updating the instancesByCreation() ZSET
 
