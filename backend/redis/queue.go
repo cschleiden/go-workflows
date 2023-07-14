@@ -50,18 +50,18 @@ func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue
 		"completeCmd":    completeCmd.Load(context.Background(), rdb),
 	}
 
-	// Create the consumer group
-	_, err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey, tq.groupName}).Result()
-	if err != nil {
-		return nil, fmt.Errorf("creating task queue: %w", err)
-	}
-
 	for name, cmd := range cmds {
 		// fmt.Println(name, cmd.Val())
 
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
 		}
+	}
+
+	// Create the consumer group
+	_, err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey, tq.groupName}).Result()
+	if err != nil {
+		return nil, fmt.Errorf("creating task queue: %w", err)
 	}
 
 	return tq, nil
@@ -89,21 +89,32 @@ var enqueueCmd = redis.NewScript(
 `)
 
 var createGroupCmd = redis.NewScript(`
-	local streamKey = KEYS[1]
-	local groupName = KEYS[2]
-	local status, groups = pcall(redis.call, 'XINFO', 'GROUPS', streamKey)
+    local streamKey = KEYS[1]
+    local groupName = KEYS[2]
+    local exists = false
+    local res = redis.pcall('XINFO', 'GROUPS', streamKey)
 
-	if status then
-		for i = 1, #groups do
-			if groups[i].name == groupName then
-				return false
-			end
-		end
-	end
+    if res and type(res) == 'table' then
+        for _, groupInfo in ipairs(res) do
+            if type(groupInfo) == 'table' then
+                for i = 1, #groupInfo, 2 do
+                    if groupInfo[i] == 'name' and groupInfo[i+1] == groupName then
+                        exists = true
+                        break
+                    end
+                end
+            end
+            if exists then break end
+        end
+    end
 
-	redis.call('XGROUP', 'CREATE', streamKey, groupName, '0', 'MKSTREAM')
-	return true
+    if not exists then
+        redis.pcall('XGROUP', 'CREATE', streamKey, groupName, '$', 'MKSTREAM')
+    end
+
+    return true
 `)
+
 
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
 	ds, err := json.Marshal(data)
