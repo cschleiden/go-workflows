@@ -74,6 +74,10 @@ func (q *taskQueue[T]) Keys() KeyInfo {
 	}
 }
 
+func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient) (int64, error) {
+	return rdb.XLen(ctx, q.streamKey).Result()
+}
+
 // KEYS[1] = set
 // KEYS[2] = stream
 // ARGV[1] = caller provided id of the task

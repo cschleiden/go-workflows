@@ -40,6 +40,8 @@ type Client interface {
 	WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error
 
 	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
+
+	GetStats(ctx context.Context) (*backend.Stats, error)
 }
 
 type client struct {

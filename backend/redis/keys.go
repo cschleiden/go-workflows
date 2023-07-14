@@ -29,6 +29,10 @@ func instancesByCreation() string {
 	return "instances-by-creation"
 }
 
+func instancesActive() string {
+	return "instances-active"
+}
+
 func instancesExpiring() string {
 	return "instances-expiring"
 }
