@@ -109,7 +109,7 @@ var createGroupCmd = redis.NewScript(`
     end
 
     if not exists then
-        redis.pcall('XGROUP', 'CREATE', streamKey, groupName, '$', 'MKSTREAM')
+        redis.call('XGROUP', 'CREATE', streamKey, groupName, '$', 'MKSTREAM')
     end
 
     return true
