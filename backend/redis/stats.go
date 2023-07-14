@@ -13,7 +13,7 @@ func (rb *redisBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	s := &backend.Stats{}
 
 	// get workflow instances
-	activeInstances, err := rb.rdb.SCard(ctx, activeInstances()).Result()
+	activeInstances, err := rb.rdb.SCard(ctx, instancesActive()).Result()
 	if err != nil {
 		return nil, fmt.Errorf("getting active instances: %w", err)
 	}
