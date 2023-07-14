@@ -59,7 +59,7 @@ func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue
 	}
 
 	// Create the consumer group
-	_, err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey, tq.groupName}).Result()
+	err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey, tq.groupName}).Err()
 	if err != nil {
 		return nil, fmt.Errorf("creating task queue: %w", err)
 	}
