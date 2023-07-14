@@ -27,7 +27,7 @@ var DefaultActivityOptions = ActivityOptions{
 
 // ExecuteActivity schedules the given activity to be executed
 func ExecuteActivity[TResult any](ctx Context, options ActivityOptions, activity interface{}, args ...interface{}) Future[TResult] {
-	return withRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
 		return executeActivity[TResult](ctx, options, attempt, activity, args...)
 	})
 }

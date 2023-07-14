@@ -14,6 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -195,7 +196,7 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 		return *new(T), fmt.Errorf("workflow did not finish in time: %w", err)
 	}
 
-	h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
+	h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil) // future: could optimize this by retriving only the very last entry in the history
 	if err != nil {
 		return *new(T), fmt.Errorf("getting workflow history: %w", err)
 	}
@@ -206,8 +207,8 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 		switch event.Type {
 		case history.EventType_WorkflowExecutionFinished:
 			a := event.Attributes.(*history.ExecutionCompletedAttributes)
-			if a.Error != "" {
-				return *new(T), errors.New(a.Error)
+			if a.Error != nil {
+				return *new(T), workflowerrors.ToError(a.Error)
 			}
 
 			var r T

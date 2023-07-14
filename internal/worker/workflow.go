@@ -10,6 +10,7 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
@@ -133,11 +134,25 @@ func (ww *WorkflowWorker) runDispatcher() {
 
 func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 	// Record how long this task was in the queue
-	scheduledAt := t.NewEvents[0].Timestamp // Use the timestamp of the first event as the schedule time
-	timeInQueue := time.Since(scheduledAt)
-	ww.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{}, float64(timeInQueue/time.Millisecond))
+	firstEvent := t.NewEvents[0]
+	var scheduledAt time.Time
+	if firstEvent.Type == history.EventType_TimerFired {
+		timerFiredAttributes := firstEvent.Attributes.(*history.TimerFiredAttributes)
+		scheduledAt = timerFiredAttributes.At // Use the timestamp of the timer fired event as the schedule time
+	} else {
+		scheduledAt = firstEvent.Timestamp // Use the timestamp of the first event as the schedule time
+	}
 
-	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{})
+	eventName := fmt.Sprint(firstEvent.Type)
+
+	timeInQueue := time.Since(scheduledAt)
+	ww.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{
+		metrickeys.EventName: eventName,
+	}, float64(timeInQueue/time.Millisecond))
+
+	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{
+		metrickeys.EventName: eventName,
+	})
 
 	result, err := ww.handleTask(ctx, t)
 	if err != nil {
