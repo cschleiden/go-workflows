@@ -80,7 +80,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 		history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 		history.NewHistoryEvent(2, time.Now(), history.EventType_WorkflowExecutionFinished, &history.ExecutionCompletedAttributes{
 			Result: r,
-			Error:  "",
+			Error:  nil,
 		}),
 	}, nil)
 	b.On("Converter").Return(converter.DefaultConverter)

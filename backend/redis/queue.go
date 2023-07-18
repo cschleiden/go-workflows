@@ -43,20 +43,11 @@ func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue
 		workerName: uuid.NewString(),
 	}
 
-	// Create the consumer group
-	_, err := rdb.XGroupCreateMkStream(context.Background(), tq.streamKey, tq.groupName, "0").Result()
-	if err != nil {
-		// Ugly, check since there is no UPSERT for consumer groups. Might replace with a script
-		// using XINFO & XGROUP CREATE atomically
-		if err.Error() != "BUSYGROUP Consumer Group name already exists" {
-			return nil, fmt.Errorf("creating task queue: %w", err)
-		}
-	}
-
 	// Pre-load script
 	cmds := map[string]*redis.StringCmd{
-		"enqueueCmd":  enqueueCmd.Load(context.Background(), rdb),
-		"completeCmd": completeCmd.Load(context.Background(), rdb),
+		"createGroupCmd": createGroupCmd.Load(context.Background(), rdb),
+		"enqueueCmd":     enqueueCmd.Load(context.Background(), rdb),
+		"completeCmd":    completeCmd.Load(context.Background(), rdb),
 	}
 
 	for name, cmd := range cmds {
@@ -67,6 +58,12 @@ func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue
 		}
 	}
 
+	// Create the consumer group
+	err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey, tq.groupName}).Err()
+	if err != nil {
+		return nil, fmt.Errorf("creating task queue: %w", err)
+	}
+
 	return tq, nil
 }
 
@@ -75,6 +72,10 @@ func (q *taskQueue[T]) Keys() KeyInfo {
 		StreamKey: q.streamKey,
 		SetKey:    q.setKey,
 	}
+}
+
+func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient) (int64, error) {
+	return rdb.XLen(ctx, q.streamKey).Result()
 }
 
 // KEYS[1] = set
@@ -90,6 +91,34 @@ var enqueueCmd = redis.NewScript(
 
 	return true
 `)
+
+var createGroupCmd = redis.NewScript(`
+    local streamKey = KEYS[1]
+    local groupName = KEYS[2]
+    local exists = false
+    local res = redis.pcall('XINFO', 'GROUPS', streamKey)
+
+    if res and type(res) == 'table' then
+        for _, groupInfo in ipairs(res) do
+            if type(groupInfo) == 'table' then
+                for i = 1, #groupInfo, 2 do
+                    if groupInfo[i] == 'name' and groupInfo[i+1] == groupName then
+                        exists = true
+                        break
+                    end
+                end
+            end
+            if exists then break end
+        end
+    end
+
+    if not exists then
+        redis.call('XGROUP', 'CREATE', streamKey, groupName, '$', 'MKSTREAM')
+    end
+
+    return true
+`)
+
 
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
 	ds, err := json.Marshal(data)

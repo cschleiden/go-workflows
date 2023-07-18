@@ -68,6 +68,9 @@ type Backend interface {
 	// ExtendActivityTask extends the lock of an activity task
 	ExtendActivityTask(ctx context.Context, activityID string) error
 
+	// GetStats returns stats about the backend
+	GetStats(ctx context.Context) (*Stats, error)
+
 	// Logger returns the configured logger for the backend
 	Logger() log.Logger
 

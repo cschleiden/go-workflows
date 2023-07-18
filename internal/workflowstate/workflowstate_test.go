@@ -24,7 +24,7 @@ func Test_PendingFutures(t *testing.T) {
 	wfState.TrackFuture(1, func(v payload.Payload, err error) error {
 		var r int
 		require.NoError(t, converter.DefaultConverter.From(v, &r))
-		f.Set(r, nil)
+		f.Set(r, err)
 		return nil
 	})
 

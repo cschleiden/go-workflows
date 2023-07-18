@@ -1,5 +1,7 @@
 package history
 
+import "github.com/cschleiden/go-workflows/internal/workflowerrors"
+
 type ActivityFailedAttributes struct {
-	Reason string `json:"reason,omitempty"`
+	Error *workflowerrors.Error `json:"error,omitempty"`
 }

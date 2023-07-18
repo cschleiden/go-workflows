@@ -314,7 +314,7 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future[T]` you can await to get the result or any error it might return.
 
 ```go
-r1, err := workflow.ExecuteActivity[int](ctx, Activity1, 35, 12, nil, "test").Get(ctx)
+r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx)
 if err != nil {
 	panic("error getting activity 1 result")
 }
@@ -423,9 +423,86 @@ func SubWorkflow(ctx workflow.Context, msg string) (int, error) {
 
 Similar to timer cancellation, you can pass a cancelable context to `CreateSubWorkflowInstance` and cancel the sub-workflow that way. Reacting to the cancellation is the same as canceling a workflow via the `Client`. See [Canceling workflows](#canceling-workflows) for more details.
 
+### Error handling
+
+#### Custom errors
+
+Errors returned from activities and subworkflows need to be marshalled/unmarshalled by the library so they are wrapped in a `workflow.Error`. You can access the original type via the `err.Type` field. If a stacktrace was captured, you can access it via `err.Stack()`. Example (see also `samples/errors`):
+
+```go
+func handleError(ctx workflow.Context, logger log.Logger, err error) {
+	var werr *workflow.Error
+	if errors.As(err, &werr) {
+		switch werr.Type {
+		case "CustomError": // This was a `type CustomError struct...` returned by an activity/subworkflow
+			logger.Error("Custom error", "err", werr)
+			return
+		}
+
+		logger.Error("Generic workflow error", "err", werr, "stack", werr.Stack())
+		return
+	}
+
+	var perr *workflow.PanicError
+	if errors.As(err, &perr) {
+		// Activity/subworkflow ran into a panic
+		logger.Error("Panic", "err", perr, "stack", perr.Stack())
+		return
+	}
+
+	logger.Error("Generic error", "err", err)
+}
+```
+
+#### Panics
+
+A panic in an activity will be captured by the library and made available as a `workflow.PanicError` in the calling workflow. Example:
+
+
+```go
+r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, "test").Get(ctx)
+if err != nil {
+	panic("error getting activity 1 result")
+}
+
+var perr *workflow.PanicError
+if errors.As(err, &perr) {
+	logger.Error("Panic", "err", perr, "stack", perr.Stack())
+	return
+}
+```
+
+#### Retries
+
+With the default `DefaultActivityOptions`, Activities are retried up to three times when they return an error. If you want to keep automatic retries, but want to avoid them when hitting certain error types, you can wrap an error with `workflow.NewPermanentError`:
+
+**Workflow**:
+
+```go
+r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, "test").Get(ctx)
+if err != nil {
+	panic("error getting activity 1 result")
+}
+
+log.Println(r1)
+```
+
+**Activity**:
+
+```go
+func Activity1(ctx context.Context, name string) (int, error) {
+	if name == "test" {
+		// No need to retry in this case, the activity will aways fail with the given inputs
+		return 0, workflow.NewPermanentError(errors.New("test is not a valid name"))
+	}
+
+	return http.Do("POST", "https://example.com", name)
+}
+```
+
 ### `ContinueAsNew`
 
-```ContinueAsNew` allows you to restart workflow execution with different inputs. The purpose is to keep the history size small enough to avoid hitting size limits, running out of memory and impacting performance. It works by returning a special `error` from your workflow that contains the new inputs:
+`ContinueAsNew` allows you to restart workflow execution with different inputs. The purpose is to keep the history size small enough to avoid hitting size limits, running out of memory and impacting performance. It works by returning a special `error` from your workflow that contains the new inputs:
 
 ```go
 wf := func(ctx workflow.Context, run int) (int, error) {
@@ -756,6 +833,3 @@ and only if a workflow instance was created with a version of `>= 2` will `Activ
 
 This kind of check is understandable for simple changes, but it becomes hard and a source of bugs for more complicated workflows. Therefore for now versioning is not supported and the guidance is to rely on **side-by-side** deployments. See also Azure's [Durable Functions](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-versioning) documentation for the same topic.
 
-### `ContinueAsNew`
-
-Both Temporal/Cadence and DTFx support `ContinueAsNew`. This essentially re-starts a running workflow as a new workflow with a new event history. This is needed for long running workflows where the history can become very large, negatively affecting performance. While `WorkflowInstance` supports an `InstanceID` and an `ExecutionID`, this feature is not yet implemented (and might not be).

@@ -19,13 +19,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type backendTest struct {
+	name         string
+	options      []backend.BackendOption
+	withoutCache bool // If set, test will only be run when the cache is disabled
+	f            func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
+}
+
 func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOption) TestBackend, teardown func(b TestBackend)) {
-	tests := []struct {
-		name         string
-		options      []backend.BackendOption
-		withoutCache bool // If set, test will only be run when the cache is disabled
-		f            func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
-	}{
+	tests := []backendTest{
 		{
 			name: "SimpleWorkflow",
 			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
@@ -658,6 +660,9 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 	}
+
+	tests = append(tests, e2eActivityTests...)
+	tests = append(tests, e2eStatsTests...)
 
 	run := func(suffix string, workerOptions *worker.Options) {
 		for _, tt := range tests {
