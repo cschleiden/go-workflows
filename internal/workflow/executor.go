@@ -282,14 +282,21 @@ func (e *executor) Close() {
 }
 
 func (e *executor) executeEvent(event *history.Event) error {
-	e.logger.Debug("Executing event",
+	fields := []any{
 		log.InstanceIDKey, e.workflowState.Instance().InstanceID,
 		log.EventIDKey, event.ID,
 		log.SeqIDKey, event.SequenceID,
 		log.EventTypeKey, event.Type,
 		log.ScheduleEventIDKey, event.ScheduleEventID,
 		log.IsReplayingKey, e.workflowState.Replaying(),
-	)
+	}
+
+	attributesFields := getAttributesLoggingFields(event)
+	if attributesFields != nil {
+		fields = append(fields, attributesFields...)
+	}
+
+	e.logger.Debug("Executing event", fields)
 
 	var err error
 
@@ -675,4 +682,31 @@ func (e *executor) createNewEvent(eventType history.EventType, attributes interf
 		attributes,
 		opts...,
 	)
+}
+
+func getAttributesLoggingFields(event *history.Event) []any {
+	switch event.Type {
+	case history.EventType_WorkflowExecutionStarted:
+		attributes := event.Attributes.(*history.ExecutionStartedAttributes)
+		return []any{
+			log.WorkflowNameKey, attributes.Name,
+		}
+	case history.EventType_SubWorkflowScheduled:
+		attributes := event.Attributes.(*history.SubWorkflowScheduledAttributes)
+		return []any{
+			log.WorkflowNameKey, attributes.Name,
+		}
+	case history.EventType_SignalReceived:
+		attributes := event.Attributes.(*history.SignalReceivedAttributes)
+		return []any{
+			log.SignalNameKey, attributes.Name,
+		}
+	case history.EventType_ActivityScheduled:
+		attributes := event.Attributes.(*history.ActivityScheduledAttributes)
+		return []any{
+			log.ActivityNameKey, attributes.Name,
+		}
+	default:
+		return nil
+	}
 }
