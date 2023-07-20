@@ -296,7 +296,7 @@ func (e *executor) executeEvent(event *history.Event) error {
 		fields = append(fields, attributesFields...)
 	}
 
-	e.logger.Debug("Executing event", fields)
+	e.logger.Debug("Executing event", fields...)
 
 	var err error
 
