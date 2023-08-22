@@ -21,12 +21,12 @@ var deleteCmd = redis.NewScript(
 // workflow tasks. It's assumed that the instance is in the finished state.
 //
 // Note: might want to revisit this in the future if we want to support removing hung instances.
-func deleteInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance) error {
+func deleteInstance(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, keyPrefix string) error {
 	if err := deleteCmd.Run(ctx, rdb, []string{
-		instanceKey(instance),
-		pendingEventsKey(instance),
-		historyKey(instance),
-		instancesByCreation(),
+		instanceKey(keyPrefix, instance),
+		pendingEventsKey(keyPrefix, instance),
+		historyKey(keyPrefix, instance),
+		instancesByCreation(keyPrefix),
 	}, instanceSegment(instance)).Err(); err != nil {
 		return fmt.Errorf("failed to delete instance: %w", err)
 	}

@@ -20,24 +20,25 @@ import (
 var _ backend.Backend = (*redisBackend)(nil)
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
-	workflowQueue, err := newTaskQueue[any](client, "workflows")
-	if err != nil {
-		return nil, fmt.Errorf("creating workflow task queue: %w", err)
-	}
-
-	activityQueue, err := newTaskQueue[activityData](client, "activities")
-	if err != nil {
-		return nil, fmt.Errorf("creating activity task queue: %w", err)
-	}
-
 	// Default options
 	options := &RedisOptions{
 		Options:      backend.ApplyOptions(),
 		BlockTimeout: time.Second * 2,
+		KeyPrefix:    "",
 	}
 
 	for _, opt := range opts {
 		opt(options)
+	}
+
+	workflowQueue, err := newTaskQueue[any](client, "workflows", options.KeyPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("creating workflow task queue: %w", err)
+	}
+
+	activityQueue, err := newTaskQueue[activityData](client, "activities", options.KeyPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
 
 	rb := &redisBackend{

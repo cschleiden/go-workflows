@@ -42,7 +42,7 @@ var expireCmd = redis.NewScript(
 	`,
 )
 
-func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, expiration time.Duration) error {
+func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, expiration time.Duration, keyPrefix string) error {
 	now := time.Now().UnixMilli()
 	nowStr := strconv.FormatInt(now, 10)
 
@@ -50,11 +50,11 @@ func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClien
 	expStr := strconv.FormatInt(exp, 10)
 
 	return expireCmd.Run(ctx, rdb, []string{
-		instancesByCreation(),
-		instancesExpiring(),
-		instanceKey(instance),
-		pendingEventsKey(instance),
-		historyKey(instance),
+		instancesByCreation(keyPrefix),
+		instancesExpiring(keyPrefix),
+		instanceKey(keyPrefix, instance),
+		pendingEventsKey(keyPrefix, instance),
+		historyKey(keyPrefix, instance),
 	},
 		nowStr,
 		expiration.Seconds(),

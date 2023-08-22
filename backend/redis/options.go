@@ -12,6 +12,8 @@ type RedisOptions struct {
 	BlockTimeout time.Duration
 
 	AutoExpiration time.Duration
+
+	KeyPrefix string
 }
 
 type RedisBackendOption func(*RedisOptions)
@@ -35,5 +37,11 @@ func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
 func WithAutoExpiration(expireFinishedRunsAfter time.Duration) RedisBackendOption {
 	return func(o *RedisOptions) {
 		o.AutoExpiration = expireFinishedRunsAfter
+	}
+}
+
+func WithKeyPrefix(keyPrefix string) RedisBackendOption {
+	return func(o *RedisOptions) {
+		o.KeyPrefix = keyPrefix
 	}
 }

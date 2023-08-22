@@ -14,7 +14,7 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	state, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	state, err := readInstance(ctx, rb.rdb, instanceKey(rb.options.KeyPrefix, instance))
 	if err != nil && err != backend.ErrInstanceNotFound {
 		return err
 	}
@@ -25,7 +25,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 
 	p := rb.rdb.TxPipeline()
 
-	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
+	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false, rb.options.KeyPrefix); err != nil {
 		return err
 	}
 
@@ -36,7 +36,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 	}
 
 	p.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(instance),
+		Stream: pendingEventsKey(rb.options.KeyPrefix, instance),
 		ID:     "*",
 		Values: map[string]interface{}{
 			"event": string(eventData),
@@ -64,7 +64,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		start = "(" + historyID(*lastSequenceID)
 	}
 
-	msgs, err := rb.rdb.XRange(ctx, historyKey(instance), start, "+").Result()
+	msgs, err := rb.rdb.XRange(ctx, historyKey(rb.options.KeyPrefix, instance), start, "+").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 }
 
 func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (core.WorkflowInstanceState, error) {
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(rb.options.KeyPrefix, instance))
 	if err != nil {
 		return core.WorkflowInstanceStateActive, err
 	}
@@ -93,7 +93,7 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	// Read the instance to check if it exists
-	_, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	_, err := readInstance(ctx, rb.rdb, instanceKey(rb.options.KeyPrefix, instance))
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 }
 
 func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
-	i, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	i, err := readInstance(ctx, rb.rdb, instanceKey(rb.options.KeyPrefix, instance))
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 		return backend.ErrInstanceNotFinished
 	}
 
-	return deleteInstance(ctx, rb.rdb, instance)
+	return deleteInstance(ctx, rb.rdb, instance, rb.options.KeyPrefix)
 }
 
 type instanceState struct {
@@ -135,8 +135,8 @@ type instanceState struct {
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, ignoreDuplicate bool) error {
-	key := instanceKey(instance)
+func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, ignoreDuplicate bool, keyPrefix string) error {
+	key := instanceKey(keyPrefix, instance)
 
 	createdAt := time.Now()
 
@@ -153,20 +153,20 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	p.SetNX(ctx, key, string(b), 0)
 
 	// The newly created instance is going to be the active execution
-	setActiveInstanceExecutionP(ctx, p, instance)
+	setActiveInstanceExecutionP(ctx, p, instance, keyPrefix)
 
-	p.ZAdd(ctx, instancesByCreation(), redis.Z{
+	p.ZAdd(ctx, instancesByCreation(keyPrefix), redis.Z{
 		Member: instanceSegment(instance),
 		Score:  float64(createdAt.UnixMilli()),
 	})
 
-	p.SAdd(ctx, instancesActive(), instanceSegment(instance))
+	p.SAdd(ctx, instancesActive(keyPrefix), instanceSegment(instance))
 
 	return nil
 }
 
-func updateInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, state *instanceState) error {
-	key := instanceKey(instance)
+func updateInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, state *instanceState, keyPrefix string) error {
+	key := instanceKey(keyPrefix, instance)
 
 	b, err := json.Marshal(state)
 	if err != nil {
@@ -176,7 +176,7 @@ func updateInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	p.Set(ctx, key, string(b), 0)
 
 	if state.State != core.WorkflowInstanceStateActive {
-		p.SRem(ctx, instancesActive(), instanceSegment(instance))
+		p.SRem(ctx, instancesActive(keyPrefix), instanceSegment(instance))
 	}
 
 	// CreatedAt does not change, so skip updating the instancesByCreation() ZSET
@@ -217,8 +217,8 @@ func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 	return &state, nil
 }
 
-func readActiveInstanceExecution(ctx context.Context, rdb redis.UniversalClient, instanceID string) (*core.WorkflowInstance, error) {
-	val, err := rdb.Get(ctx, activeInstanceExecutionKey(instanceID)).Result()
+func readActiveInstanceExecution(ctx context.Context, rdb redis.UniversalClient, instanceID string, keyPrefix string) (*core.WorkflowInstance, error) {
+	val, err := rdb.Get(ctx, activeInstanceExecutionKey(keyPrefix, instanceID)).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, nil
@@ -235,8 +235,8 @@ func readActiveInstanceExecution(ctx context.Context, rdb redis.UniversalClient,
 	return instance, nil
 }
 
-func setActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance) error {
-	key := activeInstanceExecutionKey(instance.InstanceID)
+func setActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, keyPrefix string) error {
+	key := activeInstanceExecutionKey(keyPrefix, instance.InstanceID)
 
 	b, err := json.Marshal(instance)
 	if err != nil {
@@ -246,8 +246,8 @@ func setActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instanc
 	return p.Set(ctx, key, string(b), 0).Err()
 }
 
-func removeActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance) error {
-	key := activeInstanceExecutionKey(instance.InstanceID)
+func removeActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, keyPrefix string) error {
+	key := activeInstanceExecutionKey(keyPrefix, instance.InstanceID)
 
 	return p.Del(ctx, key).Err()
 }

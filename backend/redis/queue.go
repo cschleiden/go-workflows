@@ -34,12 +34,12 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue[T], error) {
+func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string, keyPrefix string) (*taskQueue[T], error) {
 	tq := &taskQueue[T]{
 		tasktype:   tasktype,
-		setKey:     "task-set:" + tasktype,
-		streamKey:  "task-stream:" + tasktype,
-		groupName:  "task-workers",
+		setKey:     keyPrefix + "task-set:" + tasktype,
+		streamKey:  keyPrefix + "task-stream:" + tasktype,
+		groupName:  keyPrefix + "task-workers",
 		workerName: uuid.NewString(),
 	}
 
@@ -118,7 +118,6 @@ var createGroupCmd = redis.NewScript(`
 
     return true
 `)
-
 
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
 	ds, err := json.Marshal(data)

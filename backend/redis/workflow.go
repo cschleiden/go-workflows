@@ -62,7 +62,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 	queueKeys := rb.workflowQueue.Keys()
 
 	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
-		futureEventsKey(),
+		futureEventsKey(rb.options.KeyPrefix),
 		queueKeys.StreamKey,
 		queueKeys.SetKey,
 	}, nowStr).Result(); err != nil && err != redis.Nil {
@@ -79,13 +79,13 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		return nil, nil
 	}
 
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKeyFromSegment(instanceTask.ID))
+	instanceState, err := readInstance(ctx, rb.rdb, instanceKeyFromSegment(rb.options.KeyPrefix, instanceTask.ID))
 	if err != nil {
 		return nil, fmt.Errorf("reading workflow instance: %w", err)
 	}
 
 	// Read all pending events for this instance
-	msgs, err := rb.rdb.XRange(ctx, pendingEventsKey(instanceState.Instance), "-", "+").Result()
+	msgs, err := rb.rdb.XRange(ctx, pendingEventsKey(rb.options.KeyPrefix, instanceState.Instance), "-", "+").Result()
 	if err != nil {
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
@@ -154,7 +154,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []history.WorkflowEvent,
 ) error {
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(rb.options.KeyPrefix, instance))
 	if err != nil {
 		return err
 	}
@@ -165,20 +165,20 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	p := rb.rdb.TxPipeline()
 
 	// Add executed events to the history
-	if err := addEventsToHistoryStreamP(ctx, p, historyKey(instance), executedEvents); err != nil {
+	if err := addEventsToHistoryStreamP(ctx, p, historyKey(rb.options.KeyPrefix, instance), executedEvents); err != nil {
 		return fmt.Errorf("serializing : %w", err)
 	}
 
 	for _, event := range executedEvents {
 		switch event.Type {
 		case history.EventType_TimerCanceled:
-			removeFutureEventP(ctx, p, instance, event)
+			removeFutureEventP(ctx, p, instance, event, rb.options.KeyPrefix)
 		}
 	}
 
 	// Schedule timers
 	for _, timerEvent := range timerEvents {
-		if err := addFutureEventP(ctx, p, instance, timerEvent); err != nil {
+		if err := addFutureEventP(ctx, p, instance, timerEvent, rb.options.KeyPrefix); err != nil {
 			return err
 		}
 	}
@@ -193,13 +193,13 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 				// Create new instance
 				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
-				if err := createInstanceP(ctx, p, m.WorkflowInstance, a.Metadata, true); err != nil {
+				if err := createInstanceP(ctx, p, m.WorkflowInstance, a.Metadata, true, rb.options.KeyPrefix); err != nil {
 					return err
 				}
 			}
 
 			// Add pending event to stream
-			if err := addEventToStreamP(ctx, p, pendingEventsKey(&targetInstance), m.HistoryEvent); err != nil {
+			if err := addEventToStreamP(ctx, p, pendingEventsKey(rb.options.KeyPrefix, &targetInstance), m.HistoryEvent); err != nil {
 				return err
 			}
 		}
@@ -218,14 +218,14 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		t := time.Now()
 		instanceState.CompletedAt = &t
 
-		removeActiveInstanceExecutionP(ctx, p, instance)
+		removeActiveInstanceExecutionP(ctx, p, instance, rb.options.KeyPrefix)
 	}
 
 	if len(executedEvents) > 0 {
 		instanceState.LastSequenceID = executedEvents[len(executedEvents)-1].SequenceID
 	}
 
-	if err := updateInstanceP(ctx, p, instance, instanceState); err != nil {
+	if err := updateInstanceP(ctx, p, instance, instanceState, rb.options.KeyPrefix); err != nil {
 		return fmt.Errorf("updating workflow instance: %w", err)
 	}
 
@@ -243,7 +243,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// Remove executed pending events
 	if task.CustomData != nil {
 		lastPendingEventMessageID := task.CustomData.(string)
-		removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance)}, lastPendingEventMessageID)
+		removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(rb.options.KeyPrefix, instance)}, lastPendingEventMessageID)
 	}
 
 	// Complete workflow task and unlock instance.
@@ -255,7 +255,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// If there are pending events, queue the instance again
 	keyInfo := rb.workflowQueue.Keys()
 	requeueInstanceCmd.Run(ctx, p,
-		[]string{pendingEventsKey(instance), keyInfo.StreamKey, keyInfo.SetKey},
+		[]string{pendingEventsKey(rb.options.KeyPrefix, instance), keyInfo.StreamKey, keyInfo.SetKey},
 		instanceSegment(instance),
 	)
 
@@ -289,7 +289,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		span.End()
 
 		if rb.options.AutoExpiration > 0 {
-			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance, rb.options.AutoExpiration); err != nil {
+			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance, rb.options.AutoExpiration, rb.options.KeyPrefix); err != nil {
 				return fmt.Errorf("setting workflow instance expiration: %w", err)
 			}
 		}
@@ -300,7 +300,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
-	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance), event); err != nil {
+	if err := addEventToStreamP(ctx, p, pendingEventsKey(rb.options.KeyPrefix, instance), event); err != nil {
 		return err
 	}
 

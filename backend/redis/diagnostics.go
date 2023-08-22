@@ -18,7 +18,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 
 	if afterInstanceID != "" {
 		afterID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
-		scores, err := rb.rdb.ZMScore(ctx, instancesByCreation(), afterID).Result()
+		scores, err := rb.rdb.ZMScore(ctx, instancesByCreation(rb.options.KeyPrefix), afterID).Result()
 		if err != nil {
 			return nil, fmt.Errorf("getting instance score for %v: %w", afterID, err)
 		}
@@ -35,7 +35,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	}
 
 	result, err := rb.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
-		Key:     instancesByCreation(),
+		Key:     instancesByCreation(rb.options.KeyPrefix),
 		Stop:    max,
 		Start:   "-inf",
 		ByScore: true,
@@ -49,7 +49,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	instanceKeys := make([]string, 0)
 	for _, r := range result {
 		instanceSegment := r
-		instanceKeys = append(instanceKeys, instanceKeyFromSegment(instanceSegment))
+		instanceKeys = append(instanceKeys, instanceKeyFromSegment(rb.options.KeyPrefix, instanceSegment))
 	}
 
 	instances, err := rb.rdb.MGet(ctx, instanceKeys...).Result()
@@ -76,7 +76,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 }
 
 func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(rb.options.KeyPrefix, instance))
 	if err != nil {
 		return nil, err
 	}

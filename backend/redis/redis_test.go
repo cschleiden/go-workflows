@@ -89,7 +89,7 @@ var _ test.TestBackend = (*redisBackend)(nil)
 
 // GetFutureEvents
 func (rb *redisBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
-	r, err := rb.rdb.ZRangeByScore(ctx, futureEventsKey(), &redis.ZRangeBy{
+	r, err := rb.rdb.ZRangeByScore(ctx, futureEventsKey(""), &redis.ZRangeBy{
 		Min: "-inf",
 		Max: "+inf",
 	}).Result()
