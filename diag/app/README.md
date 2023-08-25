@@ -4,6 +4,8 @@ This is a basic diagnostic web UI. It's written as a small React application, bo
 
 ## Testing changes
 
+💡 Use `Launch web sample` launch configuration for connecting with backend.
+
 `npm start` to start the development server, and then run a go-workflows sample that hosts the web UI. The `proxy` configuration in `package.json` should allow you to access the web ui from the auto-reloading development server, and serve the API via your Go binary.
 
 ## Checking in changes

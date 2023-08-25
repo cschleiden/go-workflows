@@ -18,19 +18,21 @@ import {
 
 import useFetch from "react-fetch-hook";
 import { InstanceTree } from "./InstanceTree";
+import { useEffect } from "react";
 
 function Instance() {
   let params = useParams();
 
   const instanceId = params.instanceId;
-  const executionId = params.executionId;
+  const executionId = params.executionId || "";
 
+  const url = `api/${instanceId}` + (executionId ? `/${executionId}` : "");
   const {
     isLoading,
     data: instance,
     error,
   } = useFetch<WorkflowInstanceInfo>(
-    document.location.pathname + "api/" + instanceId + "/" + executionId
+    document.location.pathname + url
   );
 
   if (isLoading) {

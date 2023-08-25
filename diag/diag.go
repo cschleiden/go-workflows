@@ -69,6 +69,55 @@ func NewServeMux(backend Backend) *http.ServeMux {
 
 		segments := strings.Split(relativeURL, "/")
 
+		// /api/{instanceID}
+		if len(segments) == 1 {
+			instanceID := segments[0]
+			instance := core.NewWorkflowInstance(instanceID, "")
+
+			instanceRef, err := backend.GetWorkflowInstance(r.Context(), instance)
+			if err != nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			if instanceRef == nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			history, err := backend.GetWorkflowInstanceHistory(r.Context(), instanceRef.Instance, nil)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			newHistory := make([]*Event, 0)
+			for _, event := range history {
+				newHistory = append(newHistory, &Event{
+					ID:              event.ID,
+					SequenceID:      event.SequenceID,
+					Type:            event.Type.String(),
+					Timestamp:       event.Timestamp,
+					ScheduleEventID: event.ScheduleEventID,
+					Attributes:      event.Attributes,
+					VisibleAt:       event.VisibleAt,
+				})
+			}
+
+			result := &WorkflowInstanceInfo{
+				WorkflowInstanceRef: instanceRef,
+				History:             newHistory,
+			}
+
+			w.Header().Add("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(result); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			return
+		}
+
 		// /api/{instanceID}/{executionID}
 		if len(segments) == 2 {
 			instanceID := segments[0]

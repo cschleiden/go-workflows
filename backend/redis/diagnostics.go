@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
@@ -76,12 +78,59 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 }
 
 func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
+	if instance.ExecutionID == "" {
+		executionID, err := rb.GetLatestExecutionID(ctx, instance.InstanceID)
+		if err != nil {
+			return nil, err
+		}
+		instance.ExecutionID = executionID
+	}
+
 	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
 	if err != nil {
 		return nil, err
 	}
 
 	return mapWorkflowInstance(instanceState), nil
+}
+
+func (rb *redisBackend) GetLatestExecutionID(ctx context.Context, instanceID string) (string, error) {
+	keys, err := rb.rdb.Keys(ctx, fmt.Sprintf("instance:%s:*", instanceID)).Result()
+	if err != nil {
+		return "", err
+	}
+
+	var latestExecutionID string
+	var latestCreatedAt time.Time
+
+	for _, key := range keys {
+		value, err := rb.rdb.Get(ctx, key).Result()
+		if err != nil {
+			return "", err
+		}
+
+		// Unmarshal the JSON into a structure to access the created_at field
+		var instanceData struct {
+			CreatedAt string `json:"created_at"`
+		}
+		if err := json.Unmarshal([]byte(value), &instanceData); err != nil {
+			return "", err
+		}
+
+		createdAt, err := time.Parse(time.RFC3339, instanceData.CreatedAt)
+		if err != nil {
+			return "", err
+		}
+
+		if createdAt.After(latestCreatedAt) {
+			latestCreatedAt = createdAt
+			// Extract the execution ID from the key
+			segments := strings.Split(key, ":")
+			latestExecutionID = segments[len(segments)-1]
+		}
+	}
+
+	return latestExecutionID, nil
 }
 
 func (rb *redisBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {
