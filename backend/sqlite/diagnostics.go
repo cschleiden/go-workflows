@@ -87,6 +87,16 @@ func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instance *core
 	var createdAt time.Time
 	var completedAt *time.Time
 
+	if instance.ExecutionID == "" {
+		// Get the latest execution ID if it's not provided
+		err = tx.QueryRowContext(ctx, "SELECT execution_id FROM instances WHERE id = ? ORDER BY created_at DESC LIMIT 1", instance.InstanceID).Scan(&executionID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		executionID = instance.ExecutionID
+	}
+
 	err = res.Scan(&id, &executionID, &createdAt, &completedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {

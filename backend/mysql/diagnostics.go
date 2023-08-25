@@ -81,11 +81,19 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instance *core.
 	}
 	defer tx.Rollback()
 
+	executionID := instance.ExecutionID
+	if executionID == "" {
+		executionID, err = mb.GetLatestExecutionID(ctx, instance.InstanceID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	res := tx.QueryRowContext(
 		ctx,
 		"SELECT instance_id, execution_id, created_at, completed_at FROM instances WHERE instance_id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID)
 
-	var id, executionID string
+	var id string
 	var createdAt time.Time
 	var completedAt *time.Time
 
@@ -109,6 +117,30 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instance *core.
 		CompletedAt: completedAt,
 		State:       state,
 	}, nil
+}
+
+func (mb *mysqlBackend) GetLatestExecutionID(ctx context.Context, instanceID string) (string, error) {
+	tx, err := mb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	var executionID string
+	res := tx.QueryRowContext(
+		ctx,
+		"SELECT execution_id FROM instances WHERE instance_id = ? ORDER BY created_at DESC LIMIT 1", instanceID)
+
+	err = res.Scan(&executionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	return executionID, nil
 }
 
 func (mb *mysqlBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {

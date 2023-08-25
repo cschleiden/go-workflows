@@ -11,6 +11,7 @@ function App() {
         <Route index element={<Home />} />
 
         <Route path=":instanceId/:executionId" element={<Instance />} />
+        <Route path=":instanceId" element={<Instance />} />
       </Route>
     </Routes>
   );
