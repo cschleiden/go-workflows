@@ -53,6 +53,6 @@ func futureEventsKey(keyPrefix string) string {
 	return keyPrefix + "future-events"
 }
 
-func futureEventKey(instance *core.WorkflowInstance, scheduleEventID int64) string {
-	return fmt.Sprintf("future-event:%v:%v:%v", instance.InstanceID, instance.ExecutionID, scheduleEventID)
+func futureEventKey(keyPrefix string, instance *core.WorkflowInstance, scheduleEventID int64) string {
+	return fmt.Sprintf("%vfuture-event:%v:%v:%v", keyPrefix, instance.InstanceID, instance.ExecutionID, scheduleEventID)
 }
