@@ -332,16 +332,17 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 			FROM instances i
 			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
 			WHERE
-				i.completed_at IS NULL
+				state = ? AND i.completed_at IS NULL
 				AND (pe.visible_at IS NULL OR pe.visible_at <= ?)
 				AND (i.locked_until IS NULL OR i.locked_until < ?)
 				AND (i.sticky_until IS NULL OR i.sticky_until < ? OR i.worker = ?)
 			LIMIT 1
 			FOR UPDATE OF i SKIP LOCKED`,
-		now,          // event.visible_at
-		now,          // locked_until
-		now,          // sticky_until
-		b.workerName, // worker
+		core.WorkflowInstanceStateActive, // state
+		now,                              // event.visible_at
+		now,                              // locked_until
+		now,                              // sticky_until
+		b.workerName,                     // worker
 	)
 
 	var id int
@@ -484,7 +485,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	// Unlock instance, but keep it sticky to the current worker
 	var completedAt *time.Time
-	if state == core.WorkflowInstanceStateFinished {
+	if state == core.WorkflowInstanceStateContinuedAsNew || state == core.WorkflowInstanceStateFinished {
 		t := time.Now()
 		completedAt = &t
 	}
