@@ -6,13 +6,13 @@ import (
 )
 
 type replayHandler struct {
-	state  *WfState
-	hander slog.Handler
+	state   *WfState
+	handler slog.Handler
 }
 
 // Enabled implements slog.Handler.
 func (rh *replayHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	return rh.hander.Enabled(ctx, level)
+	return rh.handler.Enabled(ctx, level)
 }
 
 // Handle implements slog.Handler.
@@ -21,17 +21,17 @@ func (rh *replayHandler) Handle(ctx context.Context, r slog.Record) error {
 		return nil
 	}
 
-	return rh.Handle(ctx, r)
+	return rh.handler.Handle(ctx, r)
 }
 
 // WithAttrs implements slog.Handler.
 func (rh *replayHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return rh.WithAttrs(attrs)
+	return rh.handler.WithAttrs(attrs)
 }
 
 // WithGroup implements slog.Handler.
 func (rh *replayHandler) WithGroup(name string) slog.Handler {
-	return rh.WithGroup(name)
+	return rh.handler.WithGroup(name)
 }
 
 var _ slog.Handler = (*replayHandler)(nil)
