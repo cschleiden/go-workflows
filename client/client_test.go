@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -103,7 +103,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 
 	b := &backend.MockBackend{}
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
-	b.On("Logger").Return(logger.NewDefaultLogger())
+	b.On("Logger").Return(slog.Default())
 	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", mock.Anything, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
@@ -132,7 +132,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 
 	b := &backend.MockBackend{}
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
-	b.On("Logger").Return(logger.NewDefaultLogger())
+	b.On("Logger").Return(slog.Default())
 	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", mock.Anything, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&

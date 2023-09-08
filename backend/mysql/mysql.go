@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
@@ -63,7 +63,7 @@ type mysqlBackend struct {
 	options    backend.Options
 }
 
-func (b *mysqlBackend) Logger() log.Logger {
+func (b *mysqlBackend) Logger() *slog.Logger {
 	return b.options.Logger
 }
 

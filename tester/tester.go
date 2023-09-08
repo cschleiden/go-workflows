@@ -3,6 +3,7 @@ package tester
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"sort"
 	"sync"
@@ -20,7 +21,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -152,7 +152,7 @@ type workflowTester[TResult any] struct {
 
 	runningActivities int32
 
-	logger log.Logger
+	logger *slog.Logger
 
 	tracer trace.Tracer
 
@@ -177,7 +177,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 
 	options := &options{
 		TestTimeout: time.Second * 10,
-		Logger:      logger.NewDefaultLogger(),
+		Logger:      slog.Default(),
 		Converter:   converter.DefaultConverter,
 	}
 

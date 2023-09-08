@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -67,7 +67,7 @@ type sqliteBackend struct {
 
 var _ backend.Backend = (*sqliteBackend)(nil)
 
-func (sb *sqliteBackend) Logger() log.Logger {
+func (sb *sqliteBackend) Logger() *slog.Logger {
 	return sb.options.Logger
 }
 

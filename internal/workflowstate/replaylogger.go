@@ -1,46 +1,43 @@
 package workflowstate
 
 import (
-	"github.com/cschleiden/go-workflows/log"
+	"context"
+	"log/slog"
 )
 
-type replayLogger struct {
+type replayHandler struct {
 	state  *WfState
-	logger log.Logger
+	hander slog.Handler
 }
 
-func NewReplayLogger(state *WfState, logger log.Logger) log.Logger {
-	return &replayLogger{state, logger}
+// Enabled implements slog.Handler.
+func (rh *replayHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return rh.Enabled(ctx, level)
 }
 
-func (r *replayLogger) Debug(msg string, fields ...interface{}) {
-	if !r.state.replaying {
-		r.logger.Debug(msg, fields...)
+// Handle implements slog.Handler.
+func (rh *replayHandler) Handle(ctx context.Context, r slog.Record) error {
+	if rh.state.Replaying() {
+		return nil
 	}
+
+	return rh.Handle(ctx, r)
 }
 
-// Error implements log.Logger
-func (r *replayLogger) Error(msg string, fields ...interface{}) {
-	if !r.state.replaying {
-		r.logger.Error(msg, fields...)
-	}
+// WithAttrs implements slog.Handler.
+func (rh *replayHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return rh.WithAttrs(attrs)
 }
 
-// Panic implements log.Logger
-func (r *replayLogger) Panic(msg string, fields ...interface{}) {
-	if !r.state.replaying {
-		r.logger.Panic(msg, fields...)
-	}
+// WithGroup implements slog.Handler.
+func (rh *replayHandler) WithGroup(name string) slog.Handler {
+	return rh.WithGroup(name)
 }
 
-// Warn implements log.Logger
-func (r *replayLogger) Warn(msg string, fields ...interface{}) {
-	if !r.state.replaying {
-		r.logger.Warn(msg, fields...)
-	}
-}
+var _ slog.Handler = (*replayHandler)(nil)
 
-// With implements log.Logger
-func (r *replayLogger) With(fields ...interface{}) log.Logger {
-	return NewReplayLogger(r.state, r.logger.With(fields...))
+func NewReplayLogger(state *WfState, logger *slog.Logger) *slog.Logger {
+	h := logger.Handler()
+
+	return slog.New(&replayHandler{state, h})
 }

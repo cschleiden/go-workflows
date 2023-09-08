@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"log/slog"
 	"runtime"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/metrics"
 	wf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -28,14 +28,14 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	e, err := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
+		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
 		[]contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
 
 	i2 := core.NewWorkflowInstance("instanceID2", "executionID2")
 	e2, err := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
+		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
 		[]contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
@@ -68,7 +68,10 @@ func Test_Cache_Evict(t *testing.T) {
 	r := wf.NewRegistry()
 	r.RegisterWorkflow(workflowWithActivity)
 	e, err := wf.NewExecutor(
-		logger.NewDefaultLogger(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New())
+		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
+		converter.DefaultConverter, []contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i,
+		&core.WorkflowMetadata{}, clock.New(),
+	)
 	require.NoError(t, err)
 
 	err = c.Store(context.Background(), i, e)

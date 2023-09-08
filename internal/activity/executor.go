@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"github.com/cschleiden/go-workflows/internal/args"
@@ -20,14 +21,14 @@ import (
 )
 
 type Executor struct {
-	logger      log.Logger
+	logger      *slog.Logger
 	tracer      trace.Tracer
 	converter   converter.Converter
 	propagators []contextpropagation.ContextPropagator
 	r           *workflow.Registry
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, propagators []contextpropagation.ContextPropagator, r *workflow.Registry) *Executor {
+func NewExecutor(logger *slog.Logger, tracer trace.Tracer, converter converter.Converter, propagators []contextpropagation.ContextPropagator, r *workflow.Registry) *Executor {
 	return &Executor{
 		logger:      logger,
 		tracer:      tracer,

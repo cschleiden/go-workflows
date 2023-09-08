@@ -1,21 +1,20 @@
 package backend
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/tracing"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type Options struct {
-	Logger log.Logger
+	Logger *slog.Logger
 
 	Metrics metrics.Client
 
@@ -46,7 +45,7 @@ var DefaultOptions Options = Options{
 	WorkflowLockTimeout: time.Minute,
 	ActivityLockTimeout: time.Minute * 2,
 
-	Logger:         logger.NewDefaultLogger(),
+	Logger:         slog.Default(),
 	Metrics:        mi.NewNoopMetricsClient(),
 	TracerProvider: trace.NewNoopTracerProvider(),
 	Converter:      converter.DefaultConverter,
@@ -62,7 +61,7 @@ func WithStickyTimeout(timeout time.Duration) BackendOption {
 	}
 }
 
-func WithLogger(logger log.Logger) BackendOption {
+func WithLogger(logger *slog.Logger) BackendOption {
 	return func(o *Options) {
 		o.Logger = logger
 	}
@@ -100,7 +99,7 @@ func ApplyOptions(opts ...BackendOption) Options {
 	}
 
 	if options.Logger == nil {
-		options.Logger = logger.NewDefaultLogger()
+		options.Logger = slog.Default()
 	}
 
 	return options
