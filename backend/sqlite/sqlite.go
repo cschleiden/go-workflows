@@ -288,7 +288,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 					WHERE
 						(locked_until IS NULL OR locked_until < ?)
 						AND (sticky_until IS NULL OR sticky_until < ? OR worker = ?)
-						AND completed_at IS NULL
+						AND state = ? AND i.completed_at IS NULL
 						AND EXISTS (
 							SELECT 1
 								FROM pending_events
@@ -298,10 +298,11 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 			) RETURNING id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`,
 		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
-		now,           // locked_until
-		now,           // sticky_until
-		sb.workerName, // worker
-		now,           // event.visible_at
+		now,                              // locked_until
+		now,                              // sticky_until
+		sb.workerName,                    // worker
+		core.WorkflowInstanceStateActive, // state
+		now,                              // pending_event.visible_at
 	)
 
 	var instanceID, executionID string
@@ -383,7 +384,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	defer tx.Rollback()
 
 	var completedAt *time.Time
-	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
+	if state == core.WorkflowInstanceStateContinuedAsNew || state == core.WorkflowInstanceStateFinished {
 		t := time.Now()
 		completedAt = &t
 	}
