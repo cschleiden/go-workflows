@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"log"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/task"
@@ -33,7 +33,7 @@ func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, in
 }
 
 func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) (*executor, error) {
-	logger := logger.NewDefaultLogger()
+	logger := slog.Default()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
 	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, historyProvider, i, &core.WorkflowMetadata{}, clock.New())

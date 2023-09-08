@@ -3,13 +3,13 @@ package backend
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
@@ -72,7 +72,7 @@ type Backend interface {
 	GetStats(ctx context.Context) (*Stats, error)
 
 	// Logger returns the configured logger for the backend
-	Logger() log.Logger
+	Logger() *slog.Logger
 
 	// Tracer returns the configured trace provider for the backend
 	Tracer() trace.Tracer

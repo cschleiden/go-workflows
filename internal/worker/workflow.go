@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 )
 
@@ -30,7 +30,7 @@ type WorkflowWorker struct {
 
 	workflowTaskQueue chan *task.Workflow
 
-	logger log.Logger
+	logger *slog.Logger
 
 	pollersWg sync.WaitGroup
 	wg        sync.WaitGroup
@@ -156,7 +156,7 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 
 	result, err := ww.handleTask(ctx, t)
 	if err != nil {
-		ww.logger.Panic("could not handle workflow task", "error", err)
+		ww.logger.ErrorContext(ctx, "could not handle workflow task", "error", err)
 	}
 
 	// Only record the time spent in the workflow code
@@ -177,7 +177,8 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 
 	if err := ww.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
-		ww.logger.Panic("could not complete workflow task", "error", err)
+		ww.logger.Error("could not complete workflow task", "error", err)
+		panic("could not complete workflow task")
 	}
 }
 
@@ -239,7 +240,8 @@ func (ww *WorkflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow
 			return
 		case <-t.C:
 			if err := ww.backend.ExtendWorkflowTask(ctx, task.ID, task.WorkflowInstance); err != nil {
-				ww.logger.Panic("could not heartbeat workflow task", "error", err)
+				ww.logger.Error("could not heartbeat workflow task", "error", err)
+				panic("could not heartbeat workflow task")
 			}
 		}
 	}

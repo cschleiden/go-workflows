@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/cschleiden/go-workflows/activity"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/samples"
@@ -63,7 +64,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering Workflow1, input: ", msg)
+	logger.Debug("Entering Workflow1, input: ", "msg", msg)
 	defer logger.Debug("Leaving Workflow1")
 
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
@@ -85,7 +86,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 				panic(err)
 			}
 
-			logger.Debug("Activity result", r)
+			logger.Debug("Activity result", "r", r)
 
 			// Cancel timer
 			cancel()
@@ -96,12 +97,13 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 }
 
 func Activity1(ctx context.Context, a, b int) (int, error) {
-	log.Println("Entering Activity1")
+	logger := activity.Logger(ctx)
+	logger.Debug("Entering Activity1")
 
 	time.Sleep(10 * time.Second)
 
 	defer func() {
-		log.Println("Leaving Activity1")
+		logger.Debug("Leaving Activity1")
 	}()
 
 	return a + b, nil

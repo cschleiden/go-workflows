@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -113,7 +113,7 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	return nil
 }
 
-func handleError(ctx workflow.Context, name string, logger log.Logger, err error) {
+func handleError(ctx workflow.Context, name string, logger *slog.Logger, err error) {
 	logger = logger.With("activity", name)
 
 	var werr *workflow.Error

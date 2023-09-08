@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -11,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
@@ -86,7 +86,7 @@ type activityData struct {
 	Event    *history.Event         `json:"event,omitempty"`
 }
 
-func (rb *redisBackend) Logger() log.Logger {
+func (rb *redisBackend) Logger() *slog.Logger {
 	return rb.options.Logger
 }
 

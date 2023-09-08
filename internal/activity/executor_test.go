@@ -3,6 +3,7 @@ package activity
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
@@ -111,7 +111,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 			attr := tt.setup(t, r)
 
 			e := &Executor{
-				logger:    logger.NewDefaultLogger(),
+				logger:    slog.Default(),
 				r:         r,
 				converter: converter.DefaultConverter,
 				tracer:    trace.NewNoopTracerProvider().Tracer(""),

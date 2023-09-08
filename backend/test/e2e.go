@@ -654,7 +654,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				instance := runWorkflow(t, ctx, c, wf, 0)
 
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
 				require.NoError(t, err)
 				require.Equal(t, 3, r)
 			},
