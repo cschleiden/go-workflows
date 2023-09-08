@@ -12,7 +12,7 @@ type replayHandler struct {
 
 // Enabled implements slog.Handler.
 func (rh *replayHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	return rh.Enabled(ctx, level)
+	return rh.hander.Enabled(ctx, level)
 }
 
 // Handle implements slog.Handler.
