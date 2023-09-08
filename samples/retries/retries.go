@@ -61,7 +61,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 
 func Workflow1(ctx workflow.Context, msg string) error {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering Workflow1", msg)
+	logger.Debug("Entering Workflow1", "msg", msg)
 	defer logger.Debug("Leaving Workflow1")
 
 	// Illustrate sub workflow retries. The called workflow will fail a few times, and its execution will be retried.
@@ -84,7 +84,7 @@ var workflowCalls = 0
 
 func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering WorkflowWithFailures", msg)
+	logger.Debug("Entering WorkflowWithFailures", "msg", msg)
 	defer logger.Debug("Leaving WorkflowWithFailures")
 
 	workflowCalls++
@@ -101,7 +101,7 @@ func WorkflowWithFailures(ctx workflow.Context, msg string) error {
 		},
 	}, Activity1, 35).Get(ctx)
 	if err != nil {
-		logger.Debug("Error from Activity 1", err)
+		logger.Error("Error from Activity 1", "err", err)
 		return fmt.Errorf("getting result from activity 1: %w", err)
 	}
 
