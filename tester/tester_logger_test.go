@@ -13,7 +13,9 @@ type debugLogger struct {
 func newDebugLogger() *debugLogger {
 	b := &strings.Builder{}
 
-	logger := slog.New(slog.NewTextHandler(b, nil))
+	logger := slog.New(slog.NewTextHandler(b, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
 
 	return &debugLogger{
 		b:      b,
