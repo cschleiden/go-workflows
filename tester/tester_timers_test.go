@@ -197,7 +197,7 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	dl := newDebugLogger()
 
-	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*10), WithLogger(dl))
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*10), WithLogger(dl.logger))
 
 	tester.OnActivity(activity1).Return("activity", nil)
 
@@ -232,7 +232,7 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	dl := newDebugLogger()
 
-	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl))
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl.logger))
 
 	tester.OnActivity(activity1).Return("activity", nil)
 

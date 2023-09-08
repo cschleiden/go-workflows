@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"github.com/benbjohnson/clock"
@@ -52,14 +53,14 @@ type executor struct {
 	workflowCtxCancel sync.CancelFunc
 	cv                converter.Converter
 	clock             clock.Clock
-	logger            log.Logger
+	logger            *slog.Logger
 	tracer            trace.Tracer
 	lastSequenceID    int64
 	parentSpan        trace.Span
 }
 
 func NewExecutor(
-	logger log.Logger,
+	logger *slog.Logger,
 	tracer trace.Tracer,
 	registry *Registry,
 	cv converter.Converter,
@@ -234,7 +235,8 @@ func (e *executor) replayHistory(h []*history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range h {
 		if event.SequenceID < e.lastSequenceID {
-			e.logger.Panic("history has older events than current state")
+			e.logger.Error("history has older events than current state")
+			panic("history has older events than current state")
 		}
 
 		if err := e.executeEvent(event); err != nil {
@@ -259,7 +261,8 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	if e.workflow.Completed() {
 		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
-			e.logger.Panic("workflow completed, but there are still pending futures")
+			e.logger.Error("workflow completed, but there are still pending futures")
+			panic("workflow completed, but there are still pending futures")
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {

@@ -95,13 +95,13 @@ func SubWorkflow(ctx workflow.Context, msg string) (string, error) {
 	if err != nil {
 		logger.Error("error getting activity 1 result", "err", err)
 	}
-	logger.Debug("R1 result:", r1)
+	logger.Debug("R1 result:", "r1", r1)
 
 	r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2).Get(ctx)
 	if err != nil {
 		logger.Error("error getting activity 2 result", "err", err)
 	}
-	logger.Debug("R2 result:", r2)
+	logger.Debug("R2 result:", "r2", r2)
 
 	return "W2 Result", nil
 }

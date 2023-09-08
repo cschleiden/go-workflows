@@ -1,13 +1,13 @@
 package workflow
 
 import (
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/logger"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
@@ -16,7 +16,7 @@ import (
 )
 
 func Test_Timer_Cancellation(t *testing.T) {
-	state := workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), logger.NewDefaultLogger(), clock.New())
+	state := workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New())
 
 	ctx, cancel := sync.WithCancel(sync.Background())
 	ctx = converter.WithConverter(ctx, converter.DefaultConverter)

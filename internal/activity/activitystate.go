@@ -2,6 +2,7 @@ package activity
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -10,10 +11,10 @@ import (
 type ActivityState struct {
 	ActivityID string
 	Instance   *workflow.Instance
-	Logger     log.Logger
+	Logger     *slog.Logger
 }
 
-func NewActivityState(activityID string, instance *workflow.Instance, logger log.Logger) *ActivityState {
+func NewActivityState(activityID string, instance *workflow.Instance, logger *slog.Logger) *ActivityState {
 	return &ActivityState{
 		activityID,
 		instance,
