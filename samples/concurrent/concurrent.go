@@ -60,7 +60,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	logger := workflow.Logger(ctx)
 	logger.Debug("Entering Workflow1")
-	logger.Debug("\tWorkflow instance input:", msg)
+	logger.Debug("\tWorkflow instance input:", "msg", msg)
 
 	defer func() {
 		logger.Debug("Leaving Workflow1")
