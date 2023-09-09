@@ -121,7 +121,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 func Workflow2(ctx workflow.Context, msg string) (ret string, err error) {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering Workflow2", msg)
+	logger.Debug("Entering Workflow2", "msg", msg)
 	defer logger.Debug("Leaving Workflow2")
 
 	defer func() {
