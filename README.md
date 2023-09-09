@@ -59,7 +59,7 @@ The worker is responsible for executing `Workflows` and `Activities`, both need 
 func runWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb, nil)
 
-	r.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(Workflow1)
 
 	w.RegisterActivity(Activity1)
 	w.RegisterActivity(Activity2)
