@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -30,7 +30,8 @@ type ActivityWorker struct {
 	wg        sync.WaitGroup
 	pollersWg sync.WaitGroup
 
-	clock clock.Clock
+	clock  clock.Clock
+	logger *slog.Logger
 }
 
 func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) *ActivityWorker {
@@ -42,7 +43,8 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 		activityTaskQueue:    make(chan *task.Activity),
 		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), backend.Converter(), backend.ContextPropagators(), registry),
 
-		clock: clock,
+		clock:  clock,
+		logger: backend.Logger(),
 	}
 }
 
@@ -72,20 +74,38 @@ func (aw *ActivityWorker) WaitForCompletion() error {
 func (aw *ActivityWorker) runPoll(ctx context.Context) {
 	defer aw.pollersWg.Done()
 
+	poll := func() {
+		task, err := aw.poll(ctx, 30*time.Second)
+		if err != nil {
+			aw.logger.ErrorContext(ctx, "error while polling for activity task", "error", err)
+			return
+		}
+
+		if task != nil {
+			aw.activityTaskQueue <- task
+		}
+	}
+
+	if _, ok := aw.backend.(BlockingBackend); ok {
+		// Backend blocks on calls to GetActivityTask, poll continuously
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			poll()
+		}
+	}
+
+	// Backend is polling tasks and returns on calls to GetActivityTask, we need
+	// to throttle the calls.
+	ticker := time.NewTicker(aw.options.ActivityPollingInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-			task, err := aw.poll(ctx, 30*time.Second)
-			if err != nil {
-				log.Println("error while polling for activity task:", err)
-				continue
-			}
-
-			if task != nil {
-				aw.activityTaskQueue <- task
-			}
+		case <-ticker.C:
+			poll()
 		}
 	}
 }

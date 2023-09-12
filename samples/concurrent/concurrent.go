@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"time"
@@ -18,7 +19,8 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("concurrent")
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	b := samples.GetBackend("concurrent", backend.WithLogger(logger))
 
 	// Run worker
 	go RunWorker(ctx, b)

@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"github.com/cschleiden/go-workflows/internal/worker"
 	"log/slog"
 	"time"
 
@@ -109,3 +110,7 @@ func (rb *redisBackend) ContextPropagators() []contextpropagation.ContextPropaga
 func (rb *redisBackend) Close() error {
 	return rb.rdb.Close()
 }
+
+var _ worker.BlockingBackend = (*redisBackend)(nil)
+
+func (rb *redisBackend) BlockOnGetTask() { /* satisfy interface */ }
