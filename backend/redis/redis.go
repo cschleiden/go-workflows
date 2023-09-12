@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"github.com/cschleiden/go-workflows/internal/worker"
 	"log/slog"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/internal/worker"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
