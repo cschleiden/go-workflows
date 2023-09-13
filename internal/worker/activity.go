@@ -74,38 +74,22 @@ func (aw *ActivityWorker) WaitForCompletion() error {
 func (aw *ActivityWorker) runPoll(ctx context.Context) {
 	defer aw.pollersWg.Done()
 
-	poll := func() {
-		task, err := aw.poll(ctx, 30*time.Second)
-		if err != nil {
-			aw.logger.ErrorContext(ctx, "error while polling for activity task", "error", err)
-			return
-		}
-
-		if task != nil {
-			aw.activityTaskQueue <- task
-		}
-	}
-
-	if _, ok := aw.backend.(BlockingBackend); ok {
-		// Backend blocks on calls to GetActivityTask, poll continuously
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			poll()
-		}
-	}
-
-	// Backend is polling tasks and returns on calls to GetActivityTask, we need
-	// to throttle the calls.
 	ticker := time.NewTicker(aw.options.ActivityPollingInterval)
 	defer ticker.Stop()
 	for {
+		task, err := aw.poll(ctx, 30*time.Second)
+		if err != nil {
+			aw.logger.ErrorContext(ctx, "error while polling for activity task", "error", err)
+		}
+		if task != nil {
+			aw.activityTaskQueue <- task
+			continue // check for new tasks right away
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			poll()
 		}
 	}
 }
@@ -214,7 +198,7 @@ func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 
 	task, err := aw.backend.GetActivityTask(ctx)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
 	}

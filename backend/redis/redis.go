@@ -12,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/worker"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
@@ -110,7 +109,3 @@ func (rb *redisBackend) ContextPropagators() []contextpropagation.ContextPropaga
 func (rb *redisBackend) Close() error {
 	return rb.rdb.Close()
 }
-
-var _ worker.BlockingBackend = (*redisBackend)(nil)
-
-func (rb *redisBackend) BlockOnGetTask() { /* satisfy interface */ }

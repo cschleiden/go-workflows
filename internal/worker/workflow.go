@@ -84,39 +84,23 @@ func (ww *WorkflowWorker) WaitForCompletion() error {
 func (ww *WorkflowWorker) runPoll(ctx context.Context) {
 	defer ww.pollersWg.Done()
 
-	poll := func() {
-		task, err := ww.poll(ctx, 30*time.Second)
-		if err != nil {
-			ww.logger.ErrorContext(ctx, "error while polling for workflow task", "error", err)
-			return
-		}
-
-		if task != nil {
-			ww.wg.Add(1)
-			ww.workflowTaskQueue <- task
-		}
-	}
-
-	if _, ok := ww.backend.(BlockingBackend); ok {
-		// Backend blocks on calls to GetActivityTask, poll continuously
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			poll()
-		}
-	}
-
-	// Backend is polling tasks and returns on calls to GetActivityTask, we need
-	// to throttle the calls.
 	ticker := time.NewTicker(ww.options.WorkflowPollingInterval)
 	defer ticker.Stop()
 	for {
+		task, err := ww.poll(ctx, 30*time.Second)
+		if err != nil {
+			ww.logger.ErrorContext(ctx, "error while polling for workflow task", "error", err)
+		}
+		if task != nil {
+			ww.wg.Add(1)
+			ww.workflowTaskQueue <- task
+			continue // check for new tasks right away
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			poll()
 		}
 	}
 }
@@ -274,7 +258,7 @@ func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 
 	task, err := ww.backend.GetWorkflowTask(ctx)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
 
