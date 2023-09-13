@@ -106,7 +106,7 @@ func (ww *WorkflowWorker) runPoll(ctx context.Context) {
 }
 
 func (ww *WorkflowWorker) runDispatcher() {
-	var sem chan (struct{})
+	var sem chan struct{}
 
 	if ww.options.MaxParallelWorkflowTasks > 0 {
 		sem = make(chan struct{}, ww.options.MaxParallelWorkflowTasks)

@@ -55,7 +55,7 @@ func (aw *ActivityWorker) Start(ctx context.Context) error {
 		go aw.runPoll(ctx)
 	}
 
-	go aw.runDispatcher(context.Background())
+	go aw.runDispatcher()
 
 	return nil
 }
@@ -82,6 +82,7 @@ func (aw *ActivityWorker) runPoll(ctx context.Context) {
 			aw.logger.ErrorContext(ctx, "error while polling for activity task", "error", err)
 		}
 		if task != nil {
+			aw.wg.Add(1)
 			aw.activityTaskQueue <- task
 			continue // check for new tasks right away
 		}
@@ -94,7 +95,7 @@ func (aw *ActivityWorker) runPoll(ctx context.Context) {
 	}
 }
 
-func (aw *ActivityWorker) runDispatcher(ctx context.Context) {
+func (aw *ActivityWorker) runDispatcher() {
 	var sem chan struct{}
 	if aw.options.MaxParallelActivityTasks > 0 {
 		sem = make(chan struct{}, aw.options.MaxParallelActivityTasks)
@@ -107,7 +108,6 @@ func (aw *ActivityWorker) runDispatcher(ctx context.Context) {
 
 		task := task
 
-		aw.wg.Add(1)
 		go func() {
 			defer aw.wg.Done()
 
