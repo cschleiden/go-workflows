@@ -52,6 +52,9 @@ func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend 
 		panic(err)
 	}
 
+	// FIXME addresses "database is locked (5) (SQLITE_BUSY)" error
+	db.SetMaxOpenConns(1)
+
 	return &sqliteBackend{
 		db:         db,
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
