@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed schema.sql
@@ -42,7 +42,7 @@ func NewSqliteBackend(path string, opts ...backend.BackendOption) *sqliteBackend
 }
 
 func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend {
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		panic(err)
 	}
