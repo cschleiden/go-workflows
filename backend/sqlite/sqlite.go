@@ -52,7 +52,9 @@ func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend 
 		panic(err)
 	}
 
-	// FIXME addresses "database is locked (5) (SQLITE_BUSY)" error
+	// SQLite does not support multiple writers on the database, see https://www.sqlite.org/faq.html#q5
+	// A frequently used workaround is to have a single connection, effectively acting as a mutex
+	// See https://github.com/mattn/go-sqlite3/issues/274 for more context
 	db.SetMaxOpenConns(1)
 
 	return &sqliteBackend{
