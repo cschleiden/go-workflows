@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
@@ -21,7 +20,7 @@ func Test_MonoprocessBackend(t *testing.T) {
 		// Disable sticky workflow behavior for the test execution
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...), 0, time.Millisecond)
+		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...))
 	}, nil)
 }
 
@@ -34,7 +33,7 @@ func Test_EndToEndMonoprocessBackend(t *testing.T) {
 		// Disable sticky workflow behavior for the test execution
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...), 0, 0)
+		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...))
 	}, nil)
 }
 

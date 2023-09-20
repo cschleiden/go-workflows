@@ -29,15 +29,11 @@ type monoprocessBackend struct {
 // worked on. Note that only one worker will be notified.
 // IMPORTANT: Only use this backend if the backend and worker are running in the
 // same process.
-func NewMonoprocessBackend(b backend.Backend, signalBufferSize int, signalTimeout time.Duration) *monoprocessBackend {
-	if signalTimeout <= 0 {
-		signalTimeout = time.Second // default
-	}
+func NewMonoprocessBackend(b backend.Backend) *monoprocessBackend {
 	mb := &monoprocessBackend{
 		Backend:        b,
-		workflowSignal: make(chan struct{}, signalBufferSize),
-		activitySignal: make(chan struct{}, signalBufferSize),
-		signalTimeout:  signalTimeout,
+		workflowSignal: make(chan struct{}, 1),
+		activitySignal: make(chan struct{}, 1),
 		logger:         b.Logger(),
 	}
 	return mb
@@ -165,32 +161,20 @@ func (b *monoprocessBackend) SignalWorkflow(ctx context.Context, instanceID stri
 	return nil
 }
 
-func (b *monoprocessBackend) notifyActivityWorker(ctx context.Context) bool {
-	ctx, cancel := context.WithTimeout(ctx, b.signalTimeout)
-	defer cancel()
+func (b *monoprocessBackend) notifyActivityWorker(ctx context.Context) {
 	select {
-	case <-ctx.Done():
-		// we didn't manage to notify the worker that there is a new task, it
-		// will pick it up after the poll timeout
-		b.logger.DebugContext(ctx, "failed to signal activity task to worker", "reason", ctx.Err())
-		return false
 	case b.activitySignal <- struct{}{}:
 		b.logger.DebugContext(ctx, "signalled a new activity task to worker")
-		return true
+	default:
+		// the signal channel already contains a signal, no need to add another
 	}
 }
 
-func (b *monoprocessBackend) notifyWorkflowWorker(ctx context.Context) bool {
-	ctx, cancel := context.WithTimeout(ctx, b.signalTimeout)
-	defer cancel()
+func (b *monoprocessBackend) notifyWorkflowWorker(ctx context.Context) {
 	select {
-	case <-ctx.Done():
-		// we didn't manage to notify the worker that there is a new task, it
-		// will pick it up after the poll timeout
-		b.logger.DebugContext(ctx, "failed to signal workflow task to worker", "reason", ctx.Err())
-		return false
 	case b.workflowSignal <- struct{}{}:
 		b.logger.DebugContext(ctx, "signalled a new workflow task to worker")
-		return true
+	default:
+		// the signal channel already contains a signal, no need to add another
 	}
 }
