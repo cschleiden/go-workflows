@@ -90,6 +90,14 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 	if err := b.Backend.CompleteWorkflowTask(ctx, task, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents); err != nil {
 		return err
 	}
+	for _, e := range executedEvents {
+		if e.Type != history.EventType_WorkflowTaskStarted {
+			continue
+		}
+		if !b.notifyWorkflowWorker(ctx) {
+			break // no reason to notify more, queue is full
+		}
+	}
 	for _, e := range activityEvents {
 		if e.Type != history.EventType_ActivityScheduled {
 			continue
