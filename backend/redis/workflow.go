@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend/task"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/log"
 	"github.com/redis/go-redis/v9"

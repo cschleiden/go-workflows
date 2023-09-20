@@ -18,7 +18,7 @@ import (
 
 	slog "log/slog"
 
-	task "github.com/cschleiden/go-workflows/internal/task"
+	task "github.com/cschleiden/go-workflows/backend/task"
 
 	trace "go.opentelemetry.io/otel/trace"
 )
