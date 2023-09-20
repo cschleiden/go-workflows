@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -30,7 +30,8 @@ type ActivityWorker struct {
 	wg        sync.WaitGroup
 	pollersWg sync.WaitGroup
 
-	clock clock.Clock
+	clock  clock.Clock
+	logger *slog.Logger
 }
 
 func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) *ActivityWorker {
@@ -42,7 +43,8 @@ func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clo
 		activityTaskQueue:    make(chan *task.Activity),
 		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), backend.Converter(), backend.ContextPropagators(), registry),
 
-		clock: clock,
+		clock:  clock,
+		logger: backend.Logger(),
 	}
 }
 
@@ -53,7 +55,7 @@ func (aw *ActivityWorker) Start(ctx context.Context) error {
 		go aw.runPoll(ctx)
 	}
 
-	go aw.runDispatcher(context.Background())
+	go aw.runDispatcher()
 
 	return nil
 }
@@ -72,25 +74,28 @@ func (aw *ActivityWorker) WaitForCompletion() error {
 func (aw *ActivityWorker) runPoll(ctx context.Context) {
 	defer aw.pollersWg.Done()
 
+	ticker := time.NewTicker(aw.options.ActivityPollingInterval)
+	defer ticker.Stop()
 	for {
+		task, err := aw.poll(ctx, 30*time.Second)
+		if err != nil {
+			aw.logger.ErrorContext(ctx, "error while polling for activity task", "error", err)
+		}
+		if task != nil {
+			aw.wg.Add(1)
+			aw.activityTaskQueue <- task
+			continue // check for new tasks right away
+		}
+
 		select {
 		case <-ctx.Done():
 			return
-		default:
-			task, err := aw.poll(ctx, 30*time.Second)
-			if err != nil {
-				log.Println("error while polling for activity task:", err)
-				continue
-			}
-
-			if task != nil {
-				aw.activityTaskQueue <- task
-			}
+		case <-ticker.C:
 		}
 	}
 }
 
-func (aw *ActivityWorker) runDispatcher(ctx context.Context) {
+func (aw *ActivityWorker) runDispatcher() {
 	var sem chan struct{}
 	if aw.options.MaxParallelActivityTasks > 0 {
 		sem = make(chan struct{}, aw.options.MaxParallelActivityTasks)
@@ -103,7 +108,6 @@ func (aw *ActivityWorker) runDispatcher(ctx context.Context) {
 
 		task := task
 
-		aw.wg.Add(1)
 		go func() {
 			defer aw.wg.Done()
 
@@ -194,7 +198,7 @@ func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 
 	task, err := aw.backend.GetActivityTask(ctx)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
 	}

@@ -44,7 +44,7 @@ type Backend interface {
 	// If the given instance does not exist, it will return an error
 	SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error
 
-	// GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
+	// GetWorkflowTask returns a pending workflow task or nil if there are no pending workflow executions
 	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
 
 	// ExtendWorkflowTask extends the lock of a workflow task
