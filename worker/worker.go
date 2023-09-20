@@ -36,7 +36,7 @@ type Worker interface {
 	// work items, call `WaitForCompletion`.
 	Start(ctx context.Context) error
 
-	// WaitForCompletion
+	// WaitForCompletion stops task pollers and waits for active tasks to finish.
 	WaitForCompletion() error
 }
 
