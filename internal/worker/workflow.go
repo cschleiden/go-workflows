@@ -84,28 +84,29 @@ func (ww *WorkflowWorker) WaitForCompletion() error {
 func (ww *WorkflowWorker) runPoll(ctx context.Context) {
 	defer ww.pollersWg.Done()
 
+	ticker := time.NewTicker(ww.options.WorkflowPollingInterval)
+	defer ticker.Stop()
 	for {
+		task, err := ww.poll(ctx, 30*time.Second)
+		if err != nil {
+			ww.logger.ErrorContext(ctx, "error while polling for workflow task", "error", err)
+		}
+		if task != nil {
+			ww.wg.Add(1)
+			ww.workflowTaskQueue <- task
+			continue // check for new tasks right away
+		}
+
 		select {
 		case <-ctx.Done():
 			return
-
-		default:
-			task, err := ww.poll(ctx, 30*time.Second)
-			if err != nil {
-				ww.logger.Error("error while polling for workflow task", "error", err)
-				continue
-			}
-
-			if task != nil {
-				ww.wg.Add(1)
-				ww.workflowTaskQueue <- task
-			}
+		case <-ticker.C:
 		}
 	}
 }
 
 func (ww *WorkflowWorker) runDispatcher() {
-	var sem chan (struct{})
+	var sem chan struct{}
 
 	if ww.options.MaxParallelWorkflowTasks > 0 {
 		sem = make(chan struct{}, ww.options.MaxParallelWorkflowTasks)
@@ -177,7 +178,7 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 
 	if err := ww.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
-		ww.logger.Error("could not complete workflow task", "error", err)
+		ww.logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
 		panic("could not complete workflow task")
 	}
 }
@@ -210,7 +211,7 @@ func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 	// Try to get a cached executor
 	executor, ok, err := ww.cache.Get(ctx, t.WorkflowInstance)
 	if err != nil {
-		ww.logger.Error("could not get cached workflow task executor", "error", err)
+		ww.logger.ErrorContext(ctx, "could not get cached workflow task executor", "error", err)
 	}
 
 	if !ok {
@@ -224,7 +225,7 @@ func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 
 	// Cache executor instance for future continuation tasks, or refresh last access time
 	if err := ww.cache.Store(ctx, t.WorkflowInstance, executor); err != nil {
-		ww.logger.Error("error while caching workflow task executor:", "error", err)
+		ww.logger.ErrorContext(ctx, "error while caching workflow task executor:", "error", err)
 	}
 
 	return executor, nil
@@ -240,7 +241,7 @@ func (ww *WorkflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow
 			return
 		case <-t.C:
 			if err := ww.backend.ExtendWorkflowTask(ctx, task.ID, task.WorkflowInstance); err != nil {
-				ww.logger.Error("could not heartbeat workflow task", "error", err)
+				ww.logger.ErrorContext(ctx, "could not heartbeat workflow task", "error", err)
 				panic("could not heartbeat workflow task")
 			}
 		}
@@ -257,7 +258,7 @@ func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 
 	task, err := ww.backend.GetWorkflowTask(ctx)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
 
