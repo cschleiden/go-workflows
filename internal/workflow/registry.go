@@ -63,11 +63,9 @@ type RegisterConfig struct {
 	Name string
 }
 
-func (r *Registry) RegisterWorkflow(workflow Workflow, config *RegisterConfig) error {
-	if config == nil {
-		config = &RegisterConfig{}
-	}
-	name := config.Name
+func (r *Registry) RegisterWorkflow(workflow Workflow, opts ...RegisterOption) error {
+	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
+	name := cfg.Name
 	if name == "" {
 		name = fn.FuncName(workflow)
 	}
@@ -110,10 +108,8 @@ func (r *Registry) RegisterWorkflow(workflow Workflow, config *RegisterConfig) e
 	return nil
 }
 
-func (r *Registry) RegisterActivity(activity interface{}, config *RegisterConfig) error {
-	if config == nil {
-		config = &RegisterConfig{}
-	}
+func (r *Registry) RegisterActivity(activity interface{}, opts ...RegisterOption) error {
+	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
 
 	t := reflect.TypeOf(activity)
 
@@ -123,7 +119,7 @@ func (r *Registry) RegisterActivity(activity interface{}, config *RegisterConfig
 	}
 
 	// Activity as function
-	name := config.Name
+	name := cfg.Name
 	if name == "" {
 		name = fn.FuncName(activity)
 	}

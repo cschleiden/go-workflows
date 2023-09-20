@@ -44,7 +44,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 			name: "mismatched argument count",
 			setup: func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes {
 				a := func(context.Context, int, int) error { return nil }
-				require.NoError(t, r.RegisterActivity(a, nil))
+				require.NoError(t, r.RegisterActivity(a))
 
 				return &history.ActivityScheduledAttributes{
 					Name: fn.FuncName(a),
@@ -62,7 +62,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				a := func(context.Context, int) error {
 					return errors.New("some error")
 				}
-				require.NoError(t, r.RegisterActivity(a, nil))
+				require.NoError(t, r.RegisterActivity(a))
 
 				inputs, _ := args.ArgsToInputs(converter.DefaultConverter, 42)
 
@@ -85,7 +85,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				a := func(context.Context, int) error {
 					panic("activity panic")
 				}
-				require.NoError(t, r.RegisterActivity(a, nil))
+				require.NoError(t, r.RegisterActivity(a))
 
 				inputs, _ := args.ArgsToInputs(converter.DefaultConverter, 42)
 

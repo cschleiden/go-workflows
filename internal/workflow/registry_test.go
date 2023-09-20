@@ -84,8 +84,7 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewRegistry()
 
-			cfg := RegisterConfig{Name: tt.args.name}
-			err := r.RegisterWorkflow(tt.args.workflow, &cfg)
+			err := r.RegisterWorkflow(tt.args.workflow, WithName(tt.args.name))
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Registry.RegisterWorkflow() error = %v, wantErr %v", err, tt.wantErr)
@@ -107,16 +106,16 @@ func Test_RegisterWorkflow_Conflict(t *testing.T) {
 
 	var wantErr *ErrWorkflowAlreadyRegistered
 
-	err := r.RegisterWorkflow(reg_workflow1, nil)
+	err := r.RegisterWorkflow(reg_workflow1)
 	require.NoError(t, err)
 
-	err = r.RegisterWorkflow(reg_workflow1, nil)
+	err = r.RegisterWorkflow(reg_workflow1)
 	require.ErrorAs(t, err, &wantErr)
 
-	err = r.RegisterWorkflow(reg_workflow1, &RegisterConfig{Name: "CustomName"})
+	err = r.RegisterWorkflow(reg_workflow1, WithName("CustomName"))
 	require.NoError(t, err)
 
-	err = r.RegisterWorkflow(reg_workflow1, &RegisterConfig{Name: "CustomName"})
+	err = r.RegisterWorkflow(reg_workflow1, WithName("CustomName"))
 	require.ErrorAs(t, err, &wantErr)
 }
 
@@ -128,7 +127,7 @@ func Test_ActivityRegistration(t *testing.T) {
 	r := NewRegistry()
 	require.NotNil(t, r)
 
-	err := r.RegisterActivity(reg_activity, nil)
+	err := r.RegisterActivity(reg_activity)
 	require.NoError(t, err)
 
 	x, err := r.GetActivity("github.com/cschleiden/go-workflows/internal/workflow.reg_activity")
@@ -141,7 +140,7 @@ func Test_ActivityRegistration(t *testing.T) {
 	err = fn(context.Background())
 	require.NoError(t, err)
 
-	err = r.RegisterActivity(reg_activity, &RegisterConfig{Name: "CustomName"})
+	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
 	require.NoError(t, err)
 
 	x, err = r.GetActivity("CustomName")
@@ -155,7 +154,7 @@ func Test_ActivityRegistration_Invalid(t *testing.T) {
 	r := NewRegistry()
 	require.NotNil(t, r)
 
-	err := r.RegisterActivity(reg_activity_invalid, nil)
+	err := r.RegisterActivity(reg_activity_invalid)
 	require.Error(t, err)
 }
 
@@ -178,7 +177,7 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 	a := &reg_activities{
 		SomeValue: "test",
 	}
-	err := r.RegisterActivity(a, nil)
+	err := r.RegisterActivity(a)
 	require.NoError(t, err)
 
 	b := &reg_activities{}
@@ -205,16 +204,16 @@ func Test_RegisterActivity_Conflict(t *testing.T) {
 
 	var wantErr *ErrActivityAlreadyRegistered
 
-	err := r.RegisterActivity(reg_activity, nil)
+	err := r.RegisterActivity(reg_activity)
 	require.NoError(t, err)
 
-	err = r.RegisterActivity(reg_activity, nil)
+	err = r.RegisterActivity(reg_activity)
 	require.ErrorAs(t, err, &wantErr)
 
-	err = r.RegisterActivity(reg_activity, &RegisterConfig{Name: "CustomName"})
+	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
 	require.NoError(t, err)
 
-	err = r.RegisterActivity(reg_activity, &RegisterConfig{Name: "CustomName"})
+	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
 	require.ErrorAs(t, err, &wantErr)
 }
 
@@ -232,6 +231,6 @@ func Test_ActivityRegistrationOnStruct_Invalid(t *testing.T) {
 	a := &reg_invalid_activities{
 		SomeValue: "test",
 	}
-	err := r.RegisterActivity(a, nil)
+	err := r.RegisterActivity(a)
 	require.Error(t, err)
 }

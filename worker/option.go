@@ -2,28 +2,18 @@ package worker
 
 import workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
 
-type RegisterOption interface {
-	applyRegisterOption(workflowinternal.RegisterConfig) workflowinternal.RegisterConfig
-}
+type RegisterOption workflowinternal.RegisterOption
 
 type registerOptions []RegisterOption
 
-func (opts registerOptions) applyRegisterOptions(cfg workflowinternal.RegisterConfig) workflowinternal.RegisterConfig {
-	for _, opt := range opts {
-		cfg = opt.applyRegisterOption(cfg)
+func (opts registerOptions) asInternalOptions() []workflowinternal.RegisterOption {
+	repacked := make([]workflowinternal.RegisterOption, len(opts))
+	for i, opt := range opts {
+		repacked[i] = workflowinternal.RegisterOption(opt)
 	}
-	return cfg
-}
-
-type registerOptionFunc func(workflowinternal.RegisterConfig) workflowinternal.RegisterConfig
-
-func (f registerOptionFunc) applyRegisterOption(cfg workflowinternal.RegisterConfig) workflowinternal.RegisterConfig {
-	return f(cfg)
+	return repacked
 }
 
 func WithName(name string) RegisterOption {
-	return registerOptionFunc(func(cfg workflowinternal.RegisterConfig) workflowinternal.RegisterConfig {
-		cfg.Name = name
-		return cfg
-	})
+	return workflowinternal.WithName(name)
 }

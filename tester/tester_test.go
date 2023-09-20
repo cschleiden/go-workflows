@@ -112,7 +112,7 @@ func Test_Activity_Retries(t *testing.T) {
 func Test_Activity_WithoutMock(t *testing.T) {
 	tester := NewWorkflowTester[int](workflowWithActivity)
 
-	tester.Registry().RegisterActivity(activity1, nil)
+	tester.Registry().RegisterActivity(activity1)
 
 	tester.Execute(context.Background())
 
@@ -142,7 +142,7 @@ func activity1(ctx context.Context) (int, error) {
 
 func Test_Activity_LongRunning(t *testing.T) {
 	tester := NewWorkflowTester[any](workflowLongRunningActivity)
-	tester.Registry().RegisterActivity(activityLongRunning, nil)
+	tester.Registry().RegisterActivity(activityLongRunning)
 
 	tester.Execute(context.Background())
 
@@ -219,7 +219,7 @@ func workflowSum(ctx workflow.Context, valA, valB int) (int, error) {
 
 func Test_SignalSubWorkflow(t *testing.T) {
 	tester := NewWorkflowTester[int](workflowSubworkflowSignal)
-	require.NoError(t, tester.Registry().RegisterWorkflow(waitForSignal, nil))
+	require.NoError(t, tester.Registry().RegisterWorkflow(waitForSignal))
 
 	tester.Execute(context.Background())
 

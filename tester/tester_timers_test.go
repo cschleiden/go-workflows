@@ -82,7 +82,7 @@ func workflowTimerCancellation(ctx workflow.Context) (time.Time, error) {
 
 func Test_TimerSubworkflowCancellation(t *testing.T) {
 	tester := NewWorkflowTester[time.Time](workflowSubWorkflowTimerCancellation)
-	tester.Registry().RegisterWorkflow(timerCancellationSubWorkflow, nil)
+	tester.Registry().RegisterWorkflow(timerCancellationSubWorkflow)
 
 	tester.Execute(context.Background())
 

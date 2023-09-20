@@ -220,10 +220,10 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 
 	// Register internal activities
 	signalActivities := &signals.Activities{Signaler: &signaler[TResult]{wt}}
-	registry.RegisterActivity(signalActivities, nil)
+	registry.RegisterActivity(signalActivities)
 
 	// Always register the workflow under test
-	if err := wt.registry.RegisterWorkflow(wf, nil); err != nil {
+	if err := wt.registry.RegisterWorkflow(wf); err != nil {
 		panic(fmt.Sprintf("could not register workflow under test: %v", err))
 	}
 
@@ -252,7 +252,7 @@ func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.Workflo
 
 func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
-	wt.registry.RegisterActivity(activity, &workflow.RegisterConfig{Name: name})
+	wt.registry.RegisterActivity(activity, workflow.WithName(name))
 
 	wt.mockedActivities[name] = true
 	return wt.ma.On(name, args...)
@@ -260,7 +260,7 @@ func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workfl
 
 func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
-	wt.registry.RegisterActivity(activity, nil)
+	wt.registry.RegisterActivity(activity)
 
 	name := fn.FuncName(activity)
 	wt.mockedActivities[name] = true
@@ -269,7 +269,7 @@ func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args .
 
 func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, wf workflow.Workflow, args ...interface{}) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
-	wt.registry.RegisterWorkflow(wf, &workflow.RegisterConfig{Name: name})
+	wt.registry.RegisterWorkflow(wf, workflow.WithName(name))
 
 	wt.mockedWorkflows[name] = true
 	return wt.mw.On(name, args...)
@@ -277,7 +277,7 @@ func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, wf workflow.
 
 func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
-	wt.registry.RegisterWorkflow(workflow, nil)
+	wt.registry.RegisterWorkflow(workflow)
 
 	name := fn.FuncName(workflow)
 	wt.mockedWorkflows[name] = true

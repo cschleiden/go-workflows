@@ -75,7 +75,7 @@ func New(backend backend.Backend, options *Options) Worker {
 	registry := workflowinternal.NewRegistry()
 
 	// Register internal activities
-	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}, nil)
+	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)})
 
 	return &worker{
 		backend: backend,
@@ -115,13 +115,9 @@ func (w *worker) WaitForCompletion() error {
 }
 
 func (w *worker) RegisterWorkflow(wf workflow.Workflow, opts ...RegisterOption) error {
-	var cfg workflowinternal.RegisterConfig
-	cfg = registerOptions(opts).applyRegisterOptions(cfg)
-	return w.registry.RegisterWorkflow(wf, &cfg)
+	return w.registry.RegisterWorkflow(wf, registerOptions(opts).asInternalOptions()...)
 }
 
 func (w *worker) RegisterActivity(a interface{}, opts ...RegisterOption) error {
-	var cfg workflowinternal.RegisterConfig
-	cfg = registerOptions(opts).applyRegisterOptions(cfg)
-	return w.registry.RegisterActivity(a, &cfg)
+	return w.registry.RegisterActivity(a, registerOptions(opts).asInternalOptions()...)
 }

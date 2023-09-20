@@ -48,7 +48,7 @@ func Test_ContinueAsNew_SubWorkflow(t *testing.T) {
 
 	tester := NewWorkflowTester[int](wf)
 
-	tester.registry.RegisterWorkflow(swf, nil)
+	tester.registry.RegisterWorkflow(swf)
 
 	tester.Execute(context.Background(), 0)
 

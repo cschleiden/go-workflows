@@ -112,7 +112,7 @@ func Test_ContextPropagation(t *testing.T) {
 
 	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithContextPropagator(&myPropagator{}))
 
-	require.NoError(t, tester.registry.RegisterActivity(activity1, nil))
+	require.NoError(t, tester.registry.RegisterActivity(activity1))
 
 	ctx := context.Background()
 	ctx = withMyValues(ctx, &myData{Foo: "foo", Bar: 42})
@@ -156,8 +156,8 @@ func Test_ContextPropagation_Subworkflow(t *testing.T) {
 
 	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithContextPropagator(&myPropagator{}))
 
-	require.NoError(t, tester.registry.RegisterActivity(activity1, nil))
-	require.NoError(t, tester.registry.RegisterWorkflow(swf, nil))
+	require.NoError(t, tester.registry.RegisterActivity(activity1))
+	require.NoError(t, tester.registry.RegisterWorkflow(swf))
 
 	ctx := context.Background()
 	ctx = withMyValues(ctx, &myData{Foo: "foo", Bar: 42})

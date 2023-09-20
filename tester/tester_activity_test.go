@@ -121,7 +121,7 @@ func Test_Activity_WithLogger(t *testing.T) {
 
 	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3))
 
-	tester.Registry().RegisterActivity(activity1, nil)
+	tester.Registry().RegisterActivity(activity1)
 
 	tester.Execute(context.Background())
 
@@ -140,7 +140,7 @@ func Test_Activity_Panic(t *testing.T) {
 	}
 
 	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3))
-	tester.Registry().RegisterActivity(activity1, nil)
+	tester.Registry().RegisterActivity(activity1)
 	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())

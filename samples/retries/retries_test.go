@@ -13,7 +13,7 @@ import (
 func Test_Workflow(t *testing.T) {
 	tester := tester.NewWorkflowTester[any](Workflow1)
 
-	tester.Registry().RegisterWorkflow(WorkflowWithFailures, nil)
+	tester.Registry().RegisterWorkflow(WorkflowWithFailures)
 
 	tester.OnActivity(Activity1, mock.Anything, mock.Anything).Return(42, nil).Once()
 
