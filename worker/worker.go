@@ -15,11 +15,11 @@ import (
 )
 
 type WorkflowRegistry interface {
-	RegisterWorkflow(w workflow.Workflow) error
+	RegisterWorkflow(w workflow.Workflow, opts ...RegisterOption) error
 }
 
 type ActivityRegistry interface {
-	RegisterActivity(a interface{}) error
+	RegisterActivity(a interface{}, opts ...RegisterOption) error
 }
 
 type Registry interface {
@@ -75,7 +75,7 @@ func New(backend backend.Backend, options *Options) Worker {
 	registry := workflowinternal.NewRegistry()
 
 	// Register internal activities
-	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)})
+	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}, nil)
 
 	return &worker{
 		backend: backend,
@@ -114,10 +114,14 @@ func (w *worker) WaitForCompletion() error {
 	return nil
 }
 
-func (w *worker) RegisterWorkflow(wf workflow.Workflow) error {
-	return w.registry.RegisterWorkflow(wf)
+func (w *worker) RegisterWorkflow(wf workflow.Workflow, opts ...RegisterOption) error {
+	var cfg workflowinternal.RegisterConfig
+	cfg = registerOptions(opts).applyRegisterOptions(cfg)
+	return w.registry.RegisterWorkflow(wf, &cfg)
 }
 
-func (w *worker) RegisterActivity(a interface{}) error {
-	return w.registry.RegisterActivity(a)
+func (w *worker) RegisterActivity(a interface{}, opts ...RegisterOption) error {
+	var cfg workflowinternal.RegisterConfig
+	cfg = registerOptions(opts).applyRegisterOptions(cfg)
+	return w.registry.RegisterActivity(a, &cfg)
 }

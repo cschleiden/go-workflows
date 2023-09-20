@@ -59,7 +59,19 @@ func (e *ErrActivityAlreadyRegistered) Error() string {
 	return e.msg
 }
 
-func (r *Registry) RegisterWorkflowByName(name string, workflow Workflow) error {
+type RegisterConfig struct {
+	Name string
+}
+
+func (r *Registry) RegisterWorkflow(workflow Workflow, config *RegisterConfig) error {
+	if config == nil {
+		config = &RegisterConfig{}
+	}
+	name := config.Name
+	if name == "" {
+		name = fn.FuncName(workflow)
+	}
+
 	wfType := reflect.TypeOf(workflow)
 	if wfType.Kind() != reflect.Func {
 		return &ErrInvalidWorkflow{"workflow is not a function"}
@@ -98,13 +110,24 @@ func (r *Registry) RegisterWorkflowByName(name string, workflow Workflow) error 
 	return nil
 }
 
-func (r *Registry) RegisterWorkflow(workflow Workflow) error {
-	name := fn.FuncName(workflow)
-	return r.RegisterWorkflowByName(name, workflow)
-}
+func (r *Registry) RegisterActivity(activity interface{}, config *RegisterConfig) error {
+	if config == nil {
+		config = &RegisterConfig{}
+	}
 
-func (r *Registry) RegisterActivityByName(name string, activity interface{}) error {
+	t := reflect.TypeOf(activity)
+
+	// Activities on struct
+	if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+		return r.registerActivitiesFromStruct(activity)
+	}
+
 	// Activity as function
+	name := config.Name
+	if name == "" {
+		name = fn.FuncName(activity)
+	}
+
 	if err := checkActivity(reflect.TypeOf(activity)); err != nil {
 		return err
 	}
@@ -118,18 +141,6 @@ func (r *Registry) RegisterActivityByName(name string, activity interface{}) err
 	r.activityMap[name] = activity
 
 	return nil
-}
-
-func (r *Registry) RegisterActivity(activity interface{}) error {
-	t := reflect.TypeOf(activity)
-
-	// Activities on struct
-	if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
-		return r.registerActivitiesFromStruct(activity)
-	}
-
-	name := fn.FuncName(activity)
-	return r.RegisterActivityByName(name, activity)
 }
 
 func (r *Registry) registerActivitiesFromStruct(a interface{}) error {

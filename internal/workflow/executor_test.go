@@ -60,7 +60,7 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(wf)
+				r.RegisterWorkflow(wf, nil)
 
 				task := startWorkflowTask(i.InstanceID, wf)
 
@@ -86,8 +86,8 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithActivity)
-				r.RegisterActivity(activity1)
+				r.RegisterWorkflow(workflowWithActivity, nil)
+				r.RegisterActivity(activity1, nil)
 
 				task := &task.Workflow{
 					ID:               "taskID",
@@ -132,8 +132,8 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithActivity)
-				r.RegisterActivity(activity1)
+				r.RegisterWorkflow(workflowWithActivity, nil)
+				r.RegisterActivity(activity1, nil)
 
 				inputs, _ := converter.DefaultConverter.To(42)
 				result, _ := converter.DefaultConverter.To(42)
@@ -197,8 +197,8 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithActivity)
-				r.RegisterActivity(activity1)
+				r.RegisterWorkflow(workflowWithActivity, nil)
+				r.RegisterActivity(activity1, nil)
 
 				inputs, _ := converter.DefaultConverter.To(42)
 				result, _ := converter.DefaultConverter.To(42)
@@ -292,8 +292,8 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithSelector)
-				r.RegisterActivity(activity1)
+				r.RegisterWorkflow(workflowWithSelector, nil)
+				r.RegisterActivity(activity1, nil)
 
 				task := &task.Workflow{
 					ID:               "taskID",
@@ -339,7 +339,7 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithTimer)
+				r.RegisterWorkflow(workflowWithTimer, nil)
 
 				task := &task.Workflow{
 					ID:               "taskID",
@@ -385,8 +385,8 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithTimer)
-				r.RegisterActivity(activity1)
+				r.RegisterWorkflow(workflowWithTimer, nil)
+				r.RegisterActivity(activity1, nil)
 
 				task := startWorkflowTask(i.InstanceID, workflowWithTimer)
 
@@ -418,7 +418,7 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflowWithSignal)
+				r.RegisterWorkflow(workflowWithSignal, nil)
 
 				s, err := converter.DefaultConverter.To("")
 				require.NoError(t, err)
@@ -462,7 +462,7 @@ func Test_Executor(t *testing.T) {
 					panic("wf error")
 				}
 
-				r.RegisterWorkflow(workflowPanic)
+				r.RegisterWorkflow(workflowPanic, nil)
 
 				task1 := &task.Workflow{
 					ID:               "taskid",
@@ -504,8 +504,8 @@ func Test_Executor(t *testing.T) {
 					return err
 				}
 
-				r.RegisterWorkflow(workflow)
-				r.RegisterWorkflow(subworkflow)
+				r.RegisterWorkflow(workflow, nil)
+				r.RegisterWorkflow(subworkflow, nil)
 
 				task := startWorkflowTask("instanceID", workflow)
 
@@ -540,8 +540,8 @@ func Test_Executor(t *testing.T) {
 					return nil
 				}
 
-				r.RegisterWorkflow(workflow)
-				r.RegisterWorkflow(subworkflow)
+				r.RegisterWorkflow(workflow, nil)
+				r.RegisterWorkflow(subworkflow, nil)
 
 				task := startWorkflowTask("instanceID", workflow)
 				result, err := e.ExecuteTask(context.Background(), task)

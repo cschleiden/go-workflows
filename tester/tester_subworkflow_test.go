@@ -32,7 +32,7 @@ func Test_SubWorkflow(t *testing.T) {
 	}
 
 	tester := NewWorkflowTester[string](workflowWithSub)
-	tester.Registry().RegisterWorkflow(subWorkflow)
+	tester.Registry().RegisterWorkflow(subWorkflow, nil)
 
 	tester.Execute(context.Background(), "hello")
 
@@ -63,7 +63,7 @@ func Test_SubWorkflow_Mocked(t *testing.T) {
 	}
 
 	tester := NewWorkflowTester[string](workflow)
-	tester.Registry().RegisterWorkflow(subWorkflow)
+	tester.Registry().RegisterWorkflow(subWorkflow, nil)
 	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return("sresult2", nil)
 
 	tester.Execute(context.Background(), "hello")
@@ -95,7 +95,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 	}
 
 	tester := NewWorkflowTester[string](workflow)
-	tester.Registry().RegisterWorkflow(subWorkflow)
+	tester.Registry().RegisterWorkflow(subWorkflow, nil)
 	tester.OnSubWorkflow(subWorkflow, mock.Anything, mock.Anything).Return(nil, errors.New("swf error"))
 
 	tester.Execute(context.Background(), "hello")
@@ -132,7 +132,7 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 	}
 
 	tester := NewWorkflowTester[string](workflowWithSub)
-	tester.Registry().RegisterWorkflow(subWorkflow)
+	tester.Registry().RegisterWorkflow(subWorkflow, nil)
 
 	var subWorkflowInstance *core.WorkflowInstance
 
