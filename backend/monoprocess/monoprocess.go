@@ -44,30 +44,34 @@ func NewMonoprocessBackend(b backend.Backend, signalBufferSize int, signalTimeou
 }
 
 func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
-	if w, err := b.Backend.GetWorkflowTask(ctx); w != nil || err != nil {
-		return w, err
-	}
-	b.logger.DebugContext(ctx, "worker waiting for workflow task signal")
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-b.workflowSignal:
-		b.logger.DebugContext(ctx, "worker got a workflow task signal")
-		return b.GetWorkflowTask(ctx)
+	// loop until either we find a task or the context is cancelled
+	for {
+		if w, err := b.Backend.GetWorkflowTask(ctx); w != nil || err != nil {
+			return w, err
+		}
+		b.logger.DebugContext(ctx, "worker waiting for workflow task signal")
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-b.workflowSignal:
+			b.logger.DebugContext(ctx, "worker got a workflow task signal")
+		}
 	}
 }
 
 func (b *monoprocessBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
-	if a, err := b.Backend.GetActivityTask(ctx); a != nil || err != nil {
-		return a, err
-	}
-	b.logger.DebugContext(ctx, "worker waiting for activity task signal")
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-b.activitySignal:
-		b.logger.DebugContext(ctx, "worker got an activity task signal")
-		return b.GetActivityTask(ctx)
+	// loop until either we find a task or the context is cancelled
+	for {
+		if a, err := b.Backend.GetActivityTask(ctx); a != nil || err != nil {
+			return a, err
+		}
+		b.logger.DebugContext(ctx, "worker waiting for activity task signal")
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-b.activitySignal:
+			b.logger.DebugContext(ctx, "worker got an activity task signal")
+		}
 	}
 }
 
