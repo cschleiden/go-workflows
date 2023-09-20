@@ -27,8 +27,8 @@ type monoprocessBackend struct {
 // in case the backend and worker are running in the same process. This backend
 // uses channels to notify the worker every time there is a new task ready to be
 // worked on. Note that only one worker will be notified.
-// IMPORTANT: Only use this backend if the backend and worker are running in the
-// same process.
+// IMPORTANT: Only use this backend when the backend and worker are running in
+// the same process and there is only one worker.
 func NewMonoprocessBackend(b backend.Backend) *monoprocessBackend {
 	mb := &monoprocessBackend{
 		Backend:        b,
