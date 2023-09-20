@@ -94,20 +94,20 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 	if err := b.Backend.CompleteWorkflowTask(ctx, task, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents); err != nil {
 		return err
 	}
+
+	hasWorkflowTasks := false
+	hasActivityTasks := false
+
 	for _, e := range executedEvents {
-		if e.Type != history.EventType_WorkflowTaskStarted {
-			continue
-		}
-		if !b.notifyWorkflowWorker(ctx) {
-			break // no reason to notify more, queue is full
+		if e.Type == history.EventType_WorkflowTaskStarted {
+			hasWorkflowTasks = true
+			break
 		}
 	}
 	for _, e := range activityEvents {
-		if e.Type != history.EventType_ActivityScheduled {
-			continue
-		}
-		if !b.notifyActivityWorker(ctx) {
-			break // no reason to notify more, queue is full
+		if e.Type == history.EventType_ActivityScheduled {
+			hasActivityTasks = true
+			break
 		}
 	}
 	for _, e := range timerEvents {
@@ -123,14 +123,20 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 		time.AfterFunc(attr.At.Sub(time.Now()), func() { b.notifyWorkflowWorker(context.Background()) })
 	}
 	for _, e := range workflowEvents {
-		if e.HistoryEvent.Type != history.EventType_WorkflowExecutionStarted &&
-			e.HistoryEvent.Type != history.EventType_SubWorkflowCompleted &&
-			e.HistoryEvent.Type != history.EventType_WorkflowExecutionCanceled {
-			continue
+		if e.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted ||
+			e.HistoryEvent.Type == history.EventType_SubWorkflowCompleted ||
+			e.HistoryEvent.Type == history.EventType_WorkflowExecutionCanceled {
+			hasWorkflowTasks = true
+			break
 		}
-		if !b.notifyWorkflowWorker(ctx) {
-			break // no reason to notify more, queue is full
-		}
+	}
+
+	// notify workers about potential new tasks
+	if hasWorkflowTasks {
+		b.notifyWorkflowWorker(ctx)
+	}
+	if hasActivityTasks {
+		b.notifyActivityWorker(ctx)
 	}
 	return nil
 }
