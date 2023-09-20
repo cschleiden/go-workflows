@@ -99,7 +99,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_WorkflowExecutionStarted,
 							&history.ExecutionStartedAttributes{
-								Name:   fn.Name(workflowWithActivity),
+								Name:   fn.FuncName(workflowWithActivity),
 								Inputs: []payload.Payload{},
 							},
 						),
@@ -115,7 +115,7 @@ func Test_Executor(t *testing.T) {
 				inputs, _ := converter.DefaultConverter.To(42)
 				require.IsType(t, &command.ScheduleActivityCommand{}, e.workflowState.Commands()[0])
 				require.Equal(t, command.CommandState_Committed, e.workflowState.Commands()[0].State())
-				require.Equal(t, "activity1", e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Name)
+				require.Equal(t, "github.com/cschleiden/go-workflows/internal/workflow.activity1", e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Name)
 				require.Equal(t, []payload.Payload{inputs}, e.workflowState.Commands()[0].(*command.ScheduleActivityCommand).Inputs)
 			},
 		},
@@ -151,7 +151,7 @@ func Test_Executor(t *testing.T) {
 						time.Now(),
 						history.EventType_WorkflowExecutionStarted,
 						&history.ExecutionStartedAttributes{
-							Name:   fn.Name(workflowWithActivity),
+							Name:   fn.FuncName(workflowWithActivity),
 							Inputs: []payload.Payload{},
 						},
 					),
@@ -160,7 +160,7 @@ func Test_Executor(t *testing.T) {
 						time.Now(),
 						history.EventType_ActivityScheduled,
 						&history.ActivityScheduledAttributes{
-							Name:   "activity1",
+							Name:   "github.com/cschleiden/go-workflows/internal/workflow.activity1",
 							Inputs: []payload.Payload{inputs},
 						},
 						history.ScheduleEventID(1),
@@ -212,7 +212,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_WorkflowExecutionStarted,
 							&history.ExecutionStartedAttributes{
-								Name:   fn.Name(workflowWithActivity),
+								Name:   fn.FuncName(workflowWithActivity),
 								Inputs: []payload.Payload{},
 							},
 						),
@@ -220,7 +220,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_ActivityScheduled,
 							&history.ActivityScheduledAttributes{
-								Name:   "activity1",
+								Name:   "github.com/cschleiden/go-workflows/internal/workflow.activity1",
 								Inputs: []payload.Payload{inputs},
 							},
 							history.ScheduleEventID(1),
@@ -305,7 +305,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_WorkflowExecutionStarted,
 							&history.ExecutionStartedAttributes{
-								Name:   fn.Name(workflowWithSelector),
+								Name:   fn.FuncName(workflowWithSelector),
 								Inputs: []payload.Payload{},
 							},
 						),
@@ -351,7 +351,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_WorkflowExecutionStarted,
 							&history.ExecutionStartedAttributes{
-								Name:   fn.Name(workflowWithTimer),
+								Name:   fn.FuncName(workflowWithTimer),
 								Inputs: []payload.Payload{},
 							},
 						),
@@ -432,7 +432,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_WorkflowExecutionStarted,
 							&history.ExecutionStartedAttributes{
-								Name:   fn.Name(workflowWithSignal),
+								Name:   fn.FuncName(workflowWithSignal),
 								Inputs: []payload.Payload{},
 							},
 						),
@@ -473,7 +473,7 @@ func Test_Executor(t *testing.T) {
 							time.Now(),
 							history.EventType_WorkflowExecutionStarted,
 							&history.ExecutionStartedAttributes{
-								Name:   fn.Name(workflowPanic),
+								Name:   fn.FuncName(workflowPanic),
 								Inputs: []payload.Payload{},
 							},
 						),
@@ -613,7 +613,7 @@ func startWorkflowTask(instanceID string, workflow interface{}, workflowArgs ...
 				time.Now(),
 				history.EventType_WorkflowExecutionStarted,
 				&history.ExecutionStartedAttributes{
-					Name:   fn.Name(workflow),
+					Name:   fn.FuncName(workflow),
 					Inputs: inputs,
 				},
 			),

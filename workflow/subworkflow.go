@@ -61,7 +61,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 		return f
 	}
 
-	name := fn.Name(wf)
+	name := fn.FuncName(wf)
 
 	cv := converter.GetConverter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)

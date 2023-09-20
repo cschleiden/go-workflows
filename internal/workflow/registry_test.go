@@ -29,7 +29,7 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 			args: args{
 				workflow: reg_workflow1,
 			},
-			wantName: "reg_workflow1",
+			wantName: "github.com/cschleiden/go-workflows/internal/workflow.reg_workflow1",
 		},
 		{
 			name: "valid workflow by name",
@@ -105,6 +105,25 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 	}
 }
 
+func Test_RegisterWorkflow_Conflict(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
+
+	var wantErr *ErrWorkflowAlreadyRegistered
+
+	err := r.RegisterWorkflow(reg_workflow1)
+	require.NoError(t, err)
+
+	err = r.RegisterWorkflow(reg_workflow1)
+	require.ErrorAs(t, err, &wantErr)
+
+	err = r.RegisterWorkflowByName("CustomName", reg_workflow1)
+	require.NoError(t, err)
+
+	err = r.RegisterWorkflowByName("CustomName", reg_workflow1)
+	require.ErrorAs(t, err, &wantErr)
+}
+
 func reg_activity(ctx context.Context) error {
 	return nil
 }
@@ -116,7 +135,7 @@ func Test_ActivityRegistration(t *testing.T) {
 	err := r.RegisterActivity(reg_activity)
 	require.NoError(t, err)
 
-	x, err := r.GetActivity("reg_activity")
+	x, err := r.GetActivity("github.com/cschleiden/go-workflows/internal/workflow.reg_activity")
 	require.NoError(t, err)
 
 	fn, ok := x.(func(context context.Context) error)
@@ -167,11 +186,11 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 	require.NoError(t, err)
 
 	b := &reg_activities{}
-	x, err := r.GetActivity(fn.Name(b.Activity1))
+	x, err := r.GetActivity(fn.FuncName(b.Activity1))
 	require.NoError(t, err)
 
 	// Ignore private methods
-	y, err := r.GetActivity(fn.Name(b.privateActivity))
+	y, err := r.GetActivity(fn.FuncName(b.privateActivity))
 	require.Error(t, err)
 	require.Nil(t, y)
 
@@ -182,6 +201,25 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 	v, err := fn(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "test", v)
+}
+
+func Test_RegisterActivity_Conflict(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
+
+	var wantErr *ErrActivityAlreadyRegistered
+
+	err := r.RegisterActivity(reg_activity)
+	require.NoError(t, err)
+
+	err = r.RegisterActivity(reg_activity)
+	require.ErrorAs(t, err, &wantErr)
+
+	err = r.RegisterActivityByName("CustomName", reg_activity)
+	require.NoError(t, err)
+
+	err = r.RegisterActivityByName("CustomName", reg_activity)
+	require.ErrorAs(t, err, &wantErr)
 }
 
 type reg_invalid_activities struct {

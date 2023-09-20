@@ -70,7 +70,7 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 	metadata := &workflow.Metadata{}
 
-	workflowName := fn.Name(wf)
+	workflowName := fn.FuncName(wf)
 
 	// Start new span for the workflow instance
 	ctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(
