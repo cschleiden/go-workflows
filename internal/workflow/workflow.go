@@ -32,7 +32,7 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 
 func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx sync.Context) error {
-		converter := converter.GetConverter(ctx)
+		converter := converter.Converter(ctx)
 		args, addContext, err := args.InputsToArgs(converter, w.fn, inputs)
 		if err != nil {
 			return fmt.Errorf("converting workflow inputs: %w", err)

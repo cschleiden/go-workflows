@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend/task"
+	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/history"

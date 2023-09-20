@@ -19,7 +19,7 @@ func ContinueAsNew(ctx Context, args ...interface{}) error {
 		return fmt.Errorf("injecting workflow context: %w", err)
 	}
 
-	cv := converter.GetConverter(ctx)
+	cv := converter.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		return fmt.Errorf("converting inputs for continuing workflow execution: %w", err)

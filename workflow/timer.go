@@ -29,7 +29,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at)
 	wfState.AddCommand(timerCmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(converter.GetConverter(ctx), f))
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(converter.Converter(ctx), f))
 
 	cancelReceiver := &sync.Receiver[struct{}]{
 		Receive: func(v struct{}, ok bool) {

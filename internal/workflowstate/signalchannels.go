@@ -32,7 +32,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 	// Otherwise, create new channel
 	c := sync.NewBufferedChannel[T](100)
 
-	converter := converter.GetConverter(ctx)
+	converter := converter.Converter(ctx)
 
 	// Add channel to map
 	wf.signalChannels[name] = &signalChannel{

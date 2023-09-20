@@ -1,13 +1,16 @@
 package converter
 
-import "github.com/cschleiden/go-workflows/internal/sync"
+import (
+	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/internal/sync"
+)
 
 type converterKey struct{}
 
-func WithConverter(ctx sync.Context, converter Converter) sync.Context {
+func WithConverter(ctx sync.Context, converter converter.Converter) sync.Context {
 	return sync.WithValue(ctx, converterKey{}, converter)
 }
 
-func GetConverter(ctx sync.Context) Converter {
-	return ctx.Value(converterKey{}).(Converter)
+func Converter(ctx sync.Context) converter.Converter {
+	return ctx.Value(converterKey{}).(converter.Converter)
 }

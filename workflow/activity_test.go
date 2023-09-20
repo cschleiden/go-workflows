@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/converter"
+	iconverter "github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
@@ -20,7 +21,7 @@ func Test_executeActivity_ResultMismatch(t *testing.T) {
 	}
 
 	ctx := sync.Background()
-	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
+	ctx = iconverter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
 		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
@@ -44,7 +45,7 @@ func Test_executeActivity_ParamMismatch(t *testing.T) {
 	}
 
 	ctx := sync.Background()
-	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
+	ctx = iconverter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
 		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),

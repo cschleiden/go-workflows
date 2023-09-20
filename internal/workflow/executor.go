@@ -9,10 +9,11 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend/task"
+	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
-	"github.com/cschleiden/go-workflows/internal/converter"
+	iconverter "github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
@@ -75,7 +76,7 @@ func NewExecutor(
 	wfTracer := workflowtracer.New(tracer)
 
 	wfCtx := sync.Background()
-	wfCtx = converter.WithConverter(wfCtx, cv)
+	wfCtx = iconverter.WithConverter(wfCtx, cv)
 	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
 	wfCtx = contextpropagation.WithPropagators(wfCtx, propagators)
