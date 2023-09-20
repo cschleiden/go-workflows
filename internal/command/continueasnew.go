@@ -2,6 +2,7 @@ package command
 
 import (
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
@@ -13,14 +14,14 @@ type ContinueAsNewCommand struct {
 
 	Instance *core.WorkflowInstance
 	Name     string
-	Metadata *core.WorkflowMetadata
+	Metadata *metadata.WorkflowMetadata
 	Inputs   []payload.Payload
 	Result   payload.Payload
 }
 
 var _ Command = (*ContinueAsNewCommand)(nil)
 
-func NewContinueAsNewCommand(id int64, instance *core.WorkflowInstance, result payload.Payload, name string, metadata *core.WorkflowMetadata, inputs []payload.Payload) *ContinueAsNewCommand {
+func NewContinueAsNewCommand(id int64, instance *core.WorkflowInstance, result payload.Payload, name string, metadata *metadata.WorkflowMetadata, inputs []payload.Payload) *ContinueAsNewCommand {
 	return &ContinueAsNewCommand{
 		command: command{
 			id:    id,

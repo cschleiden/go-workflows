@@ -13,6 +13,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	margs "github.com/cschleiden/go-workflows/internal/args"
@@ -68,7 +69,7 @@ func (tt *testTimer) fire() *history.WorkflowEvent {
 
 type testWorkflow struct {
 	instance      *core.WorkflowInstance
-	metadata      *core.WorkflowMetadata
+	metadata      *metadata.WorkflowMetadata
 	history       []*history.Event
 	pendingEvents []*history.Event
 }
@@ -113,7 +114,7 @@ type workflowTester[TResult any] struct {
 	// Workflow under test
 	wf  interface{}
 	wfi *core.WorkflowInstance
-	wfm *core.WorkflowMetadata
+	wfm *metadata.WorkflowMetadata
 
 	// Workflows
 	mtw                       sync.RWMutex
@@ -191,7 +192,7 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 
 		wf:       wf,
 		wfi:      wfi,
-		wfm:      &core.WorkflowMetadata{},
+		wfm:      &metadata.WorkflowMetadata{},
 		registry: registry,
 
 		testWorkflows:             make([]*testWorkflow, 0),
@@ -559,7 +560,7 @@ func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, wfm *core.WorkflowMetadata, event *history.Event) {
+func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, wfm *metadata.WorkflowMetadata, event *history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
 	atomic.AddInt32(&wt.runningActivities, 1)
@@ -707,7 +708,7 @@ func (wt *workflowTester[TResult]) getWorkflow(instance *core.WorkflowInstance) 
 	return wt.testWorkflowsByInstanceID[instance.InstanceID]
 }
 
-func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, initialEvent *history.Event) *testWorkflow {
+func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, metadata *metadata.WorkflowMetadata, initialEvent *history.Event) *testWorkflow {
 	wt.mtw.Lock()
 	defer wt.mtw.Unlock()
 
@@ -808,7 +809,7 @@ func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interf
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
 			Name:     name,
-			Metadata: &core.WorkflowMetadata{},
+			Metadata: &metadata.WorkflowMetadata{},
 			Inputs:   inputs,
 		},
 	)
@@ -822,7 +823,7 @@ func getNextWorkflowTask(wfi *core.WorkflowInstance, history []*history.Event, n
 
 	return &backend.WorkflowTask{
 		WorkflowInstance: wfi,
-		Metadata:         &core.WorkflowMetadata{},
+		Metadata:         &metadata.WorkflowMetadata{},
 		LastSequenceID:   lastSequenceID,
 		NewEvents:        newEvents,
 	}

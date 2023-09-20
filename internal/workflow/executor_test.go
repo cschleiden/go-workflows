@@ -9,6 +9,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
@@ -36,7 +37,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider Workflow
 	logger := slog.Default()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, historyProvider, i, &core.WorkflowMetadata{}, clock.New())
+	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New())
 
 	return e.(*executor), err
 }
@@ -92,7 +93,7 @@ func Test_Executor(t *testing.T) {
 				task := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewHistoryEvent(
 							1,
@@ -141,7 +142,7 @@ func Test_Executor(t *testing.T) {
 				task := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					LastSequenceID:   3,
 				}
 
@@ -206,7 +207,7 @@ func Test_Executor(t *testing.T) {
 				oldTask := &backend.WorkflowTask{
 					ID:               "oldtaskid",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewPendingEvent(
 							time.Now(),
@@ -242,7 +243,7 @@ func Test_Executor(t *testing.T) {
 				newTask := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: oldTask.WorkflowInstance,
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewHistoryEvent(
 							1,
@@ -298,7 +299,7 @@ func Test_Executor(t *testing.T) {
 				task := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewHistoryEvent(
 							1,
@@ -344,7 +345,7 @@ func Test_Executor(t *testing.T) {
 				task := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewHistoryEvent(
 							1,
@@ -426,7 +427,7 @@ func Test_Executor(t *testing.T) {
 				task := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewPendingEvent(
 							time.Now(),
@@ -467,7 +468,7 @@ func Test_Executor(t *testing.T) {
 				task1 := &backend.WorkflowTask{
 					ID:               "taskid",
 					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
-					Metadata:         &core.WorkflowMetadata{},
+					Metadata:         &metadata.WorkflowMetadata{},
 					NewEvents: []*history.Event{
 						history.NewPendingEvent(
 							time.Now(),
@@ -607,7 +608,7 @@ func startWorkflowTask(instanceID string, workflow interface{}, workflowArgs ...
 	return &backend.WorkflowTask{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
-		Metadata:         &core.WorkflowMetadata{},
+		Metadata:         &metadata.WorkflowMetadata{},
 		NewEvents: []*history.Event{
 			history.NewPendingEvent(
 				time.Now(),
@@ -625,7 +626,7 @@ func continueTask(instanceID string, newEvents []*history.Event, lastSequenceID 
 	return &backend.WorkflowTask{
 		ID:               uuid.NewString(),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, "executionID"),
-		Metadata:         &core.WorkflowMetadata{},
+		Metadata:         &metadata.WorkflowMetadata{},
 		NewEvents:        newEvents,
 		LastSequenceID:   lastSequenceID,
 	}

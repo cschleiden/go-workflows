@@ -1,7 +1,7 @@
 package history
 
 import (
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
@@ -10,5 +10,5 @@ type ActivityScheduledAttributes struct {
 
 	Inputs []payload.Payload `json:"inputs,omitempty"`
 
-	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
+	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
 }

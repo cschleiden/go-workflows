@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
@@ -14,7 +15,7 @@ type WorkflowTask struct {
 
 	WorkflowInstanceState core.WorkflowInstanceState
 
-	Metadata *core.WorkflowMetadata
+	Metadata *metadata.WorkflowMetadata
 
 	// LastSequenceID is the sequence ID of the newest event in the workflow instances's history
 	LastSequenceID int64

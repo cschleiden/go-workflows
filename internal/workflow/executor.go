@@ -9,6 +9,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
@@ -68,7 +69,7 @@ func NewExecutor(
 	propagators []contextpropagation.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
 	instance *core.WorkflowInstance,
-	metadata *core.WorkflowMetadata,
+	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
 ) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/stretchr/testify/require"
@@ -37,7 +37,7 @@ func TestScheduleActivityCommand_StateTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clock := clock.NewMock()
-			cmd := NewScheduleActivityCommand(1, "activity", []payload.Payload{}, &core.WorkflowMetadata{})
+			cmd := NewScheduleActivityCommand(1, "activity", []payload.Payload{}, &metadata.WorkflowMetadata{})
 
 			tt.f(t, cmd, clock)
 		})

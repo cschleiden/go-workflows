@@ -3,19 +3,19 @@ package contextpropagation
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 type ContextPropagator interface {
-	Inject(context.Context, *core.WorkflowMetadata) error
-	Extract(context.Context, *core.WorkflowMetadata) (context.Context, error)
+	Inject(context.Context, *metadata.WorkflowMetadata) error
+	Extract(context.Context, *metadata.WorkflowMetadata) (context.Context, error)
 
-	InjectFromWorkflow(sync.Context, *core.WorkflowMetadata) error
-	ExtractToWorkflow(sync.Context, *core.WorkflowMetadata) (sync.Context, error)
+	InjectFromWorkflow(sync.Context, *metadata.WorkflowMetadata) error
+	ExtractToWorkflow(sync.Context, *metadata.WorkflowMetadata) (sync.Context, error)
 }
 
-func Inject(ctx context.Context, metadata *core.WorkflowMetadata, propagators []ContextPropagator) error {
+func Inject(ctx context.Context, metadata *metadata.WorkflowMetadata, propagators []ContextPropagator) error {
 	for _, propagator := range propagators {
 		err := propagator.Inject(ctx, metadata)
 		if err != nil {
@@ -26,7 +26,7 @@ func Inject(ctx context.Context, metadata *core.WorkflowMetadata, propagators []
 	return nil
 }
 
-func Extract(ctx context.Context, metadata *core.WorkflowMetadata, propagators []ContextPropagator) (context.Context, error) {
+func Extract(ctx context.Context, metadata *metadata.WorkflowMetadata, propagators []ContextPropagator) (context.Context, error) {
 	for _, propagator := range propagators {
 		var err error
 		ctx, err = propagator.Extract(ctx, metadata)
@@ -38,7 +38,7 @@ func Extract(ctx context.Context, metadata *core.WorkflowMetadata, propagators [
 	return ctx, nil
 }
 
-func InjectFromWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata, propagators []ContextPropagator) error {
+func InjectFromWorkflow(ctx sync.Context, metadata *metadata.WorkflowMetadata, propagators []ContextPropagator) error {
 	for _, propagator := range propagators {
 		err := propagator.InjectFromWorkflow(ctx, metadata)
 		if err != nil {
@@ -49,7 +49,7 @@ func InjectFromWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata, propa
 	return nil
 }
 
-func ExtractToWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata, propagators []ContextPropagator) (sync.Context, error) {
+func ExtractToWorkflow(ctx sync.Context, metadata *metadata.WorkflowMetadata, propagators []ContextPropagator) (sync.Context, error) {
 	for _, propagator := range propagators {
 		var err error
 		ctx, err = propagator.ExtractToWorkflow(ctx, metadata)

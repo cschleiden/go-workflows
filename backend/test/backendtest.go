@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/core"
@@ -233,7 +234,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{
 					Name:     "some-workflow",
 					Inputs:   []payload.Payload{},
-					Metadata: &core.WorkflowMetadata{},
+					Metadata: &metadata.WorkflowMetadata{},
 				})
 
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())

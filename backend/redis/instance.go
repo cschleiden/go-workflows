@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -127,7 +128,7 @@ type instanceState struct {
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`
 
-	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
+	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
 
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
@@ -135,7 +136,7 @@ type instanceState struct {
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, ignoreDuplicate bool) error {
+func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *metadata.WorkflowMetadata, ignoreDuplicate bool) error {
 	key := instanceKey(instance)
 
 	createdAt := time.Now()
