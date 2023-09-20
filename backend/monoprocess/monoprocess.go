@@ -113,7 +113,10 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 			continue
 		}
 		b.logger.DebugContext(ctx, "scheduling timer to notify workflow worker")
-		time.AfterFunc(attr.At.Sub(time.Now()), func() { b.notifyWorkflowWorker(ctx) }) // TODO: cancel timer if the event gets cancelled
+		// Note that the worker will be notified even if the timer event gets
+		// cancelled. This is ok, because the poller will simply find no task
+		// and continue.
+		time.AfterFunc(attr.At.Sub(time.Now()), func() { b.notifyWorkflowWorker(context.Background()) })
 	}
 	for _, e := range workflowEvents {
 		if e.HistoryEvent.Type != history.EventType_WorkflowExecutionStarted &&
