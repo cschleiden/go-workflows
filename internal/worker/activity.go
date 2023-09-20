@@ -9,7 +9,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/task"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
@@ -24,7 +23,7 @@ type ActivityWorker struct {
 
 	options *Options
 
-	activityTaskQueue    chan *task.Activity
+	activityTaskQueue    chan *backend.ActivityTask
 	activityTaskExecutor *activity.Executor
 
 	wg        sync.WaitGroup
@@ -34,17 +33,17 @@ type ActivityWorker struct {
 	logger *slog.Logger
 }
 
-func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) *ActivityWorker {
+func NewActivityWorker(b backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) *ActivityWorker {
 	return &ActivityWorker{
-		backend: backend,
+		backend: b,
 
 		options: options,
 
-		activityTaskQueue:    make(chan *task.Activity),
-		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), backend.Converter(), backend.ContextPropagators(), registry),
+		activityTaskQueue:    make(chan *backend.ActivityTask),
+		activityTaskExecutor: activity.NewExecutor(b.Logger(), b.Tracer(), b.Converter(), b.ContextPropagators(), registry),
 
 		clock:  clock,
-		logger: backend.Logger(),
+		logger: b.Logger(),
 	}
 }
 
@@ -122,7 +121,7 @@ func (aw *ActivityWorker) runDispatcher() {
 	}
 }
 
-func (aw *ActivityWorker) handleTask(ctx context.Context, task *task.Activity) {
+func (aw *ActivityWorker) handleTask(ctx context.Context, task *backend.ActivityTask) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 	ametrics := aw.backend.Metrics().WithTags(metrics.Tags{metrickeys.ActivityName: a.Name})
 
@@ -188,7 +187,7 @@ func (aw *ActivityWorker) resultToEvent(ScheduleEventID int64, result payload.Pa
 		history.ScheduleEventID(ScheduleEventID))
 }
 
-func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {
+func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*backend.ActivityTask, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}

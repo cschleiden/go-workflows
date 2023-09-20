@@ -13,7 +13,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/task"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	margs "github.com/cschleiden/go-workflows/internal/args"
@@ -629,7 +628,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 
 		} else {
 			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.propagators, wt.registry)
-			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
+			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &backend.ActivityTask{
 				ID:               uuid.NewString(),
 				WorkflowInstance: wfi,
 				Event:            event,
@@ -815,13 +814,13 @@ func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interf
 	)
 }
 
-func getNextWorkflowTask(wfi *core.WorkflowInstance, history []*history.Event, newEvents []*history.Event) *task.Workflow {
+func getNextWorkflowTask(wfi *core.WorkflowInstance, history []*history.Event, newEvents []*history.Event) *backend.WorkflowTask {
 	var lastSequenceID int64
 	if len(history) > 0 {
 		lastSequenceID = history[len(history)-1].SequenceID
 	}
 
-	return &task.Workflow{
+	return &backend.WorkflowTask{
 		WorkflowInstance: wfi,
 		Metadata:         &core.WorkflowMetadata{},
 		LastSequenceID:   lastSequenceID,

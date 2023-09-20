@@ -1,11 +1,11 @@
-package task
+package backend
 
 import (
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-type Workflow struct {
+type WorkflowTask struct {
 	// ID is an identifier for this task. It's set by the backend
 	ID string
 
@@ -24,4 +24,12 @@ type Workflow struct {
 
 	// Backend specific data, only the producer of the task should rely on this.
 	CustomData any
+}
+
+type ActivityTask struct {
+	ID string
+
+	WorkflowInstance *core.WorkflowInstance
+
+	Event *history.Event
 }

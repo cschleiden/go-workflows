@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend/task"
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
@@ -38,7 +38,7 @@ type WorkflowHistoryProvider interface {
 }
 
 type WorkflowExecutor interface {
-	ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error)
+	ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error)
 
 	Close()
 }
@@ -108,7 +108,7 @@ func NewExecutor(
 	}, nil
 }
 
-func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
+func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error) {
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
 		log.InstanceIDKey, t.WorkflowInstance.InstanceID,

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"reflect"
 
-	"github.com/cschleiden/go-workflows/backend/task"
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
@@ -38,7 +38,7 @@ func NewExecutor(logger *slog.Logger, tracer trace.Tracer, converter converter.C
 	}
 }
 
-func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (payload.Payload, error) {
+func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTask) (payload.Payload, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 
 	activity, err := e.r.GetActivity(a.Name)

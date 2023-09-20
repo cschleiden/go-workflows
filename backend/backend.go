@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/cschleiden/go-workflows/backend/task"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	core "github.com/cschleiden/go-workflows/internal/core"
@@ -45,7 +44,7 @@ type Backend interface {
 	SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error
 
 	// GetWorkflowTask returns a pending workflow task or nil if there are no pending workflow executions
-	GetWorkflowTask(ctx context.Context) (*task.Workflow, error)
+	GetWorkflowTask(ctx context.Context) (*WorkflowTask, error)
 
 	// ExtendWorkflowTask extends the lock of a workflow task
 	ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error
@@ -56,11 +55,11 @@ type Backend interface {
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
-		ctx context.Context, task *task.Workflow, instance *workflow.Instance, state core.WorkflowInstanceState,
+		ctx context.Context, task *WorkflowTask, instance *workflow.Instance, state core.WorkflowInstanceState,
 		executedEvents, activityEvents, timerEvents []*history.Event, workflowEvents []history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
-	GetActivityTask(ctx context.Context) (*task.Activity, error)
+	GetActivityTask(ctx context.Context) (*ActivityTask, error)
 
 	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
 	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event *history.Event) error

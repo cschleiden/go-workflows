@@ -3,12 +3,12 @@ package redis
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/backend/task"
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
-func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+func (rb *redisBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
 	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.rdb, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
@@ -18,7 +18,7 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context) (*task.Activity, er
 		return nil, nil
 	}
 
-	return &task.Activity{
+	return &backend.ActivityTask{
 		WorkflowInstance: activityTask.Data.Instance,
 		ID:               activityTask.TaskID, // Use the queue generated ID here
 		Event:            activityTask.Data.Event,

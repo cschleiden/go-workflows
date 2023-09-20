@@ -10,7 +10,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/task"
 	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
@@ -28,7 +27,7 @@ type WorkflowWorker struct {
 
 	cache workflow.ExecutorCache
 
-	workflowTaskQueue chan *task.Workflow
+	workflowTaskQueue chan *backend.WorkflowTask
 
 	logger *slog.Logger
 
@@ -36,25 +35,25 @@ type WorkflowWorker struct {
 	wg        sync.WaitGroup
 }
 
-func NewWorkflowWorker(backend backend.Backend, registry *workflow.Registry, options *Options) *WorkflowWorker {
+func NewWorkflowWorker(b backend.Backend, registry *workflow.Registry, options *Options) *WorkflowWorker {
 	var c workflow.ExecutorCache
 	if options.WorkflowExecutorCache != nil {
 		c = options.WorkflowExecutorCache
 	} else {
-		c = cache.NewWorkflowExecutorLRUCache(backend.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
+		c = cache.NewWorkflowExecutorLRUCache(b.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
 	}
 
 	return &WorkflowWorker{
-		backend: backend,
+		backend: b,
 
 		options: options,
 
 		registry:          registry,
-		workflowTaskQueue: make(chan *task.Workflow),
+		workflowTaskQueue: make(chan *backend.WorkflowTask),
 
 		cache: c,
 
-		logger: backend.Logger(),
+		logger: b.Logger(),
 	}
 }
 
@@ -133,7 +132,7 @@ func (ww *WorkflowWorker) runDispatcher() {
 	}
 }
 
-func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
+func (ww *WorkflowWorker) handle(ctx context.Context, t *backend.WorkflowTask) {
 	// Record how long this task was in the queue
 	firstEvent := t.NewEvents[0]
 	var scheduledAt time.Time
@@ -185,7 +184,7 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *task.Workflow) {
 
 func (ww *WorkflowWorker) handleTask(
 	ctx context.Context,
-	t *task.Workflow,
+	t *backend.WorkflowTask,
 ) (*workflow.ExecutionResult, error) {
 	executor, err := ww.getExecutor(ctx, t)
 	if err != nil {
@@ -207,7 +206,7 @@ func (ww *WorkflowWorker) handleTask(
 	return result, nil
 }
 
-func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (workflow.WorkflowExecutor, error) {
+func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *backend.WorkflowTask) (workflow.WorkflowExecutor, error) {
 	// Try to get a cached executor
 	executor, ok, err := ww.cache.Get(ctx, t.WorkflowInstance)
 	if err != nil {
@@ -231,7 +230,7 @@ func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *task.Workflow) (wo
 	return executor, nil
 }
 
-func (ww *WorkflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow) {
+func (ww *WorkflowWorker) heartbeatTask(ctx context.Context, task *backend.WorkflowTask) {
 	t := time.NewTicker(ww.options.WorkflowHeartbeatInterval)
 	defer t.Stop()
 
@@ -248,7 +247,7 @@ func (ww *WorkflowWorker) heartbeatTask(ctx context.Context, task *task.Workflow
 	}
 }
 
-func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*task.Workflow, error) {
+func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*backend.WorkflowTask, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
