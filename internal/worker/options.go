@@ -35,12 +35,12 @@ type Options struct {
 
 	// WorkflowPollingInterval is the interval between polling for new workflow tasks.
 	// Note that if you use a backend that can wait for tasks to be available (e.g. redis) this field has no effect.
-	// Defaults to 1 second.
+	// Defaults to 200ms.
 	WorkflowPollingInterval time.Duration
 
 	// ActivityPollingInterval is the interval between polling for new activity tasks.
 	// Note that if you use a backend that can wait for tasks to be available (e.g. redis) this field has no effect.
-	// Defaults to 1 second.
+	// Defaults to 200ms.
 	ActivityPollingInterval time.Duration
 
 	// WorkflowExecutorCache is the max size of the workflow executor cache. Defaults to 128
@@ -61,8 +61,8 @@ var DefaultOptions = Options{
 	MaxParallelActivityTasks:  0,
 	ActivityHeartbeatInterval: 25 * time.Second,
 	WorkflowHeartbeatInterval: 25 * time.Second,
-	WorkflowPollingInterval:   time.Second,
-	ActivityPollingInterval:   time.Second,
+	WorkflowPollingInterval:   200 * time.Millisecond,
+	ActivityPollingInterval:   200 * time.Millisecond,
 
 	WorkflowExecutorCacheSize: 128,
 	WorkflowExecutorCacheTTL:  time.Second * 10,
