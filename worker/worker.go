@@ -67,7 +67,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 // Start starts the worker.
 //
 // To stop the worker, cancel the context passed to Start. To wait for completion of the active
-// work items, call `WaitForCompletion`.
+// tasks, call `WaitForCompletion`.
 func (w *Worker) Start(ctx context.Context) error {
 	if err := w.workflowWorker.Start(ctx); err != nil {
 		return fmt.Errorf("starting workflow worker: %w", err)
@@ -96,6 +96,6 @@ func (w *Worker) RegisterWorkflow(wf workflow.Workflow) error {
 	return w.registry.RegisterWorkflow(wf)
 }
 
-func (w *Worker) RegisterActivity(a interface{}) error {
+func (w *Worker) RegisterActivity(a workflow.Activity) error {
 	return w.registry.RegisterActivity(a)
 }
