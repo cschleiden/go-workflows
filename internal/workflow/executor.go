@@ -8,19 +8,22 @@ import (
 	"reflect"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/contextpropagation"
+	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
+	icontextpropagation "github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	iconverter "github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -37,7 +40,7 @@ type WorkflowHistoryProvider interface {
 }
 
 type WorkflowExecutor interface {
-	ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error)
+	ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error)
 
 	Close()
 }
@@ -67,7 +70,7 @@ func NewExecutor(
 	propagators []contextpropagation.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
 	instance *core.WorkflowInstance,
-	metadata *core.WorkflowMetadata,
+	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
 ) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
@@ -75,10 +78,10 @@ func NewExecutor(
 	wfTracer := workflowtracer.New(tracer)
 
 	wfCtx := sync.Background()
-	wfCtx = converter.WithConverter(wfCtx, cv)
+	wfCtx = iconverter.WithConverter(wfCtx, cv)
 	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
-	wfCtx = contextpropagation.WithPropagators(wfCtx, propagators)
+	wfCtx = icontextpropagation.WithPropagators(wfCtx, propagators)
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	for _, propagator := range propagators {
@@ -107,7 +110,7 @@ func NewExecutor(
 	}, nil
 }
 
-func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
+func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error) {
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
 		log.InstanceIDKey, t.WorkflowInstance.InstanceID,

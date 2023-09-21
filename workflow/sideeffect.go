@@ -22,7 +22,7 @@ func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TR
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
-	cv := converter.GetConverter(ctx)
+	cv := converter.Converter(ctx)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, future))
 
 	cmd := command.NewSideEffectCommand(scheduleEventID)

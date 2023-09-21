@@ -1,4 +1,4 @@
-package core
+package metadata
 
 type WorkflowMetadata map[string]string
 

@@ -5,20 +5,18 @@ package backend
 import (
 	context "context"
 
-	contextpropagation "github.com/cschleiden/go-workflows/internal/contextpropagation"
-	converter "github.com/cschleiden/go-workflows/internal/converter"
+	contextpropagation "github.com/cschleiden/go-workflows/contextpropagation"
+	converter "github.com/cschleiden/go-workflows/converter"
 
-	core "github.com/cschleiden/go-workflows/internal/core"
+	core "github.com/cschleiden/go-workflows/core"
 
-	history "github.com/cschleiden/go-workflows/internal/history"
+	history "github.com/cschleiden/go-workflows/backend/history"
 
 	metrics "github.com/cschleiden/go-workflows/metrics"
 
 	mock "github.com/stretchr/testify/mock"
 
 	slog "log/slog"
-
-	task "github.com/cschleiden/go-workflows/internal/task"
 
 	trace "go.opentelemetry.io/otel/trace"
 )
@@ -57,11 +55,11 @@ func (_m *MockBackend) CompleteActivityTask(ctx context.Context, instance *core.
 }
 
 // CompleteWorkflowTask provides a mock function with given fields: ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents
-func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *task.Workflow, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []*history.Event, activityEvents []*history.Event, timerEvents []*history.Event, workflowEvents []history.WorkflowEvent) error {
+func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *WorkflowTask, instance *core.WorkflowInstance, state core.WorkflowInstanceState, executedEvents []*history.Event, activityEvents []*history.Event, timerEvents []*history.Event, workflowEvents []history.WorkflowEvent) error {
 	ret := _m.Called(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *task.Workflow, *core.WorkflowInstance, core.WorkflowInstanceState, []*history.Event, []*history.Event, []*history.Event, []history.WorkflowEvent) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *WorkflowTask, *core.WorkflowInstance, core.WorkflowInstanceState, []*history.Event, []*history.Event, []*history.Event, []history.WorkflowEvent) error); ok {
 		r0 = rf(ctx, _a1, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents)
 	} else {
 		r0 = ret.Error(0)
@@ -145,19 +143,19 @@ func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 }
 
 // GetActivityTask provides a mock function with given fields: ctx
-func (_m *MockBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+func (_m *MockBackend) GetActivityTask(ctx context.Context) (*ActivityTask, error) {
 	ret := _m.Called(ctx)
 
-	var r0 *task.Activity
+	var r0 *ActivityTask
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (*task.Activity, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*ActivityTask, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) *task.Activity); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *ActivityTask); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*task.Activity)
+			r0 = ret.Get(0).(*ActivityTask)
 		}
 	}
 
@@ -247,19 +245,19 @@ func (_m *MockBackend) GetWorkflowInstanceState(ctx context.Context, instance *c
 }
 
 // GetWorkflowTask provides a mock function with given fields: ctx
-func (_m *MockBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+func (_m *MockBackend) GetWorkflowTask(ctx context.Context) (*WorkflowTask, error) {
 	ret := _m.Called(ctx)
 
-	var r0 *task.Workflow
+	var r0 *WorkflowTask
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (*task.Workflow, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*WorkflowTask, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) *task.Workflow); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *WorkflowTask); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*task.Workflow)
+			r0 = ret.Get(0).(*WorkflowTask)
 		}
 	}
 

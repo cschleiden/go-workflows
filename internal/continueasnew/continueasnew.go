@@ -1,12 +1,12 @@
 package continueasnew
 
 import (
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
 type Error struct {
-	Metadata *core.WorkflowMetadata
+	Metadata *metadata.WorkflowMetadata
 	Inputs   []payload.Payload
 }
 
@@ -16,7 +16,7 @@ func (e *Error) Error() string {
 	return "ContinueAsNew"
 }
 
-func NewError(metadata *core.WorkflowMetadata, inputs []payload.Payload) error {
+func NewError(metadata *metadata.WorkflowMetadata, inputs []payload.Payload) error {
 	return &Error{
 		Metadata: metadata,
 		Inputs:   inputs,

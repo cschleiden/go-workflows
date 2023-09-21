@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/google/uuid"
@@ -116,7 +116,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				converter: converter.DefaultConverter,
 				tracer:    trace.NewNoopTracerProvider().Tracer(""),
 			}
-			got, err := e.ExecuteActivity(context.Background(), &task.Activity{
+			got, err := e.ExecuteActivity(context.Background(), &backend.ActivityTask{
 				ID:               uuid.NewString(),
 				WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 				Event:            history.NewHistoryEvent(1, time.Now(), history.EventType_ActivityScheduled, attr),

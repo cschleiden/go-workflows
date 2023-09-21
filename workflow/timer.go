@@ -5,10 +5,10 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -29,7 +29,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at)
 	wfState.AddCommand(timerCmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(converter.GetConverter(ctx), f))
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(converter.Converter(ctx), f))
 
 	cancelReceiver := &sync.Receiver[struct{}]{
 		Receive: func(v struct{}, ok bool) {
@@ -41,7 +41,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
 				if !fi.Ready() {
 					wfState.RemoveFuture(scheduleEventID)
-					f.Set(v, sync.Canceled)
+					f.Set(v, Canceled)
 				}
 			}
 		},

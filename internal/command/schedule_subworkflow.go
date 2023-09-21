@@ -2,8 +2,9 @@ package command
 
 import (
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/google/uuid"
 )
@@ -12,7 +13,7 @@ type ScheduleSubWorkflowCommand struct {
 	cancelableCommand
 
 	Instance *core.WorkflowInstance
-	Metadata *core.WorkflowMetadata
+	Metadata *metadata.WorkflowMetadata
 
 	Name   string
 	Inputs []payload.Payload
@@ -21,7 +22,7 @@ type ScheduleSubWorkflowCommand struct {
 var _ CancelableCommand = (*ScheduleSubWorkflowCommand)(nil)
 
 func NewScheduleSubWorkflowCommand(
-	id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload, metadata *core.WorkflowMetadata,
+	id int64, parentInstance *core.WorkflowInstance, subWorkflowInstanceID, name string, inputs []payload.Payload, metadata *metadata.WorkflowMetadata,
 ) *ScheduleSubWorkflowCommand {
 	if subWorkflowInstanceID == "" {
 		subWorkflowInstanceID = uuid.New().String()

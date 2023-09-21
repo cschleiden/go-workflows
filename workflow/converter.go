@@ -1,7 +1,8 @@
 package workflow
 
 import (
-	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/converter"
+	iconverter "github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
@@ -13,9 +14,9 @@ type (
 var DefaultConverter = converter.DefaultConverter
 
 func WithConverter(ctx Context, c Converter) Context {
-	return converter.WithConverter(ctx, c)
+	return iconverter.WithConverter(ctx, c)
 }
 
 func GetConverter(ctx Context) Converter {
-	return converter.GetConverter(ctx)
+	return iconverter.Converter(ctx)
 }
