@@ -28,7 +28,7 @@ func Test_executeActivity_ResultMismatch(t *testing.T) {
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := executeActivity[string](ctx, DefaultActivityOptions, 1, a)
 		_, err := f.Get(ctx)
 		require.Error(t, err)
@@ -52,7 +52,7 @@ func Test_executeActivity_ParamMismatch(t *testing.T) {
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := executeActivity[int](ctx, DefaultActivityOptions, 1, a)
 		_, err := f.Get(ctx)
 		require.Error(t, err)

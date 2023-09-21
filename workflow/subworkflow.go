@@ -34,13 +34,13 @@ var (
 	}
 )
 
-func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
-	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
+	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return createSubWorkflowInstance[TResult](ctx, options, attempt, workflow, args...)
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, attempt int, wf interface{}, args ...interface{}) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf interface{}, args ...interface{}) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
@@ -105,7 +105,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 					if fi, ok := f.(sync.FutureInternal[TResult]); ok {
 						if !fi.Ready() {
 							wfState.RemoveFuture(scheduleEventID)
-							f.Set(*new(TResult), sync.Canceled)
+							f.Set(*new(TResult), Canceled)
 						}
 					}
 				}

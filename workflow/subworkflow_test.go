@@ -28,7 +28,7 @@ func Test_createSubWorkflowInstance_ParamMismatch(t *testing.T) {
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := createSubWorkflowInstance[int](ctx, DefaultSubWorkflowOptions, 1, wf, "foo")
 		_, err := f.Get(ctx)
 		require.Error(t, err)
@@ -53,7 +53,7 @@ func Test_createSubWorkflowInstance_ReturnMismatch(t *testing.T) {
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := createSubWorkflowInstance[string](ctx, DefaultSubWorkflowOptions, 1, wf)
 		_, err := f.Get(ctx)
 		require.Error(t, err)

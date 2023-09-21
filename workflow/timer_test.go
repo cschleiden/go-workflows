@@ -19,12 +19,12 @@ import (
 func Test_Timer_Cancellation(t *testing.T) {
 	state := workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New())
 
-	ctx, cancel := sync.WithCancel(sync.Background())
+	ctx, cancel := WithCancel(sync.Background())
 	ctx = iconverter.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(ctx, state)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := ScheduleTimer(ctx, time.Second*1)
 		f.Get(ctx)
 

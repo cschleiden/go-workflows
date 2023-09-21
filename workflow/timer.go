@@ -41,7 +41,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[struct{}] {
 			if fi, ok := f.(sync.FutureInternal[struct{}]); ok {
 				if !fi.Ready() {
 					wfState.RemoveFuture(scheduleEventID)
-					f.Set(v, sync.Canceled)
+					f.Set(v, Canceled)
 				}
 			}
 		},

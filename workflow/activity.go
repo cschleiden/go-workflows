@@ -27,7 +27,7 @@ var DefaultActivityOptions = ActivityOptions{
 
 // ExecuteActivity schedules the given activity to be executed
 func ExecuteActivity[TResult any](ctx Context, options ActivityOptions, activity interface{}, args ...interface{}) Future[TResult] {
-	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return executeActivity[TResult](ctx, options, attempt, activity, args...)
 	})
 }
@@ -93,7 +93,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 				if cmd.State() == command.CommandState_Pending {
 					cmd.Done()
 					wfState.RemoveFuture(scheduleEventID)
-					f.Set(*new(TResult), sync.Canceled)
+					f.Set(*new(TResult), Canceled)
 				}
 			}
 		}

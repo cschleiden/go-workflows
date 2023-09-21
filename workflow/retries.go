@@ -44,7 +44,7 @@ func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Cont
 	// Start a separate co-routine for retries
 	r := sync.NewFuture[T]()
 
-	Go(ctx, func(ctx sync.Context) {
+	Go(ctx, func(ctx Context) {
 		var result T
 		var err error
 
