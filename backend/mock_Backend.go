@@ -6,7 +6,7 @@ import (
 	context "context"
 
 	contextpropagation "github.com/cschleiden/go-workflows/contextpropagation"
-	converter "github.com/cschleiden/go-workflows/converter"
+	converter "github.com/cschleiden/go-workflows/backend/converter"
 
 	core "github.com/cschleiden/go-workflows/core"
 

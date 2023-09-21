@@ -1,7 +1,7 @@
 package converter
 
 import (
-	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
