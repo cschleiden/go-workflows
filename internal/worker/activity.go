@@ -201,6 +201,8 @@ func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*tas
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
+		
+		return nil, err
 	}
 
 	return task, nil
