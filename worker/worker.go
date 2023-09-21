@@ -36,14 +36,14 @@ var DefaultWorkerOptions = internal.DefaultOptions
 func New(backend backend.Backend, options *Options) *Worker {
 	if options == nil {
 		options = &internal.DefaultOptions
-	}
+	} else {
+		if options.WorkflowExecutorCacheSize == 0 {
+			options.WorkflowExecutorCacheSize = internal.DefaultOptions.WorkflowExecutorCacheSize
+		}
 
-	if options.WorkflowExecutorCacheSize == 0 {
-		options.WorkflowExecutorCacheSize = internal.DefaultOptions.WorkflowExecutorCacheSize
-	}
-
-	if options.WorkflowExecutorCacheTTL == 0 {
-		options.WorkflowExecutorCacheTTL = internal.DefaultOptions.WorkflowExecutorCacheTTL
+		if options.WorkflowExecutorCacheTTL == 0 {
+			options.WorkflowExecutorCacheTTL = internal.DefaultOptions.WorkflowExecutorCacheTTL
+		}
 	}
 
 	registry := workflowinternal.NewRegistry()
