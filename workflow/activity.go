@@ -62,7 +62,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
-	name := fn.FuncName(activity)
+	name := fn.Name(activity)
 
 	// Capture context
 	propagators := contextpropagation.Propagators(ctx)

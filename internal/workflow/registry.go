@@ -67,7 +67,7 @@ func (r *Registry) RegisterWorkflow(workflow Workflow, opts ...RegisterOption) e
 	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
 	name := cfg.Name
 	if name == "" {
-		name = fn.FuncName(workflow)
+		name = fn.Name(workflow)
 	}
 
 	wfType := reflect.TypeOf(workflow)
@@ -121,7 +121,7 @@ func (r *Registry) RegisterActivity(activity interface{}, opts ...RegisterOption
 	// Activity as function
 	name := cfg.Name
 	if name == "" {
-		name = fn.FuncName(activity)
+		name = fn.Name(activity)
 	}
 
 	if err := checkActivity(reflect.TypeOf(activity)); err != nil {
@@ -144,8 +144,6 @@ func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
 	v := reflect.ValueOf(a)
 	t := v.Type()
 
-	structName := fn.StructName(a)
-
 	r.Lock()
 	defer r.Unlock()
 
@@ -162,10 +160,7 @@ func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
 			return err
 		}
 
-		name := structName + "." + mt.Name
-		if _, ok := r.activityMap[name]; ok {
-			return &ErrActivityAlreadyRegistered{fmt.Sprintf("activity with name %q already registered", name)}
-		}
+		name := mt.Name
 		r.activityMap[name] = mv.Interface()
 	}
 

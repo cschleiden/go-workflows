@@ -262,7 +262,7 @@ func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args .
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
 
-	name := fn.FuncName(activity)
+	name := fn.Name(activity)
 	wt.mockedActivities[name] = true
 	return wt.ma.On(name, args...)
 }
@@ -279,7 +279,7 @@ func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, arg
 	// Register workflow so that we can correctly identify its arguments later
 	wt.registry.RegisterWorkflow(workflow)
 
-	name := fn.FuncName(workflow)
+	name := fn.Name(workflow)
 	wt.mockedWorkflows[name] = true
 	return wt.mw.On(name, args...)
 }
@@ -796,7 +796,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 }
 
 func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) *history.Event {
-	name := fn.FuncName(wf)
+	name := fn.Name(wf)
 
 	inputs, err := margs.ArgsToInputs(wt.converter, args...)
 	if err != nil {

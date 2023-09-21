@@ -29,7 +29,7 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 			args: args{
 				workflow: reg_workflow1,
 			},
-			wantName: "github.com/cschleiden/go-workflows/internal/workflow.reg_workflow1",
+			wantName: "reg_workflow1",
 		},
 		{
 			name: "valid workflow by name",
@@ -130,7 +130,7 @@ func Test_ActivityRegistration(t *testing.T) {
 	err := r.RegisterActivity(reg_activity)
 	require.NoError(t, err)
 
-	x, err := r.GetActivity("github.com/cschleiden/go-workflows/internal/workflow.reg_activity")
+	x, err := r.GetActivity("reg_activity")
 	require.NoError(t, err)
 
 	fn, ok := x.(func(context context.Context) error)
@@ -181,11 +181,11 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 	require.NoError(t, err)
 
 	b := &reg_activities{}
-	x, err := r.GetActivity(fn.FuncName(b.Activity1))
+	x, err := r.GetActivity(fn.Name(b.Activity1))
 	require.NoError(t, err)
 
 	// Ignore private methods
-	y, err := r.GetActivity(fn.FuncName(b.privateActivity))
+	y, err := r.GetActivity(fn.Name(b.privateActivity))
 	require.Error(t, err)
 	require.Nil(t, y)
 

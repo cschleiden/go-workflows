@@ -59,7 +59,7 @@ func Test_Activity(t *testing.T) {
 func Test_OverrideActivity(t *testing.T) {
 	tester := NewWorkflowTester[int](workflowWithActivity)
 
-	tester.OnActivityByName("github.com/cschleiden/go-workflows/tester.activity1", activity1, mock.Anything).Return(23, nil)
+	tester.OnActivityByName("activity1", activity1, mock.Anything).Return(23, nil)
 
 	tester.Execute(context.Background())
 

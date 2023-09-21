@@ -47,7 +47,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				require.NoError(t, r.RegisterActivity(a))
 
 				return &history.ActivityScheduledAttributes{
-					Name: fn.FuncName(a),
+					Name: fn.Name(a),
 				}
 			},
 			result: func(t *testing.T, result payload.Payload, err error) {
@@ -67,7 +67,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				inputs, _ := args.ArgsToInputs(converter.DefaultConverter, 42)
 
 				return &history.ActivityScheduledAttributes{
-					Name:   fn.FuncName(a),
+					Name:   fn.Name(a),
 					Inputs: inputs,
 				}
 			},
@@ -90,7 +90,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				inputs, _ := args.ArgsToInputs(converter.DefaultConverter, 42)
 
 				return &history.ActivityScheduledAttributes{
-					Name:   fn.FuncName(a),
+					Name:   fn.Name(a),
 					Inputs: inputs,
 				}
 			},
