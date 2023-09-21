@@ -11,10 +11,11 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/converter"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
+	icontextpropagation "github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
 	iconverter "github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/payload"
@@ -80,7 +81,7 @@ func NewExecutor(
 	wfCtx = iconverter.WithConverter(wfCtx, cv)
 	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
-	wfCtx = contextpropagation.WithPropagators(wfCtx, propagators)
+	wfCtx = icontextpropagation.WithPropagators(wfCtx, propagators)
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	for _, propagator := range propagators {

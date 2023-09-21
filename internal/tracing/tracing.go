@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-workflows/backend/metadata"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
+	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"go.opentelemetry.io/otel/propagation"

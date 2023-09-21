@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/converter"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 )
 
 type options struct {
