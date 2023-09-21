@@ -33,7 +33,7 @@ func main() {
 	}
 }
 
-func runWorkflow(ctx context.Context, c client.Client) {
+func runWorkflow(ctx context.Context, c *client.Client) {
 	ctx = withMyValues(ctx, &myData{
 		Name:  "test",
 		Count: 2,

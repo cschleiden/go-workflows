@@ -362,7 +362,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 	}
 }
 
-func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c client.Client, instance *core.WorkflowInstance) {
+func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c *client.Client, instance *core.WorkflowInstance) {
 	err := b.CreateWorkflowInstance(
 		ctx, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 	require.NoError(t, err)
