@@ -7,7 +7,7 @@ import (
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	iconverter "github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
@@ -63,7 +63,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 
 	name := fn.Name(wf)
 
-	cv := iconverter.Converter(ctx)
+	cv := converter.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting subworkflow input: %w", err))
