@@ -18,12 +18,12 @@ import (
 	icontextpropagation "github.com/cschleiden/go-workflows/internal/contextpropagation"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
 	iconverter "github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/trace"
 )
 

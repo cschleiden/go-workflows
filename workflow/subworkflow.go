@@ -9,10 +9,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
 	iconverter "github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/fn"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )

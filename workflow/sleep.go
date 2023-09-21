@@ -3,8 +3,8 @@ package workflow
 import (
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
