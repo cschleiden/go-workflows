@@ -10,7 +10,7 @@ import (
 
 	core "github.com/cschleiden/go-workflows/core"
 
-	history "github.com/cschleiden/go-workflows/internal/history"
+	history "github.com/cschleiden/go-workflows/backend/history"
 
 	metrics "github.com/cschleiden/go-workflows/metrics"
 

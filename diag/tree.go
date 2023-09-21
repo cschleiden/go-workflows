@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/internal/history"
 )
 
 type instanceTreeBuilder struct {

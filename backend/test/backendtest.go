@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"

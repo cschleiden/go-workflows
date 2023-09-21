@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/internal/history"
 )
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event *history.Event) error {

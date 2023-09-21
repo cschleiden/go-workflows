@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/internal/history"
 )
 
 func (rb *redisBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
