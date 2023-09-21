@@ -7,6 +7,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
+// TODO!
 type ContextPropagator interface {
 	Inject(context.Context, *metadata.WorkflowMetadata) error
 	Extract(context.Context, *metadata.WorkflowMetadata) (context.Context, error)

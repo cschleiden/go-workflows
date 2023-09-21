@@ -14,33 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
-type WorkflowRegistry interface {
-	RegisterWorkflow(w workflow.Workflow) error
-}
-
-type ActivityRegistry interface {
-	RegisterActivity(a interface{}) error
-}
-
-type Registry interface {
-	WorkflowRegistry
-	ActivityRegistry
-}
-
-type Worker interface {
-	Registry
-
-	// Start starts the worker.
-	//
-	// To stop the worker, cancel the context passed to Start. To wait for completion of the active
-	// work items, call `WaitForCompletion`.
-	Start(ctx context.Context) error
-
-	// WaitForCompletion
-	WaitForCompletion() error
-}
-
-type worker struct {
+type Worker struct {
 	backend backend.Backend
 
 	done chan struct{}
@@ -59,7 +33,7 @@ type Options = internal.Options
 
 var DefaultWorkerOptions = internal.DefaultOptions
 
-func New(backend backend.Backend, options *Options) Worker {
+func New(backend backend.Backend, options *Options) *Worker {
 	if options == nil {
 		options = &internal.DefaultOptions
 	}
@@ -77,7 +51,7 @@ func New(backend backend.Backend, options *Options) Worker {
 	// Register internal activities
 	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)})
 
-	return &worker{
+	return &Worker{
 		backend: backend,
 
 		done: make(chan struct{}),
@@ -90,7 +64,11 @@ func New(backend backend.Backend, options *Options) Worker {
 	}
 }
 
-func (w *worker) Start(ctx context.Context) error {
+// Start starts the worker.
+//
+// To stop the worker, cancel the context passed to Start. To wait for completion of the active
+// work items, call `WaitForCompletion`.
+func (w *Worker) Start(ctx context.Context) error {
 	if err := w.workflowWorker.Start(ctx); err != nil {
 		return fmt.Errorf("starting workflow worker: %w", err)
 	}
@@ -102,7 +80,7 @@ func (w *worker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *worker) WaitForCompletion() error {
+func (w *Worker) WaitForCompletion() error {
 	if err := w.workflowWorker.WaitForCompletion(); err != nil {
 		return err
 	}
@@ -114,10 +92,10 @@ func (w *worker) WaitForCompletion() error {
 	return nil
 }
 
-func (w *worker) RegisterWorkflow(wf workflow.Workflow) error {
+func (w *Worker) RegisterWorkflow(wf workflow.Workflow) error {
 	return w.registry.RegisterWorkflow(wf)
 }
 
-func (w *worker) RegisterActivity(a interface{}) error {
+func (w *Worker) RegisterActivity(a interface{}) error {
 	return w.registry.RegisterActivity(a)
 }

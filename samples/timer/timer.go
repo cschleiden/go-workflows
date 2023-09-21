@@ -48,7 +48,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Workflow finished. Result:", result)
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
+func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)

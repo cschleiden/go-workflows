@@ -14,7 +14,7 @@ import (
 var e2eStatsTests = []backendTest{
 	{
 		name: "Stats_ActiveInstance",
-		f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+		f: func(t *testing.T, ctx context.Context, c client.Client, w *worker.Worker, b TestBackend) {
 			as := make(chan bool, 1)
 			af := make(chan bool, 1)
 
