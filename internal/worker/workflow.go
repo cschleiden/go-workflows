@@ -13,6 +13,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
 	"github.com/cschleiden/go-workflows/metrics"
@@ -150,7 +151,7 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *backend.WorkflowTask) {
 		metrickeys.EventName: eventName,
 	}, float64(timeInQueue/time.Millisecond))
 
-	timer := metrics.Timer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{
+	timer := mi.NewTimer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{
 		metrickeys.EventName: eventName,
 	})
 
