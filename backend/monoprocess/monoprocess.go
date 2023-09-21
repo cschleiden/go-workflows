@@ -91,25 +91,14 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 		return err
 	}
 
-	hasWorkflowTasks := false
-	hasActivityTasks := false
+	if len(activityEvents) > 0 {
+		b.notifyActivityWorker(ctx)
+	}
 
-	for _, e := range executedEvents {
-		if e.Type == history.EventType_WorkflowTaskStarted {
-			hasWorkflowTasks = true
-			break
-		}
-	}
-	for _, e := range activityEvents {
-		if e.Type == history.EventType_ActivityScheduled {
-			hasActivityTasks = true
-			break
-		}
-	}
 	for _, e := range timerEvents {
 		attr, ok := e.Attributes.(*history.TimerFiredAttributes)
 		if !ok {
-			b.logger.Warn("unknown attributes type in timer event", "type", reflect.TypeOf(e.Attributes).String())
+			b.logger.WarnContext(ctx, "unknown attributes type in timer event", "type", reflect.TypeOf(e.Attributes).String())
 			continue
 		}
 		b.logger.DebugContext(ctx, "scheduling timer to notify workflow worker")
@@ -118,22 +107,8 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 		// and continue.
 		time.AfterFunc(attr.At.Sub(time.Now()), func() { b.notifyWorkflowWorker(context.Background()) })
 	}
-	for _, e := range workflowEvents {
-		if e.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted ||
-			e.HistoryEvent.Type == history.EventType_SubWorkflowCompleted ||
-			e.HistoryEvent.Type == history.EventType_WorkflowExecutionCanceled {
-			hasWorkflowTasks = true
-			break
-		}
-	}
 
-	// notify workers about potential new tasks
-	if hasWorkflowTasks {
-		b.notifyWorkflowWorker(ctx)
-	}
-	if hasActivityTasks {
-		b.notifyActivityWorker(ctx)
-	}
+	b.notifyWorkflowWorker(ctx)
 	return nil
 }
 
