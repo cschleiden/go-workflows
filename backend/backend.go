@@ -6,8 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	core "github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"

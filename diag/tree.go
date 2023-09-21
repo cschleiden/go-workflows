@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/history"
 )
 
