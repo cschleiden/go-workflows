@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed schema.sql
@@ -42,7 +42,7 @@ func NewSqliteBackend(path string, opts ...backend.BackendOption) *sqliteBackend
 }
 
 func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend {
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -51,6 +51,11 @@ func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend 
 	if _, err := db.Exec(schema); err != nil {
 		panic(err)
 	}
+
+	// SQLite does not support multiple writers on the database, see https://www.sqlite.org/faq.html#q5
+	// A frequently used workaround is to have a single connection, effectively acting as a mutex
+	// See https://github.com/mattn/go-sqlite3/issues/274 for more context
+	db.SetMaxOpenConns(1)
 
 	return &sqliteBackend{
 		db:         db,
