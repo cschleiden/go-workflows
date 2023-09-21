@@ -3,7 +3,7 @@ package converter
 import (
 	"encoding/json"
 
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/backend/payload"
 )
 
 type jsonConverter struct{}

@@ -1,9 +1,9 @@
 package workflow
 
 import (
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/converter"
 	iconverter "github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
 type (

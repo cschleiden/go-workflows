@@ -1,6 +1,6 @@
 package history
 
-import "github.com/cschleiden/go-workflows/internal/payload"
+import "github.com/cschleiden/go-workflows/backend/payload"
 
 type SignalReceivedAttributes struct {
 	Name string          `json:"name,omitempty"`
