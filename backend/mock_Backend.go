@@ -12,7 +12,7 @@ import (
 
 	history "github.com/cschleiden/go-workflows/backend/history"
 
-	metrics "github.com/cschleiden/go-workflows/metrics"
+	metrics "github.com/cschleiden/go-workflows/backend/metrics"
 
 	mock "github.com/stretchr/testify/mock"
 

@@ -9,10 +9,10 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
 )

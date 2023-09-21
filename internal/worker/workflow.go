@@ -11,12 +11,12 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
-	"github.com/cschleiden/go-workflows/metrics"
 )
 
 type WorkflowWorker struct {
