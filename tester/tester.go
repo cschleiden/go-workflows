@@ -250,7 +250,7 @@ func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.Workflo
 	wt.subWorkflowListener = listener
 }
 
-func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call {
+func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...any) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivityByName(name, activity)
 
@@ -258,7 +258,7 @@ func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workfl
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
+func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args ...any) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
 
@@ -267,7 +267,7 @@ func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args .
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call {
+func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...any) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
 	wt.registry.RegisterWorkflowByName(name, workflow)
 
@@ -275,7 +275,7 @@ func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow wor
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
+func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, args ...any) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
 	wt.registry.RegisterWorkflow(workflow)
 
@@ -284,7 +284,7 @@ func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, arg
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...interface{}) {
+func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 	for _, propagator := range wt.propagators {
 		if err := propagator.Inject(ctx, wt.wfm); err != nil {
 			panic(fmt.Errorf("failed to inject context: %w", err))

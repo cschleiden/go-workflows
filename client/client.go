@@ -42,7 +42,8 @@ func New(backend backend.Backend) *Client {
 	}
 }
 
-func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
+// CreateWorkflowInstance creates a new workflow instance of the given workflow.
+func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...any) (*workflow.Instance, error) {
 	// Check arguments
 	if err := a.ParamsMatch(wf, args...); err != nil {
 		return nil, err
@@ -89,6 +90,7 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
+// CancelWorkflowInstance cancels a running workflow instance.
 func (c *Client) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "CancelWorkflowInstance", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instance.InstanceID),
@@ -99,7 +101,8 @@ func (c *Client) CancelWorkflowInstance(ctx context.Context, instance *workflow.
 	return c.backend.CancelWorkflowInstance(ctx, instance, cancellationEvent)
 }
 
-func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
+// SignalWorkflow signals a running workflow instance.
+func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg any) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "SignalWorkflow", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instanceID),
 		attribute.String(log.SignalNameKey, name),
@@ -131,6 +134,7 @@ func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name str
 	return nil
 }
 
+// WaitForWorkflowInstance waits for the given workflow instance to finish or until the given timeout has expired.
 func (c *Client) WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error {
 	if timeout == 0 {
 		timeout = time.Second * 20
@@ -226,6 +230,7 @@ func GetWorkflowResult[T any](ctx context.Context, c *Client, instance *workflow
 	return *new(T), errors.New("workflow finished, but could not find result event")
 }
 
+// RemoveWorkflowInstance removes the given workflow instance from the backend.
 func (c *Client) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "RemoveWorkflowInstance", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instance.InstanceID),
