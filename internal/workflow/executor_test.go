@@ -282,7 +282,7 @@ func Test_Executor(t *testing.T) {
 						sync.Await[int](f1, func(ctx sync.Context, f sync.Future[int]) {
 							workflowWithSelectorHits++
 						}),
-						sync.Await[struct{}](t, func(ctx sync.Context, _ sync.Future[struct{}]) {
+						sync.Await[any](t, func(ctx sync.Context, _ sync.Future[any]) {
 							workflowWithSelectorHits++
 						}),
 					)

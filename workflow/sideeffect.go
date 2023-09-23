@@ -8,6 +8,11 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 )
 
+// SideEffect executes the given function and returns a future that will be resolved with the result of
+// the function.
+//
+// In contrast to Activities, SideEffects are executed inline with the workflow code. They should only
+// be used for short and inexpensive operations. For longer operations, consider using an Activity.
 func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TResult] {
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "SideEffect")
 	defer span.End()

@@ -9,8 +9,8 @@ import (
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
 )
 
-// ContinueAsNew restarts the current workflow with the given arguments
-func ContinueAsNew(ctx Context, args ...interface{}) error {
+// ContinueAsNew restarts the current workflow with the given arguments.
+func ContinueAsNew(ctx Context, args ...any) error {
 	// Capture context
 	propagators := propagators(ctx)
 	metadata := &metadata.WorkflowMetadata{}

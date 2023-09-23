@@ -73,7 +73,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	workflow.Select(
 		ctx,
-		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[any]) {
 			if _, err := f.Get(ctx); err != nil {
 				logger.Debug("Timer canceled")
 			} else {

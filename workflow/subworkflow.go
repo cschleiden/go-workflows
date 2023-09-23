@@ -33,13 +33,14 @@ var (
 	}
 )
 
-func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
+// CreateSubWorkflowInstance creates a new sub-workflow instance of the given workflow.
+func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, workflow Workflow, args ...any) Future[TResult] {
 	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return createSubWorkflowInstance[TResult](ctx, options, attempt, workflow, args...)
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf interface{}, args ...interface{}) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf Workflow, args ...any) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
