@@ -3,7 +3,6 @@ package workflow
 import (
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/backend/metadata"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextpropagation"
@@ -66,7 +65,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 
 	// Capture context
 	propagators := contextpropagation.Propagators(ctx)
-	metadata := &metadata.WorkflowMetadata{}
+	metadata := &Metadata{}
 	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
 		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
 		return f
