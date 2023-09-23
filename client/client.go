@@ -10,13 +10,13 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
-	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
@@ -30,33 +30,20 @@ type WorkflowInstanceOptions struct {
 	InstanceID string
 }
 
-type Client interface {
-	CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error)
-
-	CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
-
-	RemoveWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
-
-	WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error
-
-	SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error
-
-	GetStats(ctx context.Context) (*backend.Stats, error)
-}
-
-type client struct {
+type Client struct {
 	backend backend.Backend
 	clock   clock.Clock
 }
 
-func New(backend backend.Backend) Client {
-	return &client{
+func New(backend backend.Backend) *Client {
+	return &Client{
 		backend: backend,
 		clock:   clock.New(),
 	}
 }
 
-func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...interface{}) (*workflow.Instance, error) {
+// CreateWorkflowInstance creates a new workflow instance of the given workflow.
+func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...any) (*workflow.Instance, error) {
 	// Check arguments
 	if err := a.ParamsMatch(wf, args...); err != nil {
 		return nil, err
@@ -103,7 +90,8 @@ func (c *client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	return wfi, nil
 }
 
-func (c *client) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
+// CancelWorkflowInstance cancels a running workflow instance.
+func (c *Client) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "CancelWorkflowInstance", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instance.InstanceID),
 	))
@@ -113,7 +101,8 @@ func (c *client) CancelWorkflowInstance(ctx context.Context, instance *workflow.
 	return c.backend.CancelWorkflowInstance(ctx, instance, cancellationEvent)
 }
 
-func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
+// SignalWorkflow signals a running workflow instance.
+func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name string, arg any) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "SignalWorkflow", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instanceID),
 		attribute.String(log.SignalNameKey, name),
@@ -145,7 +134,8 @@ func (c *client) SignalWorkflow(ctx context.Context, instanceID string, name str
 	return nil
 }
 
-func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error {
+// WaitForWorkflowInstance waits for the given workflow instance to finish or until the given timeout has expired.
+func (c *Client) WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error {
 	if timeout == 0 {
 		timeout = time.Second * 20
 	}
@@ -185,9 +175,8 @@ func (c *client) WaitForWorkflowInstance(ctx context.Context, instance *workflow
 
 // GetWorkflowResult gets the workflow result for the given workflow result. It first waits for the workflow to finish or until
 // the given timeout has expired.
-func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.Instance, timeout time.Duration) (T, error) {
-	ic := c.(*client)
-	b := ic.backend
+func GetWorkflowResult[T any](ctx context.Context, c *Client, instance *workflow.Instance, timeout time.Duration) (T, error) {
+	b := c.backend
 
 	ctx, span := b.Tracer().Start(ctx, "GetWorkflowResult", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instance.InstanceID),
@@ -241,7 +230,8 @@ func GetWorkflowResult[T any](ctx context.Context, c Client, instance *workflow.
 	return *new(T), errors.New("workflow finished, but could not find result event")
 }
 
-func (c *client) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+// RemoveWorkflowInstance removes the given workflow instance from the backend.
+func (c *Client) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "RemoveWorkflowInstance", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instance.InstanceID),
 	))

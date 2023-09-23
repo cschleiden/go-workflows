@@ -2,8 +2,8 @@ package history
 
 import (
 	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/internal/payload"
 )
 
 type SubWorkflowScheduledAttributes struct {

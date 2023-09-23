@@ -4,15 +4,15 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/cschleiden/go-workflows/contextpropagation"
-	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 type options struct {
 	TestTimeout time.Duration
 	Logger      *slog.Logger
 	Converter   converter.Converter
-	Propagators []contextpropagation.ContextPropagator
+	Propagators []workflow.ContextPropagator
 }
 
 type WorkflowTesterOption func(*options)
@@ -29,7 +29,7 @@ func WithConverter(converter converter.Converter) WorkflowTesterOption {
 	}
 }
 
-func WithContextPropagator(prop contextpropagation.ContextPropagator) WorkflowTesterOption {
+func WithContextPropagator(prop workflow.ContextPropagator) WorkflowTesterOption {
 	return func(o *options) {
 		o.Propagators = append(o.Propagators, prop)
 	}

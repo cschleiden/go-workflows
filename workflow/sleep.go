@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// Sleep sleeps for the given duration.
 func Sleep(ctx Context, d time.Duration) error {
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "Sleep",
 		trace.WithAttributes(attribute.Int64(log.DurationKey, int64(d/time.Millisecond))))

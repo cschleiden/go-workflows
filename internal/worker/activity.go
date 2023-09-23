@@ -10,12 +10,13 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metrics"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
-	"github.com/cschleiden/go-workflows/metrics"
 )
 
 type ActivityWorker struct {
@@ -153,7 +154,7 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *backend.Activity
 		}(heartbeatCtx)
 	}
 
-	timer := metrics.Timer(ametrics, metrickeys.ActivityTaskProcessed, metrics.Tags{})
+	timer := mi.NewTimer(ametrics, metrickeys.ActivityTaskProcessed, metrics.Tags{})
 	defer timer.Stop()
 
 	result, err := aw.activityTaskExecutor.ExecuteActivity(ctx, task)

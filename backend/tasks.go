@@ -6,6 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 )
 
+// WorkflowTask represents work for one workflow execution slice.
 type WorkflowTask struct {
 	// ID is an identifier for this task. It's set by the backend
 	ID string
@@ -27,6 +28,7 @@ type WorkflowTask struct {
 	CustomData any
 }
 
+// ActivityTask represents one activity execution.
 type ActivityTask struct {
 	ID string
 

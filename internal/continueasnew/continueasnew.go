@@ -2,7 +2,7 @@ package continueasnew
 
 import (
 	"github.com/cschleiden/go-workflows/backend/metadata"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/backend/payload"
 )
 
 type Error struct {

@@ -9,15 +9,14 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
-	"github.com/cschleiden/go-workflows/contextpropagation"
-	"github.com/cschleiden/go-workflows/converter"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -37,7 +36,7 @@ func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider Workflow
 	logger := slog.Default()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
-	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []contextpropagation.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New())
+	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []wf.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New())
 
 	return e.(*executor), err
 }
@@ -283,7 +282,7 @@ func Test_Executor(t *testing.T) {
 						sync.Await[int](f1, func(ctx sync.Context, f sync.Future[int]) {
 							workflowWithSelectorHits++
 						}),
-						sync.Await[struct{}](t, func(ctx sync.Context, _ sync.Future[struct{}]) {
+						sync.Await[any](t, func(ctx sync.Context, _ sync.Future[any]) {
 							workflowWithSelectorHits++
 						}),
 					)

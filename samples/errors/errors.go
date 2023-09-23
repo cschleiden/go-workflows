@@ -46,7 +46,7 @@ func main() {
 	<-c2
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func startWorkflow(ctx context.Context, c *client.Client) {
 	_, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world"+uuid.NewString())

@@ -6,8 +6,13 @@ import (
 )
 
 type (
+	// Instance represents a workflow instance.
 	Instance = core.WorkflowInstance
+
+	// Metadata represents the metadata of a workflow instance.
 	Metadata = metadata.WorkflowMetadata
-	Activity = interface{}
+
 	Workflow = interface{}
+
+	Activity = interface{}
 )

@@ -6,8 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	iconverter "github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
@@ -34,13 +33,14 @@ var (
 	}
 )
 
-func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
+// CreateSubWorkflowInstance creates a new sub-workflow instance of the given workflow.
+func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, workflow Workflow, args ...any) Future[TResult] {
 	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return createSubWorkflowInstance[TResult](ctx, options, attempt, workflow, args...)
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf interface{}, args ...interface{}) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf Workflow, args ...any) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
@@ -63,7 +63,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 
 	name := fn.Name(wf)
 
-	cv := iconverter.Converter(ctx)
+	cv := contextvalue.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting subworkflow input: %w", err))
@@ -83,9 +83,9 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	defer span.End()
 
 	// Capture context
-	propagators := contextpropagation.Propagators(ctx)
+	propagators := propagators(ctx)
 	metadata := &metadata.WorkflowMetadata{}
-	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
+	if err := injectFromWorkflow(ctx, metadata, propagators); err != nil {
 		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
 		return f
 	}

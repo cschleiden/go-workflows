@@ -52,7 +52,7 @@ func main() {
 	}
 }
 
-func runWorkflow(ctx context.Context, c client.Client) {
+func runWorkflow(ctx context.Context, c *client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world"+uuid.NewString(), 2, Inputs{
@@ -72,7 +72,7 @@ func runWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Workflow finished. Result:", result)
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
+func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)

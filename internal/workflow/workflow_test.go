@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/converter"
-	iconverter "github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func Test_Workflow_WrapsPanic(t *testing.T) {
 	}
 
 	ctx := sync.Background()
-	ctx = iconverter.WithConverter(ctx, converter.DefaultConverter)
+	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 
 	wf := NewWorkflow(reflect.ValueOf(w))
 	err := wf.Execute(ctx, nil)
