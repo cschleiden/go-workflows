@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
@@ -39,7 +38,7 @@ func NewMonoprocessBackend(b backend.Backend) *monoprocessBackend {
 	return mb
 }
 
-func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
 	// loop until either we find a task or the context is cancelled
 	for {
 		if w, err := b.Backend.GetWorkflowTask(ctx); w != nil || err != nil {
@@ -55,7 +54,7 @@ func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context) (*task.Workflo
 	}
 }
 
-func (b *monoprocessBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+func (b *monoprocessBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
 	// loop until either we find a task or the context is cancelled
 	for {
 		if a, err := b.Backend.GetActivityTask(ctx); a != nil || err != nil {
@@ -81,7 +80,7 @@ func (b *monoprocessBackend) CreateWorkflowInstance(ctx context.Context, instanc
 
 func (b *monoprocessBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	task *task.Workflow,
+	task *backend.WorkflowTask,
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
