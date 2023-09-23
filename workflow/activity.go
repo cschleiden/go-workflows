@@ -16,6 +16,7 @@ import (
 )
 
 type ActivityOptions struct {
+	// RetryOptions defines how to retry the activity in case of failure.
 	RetryOptions RetryOptions
 }
 
@@ -24,13 +25,13 @@ var DefaultActivityOptions = ActivityOptions{
 }
 
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity[TResult any](ctx Context, options ActivityOptions, activity Activity, args ...interface{}) Future[TResult] {
+func ExecuteActivity[TResult any](ctx Context, options ActivityOptions, activity Activity, args ...any) Future[TResult] {
 	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return executeActivity[TResult](ctx, options, attempt, activity, args...)
 	})
 }
 
-func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt int, activity Activity, args ...interface{}) Future[TResult] {
+func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt int, activity Activity, args ...any) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	if ctx.Err() != nil {
