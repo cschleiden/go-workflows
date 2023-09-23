@@ -22,6 +22,8 @@ type monoprocessBackend struct {
 	logger *slog.Logger
 }
 
+var _ backend.Backend = (*monoprocessBackend)(nil)
+
 // NewMonoprocessBackend wraps an existing backend and improves its responsiveness
 // in case the backend and worker are running in the same process. This backend
 // uses channels to notify the worker every time there is a new task ready to be
