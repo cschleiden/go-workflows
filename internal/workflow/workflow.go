@@ -12,8 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 )
 
-type Workflow interface{}
-
 type workflow struct {
 	s      *sync.Scheduler
 	fn     reflect.Value
