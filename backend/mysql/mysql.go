@@ -16,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/metrics"
-	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -79,7 +78,7 @@ func (b *mysqlBackend) Converter() converter.Converter {
 	return b.options.Converter
 }
 
-func (b *mysqlBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (b *mysqlBackend) ContextPropagators() []workflow.ContextPropagator {
 	return b.options.ContextPropagators
 }
 

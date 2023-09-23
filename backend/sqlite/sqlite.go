@@ -16,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/metrics"
-	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -88,7 +87,7 @@ func (sb *sqliteBackend) Converter() converter.Converter {
 	return sb.options.Converter
 }
 
-func (sb *sqliteBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (sb *sqliteBackend) ContextPropagators() []workflow.ContextPropagator {
 	return sb.options.ContextPropagators
 }
 

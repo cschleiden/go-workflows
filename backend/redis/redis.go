@@ -10,9 +10,9 @@ import (
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
-	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -102,7 +102,7 @@ func (rb *redisBackend) Converter() converter.Converter {
 	return rb.options.Converter
 }
 
-func (rb *redisBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (rb *redisBackend) ContextPropagators() []workflow.ContextPropagator {
 	return rb.options.ContextPropagators
 }
 

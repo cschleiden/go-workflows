@@ -13,17 +13,16 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"
-	"github.com/cschleiden/go-workflows/contextpropagation"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
-	icontextpropagation "github.com/cschleiden/go-workflows/internal/contextpropagation"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
-	iconverter "github.com/cschleiden/go-workflows/internal/converter"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -67,7 +66,7 @@ func NewExecutor(
 	tracer trace.Tracer,
 	registry *Registry,
 	cv converter.Converter,
-	propagators []contextpropagation.ContextPropagator,
+	propagators []wf.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
 	instance *core.WorkflowInstance,
 	metadata *metadata.WorkflowMetadata,
@@ -78,10 +77,10 @@ func NewExecutor(
 	wfTracer := workflowtracer.New(tracer)
 
 	wfCtx := sync.Background()
-	wfCtx = iconverter.WithConverter(wfCtx, cv)
+	wfCtx = contextvalue.WithConverter(wfCtx, cv)
 	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
-	wfCtx = icontextpropagation.WithPropagators(wfCtx, propagators)
+	wfCtx = sync.WithValue(wfCtx, contextvalue.PropagatorsCtxKey, propagators)
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	for _, propagator := range propagators {

@@ -6,7 +6,6 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/metrics"
-	"github.com/cschleiden/go-workflows/contextpropagation"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -25,7 +24,7 @@ type Options struct {
 	Converter converter.Converter
 
 	// ContextPropagators is a list of context propagators to use for passing context into workflows and activities.
-	ContextPropagators []contextpropagation.ContextPropagator
+	ContextPropagators []workflow.ContextPropagator
 
 	StickyTimeout time.Duration
 
@@ -50,7 +49,7 @@ var DefaultOptions Options = Options{
 	TracerProvider: trace.NewNoopTracerProvider(),
 	Converter:      converter.DefaultConverter,
 
-	ContextPropagators: []contextpropagation.ContextPropagator{&tracing.TracingContextPropagator{}},
+	ContextPropagators: []workflow.ContextPropagator{&tracing.TracingContextPropagator{}},
 }
 
 type BackendOption func(*Options)

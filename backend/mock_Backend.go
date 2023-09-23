@@ -5,7 +5,6 @@ package backend
 import (
 	context "context"
 
-	contextpropagation "github.com/cschleiden/go-workflows/contextpropagation"
 	converter "github.com/cschleiden/go-workflows/backend/converter"
 
 	core "github.com/cschleiden/go-workflows/core"
@@ -13,6 +12,8 @@ import (
 	history "github.com/cschleiden/go-workflows/backend/history"
 
 	metrics "github.com/cschleiden/go-workflows/backend/metrics"
+
+	workflow "github.com/cschleiden/go-workflows/workflow"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -69,15 +70,15 @@ func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, _a1 *WorkflowTa
 }
 
 // ContextPropagators provides a mock function with given fields:
-func (_m *MockBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (_m *MockBackend) ContextPropagators() []workflow.ContextPropagator {
 	ret := _m.Called()
 
-	var r0 []contextpropagation.ContextPropagator
-	if rf, ok := ret.Get(0).(func() []contextpropagation.ContextPropagator); ok {
+	var r0 []workflow.ContextPropagator
+	if rf, ok := ret.Get(0).(func() []workflow.ContextPropagator); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]contextpropagation.ContextPropagator)
+			r0 = ret.Get(0).([]workflow.ContextPropagator)
 		}
 	}
 

@@ -6,8 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
@@ -63,7 +62,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 
 	name := fn.Name(wf)
 
-	cv := converter.Converter(ctx)
+	cv := contextvalue.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting subworkflow input: %w", err))
@@ -83,9 +82,9 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	defer span.End()
 
 	// Capture context
-	propagators := contextpropagation.Propagators(ctx)
+	propagators := propagators(ctx)
 	metadata := &metadata.WorkflowMetadata{}
-	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
+	if err := injectFromWorkflow(ctx, metadata, propagators); err != nil {
 		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
 		return f
 	}

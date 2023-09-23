@@ -2,7 +2,7 @@ package workflowstate
 
 import (
 	"github.com/cschleiden/go-workflows/backend/payload"
-	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
@@ -32,7 +32,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 	// Otherwise, create new channel
 	c := sync.NewBufferedChannel[T](100)
 
-	converter := converter.Converter(ctx)
+	converter := contextvalue.Converter(ctx)
 
 	// Add channel to map
 	wf.signalChannels[name] = &signalChannel{
