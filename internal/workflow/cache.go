@@ -3,7 +3,7 @@ package workflow
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 type ExecutorCache interface {

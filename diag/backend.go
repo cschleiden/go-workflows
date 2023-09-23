@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 // json: serialization in this file needs to be kept in sync with client.ts in the web app

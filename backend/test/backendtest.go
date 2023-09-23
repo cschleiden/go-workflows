@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -233,7 +234,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{
 					Name:     "some-workflow",
 					Inputs:   []payload.Payload{},
-					Metadata: &core.WorkflowMetadata{},
+					Metadata: &metadata.WorkflowMetadata{},
 				})
 
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
@@ -361,7 +362,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 	}
 }
 
-func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c client.Client, instance *core.WorkflowInstance) {
+func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c *client.Client, instance *core.WorkflowInstance) {
 	err := b.CreateWorkflowInstance(
 		ctx, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 	require.NoError(t, err)

@@ -9,9 +9,9 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -27,7 +27,7 @@ func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}
@@ -49,7 +49,7 @@ func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
 	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(core.WorkflowInstanceStateActive, nil)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}
@@ -85,7 +85,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 	}, nil)
 	b.On("Converter").Return(converter.DefaultConverter)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   mockClock,
 	}
@@ -110,7 +110,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
 	})).Return(nil)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}
@@ -140,7 +140,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 			bytes.Equal(event.Attributes.(*history.SignalReceivedAttributes).Arg, input)
 	})).Return(nil)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}

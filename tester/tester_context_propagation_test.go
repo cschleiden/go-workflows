@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
@@ -44,7 +44,7 @@ type myPropagator struct {
 var _ workflow.ContextPropagator = &myPropagator{}
 
 // Extract implements workflow.ContextPropagator
-func (*myPropagator) Extract(ctx context.Context, metadata *core.WorkflowMetadata) (context.Context, error) {
+func (*myPropagator) Extract(ctx context.Context, metadata *metadata.WorkflowMetadata) (context.Context, error) {
 	ms := metadata.Get("mydata")
 
 	var d *myData
@@ -56,7 +56,7 @@ func (*myPropagator) Extract(ctx context.Context, metadata *core.WorkflowMetadat
 }
 
 // ExtractToWorkflow implements workflow.ContextPropagator
-func (*myPropagator) ExtractToWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata) (sync.Context, error) {
+func (*myPropagator) ExtractToWorkflow(ctx sync.Context, metadata *metadata.WorkflowMetadata) (sync.Context, error) {
 	ms := metadata.Get("mydata")
 
 	var d *myData
@@ -68,7 +68,7 @@ func (*myPropagator) ExtractToWorkflow(ctx sync.Context, metadata *core.Workflow
 }
 
 // Inject implements workflow.ContextPropagator
-func (*myPropagator) Inject(ctx context.Context, metadata *core.WorkflowMetadata) error {
+func (*myPropagator) Inject(ctx context.Context, metadata *metadata.WorkflowMetadata) error {
 	d := myValues(ctx)
 	b, err := json.Marshal(d)
 	if err != nil {
@@ -81,7 +81,7 @@ func (*myPropagator) Inject(ctx context.Context, metadata *core.WorkflowMetadata
 }
 
 // InjectFromWorkflow implements workflow.ContextPropagator
-func (*myPropagator) InjectFromWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata) error {
+func (*myPropagator) InjectFromWorkflow(ctx sync.Context, metadata *metadata.WorkflowMetadata) error {
 	d := myValuesWf(ctx)
 	b, err := json.Marshal(d)
 	if err != nil {

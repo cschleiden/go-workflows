@@ -7,21 +7,20 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/fn"
+	wf "github.com/cschleiden/go-workflows/workflow"
 )
-
-type Activity interface{}
 
 type Registry struct {
 	sync.Mutex
 
-	workflowMap map[string]Workflow
+	workflowMap map[string]wf.Workflow
 	activityMap map[string]interface{}
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		Mutex:       sync.Mutex{},
-		workflowMap: make(map[string]Workflow),
+		workflowMap: make(map[string]wf.Workflow),
 		activityMap: make(map[string]interface{}),
 	}
 }
@@ -42,7 +41,7 @@ func (e *ErrInvalidActivity) Error() string {
 	return e.msg
 }
 
-func (r *Registry) RegisterWorkflowByName(name string, workflow Workflow) error {
+func (r *Registry) RegisterWorkflowByName(name string, workflow wf.Workflow) error {
 	wfType := reflect.TypeOf(workflow)
 	if wfType.Kind() != reflect.Func {
 		return &ErrInvalidWorkflow{"workflow is not a function"}
@@ -78,7 +77,7 @@ func (r *Registry) RegisterWorkflowByName(name string, workflow Workflow) error 
 	return nil
 }
 
-func (r *Registry) RegisterWorkflow(workflow Workflow) error {
+func (r *Registry) RegisterWorkflow(workflow wf.Workflow) error {
 	name := fn.Name(workflow)
 	return r.RegisterWorkflowByName(name, workflow)
 }
@@ -150,7 +149,7 @@ func checkActivity(actType reflect.Type) error {
 	return nil
 }
 
-func (r *Registry) GetWorkflow(name string) (Workflow, error) {
+func (r *Registry) GetWorkflow(name string) (wf.Workflow, error) {
 	r.Lock()
 	defer r.Unlock()
 

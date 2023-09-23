@@ -22,7 +22,7 @@ func (e *CustomError) Error() string {
 var e2eActivityTests = []backendTest{
 	{
 		name: "Activity_Panic",
-		f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			a := func(context.Context) error {
 				panic("activity panic")
 			}
@@ -47,7 +47,7 @@ var e2eActivityTests = []backendTest{
 	},
 	{
 		name: "Activity_CustomError",
-		f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			a := func(context.Context) error {
 				return &CustomError{msg: "custom error"}
 			}

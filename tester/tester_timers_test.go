@@ -109,11 +109,11 @@ func timerCancellationSubWorkflow(ctx workflow.Context) error {
 
 	workflow.Select(
 		ctx,
-		workflow.Await(t, func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(t, func(ctx workflow.Context, _ workflow.Future[any]) {
 			// Cancel t2
 			cancel()
 		}),
-		workflow.Await(t2, func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(t2, func(ctx workflow.Context, _ workflow.Future[any]) {
 			// do nothing here, should never fire
 			panic("timer should have been cancelled")
 		}),

@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/task"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/tracing"
-	"github.com/cschleiden/go-workflows/log"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -54,7 +54,7 @@ var futureEventsCmd = redis.NewScript(`
 	return #events
 `)
 
-func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
 	// Check for future events
 	now := time.Now().UnixMilli()
 	nowStr := strconv.FormatInt(now, 10)
@@ -101,7 +101,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, er
 		newEvents = append(newEvents, event)
 	}
 
-	return &task.Workflow{
+	return &backend.WorkflowTask{
 		ID:                    instanceTask.TaskID,
 		WorkflowInstance:      instanceState.Instance,
 		WorkflowInstanceState: instanceState.State,
@@ -148,7 +148,7 @@ var requeueInstanceCmd = redis.NewScript(`
 
 func (rb *redisBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	task *task.Workflow,
+	task *backend.WorkflowTask,
 	instance *core.WorkflowInstance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
