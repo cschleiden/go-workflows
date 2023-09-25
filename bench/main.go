@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/monoprocess"
 	"github.com/cschleiden/go-workflows/backend/mysql"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
@@ -103,12 +104,12 @@ func main() {
 func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 	switch b {
 	case "memory":
-		return sqlite.NewInMemoryBackend(opt...)
+		return monoprocess.NewMonoprocessBackend(sqlite.NewInMemoryBackend(opt...))
 
 	case "sqlite":
 		os.Remove("bench.sqlite")
 
-		return sqlite.NewSqliteBackend("bench.sqlite", opt...)
+		return monoprocess.NewMonoprocessBackend(sqlite.NewSqliteBackend("bench.sqlite", opt...))
 
 	case "mysql":
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", "root", "root"))
@@ -128,7 +129,7 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 			panic(err)
 		}
 
-		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", opt...)
+		return monoprocess.NewMonoprocessBackend(mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", opt...))
 
 	case "redis":
 		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{
