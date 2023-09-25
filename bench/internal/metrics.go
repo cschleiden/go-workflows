@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ type memMetrics struct {
 	s    *store
 }
 
-func newMemMetrics() *memMetrics {
+func NewMemMetrics() *memMetrics {
 	return &memMetrics{
 		tags: make(metrics.Tags),
 		s: &store{
