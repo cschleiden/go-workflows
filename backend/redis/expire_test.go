@@ -71,6 +71,11 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	require.NoError(t, w.Start(ctx))
+	defer func() {
+		cancel()
+
+		require.NoError(t, w.WaitForCompletion())
+	}()
 
 	swf := func(ctx workflow.Context) (int, error) {
 		return 42, nil
@@ -101,12 +106,9 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	require.Equal(t, 42, r)
 
 	// Wait for redis to expire the keys
-	time.Sleep(autoExpirationTime)
+	time.Sleep(autoExpirationTime * 2)
 
 	// Main workflow should now be expired
 	_, err = b.GetWorkflowInstanceState(ctx, wfi)
 	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
-
-	cancel()
-	require.NoError(t, w.WaitForCompletion())
 }
