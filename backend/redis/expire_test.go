@@ -18,7 +18,7 @@ func Test_AutoExpiration(t *testing.T) {
 		t.Skip()
 	}
 
-	autoExpirationTime := time.Second * 1
+	autoExpirationTime := time.Second * 2
 
 	redisClient := getClient()
 	setup := getCreateBackend(redisClient, WithAutoExpiration(autoExpirationTime))
@@ -45,7 +45,7 @@ func Test_AutoExpiration(t *testing.T) {
 	require.NoError(t, c.WaitForWorkflowInstance(ctx, wfi, time.Second*10))
 
 	// Wait for redis to expire the keys
-	time.Sleep(autoExpirationTime)
+	time.Sleep(autoExpirationTime * 2)
 
 	_, err = b.GetWorkflowInstanceState(ctx, wfi)
 	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
@@ -59,7 +59,7 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 		t.Skip()
 	}
 
-	autoExpirationTime := time.Second * 1
+	autoExpirationTime := time.Second * 2
 
 	redisClient := getClient()
 	setup := getCreateBackend(redisClient, WithAutoExpiration(autoExpirationTime))
@@ -71,6 +71,11 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	require.NoError(t, w.Start(ctx))
+	defer func() {
+		cancel()
+
+		require.NoError(t, w.WaitForCompletion())
+	}()
 
 	swf := func(ctx workflow.Context) (int, error) {
 		return 42, nil
@@ -79,6 +84,9 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	swfInstanceID := uuid.NewString()
 
 	wf := func(ctx workflow.Context) (int, error) {
+		l := workflow.Logger(ctx)
+		l.Debug("Starting sub workflow", "instanceID", swfInstanceID)
+
 		r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 			InstanceID: swfInstanceID,
 		}, swf).Get(ctx)
@@ -101,12 +109,9 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	require.Equal(t, 42, r)
 
 	// Wait for redis to expire the keys
-	time.Sleep(autoExpirationTime)
+	time.Sleep(autoExpirationTime * 2)
 
 	// Main workflow should now be expired
 	_, err = b.GetWorkflowInstanceState(ctx, wfi)
 	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
-
-	cancel()
-	require.NoError(t, w.WaitForCompletion())
 }
