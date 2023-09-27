@@ -12,13 +12,12 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/metrics"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -79,7 +78,7 @@ func (b *mysqlBackend) Converter() converter.Converter {
 	return b.options.Converter
 }
 
-func (b *mysqlBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (b *mysqlBackend) ContextPropagators() []workflow.ContextPropagator {
 	return b.options.ContextPropagators
 }
 
@@ -315,7 +314,7 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 }
 
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
-func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -386,14 +385,14 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
-	var metadata *core.WorkflowMetadata
+	var metadata *metadata.WorkflowMetadata
 	if metadataJson.Valid {
 		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
 			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
 		}
 	}
 
-	t := &task.Workflow{
+	t := &backend.WorkflowTask{
 		ID:                    wfi.InstanceID,
 		WorkflowInstance:      wfi,
 		WorkflowInstanceState: core.WorkflowInstanceStateActive,
@@ -469,7 +468,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, err
 // completed or other workflow instances.
 func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	task *task.Workflow,
+	task *backend.WorkflowTask,
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
@@ -617,7 +616,7 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 }
 
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
-func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -671,7 +670,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*task.Activity, err
 		return nil, fmt.Errorf("locking activity: %w", err)
 	}
 
-	t := &task.Activity{
+	t := &backend.ActivityTask{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,

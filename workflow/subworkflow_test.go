@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
@@ -20,14 +21,14 @@ func Test_createSubWorkflowInstance_ParamMismatch(t *testing.T) {
 	}
 
 	ctx := sync.Background()
-	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
+	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
 		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := createSubWorkflowInstance[int](ctx, DefaultSubWorkflowOptions, 1, wf, "foo")
 		_, err := f.Get(ctx)
 		require.Error(t, err)
@@ -45,14 +46,14 @@ func Test_createSubWorkflowInstance_ReturnMismatch(t *testing.T) {
 	}
 
 	ctx := sync.Background()
-	ctx = converter.WithConverter(ctx, converter.DefaultConverter)
+	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
 		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
 	)
 	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
-	c := sync.NewCoroutine(ctx, func(ctx sync.Context) error {
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := createSubWorkflowInstance[string](ctx, DefaultSubWorkflowOptions, 1, wf)
 		_, err := f.Get(ctx)
 		require.Error(t, err)

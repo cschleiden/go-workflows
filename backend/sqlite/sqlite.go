@@ -12,13 +12,12 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/metrics"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
@@ -88,7 +87,7 @@ func (sb *sqliteBackend) Converter() converter.Converter {
 	return sb.options.Converter
 }
 
-func (sb *sqliteBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (sb *sqliteBackend) ContextPropagators() []workflow.ContextPropagator {
 	return sb.options.ContextPropagators
 }
 
@@ -274,7 +273,7 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -330,14 +329,14 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
-	var metadata *core.WorkflowMetadata
+	var metadata *metadata.WorkflowMetadata
 	if metadataJson.Valid {
 		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
 			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
 		}
 	}
 
-	t := &task.Workflow{
+	t := &backend.WorkflowTask{
 		ID:                    wfi.InstanceID,
 		WorkflowInstance:      wfi,
 		WorkflowInstanceState: core.WorkflowInstanceStateActive,
@@ -376,7 +375,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	task *task.Workflow,
+	task *backend.WorkflowTask,
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
@@ -513,7 +512,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -577,7 +576,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		return nil, fmt.Errorf("unmarshaling metadata: %w", err)
 	}
 
-	t := &task.Activity{
+	t := &backend.ActivityTask{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,

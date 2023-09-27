@@ -45,7 +45,7 @@ func main() {
 	log.Println("Finished in", time.Since(now))
 }
 
-func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
+func startWorkflow(ctx context.Context, c *client.Client, wg *sync.WaitGroup) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, scale.Workflow1, "Hello world "+uuid.NewString())

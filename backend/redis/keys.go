@@ -3,7 +3,7 @@ package redis
 import (
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 // activeInstanceExecutionKey returns the key for the latest execution of the given instance

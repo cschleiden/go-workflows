@@ -268,7 +268,7 @@ Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow.
 Sub-workflows will be canceled if their parent workflow is canceled.
 
 ```go
-var c client.Client
+var c *client.Client
 err = c.CancelWorkflowInstance(context.Background(), workflowInstance)
 if err != nil {
 	panic("could not cancel workflow")

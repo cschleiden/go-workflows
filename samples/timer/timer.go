@@ -32,7 +32,7 @@ func main() {
 	w.WaitForCompletion()
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func startWorkflow(ctx context.Context, c *client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world")
@@ -48,7 +48,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Workflow finished. Result:", result)
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
+func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
@@ -73,7 +73,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	workflow.Select(
 		ctx,
-		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[any]) {
 			if _, err := f.Get(ctx); err != nil {
 				logger.Debug("Timer canceled")
 			} else {

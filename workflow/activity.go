@@ -5,19 +5,18 @@ import (
 
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/fn"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type ActivityOptions struct {
+	// RetryOptions defines how to retry the activity in case of failure.
 	RetryOptions RetryOptions
 }
 
@@ -26,13 +25,13 @@ var DefaultActivityOptions = ActivityOptions{
 }
 
 // ExecuteActivity schedules the given activity to be executed
-func ExecuteActivity[TResult any](ctx Context, options ActivityOptions, activity interface{}, args ...interface{}) Future[TResult] {
-	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+func ExecuteActivity[TResult any](ctx Context, options ActivityOptions, activity Activity, args ...any) Future[TResult] {
+	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return executeActivity[TResult](ctx, options, attempt, activity, args...)
 	})
 }
 
-func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt int, activity interface{}, args ...interface{}) Future[TResult] {
+func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt int, activity Activity, args ...any) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	if ctx.Err() != nil {
@@ -52,7 +51,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 		return f
 	}
 
-	cv := converter.GetConverter(ctx)
+	cv := contextvalue.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting activity input: %w", err))
@@ -65,9 +64,9 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	name := fn.Name(activity)
 
 	// Capture context
-	propagators := contextpropagation.Propagators(ctx)
-	metadata := &core.WorkflowMetadata{}
-	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
+	propagators := propagators(ctx)
+	metadata := &Metadata{}
+	if err := injectFromWorkflow(ctx, metadata, propagators); err != nil {
 		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
 		return f
 	}
@@ -93,7 +92,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 				if cmd.State() == command.CommandState_Pending {
 					cmd.Done()
 					wfState.RemoveFuture(scheduleEventID)
-					f.Set(*new(TResult), sync.Canceled)
+					f.Set(*new(TResult), Canceled)
 				}
 			}
 		}

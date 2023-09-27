@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 )
-
-type Workflow interface{}
 
 type workflow struct {
 	s      *sync.Scheduler
@@ -32,7 +30,7 @@ func NewWorkflow(workflowFn reflect.Value) *workflow {
 
 func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 	w.s.NewCoroutine(ctx, func(ctx sync.Context) error {
-		converter := converter.GetConverter(ctx)
+		converter := contextvalue.Converter(ctx)
 		args, addContext, err := args.InputsToArgs(converter, w.fn, inputs)
 		if err != nil {
 			return fmt.Errorf("converting workflow inputs: %w", err)

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/core"
 	redis "github.com/redis/go-redis/v9"
 )
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +17,7 @@ func reg_workflow1(ctx sync.Context) error {
 func TestRegistry_RegisterWorkflow(t *testing.T) {
 	type args struct {
 		name     string
-		workflow Workflow
+		workflow wf.Workflow
 	}
 	tests := []struct {
 		name     string

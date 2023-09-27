@@ -7,9 +7,63 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/test"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/core"
 )
+
+var _ test.TestBackend = (*sqliteBackend)(nil)
+
+func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// There is no index on `visible_at`, but this is okay for test only usage.
+	futureEvents, err := tx.QueryContext(
+		ctx,
+		"SELECT id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE visible_at IS NOT NULL",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getting history: %w", err)
+	}
+
+	f := make([]*history.Event, 0)
+
+	for futureEvents.Next() {
+		var instanceID, executionID string
+		var attributes []byte
+
+		fe := &history.Event{}
+
+		if err := futureEvents.Scan(
+			&fe.ID,
+			&fe.SequenceID,
+			&instanceID,
+			&executionID,
+			&fe.Type,
+			&fe.Timestamp,
+			&fe.ScheduleEventID,
+			&attributes,
+			&fe.VisibleAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning event: %w", err)
+		}
+
+		a, err := history.DeserializeAttributes(fe.Type, attributes)
+		if err != nil {
+			return nil, fmt.Errorf("deserializing attributes: %w", err)
+		}
+
+		fe.Attributes = a
+
+		f = append(f, fe)
+	}
+
+	return f, nil
+}
 
 func getPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance) ([]*history.Event, error) {
 	now := time.Now()

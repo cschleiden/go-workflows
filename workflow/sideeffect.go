@@ -2,12 +2,17 @@ package workflow
 
 import (
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/converter"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 )
 
+// SideEffect executes the given function and returns a future that will be resolved with the result of
+// the function.
+//
+// In contrast to Activities, SideEffects are executed inline with the workflow code. They should only
+// be used for short and inexpensive operations. For longer operations, consider using an Activity.
 func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TResult] {
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "SideEffect")
 	defer span.End()
@@ -22,7 +27,7 @@ func SideEffect[TResult any](ctx Context, f func(ctx Context) TResult) Future[TR
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
-	cv := converter.GetConverter(ctx)
+	cv := contextvalue.Converter(ctx)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, future))
 
 	cmd := command.NewSideEffectCommand(scheduleEventID)

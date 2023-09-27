@@ -30,6 +30,7 @@ var DefaultRetryOptions = RetryOptions{
 	BackoffCoefficient: 1,
 }
 
+// WithRetries executes the given function with retries.
 func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Context, attempt int) Future[T]) Future[T] {
 	attempt := 0
 	firstAttempt := Now(ctx)
@@ -44,7 +45,7 @@ func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Cont
 	// Start a separate co-routine for retries
 	r := sync.NewFuture[T]()
 
-	Go(ctx, func(ctx sync.Context) {
+	Go(ctx, func(ctx Context) {
 		var result T
 		var err error
 

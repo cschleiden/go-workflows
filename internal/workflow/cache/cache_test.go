@@ -9,10 +9,10 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrics"
 	wf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -29,14 +29,14 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
-		[]contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New(),
+		[]workflow.ContextPropagator{}, &testHistoryProvider{}, i, &metadata.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
 
 	i2 := core.NewWorkflowInstance("instanceID2", "executionID2")
 	e2, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
-		[]contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i, &core.WorkflowMetadata{}, clock.New(),
+		[]workflow.ContextPropagator{}, &testHistoryProvider{}, i, &metadata.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
 
@@ -69,8 +69,8 @@ func Test_Cache_Evict(t *testing.T) {
 	r.RegisterWorkflow(workflowWithActivity)
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
-		converter.DefaultConverter, []contextpropagation.ContextPropagator{}, &testHistoryProvider{}, i,
-		&core.WorkflowMetadata{}, clock.New(),
+		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
+		&metadata.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
 
