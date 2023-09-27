@@ -252,7 +252,7 @@ func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.Workflo
 
 func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...any) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
-	wt.registry.RegisterActivity(activity, workflow.WithName(name))
+	wt.registry.RegisterActivity(activity, wf.WithName(name))
 
 	wt.mockedActivities[name] = true
 	return wt.ma.On(name, args...)
@@ -267,9 +267,9 @@ func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args .
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, wf workflow.Workflow, args ...any) *mock.Call {
+func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...any) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
-	wt.registry.RegisterWorkflow(wf, workflow.WithName(name))
+	wt.registry.RegisterWorkflow(workflow, wf.WithName(name))
 
 	wt.mockedWorkflows[name] = true
 	return wt.mw.On(name, args...)
