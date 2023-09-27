@@ -92,10 +92,10 @@ func (w *Worker) WaitForCompletion() error {
 	return nil
 }
 
-func (w *Worker) RegisterWorkflow(wf workflow.Workflow) error {
-	return w.registry.RegisterWorkflow(wf)
+func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...RegisterOption) error {
+	return w.registry.RegisterWorkflow(wf, registerOptions(opts).asInternalOptions()...)
 }
 
-func (w *Worker) RegisterActivity(a workflow.Activity) error {
-	return w.registry.RegisterActivity(a)
+func (w *Worker) RegisterActivity(a workflow.Activity, opts ...RegisterOption) error {
+	return w.registry.RegisterActivity(a, registerOptions(opts).asInternalOptions()...)
 }

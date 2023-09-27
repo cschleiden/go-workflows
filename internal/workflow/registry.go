@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -33,6 +34,14 @@ func (e *ErrInvalidWorkflow) Error() string {
 	return e.msg
 }
 
+type ErrWorkflowAlreadyRegistered struct {
+	msg string
+}
+
+func (e *ErrWorkflowAlreadyRegistered) Error() string {
+	return e.msg
+}
+
 type ErrInvalidActivity struct {
 	msg string
 }
@@ -41,7 +50,25 @@ func (e *ErrInvalidActivity) Error() string {
 	return e.msg
 }
 
-func (r *Registry) RegisterWorkflowByName(name string, workflow wf.Workflow) error {
+type ErrActivityAlreadyRegistered struct {
+	msg string
+}
+
+func (e *ErrActivityAlreadyRegistered) Error() string {
+	return e.msg
+}
+
+type RegisterConfig struct {
+	Name string
+}
+
+func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption) error {
+	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
+	name := cfg.Name
+	if name == "" {
+		name = fn.Name(workflow)
+	}
+
 	wfType := reflect.TypeOf(workflow)
 	if wfType.Kind() != reflect.Func {
 		return &ErrInvalidWorkflow{"workflow is not a function"}
@@ -72,17 +99,17 @@ func (r *Registry) RegisterWorkflowByName(name string, workflow wf.Workflow) err
 	r.Lock()
 	defer r.Unlock()
 
+	if _, ok := r.workflowMap[name]; ok {
+		return &ErrWorkflowAlreadyRegistered{fmt.Sprintf("workflow with name %q already registered", name)}
+	}
 	r.workflowMap[name] = workflow
 
 	return nil
 }
 
-func (r *Registry) RegisterWorkflow(workflow wf.Workflow) error {
-	name := fn.Name(workflow)
-	return r.RegisterWorkflowByName(name, workflow)
-}
+func (r *Registry) RegisterActivity(activity wf.Activity, opts ...RegisterOption) error {
+	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
 
-func (r *Registry) RegisterActivityByName(name string, activity interface{}) error {
 	t := reflect.TypeOf(activity)
 
 	// Activities on struct
@@ -91,6 +118,11 @@ func (r *Registry) RegisterActivityByName(name string, activity interface{}) err
 	}
 
 	// Activity as function
+	name := cfg.Name
+	if name == "" {
+		name = fn.Name(activity)
+	}
+
 	if err := checkActivity(reflect.TypeOf(activity)); err != nil {
 		return err
 	}
@@ -98,20 +130,22 @@ func (r *Registry) RegisterActivityByName(name string, activity interface{}) err
 	r.Lock()
 	defer r.Unlock()
 
+	if _, ok := r.activityMap[name]; ok {
+		return &ErrActivityAlreadyRegistered{fmt.Sprintf("activity with name %q already registered", name)}
+	}
 	r.activityMap[name] = activity
 
 	return nil
-}
-
-func (r *Registry) RegisterActivity(activity interface{}) error {
-	name := fn.Name(activity)
-	return r.RegisterActivityByName(name, activity)
 }
 
 func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
 	// Enumerate functions defined on a
 	v := reflect.ValueOf(a)
 	t := v.Type()
+
+	r.Lock()
+	defer r.Unlock()
+
 	for i := 0; i < v.NumMethod(); i++ {
 		mv := v.Method(i)
 		mt := t.Method(i)

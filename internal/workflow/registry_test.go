@@ -84,13 +84,8 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewRegistry()
-			var err error
 
-			if tt.args.name != "" {
-				err = r.RegisterWorkflowByName(tt.args.name, tt.args.workflow)
-			} else {
-				err = r.RegisterWorkflow(tt.args.workflow)
-			}
+			err := r.RegisterWorkflow(tt.args.workflow, WithName(tt.args.name))
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Registry.RegisterWorkflow() error = %v, wantErr %v", err, tt.wantErr)
@@ -104,6 +99,25 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_RegisterWorkflow_Conflict(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
+
+	var wantErr *ErrWorkflowAlreadyRegistered
+
+	err := r.RegisterWorkflow(reg_workflow1)
+	require.NoError(t, err)
+
+	err = r.RegisterWorkflow(reg_workflow1)
+	require.ErrorAs(t, err, &wantErr)
+
+	err = r.RegisterWorkflow(reg_workflow1, WithName("CustomName"))
+	require.NoError(t, err)
+
+	err = r.RegisterWorkflow(reg_workflow1, WithName("CustomName"))
+	require.ErrorAs(t, err, &wantErr)
 }
 
 func reg_activity(ctx context.Context) error {
@@ -127,7 +141,7 @@ func Test_ActivityRegistration(t *testing.T) {
 	err = fn(context.Background())
 	require.NoError(t, err)
 
-	err = r.RegisterActivityByName("CustomName", reg_activity)
+	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
 	require.NoError(t, err)
 
 	x, err = r.GetActivity("CustomName")
@@ -183,6 +197,25 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 	v, err := fn(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "test", v)
+}
+
+func Test_RegisterActivity_Conflict(t *testing.T) {
+	r := NewRegistry()
+	require.NotNil(t, r)
+
+	var wantErr *ErrActivityAlreadyRegistered
+
+	err := r.RegisterActivity(reg_activity)
+	require.NoError(t, err)
+
+	err = r.RegisterActivity(reg_activity)
+	require.ErrorAs(t, err, &wantErr)
+
+	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
+	require.NoError(t, err)
+
+	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
+	require.ErrorAs(t, err, &wantErr)
 }
 
 type reg_invalid_activities struct {
