@@ -66,39 +66,35 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 		logger.Debug("Leaving Workflow1")
 	}()
 
-	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
-	a2 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2)
+	wg := workflow.NewWaitGroup()
+	wg.Add(2)
 
-	results := 0
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		defer wg.Done()
 
-	for results < 2 {
-		logger.Debug("Selecting...")
+		a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
+		r, err := a1.Get(ctx)
+		if err != nil {
+			panic(err)
+		}
 
-		workflow.Select(
-			ctx,
-			workflow.Await(a2, func(ctx workflow.Context, f2 workflow.Future[int]) {
-				r, err := f2.Get(ctx)
-				if err != nil {
-					panic(err)
-				}
+		logger.Debug("A1 result", "r", r)
+	})
 
-				logger.Debug("A2 result", "r", r)
-				results++
-			}),
-			workflow.Await(a1, func(ctx workflow.Context, f1 workflow.Future[int]) {
-				r, err := f1.Get(ctx)
-				if err != nil {
-					panic(err)
-				}
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		defer wg.Done()
 
-				logger.Debug("A1 result", "r", r)
+		a2 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity2)
+		r, err := a2.Get(ctx)
+		if err != nil {
+			panic(err)
+		}
 
-				results++
-			}),
-		)
+		logger.Debug("A2 result", "r", r)
+	})
 
-		logger.Debug("Selected")
-	}
+	// Wait for both "Go"-routines to finish
+	wg.Wait(ctx)
 
 	return "result", nil
 }
