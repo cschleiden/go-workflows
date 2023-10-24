@@ -29,5 +29,3 @@ func Workflow1(ctx workflow.Context, input string) error {
 	return nil
 }
 ```
-
-Next: [Create an activity](./activities.md)

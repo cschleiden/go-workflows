@@ -1,4 +1,8 @@
-### Putting it all together
+---
+sidebar_position: 5
+---
+
+# Putting it all together
 
 We can start workflows from the same process the worker runs in -- or they can be separate. Here we use the SQLite backend, spawn a single worker (which then executes both `Workflows` and `Activities`), and then start a single instance of our workflow
 
