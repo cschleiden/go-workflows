@@ -37,7 +37,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 			result: func(t *testing.T, result payload.Payload, err error) {
 				require.Nil(t, result)
 				require.Error(t, err)
-				require.EqualError(t, err, "activity not found")
+				require.EqualError(t, err, "activity unknown not found")
 			},
 		},
 		{

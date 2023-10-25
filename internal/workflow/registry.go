@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -169,5 +170,5 @@ func (r *Registry) GetActivity(name string) (interface{}, error) {
 		return activity, nil
 	}
 
-	return nil, errors.New("activity not found")
+	return nil, fmt.Errorf("activity %s not found", name)
 }
