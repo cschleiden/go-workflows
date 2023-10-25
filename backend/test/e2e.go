@@ -110,7 +110,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
 
 				require.Zero(t, output)
-				require.ErrorContains(t, err, "activity not found")
+				require.ErrorContains(t, err, "activity 1 not found")
 			},
 		},
 		{
