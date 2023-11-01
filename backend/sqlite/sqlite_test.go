@@ -14,9 +14,7 @@ func Test_SqliteBackend(t *testing.T) {
 
 	test.BackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
 		// Disable sticky workflow behavior for the test execution
-		options = append(options, backend.WithStickyTimeout(0))
-
-		return NewInMemoryBackend(options...)
+		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...))
 	}, nil)
 }
 
@@ -27,8 +25,6 @@ func Test_EndToEndSqliteBackend(t *testing.T) {
 
 	test.EndToEndBackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
 		// Disable sticky workflow behavior for the test execution
-		options = append(options, backend.WithStickyTimeout(0))
-
-		return NewInMemoryBackend(options...)
+		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...))
 	}, nil)
 }

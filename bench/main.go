@@ -104,12 +104,12 @@ func main() {
 func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 	switch b {
 	case "memory":
-		return monoprocess.NewMonoprocessBackend(sqlite.NewInMemoryBackend(opt...))
+		return monoprocess.NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(opt...)))
 
 	case "sqlite":
 		os.Remove("bench.sqlite")
 
-		return monoprocess.NewMonoprocessBackend(sqlite.NewSqliteBackend("bench.sqlite", opt...))
+		return monoprocess.NewMonoprocessBackend(sqlite.NewSqliteBackend("bench.sqlite", sqlite.WithBackendOptions(opt...)))
 
 	case "mysql":
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", "root", "root"))

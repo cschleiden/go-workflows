@@ -60,3 +60,8 @@ CREATE TABLE IF NOT EXISTS `activities` (
   `locked_until` DATETIME NULL,
   `worker` TEXT NULL
 );
+
+
+CREATE INDEX IF NOT EXISTS `idx_activities_id_worker` ON `activities` (`id`, `worker`);
+CREATE INDEX IF NOT EXISTS `idx_activities_locked_until` ON `activities` (`locked_until`);
+CREATE INDEX IF NOT EXISTS `idx_activities_instance_id_execution_id_worker` ON `activities` (`instance_id`, `execution_id`, `worker`);

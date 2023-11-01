@@ -21,10 +21,10 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 
 	switch *b {
 	case "memory":
-		return sqlite.NewInMemoryBackend(opt...)
+		return sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(opt...))
 
 	case "sqlite":
-		return sqlite.NewSqliteBackend(name+".sqlite", opt...)
+		return sqlite.NewSqliteBackend(name+".sqlite", sqlite.WithBackendOptions(opt...))
 
 	case "mysql":
 		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, opt...)

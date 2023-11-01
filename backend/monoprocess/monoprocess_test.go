@@ -20,7 +20,7 @@ func Test_MonoprocessBackend(t *testing.T) {
 		// Disable sticky workflow behavior for the test execution
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...))
+		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(options...)))
 	}, nil)
 }
 
@@ -33,7 +33,7 @@ func Test_EndToEndMonoprocessBackend(t *testing.T) {
 		// Disable sticky workflow behavior for the test execution
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...))
+		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(options...)))
 	}, nil)
 }
 
@@ -43,5 +43,6 @@ func (b *monoprocessBackend) GetFutureEvents(ctx context.Context) ([]*history.Ev
 	if testBackend, ok := b.Backend.(test.TestBackend); ok {
 		return testBackend.GetFutureEvents(ctx)
 	}
+
 	return nil, errors.New("not implemented")
 }

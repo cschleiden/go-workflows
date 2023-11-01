@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"embed"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -23,31 +24,34 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-//go:embed schema.sql
-var schema string
+//go:embed db/migrations/*.sql
+var migrationsFS embed.FS
 
-func NewInMemoryBackend(opts ...backend.BackendOption) *sqliteBackend {
-	b := newSqliteBackend("file::memory:?_mode=memory", opts...)
-
-	b.db.SetMaxOpenConns(1)
-
-	return b
+func NewInMemoryBackend(opts ...option) *sqliteBackend {
+	return newSqliteBackend("file::memory:?_mode=memory", opts...)
 }
 
-func NewSqliteBackend(path string, opts ...backend.BackendOption) *sqliteBackend {
+func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
 	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
 }
 
-func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend {
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		panic(err)
+func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
+	options := &options{
+		ApplyMigrations: true,
 	}
 
-	// Initialize database
-	if _, err := db.Exec(schema); err != nil {
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
 		panic(err)
 	}
 
@@ -56,20 +60,55 @@ func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend 
 	// See https://github.com/mattn/go-sqlite3/issues/274 for more context
 	db.SetMaxOpenConns(1)
 
-	return &sqliteBackend{
+	b := &sqliteBackend{
 		db:         db,
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
-		options:    backend.ApplyOptions(opts...),
+		options:    options,
 	}
+
+	// Apply migrations
+	if options.ApplyMigrations {
+		if err := b.Migrate(); err != nil {
+			panic(err)
+		}
+	}
+
+	return b
 }
 
 type sqliteBackend struct {
 	db         *sql.DB
 	workerName string
-	options    backend.Options
+	options    *options
 }
 
 var _ backend.Backend = (*sqliteBackend)(nil)
+
+// Migrate applies any pending database migrations.
+func (sb *sqliteBackend) Migrate() error {
+	dbi, err := sqlite.WithInstance(sb.db, &sqlite.Config{})
+	if err != nil {
+		return fmt.Errorf("creating migration instance: %w", err)
+	}
+
+	migrations, err := iofs.New(migrationsFS, "db/migrations")
+	if err != nil {
+		return fmt.Errorf("creating migration source: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", migrations, "sqlite", dbi)
+	if err != nil {
+		return fmt.Errorf("creating migration: %w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("running migrations: %w", err)
+		}
+	}
+
+	return nil
+}
 
 func (sb *sqliteBackend) Logger() *slog.Logger {
 	return sb.options.Logger
