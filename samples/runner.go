@@ -27,7 +27,7 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 		return sqlite.NewSqliteBackend(name+".sqlite", sqlite.WithBackendOptions(opt...))
 
 	case "mysql":
-		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, opt...)
+		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, mysql.WithBackendOptions(opt...))
 
 	case "redis":
 		rclient := redisv9.NewUniversalClient(&redisv9.UniversalOptions{

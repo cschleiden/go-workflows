@@ -129,7 +129,7 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 			panic(err)
 		}
 
-		return monoprocess.NewMonoprocessBackend(mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", opt...))
+		return monoprocess.NewMonoprocessBackend(mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", mysql.WithBackendOptions(opt...)))
 
 	case "redis":
 		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{

@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"embed"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -22,44 +23,76 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-//go:embed schema.sql
-var schema string
+//go:embed db/migrations/*.sql
+var migrationsFS embed.FS
 
-func NewMysqlBackend(host string, port int, user, password, database string, opts ...backend.BackendOption) *mysqlBackend {
+func NewMysqlBackend(host string, port int, user, password, database string, opts ...option) *mysqlBackend {
+	options := &options{
+		ApplyMigrations: true,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&interpolateParams=true", user, password, host, port, database)
 
-	schemaDsn := dsn + "&multiStatements=true"
-	db, err := sql.Open("mysql", schemaDsn)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
 
-	if _, err := db.Exec(schema); err != nil {
-		panic(fmt.Errorf("initializing database: %w", err))
-	}
-
-	if err := db.Close(); err != nil {
-		panic(err)
-	}
-
-	db, err = sql.Open("mysql", dsn)
-	if err != nil {
-		panic(err)
-	}
-
-	return &mysqlBackend{
+	b := &mysqlBackend{
 		db:         db,
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
-		options:    backend.ApplyOptions(opts...),
+		options:    options,
 	}
+
+	if options.ApplyMigrations {
+		if err := b.Migrate(); err != nil {
+			panic(err)
+		}
+	}
+
+	return b
 }
 
 type mysqlBackend struct {
 	db         *sql.DB
 	workerName string
-	options    backend.Options
+	options    *options
+}
+
+// Migrate applies any pending database migrations.
+func (sb *mysqlBackend) Migrate() error {
+	dbi, err := mysql.WithInstance(sb.db, &mysql.Config{})
+	if err != nil {
+		return fmt.Errorf("creating migration instance: %w", err)
+	}
+
+	migrations, err := iofs.New(migrationsFS, "db/migrations")
+	if err != nil {
+		return fmt.Errorf("creating migration source: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", migrations, "mysql", dbi)
+	if err != nil {
+		return fmt.Errorf("creating migration: %w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("running migrations: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (b *mysqlBackend) Logger() *slog.Logger {

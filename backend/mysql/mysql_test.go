@@ -43,7 +43,7 @@ func Test_MysqlBackend(t *testing.T) {
 
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, options...)
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
@@ -84,7 +84,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, options...)
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
