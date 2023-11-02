@@ -49,6 +49,7 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 	}
 
 	b := &mysqlBackend{
+		dsn:        dsn,
 		db:         db,
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
 		options:    options,
@@ -64,6 +65,7 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 }
 
 type mysqlBackend struct {
+	dsn        string
 	db         *sql.DB
 	workerName string
 	options    *options
@@ -71,7 +73,13 @@ type mysqlBackend struct {
 
 // Migrate applies any pending database migrations.
 func (sb *mysqlBackend) Migrate() error {
-	dbi, err := mysql.WithInstance(sb.db, &mysql.Config{})
+	schemaDsn := sb.dsn + "&multiStatements=true"
+	db, err := sql.Open("mysql", schemaDsn)
+	if err != nil {
+		return fmt.Errorf("opening schema database: %w", err)
+	}
+
+	dbi, err := mysql.WithInstance(db, &mysql.Config{})
 	if err != nil {
 		return fmt.Errorf("creating migration instance: %w", err)
 	}
