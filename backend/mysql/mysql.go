@@ -101,6 +101,10 @@ func (sb *mysqlBackend) Migrate() error {
 		}
 	}
 
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("closing schema database: %w", err)
+	}
+
 	return nil
 }
 
