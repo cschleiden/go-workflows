@@ -45,6 +45,10 @@ func Test_MysqlBackend(t *testing.T) {
 
 		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
+		if err := b.(*mysqlBackend).db.Close(); err != nil {
+			panic(err)
+		}
+
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -86,6 +90,10 @@ func TestMySqlBackendE2E(t *testing.T) {
 
 		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
+		if err := b.(*mysqlBackend).db.Close(); err != nil {
+			panic(err)
+		}
+
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
