@@ -34,6 +34,7 @@ var migrationsFS embed.FS
 
 func NewMysqlBackend(host string, port int, user, password, database string, opts ...option) *mysqlBackend {
 	options := &options{
+		Options:         backend.ApplyOptions(),
 		ApplyMigrations: true,
 	}
 

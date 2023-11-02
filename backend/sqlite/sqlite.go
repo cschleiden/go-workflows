@@ -43,6 +43,7 @@ func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
 
 func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 	options := &options{
+		Options:         backend.ApplyOptions(),
 		ApplyMigrations: true,
 	}
 
