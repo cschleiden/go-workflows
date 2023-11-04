@@ -146,8 +146,8 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *backend.Activity
 					return
 				case <-t.C:
 					if err := aw.backend.ExtendActivityTask(ctx, task.ID); err != nil {
-						aw.backend.Logger().Error("extending activity task", "error", err)
 						if !errors.Is(err, context.Canceled) {
+							aw.backend.Logger().Error("extending activity task", "error", err)
 							panic("extending activity task")
 						}
 					}
