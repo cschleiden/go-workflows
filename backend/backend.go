@@ -83,4 +83,7 @@ type Backend interface {
 
 	// ContextPropagators returns the configured context propagators for the backend
 	ContextPropagators() []workflow.ContextPropagator
+
+	// Close closes any underlying resources
+	Close() error
 }

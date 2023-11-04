@@ -72,9 +72,13 @@ type mysqlBackend struct {
 	options    *options
 }
 
+func (mb *mysqlBackend) Close() error {
+	return mb.db.Close()
+}
+
 // Migrate applies any pending database migrations.
-func (sb *mysqlBackend) Migrate() error {
-	schemaDsn := sb.dsn + "&multiStatements=true"
+func (mb *mysqlBackend) Migrate() error {
+	schemaDsn := mb.dsn + "&multiStatements=true"
 	db, err := sql.Open("mysql", schemaDsn)
 	if err != nil {
 		return fmt.Errorf("opening schema database: %w", err)
@@ -239,6 +243,8 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
+
+	defer historyEvents.Close()
 
 	h := make([]*history.Event, 0)
 
@@ -457,6 +463,8 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTa
 	if err != nil {
 		return nil, fmt.Errorf("getting new events: %w", err)
 	}
+
+	defer events.Close()
 
 	for events.Next() {
 		var attributes []byte
@@ -780,7 +788,7 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	defer tx.Rollback()
 
 	until := time.Now().Add(b.options.ActivityLockTimeout)
-	res, err := tx.ExecContext(
+	_, err = tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE activity_id = ? AND worker = ?`,
 		until,
@@ -789,12 +797,6 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	)
 	if err != nil {
 		return fmt.Errorf("extending activity lock: %w", err)
-	}
-
-	if rowsAffected, err := res.RowsAffected(); err != nil {
-		return fmt.Errorf("determining if activity was extended: %w", err)
-	} else if rowsAffected == 0 {
-		return errors.New("could not extend activity")
 	}
 
 	return tx.Commit()

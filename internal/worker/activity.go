@@ -146,8 +146,10 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *backend.Activity
 					return
 				case <-t.C:
 					if err := aw.backend.ExtendActivityTask(ctx, task.ID); err != nil {
-						aw.backend.Logger().Error("extending activity task", "error", err)
-						panic("extending activity task")
+						if !errors.Is(err, context.Canceled) {
+							aw.backend.Logger().Error("extending activity task", "error", err)
+							panic("extending activity task")
+						}
 					}
 				}
 			}
@@ -163,7 +165,6 @@ func (aw *ActivityWorker) handleTask(ctx context.Context, task *backend.Activity
 	if err := aw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
 		aw.backend.Logger().Error("completing activity task", "error", err)
 		panic("completing activity task")
-
 	}
 }
 

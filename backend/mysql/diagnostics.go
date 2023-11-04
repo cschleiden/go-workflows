@@ -47,6 +47,8 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		return nil, err
 	}
 
+	defer rows.Close()
+
 	var instances []*diag.WorkflowInstanceRef
 
 	for rows.Next() {

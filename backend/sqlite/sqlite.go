@@ -34,7 +34,12 @@ import (
 var migrationsFS embed.FS
 
 func NewInMemoryBackend(opts ...option) *sqliteBackend {
-	return newSqliteBackend("file::memory:?_mode=memory", opts...)
+	b := newSqliteBackend("file:foo?mode=memory&cache=shared", opts...)
+
+	b.db.SetConnMaxIdleTime(0)
+	b.db.SetMaxIdleConns(2)
+
+	return b
 }
 
 func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
@@ -85,8 +90,14 @@ type sqliteBackend struct {
 
 var _ backend.Backend = (*sqliteBackend)(nil)
 
+func (sb *sqliteBackend) Close() error {
+	return sb.db.Close()
+}
+
 // Migrate applies any pending database migrations.
 func (sb *sqliteBackend) Migrate() error {
+	sb.options.Logger.Info("Applying migrations...")
+
 	dbi, err := sqlite.WithInstance(sb.db, &sqlite.Config{})
 	if err != nil {
 		return fmt.Errorf("creating migration instance: %w", err)
@@ -106,6 +117,8 @@ func (sb *sqliteBackend) Migrate() error {
 		if !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("running migrations: %w", err)
 		}
+
+		sb.options.Logger.Info("No migrations to apply")
 	}
 
 	return nil
@@ -260,7 +273,9 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 }
 
 func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]*history.Event, error) {
-	tx, err := sb.db.BeginTx(ctx, nil)
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
 	if err != nil {
 		return nil, err
 	}

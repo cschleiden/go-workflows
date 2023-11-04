@@ -7,15 +7,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/cschleiden/go-workflows/core"
 )
 
 var _ test.TestBackend = (*sqliteBackend)(nil)
 
 func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
-	tx, err := sb.db.BeginTx(ctx, nil)
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +31,8 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
+
+	defer futureEvents.Close()
 
 	f := make([]*history.Event, 0)
 
@@ -74,11 +78,12 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowIn
 		instance.ExecutionID,
 		now,
 	)
-	defer events.Close()
 
 	if err != nil {
 		return nil, fmt.Errorf("getting new events: %w", err)
 	}
+
+	defer events.Close()
 
 	pendingEvents := make([]*history.Event, 0)
 
@@ -104,10 +109,11 @@ func getHistory(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance
 		historyEvents, err = tx.QueryContext(
 			ctx, "SELECT * FROM `history` WHERE instance_id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID)
 	}
-	defer historyEvents.Close()
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
+
+	defer historyEvents.Close()
 
 	events := make([]*history.Event, 0)
 

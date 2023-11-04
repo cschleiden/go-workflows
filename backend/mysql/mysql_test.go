@@ -127,6 +127,8 @@ func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
 
+	defer futureEvents.Close()
+
 	f := make([]*history.Event, 0)
 
 	for futureEvents.Next() {

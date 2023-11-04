@@ -20,10 +20,11 @@ import (
 )
 
 type backendTest struct {
-	name         string
-	options      []backend.BackendOption
-	withoutCache bool // If set, test will only be run when the cache is disabled
-	f            func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend)
+	name                string
+	options             []backend.BackendOption
+	withoutCache        bool // If set, test will only be run when the cache is disabled
+	f                   func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend)
+	customWorkerOptions func(options *worker.Options)
 }
 
 func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOption) TestBackend, teardown func(b TestBackend)) {
@@ -664,7 +665,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 	tests = append(tests, e2eActivityTests...)
 	tests = append(tests, e2eStatsTests...)
 
-	run := func(suffix string, workerOptions *worker.Options) {
+	run := func(suffix string, workerOptions worker.Options) {
 		for _, tt := range tests {
 			if tt.withoutCache && workerOptions.WorkflowExecutorCache != nil {
 				// Skip test
@@ -677,7 +678,12 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				ctx, cancel := context.WithCancel(ctx)
 
 				c := client.New(b)
-				w := worker.New(b, workerOptions)
+
+				if tt.customWorkerOptions != nil {
+					tt.customWorkerOptions(&workerOptions)
+				}
+
+				w := worker.New(b, &workerOptions)
 
 				t.Cleanup(func() {
 					cancel()
@@ -701,11 +707,11 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 	options := worker.DefaultWorkerOptions
 
 	// Run with cache
-	run("", &options)
+	run("", options)
 
 	// Disable cache for this execution
 	options.WorkflowExecutorCache = &noopWorkflowExecutorCache{}
-	run("_without_cache", &options)
+	run("_without_cache", options)
 }
 
 type noopWorkflowExecutorCache struct {

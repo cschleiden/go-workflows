@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/backend/test"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_MonoprocessBackend(t *testing.T) {
@@ -21,7 +22,9 @@ func Test_MonoprocessBackend(t *testing.T) {
 		options = append(options, backend.WithStickyTimeout(0))
 
 		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(options...)))
-	}, nil)
+	}, func(b test.TestBackend) {
+		require.NoError(t, b.Close())
+	})
 }
 
 func Test_EndToEndMonoprocessBackend(t *testing.T) {
