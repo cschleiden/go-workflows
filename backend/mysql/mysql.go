@@ -244,6 +244,8 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
 
+	defer historyEvents.Close()
+
 	h := make([]*history.Event, 0)
 
 	for historyEvents.Next() {
@@ -461,6 +463,8 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTa
 	if err != nil {
 		return nil, fmt.Errorf("getting new events: %w", err)
 	}
+
+	defer events.Close()
 
 	for events.Next() {
 		var attributes []byte
@@ -793,12 +797,6 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	)
 	if err != nil {
 		return fmt.Errorf("extending activity lock: %w", err)
-	}
-
-	if rowsAffected, err := res.RowsAffected(); err != nil {
-		return fmt.Errorf("determining if activity was extended: %w", err)
-	} else if rowsAffected == 0 {
-		return errors.New("could not extend activity")
 	}
 
 	return tx.Commit()
