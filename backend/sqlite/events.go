@@ -26,7 +26,7 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 	// There is no index on `visible_at`, but this is okay for test only usage.
 	futureEvents, err := tx.QueryContext(
 		ctx,
-		"SELECT id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE visible_at IS NOT NULL",
+		"SELECT pe.id, pe.sequence_id, pe.instance_id, pe.execution_id, pe.event_type, pe.timestamp, pe.schedule_event_id, pe.visible_at, a.data FROM `pending_events` pe JOIN `attributes` a ON a.id = pe.id AND a.instance_id = pe.instance_id AND a.execution_id = pe.execution_id WHERE pe.visible_at IS NOT NULL",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
@@ -50,8 +50,8 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 			&fe.Type,
 			&fe.Timestamp,
 			&fe.ScheduleEventID,
-			&attributes,
 			&fe.VisibleAt,
+			&attributes,
 		); err != nil {
 			return nil, fmt.Errorf("scanning event: %w", err)
 		}
@@ -73,7 +73,7 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowIn
 	now := time.Now()
 	events, err := tx.QueryContext(
 		ctx,
-		"SELECT * FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?)",
+		"SELECT pe.*, a.data FROM `pending_events` pe INNER JOIN `attributes` a ON a.id = pe.id AND a.instance_id = pe.instance_id AND a.execution_id = pe.execution_id WHERE pe.instance_id = ? AND pe.execution_id = ? AND (pe.`visible_at` IS NULL OR pe.`visible_at` <= ?)",
 		instance.InstanceID,
 		instance.ExecutionID,
 		now,
@@ -104,10 +104,10 @@ func getHistory(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance
 	var err error
 	if lastSequenceID != nil {
 		historyEvents, err = tx.QueryContext(
-			ctx, "SELECT * FROM `history` WHERE instance_id = ? AND execution_id = ? AND sequence_id > ?", instance.InstanceID, instance.ExecutionID, *lastSequenceID)
+			ctx, "SELECT h.*, a.data FROM `history` h INNER JOIN `attributes` a ON a.id = h.id AND a.instance_id = h.instance_id AND a.execution_id = h.execution_id WHERE h.instance_id = ? AND h.execution_id = ? AND h.sequence_id > ?", instance.InstanceID, instance.ExecutionID, *lastSequenceID)
 	} else {
 		historyEvents, err = tx.QueryContext(
-			ctx, "SELECT * FROM `history` WHERE instance_id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID)
+			ctx, "SELECT h.*, a.data FROM `history` h INNER JOIN `attributes` a ON a.id = h.id AND a.instance_id = h.instance_id AND a.execution_id = h.execution_id WHERE h.instance_id = ? AND h.execution_id = ?", instance.InstanceID, instance.ExecutionID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
@@ -147,8 +147,8 @@ func scanEvent(row Scanner) (*history.Event, error) {
 		&historyEvent.Type,
 		&historyEvent.Timestamp,
 		&historyEvent.ScheduleEventID,
-		&attributes,
 		&historyEvent.VisibleAt,
+		&attributes,
 	); err != nil {
 		return historyEvent, fmt.Errorf("scanning event: %w", err)
 	}
@@ -167,10 +167,6 @@ func insertPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.Workflo
 	return insertEvents(ctx, tx, "pending_events", instance, newEvents)
 }
 
-func insertHistoryEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, historyEvents []*history.Event) error {
-	return insertEvents(ctx, tx, "history", instance, historyEvents)
-}
-
 func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *core.WorkflowInstance, events []*history.Event) error {
 	const batchSize = 20
 	for batchStart := 0; batchStart < len(events); batchStart += batchSize {
@@ -180,10 +176,14 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 		}
 		batchEvents := events[batchStart:batchEnd]
 
-		query := "INSERT INTO `" + tableName + "` (id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)" +
-			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+		// INSERT OR IGNORE since the attributes might already exist due to an event being moved from pending to history.
+		aquery := "INSERT OR IGNORE INTO `attributes` (id, instance_id, execution_id, data) VALUES (?, ?, ?, ?)" + strings.Repeat(", (?, ?, ?, ?)", len(batchEvents)-1)
+		aargs := make([]interface{}, 0, len(batchEvents)*4)
 
-		args := make([]interface{}, 0, len(batchEvents)*7)
+		query := "INSERT INTO `" + tableName + "` (id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
+			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+
+		args := make([]interface{}, 0, len(batchEvents)*8)
 
 		for _, newEvent := range batchEvents {
 			a, err := history.SerializeAttributes(newEvent.Attributes)
@@ -191,31 +191,67 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 				return err
 			}
 
+			aargs = append(aargs, newEvent.ID, instance.InstanceID, instance.ExecutionID, a)
+
 			args = append(
-				args, newEvent.ID, newEvent.SequenceID, instance.InstanceID, instance.ExecutionID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
+				args, newEvent.ID, newEvent.SequenceID, instance.InstanceID, instance.ExecutionID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, newEvent.VisibleAt)
 		}
 
-		_, err := tx.ExecContext(
+		if _, err := tx.ExecContext(
+			ctx,
+			aquery,
+			aargs...,
+		); err != nil {
+			return fmt.Errorf("inserting attributes: %w", err)
+		}
+
+		if _, err := tx.ExecContext(
 			ctx,
 			query,
 			args...,
-		)
-
-		if err != nil {
-			return err
+		); err != nil {
+			return fmt.Errorf("inserting events: %w", err)
 		}
 	}
 	return nil
 }
 
 func removeFutureEvent(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, scheduleEventID int64) error {
-	_, err := tx.ExecContext(
+	row, err := tx.QueryContext(
 		ctx,
-		"DELETE FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND schedule_event_id = ? AND visible_at IS NOT NULL",
+		"DELETE FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND schedule_event_id = ? AND visible_at IS NOT NULL RETURNING id",
 		instance.InstanceID,
 		instance.ExecutionID,
 		scheduleEventID,
 	)
+	if err != nil {
+		return fmt.Errorf("removing future event: %w", err)
+	}
+
+	ids := make([]interface{}, 0)
+
+	defer row.Close()
+	for row.Next() {
+		var id string
+		if err := row.Scan(&id); err != nil {
+			return fmt.Errorf("scanning id: %w", err)
+		}
+
+		ids = append(ids, id)
+	}
+
+	// Delete attributes
+	if len(ids) > 0 {
+		query := "DELETE FROM `attributes` WHERE id IN (?)" + strings.Repeat(", (?)", len(ids)-1)
+
+		if _, err := tx.ExecContext(
+			ctx,
+			query,
+			ids...,
+		); err != nil {
+			return fmt.Errorf("removing attributes: %w", err)
+		}
+	}
 
 	return err
 }
