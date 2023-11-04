@@ -32,6 +32,6 @@ func Test_EndToEndSqliteBackend(t *testing.T) {
 		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...))
 	}, func(b test.TestBackend) {
 		// Ensure we close the database so the next test will get a clean in-memory db
-		require.NoError(t, b.(*sqliteBackend).Close())
+		require.NoError(t, b.Close())
 	})
 }

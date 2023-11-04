@@ -72,9 +72,13 @@ type mysqlBackend struct {
 	options    *options
 }
 
+func (mb *mysqlBackend) Close() error {
+	return mb.db.Close()
+}
+
 // Migrate applies any pending database migrations.
-func (sb *mysqlBackend) Migrate() error {
-	schemaDsn := sb.dsn + "&multiStatements=true"
+func (mb *mysqlBackend) Migrate() error {
+	schemaDsn := mb.dsn + "&multiStatements=true"
 	db, err := sql.Open("mysql", schemaDsn)
 	if err != nil {
 		return fmt.Errorf("opening schema database: %w", err)
