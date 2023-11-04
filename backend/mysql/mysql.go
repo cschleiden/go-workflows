@@ -788,7 +788,7 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 	defer tx.Rollback()
 
 	until := time.Now().Add(b.options.ActivityLockTimeout)
-	res, err := tx.ExecContext(
+	_, err = tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE activity_id = ? AND worker = ?`,
 		until,
