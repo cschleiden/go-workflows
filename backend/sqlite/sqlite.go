@@ -259,6 +259,10 @@ func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 		return err
 	}
 
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `attributes` WHERE instance_id = ? AND execution_id = ?", instanceID, executionID); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
