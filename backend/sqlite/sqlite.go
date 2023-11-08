@@ -34,10 +34,19 @@ import (
 var migrationsFS embed.FS
 
 func NewInMemoryBackend(opts ...option) *sqliteBackend {
-	b := newSqliteBackend("file:foo?mode=memory&cache=shared", opts...)
+	b := newSqliteBackend("file::memory:?mode=memory&cache=shared", opts...)
 
 	b.db.SetConnMaxIdleTime(0)
-	b.db.SetMaxIdleConns(2)
+	b.db.SetMaxIdleConns(1)
+
+	// WORKAROUND: Keep a connection open at all times to prevent hte in-memory db from being dropped
+	b.db.SetMaxOpenConns(2)
+
+	var err error
+	b.memConn, err = b.db.Conn(context.Background())
+	if err != nil {
+		panic(err)
+	}
 
 	return b
 }
@@ -86,11 +95,19 @@ type sqliteBackend struct {
 	db         *sql.DB
 	workerName string
 	options    *options
+
+	memConn *sql.Conn
 }
 
 var _ backend.Backend = (*sqliteBackend)(nil)
 
 func (sb *sqliteBackend) Close() error {
+	if sb.memConn != nil {
+		if err := sb.memConn.Close(); err != nil {
+			return err
+		}
+	}
+
 	return sb.db.Close()
 }
 
@@ -289,8 +306,16 @@ func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 	return h, nil
 }
 
-func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
-	row := s.db.QueryRowContext(
+func (sb *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
+	if err != nil {
+		return core.WorkflowInstanceStateActive, err
+	}
+	defer tx.Rollback()
+
+	row := tx.QueryRowContext(
 		ctx,
 		"SELECT state FROM instances WHERE id = ? AND execution_id = ?",
 		instance.InstanceID,
