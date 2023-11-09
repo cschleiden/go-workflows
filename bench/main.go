@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -40,9 +41,10 @@ func main() {
 
 	mm := newMemMetrics()
 	ba := getBackend(*b,
-		// backend.WithLogger(slog.New(&nullHandler{})),
+		backend.WithLogger(slog.New(&nullHandler{})),
 		backend.WithMetrics(mm),
 	)
+	defer ba.Close()
 
 	wo := worker.DefaultWorkerOptions
 	wo.WorkflowExecutorCacheSize = *cacheSize
