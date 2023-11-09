@@ -799,7 +799,15 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 		return fmt.Errorf("extending activity lock: %w", err)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		if errors.Is(err, sql.ErrTxDone) {
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event *history.Event) error {
