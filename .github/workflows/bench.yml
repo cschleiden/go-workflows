@@ -68,9 +68,9 @@ jobs:
       - name: Run benchmarks
         run: |
           echo "## Default run" > benchmark.md
-          hyperfine --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
-          hyperfine --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
-          hyperfine --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -runs 2 -backend redis' -n 'redis-pr' './bench-pr -runs 2 -backend redis'
+          hyperfine --show-output --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
+          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
+          hyperfine --show-output --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -runs 2 -backend redis' -n 'redis-pr' './bench-pr -runs 2 -backend redis'
           cat bench-mysql.md >> benchmark.md
           echo $'\n' >> benchmark.md
           cat bench-sqlite.md >> benchmark.md
@@ -79,29 +79,28 @@ jobs:
 
       - name: Run large benchmarks
         if: github.event.issue.pull_request && contains(github.event.comment.body, '!large')
-        # hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s'
-        # cat bench-mysql-l.md >> benchmark.md
-        # echo $'\n' >> benchmark.md
         run: |
           echo "## Large payload run (1MB)" >> benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s'
           hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend sqlite -timeout 240s'
           hyperfine --show-output --warmup 1 --export-markdown bench-redis-l.md -n 'redis-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend redis -timeout 240s' -n 'redis-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend redis -timeout 240s'
+          cat bench-mysql-l.md >> benchmark.md
+          echo $'\n' >> benchmark.md
           cat bench-sqlite-l.md >> benchmark.md
           echo $'\n' >> benchmark.md
           cat bench-redis-l.md >> benchmark.md
 
-
       - name: Run very large benchmarks
         if: github.event.issue.pull_request && contains(github.event.comment.body, '!verylarge')
-        # hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
-        # hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
-        # cat bench-mysql-l.md >> benchmark.md
-        #   echo $'\n' >> benchmark.md
-        #   cat bench-sqlite-l.md >> benchmark.md
-        #   echo $'\n' >> benchmark.md
         run: |
           echo "## Large payload run (5MB)" >> benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
+          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
           hyperfine --show-output --warmup 1 --export-markdown bench-redis-l.md -n 'redis-main' './bench-main -resultsize 5000000 -runs 2 -backend redis -timeout 240s' -n 'redis-pr' './bench-pr -resultsize 5000000 -runs 2 -backend redis -timeout 240s'
+          cat bench-mysql-l.md >> benchmark.md
+          echo $'\n' >> benchmark.md
+          cat bench-sqlite-l.md >> benchmark.md
+          echo $'\n' >> benchmark.md
           cat bench-redis-l.md >> benchmark.md
 
       - name: Write a new comment
