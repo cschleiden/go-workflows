@@ -56,3 +56,7 @@ func futureEventsKey() string {
 func futureEventKey(instance *core.WorkflowInstance, scheduleEventID int64) string {
 	return fmt.Sprintf("future-event:%v:%v:%v", instance.InstanceID, instance.ExecutionID, scheduleEventID)
 }
+
+func payloadKey(eventID string) string {
+	return fmt.Sprintf("payload:%v", eventID)
+}

@@ -90,6 +90,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
 
+	payloadKeys := make([]string, 0, len(msgs))
 	newEvents := make([]*history.Event, 0, len(msgs))
 	for _, msg := range msgs {
 		var event *history.Event
@@ -98,7 +99,23 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}
 
+		payloadKeys = append(payloadKeys, payloadKey(event.ID))
 		newEvents = append(newEvents, event)
+	}
+
+	// Fetch event payloads
+	if len(payloadKeys) > 0 {
+		res, err := rb.rdb.MGet(ctx, payloadKeys...).Result()
+		if err != nil {
+			return nil, fmt.Errorf("reading payloads: %w", err)
+		}
+
+		for i, event := range newEvents {
+			event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i].(string)))
+			if err != nil {
+				return nil, fmt.Errorf("deserializing attributes for event %v: %w", event.Type, err)
+			}
+		}
 	}
 
 	return &backend.WorkflowTask{
@@ -161,11 +178,15 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	// Check-point the workflow. We guarantee that no other worker is working on this workflow instance at this point via the
 	// task queue, so we don't need to WATCH the keys, we just need to make sure all commands are executed atomically to prevent
-	// a worker crashing in the middle of this execution.
+	// bad state if a worker crashes in the middle of this execution.
 	p := rb.rdb.TxPipeline()
 
 	// Add executed events to the history
-	if err := addEventsToHistoryStreamP(ctx, p, historyKey(instance), executedEvents); err != nil {
+	if err := addEventPayloads(ctx, p, executedEvents); err != nil {
+		return fmt.Errorf("adding event payloads: %w", err)
+	}
+
+	if err := addEventsToStreamP(ctx, p, historyKey(instance), executedEvents); err != nil {
 		return fmt.Errorf("serializing : %w", err)
 	}
 
@@ -179,7 +200,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// Schedule timers
 	for _, timerEvent := range timerEvents {
 		if err := addFutureEventP(ctx, p, instance, timerEvent); err != nil {
-			return err
+			return fmt.Errorf("adding future event: %w", err)
 		}
 	}
 
@@ -199,8 +220,12 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 
 			// Add pending event to stream
+			if err := addEventPayloads(ctx, p, []*history.Event{m.HistoryEvent}); err != nil {
+				return fmt.Errorf("adding event payloads: %w", err)
+			}
+
 			if err := addEventToStreamP(ctx, p, pendingEventsKey(&targetInstance), m.HistoryEvent); err != nil {
-				return err
+				return fmt.Errorf("adding event to stream: %w", err)
 			}
 		}
 
@@ -243,7 +268,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// Remove executed pending events
 	if task.CustomData != nil {
 		lastPendingEventMessageID := task.CustomData.(string)
-		removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance)}, lastPendingEventMessageID)
+		if err := removePendingEventsCmd.Run(ctx, p, []string{pendingEventsKey(instance)}, lastPendingEventMessageID).Err(); err != nil {
+			return fmt.Errorf("removing pending events: %w", err)
+		}
 	}
 
 	// Complete workflow task and unlock instance.
@@ -268,7 +295,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 		for _, cmd := range executedCmds {
 			if cmdErr := cmd.Err(); cmdErr != nil {
-				rb.Logger().Debug("redis command error", log.NamespaceKey+".redis.cmd", cmd.FullName(), log.NamespaceKey+".redis.cmdErr", cmdErr.Error())
+				rb.Logger().Debug("redis command error", log.NamespaceKey+".redis.cmd", cmd.Name(), "cmdString", cmd.String(), log.NamespaceKey+".redis.cmdErr", cmdErr.Error())
 			}
 		}
 
@@ -300,6 +327,10 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
+	if err := addEventPayloads(ctx, p, []*history.Event{event}); err != nil {
+		return err
+	}
+
 	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance), event); err != nil {
 		return err
 	}
