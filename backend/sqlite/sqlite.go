@@ -259,6 +259,10 @@ func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 		return err
 	}
 
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `attributes` WHERE instance_id = ? AND execution_id = ?", instanceID, executionID); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -499,6 +503,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 			args = append(args, e.ID)
 		}
 
+		// Remove from pending
 		if _, err := tx.ExecContext(
 			ctx,
 			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND execution_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(executedEvents)-1)),
@@ -508,9 +513,8 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 	}
 
-	// Add events from last execution to history
-	if err := insertHistoryEvents(ctx, tx, instance, executedEvents); err != nil {
-		return fmt.Errorf("inserting new history events: %w", err)
+	if err := insertEvents(ctx, tx, "history", instance, executedEvents); err != nil {
+		return fmt.Errorf("inserting history events: %w", err)
 	}
 
 	// Schedule activities
@@ -608,7 +612,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.Activity
 			SET locked_until = ?, worker = ?
 			WHERE rowid = (
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
-			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at`,
+			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at`,
 		now.Add(sb.options.ActivityLockTimeout),
 		sb.workerName,
 		now,
@@ -618,7 +622,6 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.Activity
 	}
 
 	var instanceID, executionID string
-	var attributes []byte
 	event := &history.Event{}
 
 	if err := row.Scan(
@@ -628,7 +631,6 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.Activity
 		&event.Type,
 		&event.Timestamp,
 		&event.ScheduleEventID,
-		&attributes,
 		&event.VisibleAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
@@ -637,6 +639,13 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.Activity
 		}
 
 		return nil, fmt.Errorf("scanning event: %w", err)
+	}
+
+	var attributes []byte
+	if err := tx.QueryRowContext(
+		ctx, "SELECT data FROM attributes WHERE instance_id = ? AND execution_id = ? AND id = ?", instanceID, executionID, event.ID,
+	).Scan(&attributes); err != nil {
+		return nil, fmt.Errorf("scanning attributes: %w", err)
 	}
 
 	a, err := history.DeserializeAttributes(event.Type, attributes)
@@ -676,7 +685,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	}
 	defer tx.Rollback()
 
-	// Remove activity
+	// Remove activity but keep the attributes, they are still needed for the history
 	if res, err := tx.ExecContext(
 		ctx,
 		`DELETE FROM activities WHERE instance_id = ? AND execution_id = ? AND id = ? AND worker = ?`,
