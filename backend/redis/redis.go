@@ -60,6 +60,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		"requeueInstanceCmd":     requeueInstanceCmd.Load(ctx, rb.rdb),
 		"deleteInstanceCmd":      deleteCmd.Load(ctx, rb.rdb),
 		"expireInstanceCmd":      expireCmd.Load(ctx, rb.rdb),
+		"addPayloadsCmd":         addPayloadsCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
 		// fmt.Println(name, cmd.Val())
