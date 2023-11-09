@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -40,7 +39,10 @@ func main() {
 	defer cancel()
 
 	mm := newMemMetrics()
-	ba := getBackend(*b, backend.WithLogger(slog.New(&nullHandler{})), backend.WithMetrics(mm))
+	ba := getBackend(*b,
+		// backend.WithLogger(slog.New(&nullHandler{})),
+		backend.WithMetrics(mm),
+	)
 
 	wo := worker.DefaultWorkerOptions
 	wo.WorkflowExecutorCacheSize = *cacheSize
@@ -129,7 +131,12 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 			panic(err)
 		}
 
-		return monoprocess.NewMonoprocessBackend(mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", mysql.WithBackendOptions(opt...)))
+		return monoprocess.NewMonoprocessBackend(
+			mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", mysql.WithBackendOptions(opt...),
+				mysql.WithMySQLOptions(func(db *sql.DB) {
+					db.SetMaxOpenConns(100)
+				})),
+		)
 
 	case "redis":
 		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{

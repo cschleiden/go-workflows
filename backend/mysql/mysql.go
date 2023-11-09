@@ -49,6 +49,10 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 		panic(err)
 	}
 
+	if options.MySQLOptions != nil {
+		options.MySQLOptions(db)
+	}
+
 	b := &mysqlBackend{
 		dsn:        dsn,
 		db:         db,
