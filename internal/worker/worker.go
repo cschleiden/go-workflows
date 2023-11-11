@@ -80,10 +80,20 @@ func (w *Worker[Task, TaskResult]) WaitForCompletion() error {
 func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 	defer w.pollersWg.Done()
 
-	ticker := time.NewTicker(w.options.PollingInterval)
-	defer ticker.Stop()
+	var ticker *time.Ticker
+
+	if w.options.PollingInterval > 0 {
+		ticker = time.NewTicker(w.options.PollingInterval)
+		defer ticker.Stop()
+	}
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		task, err := w.poll(ctx, 30*time.Second)
 		if err != nil {
 			w.logger.ErrorContext(ctx, "error polling task", "error", err)
@@ -92,10 +102,12 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 			continue // check for new tasks right away
 		}
 
-		select {
-		case <-ticker.C:
-		case <-ctx.Done():
-			return
+		if w.options.PollingInterval > 0 {
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }
