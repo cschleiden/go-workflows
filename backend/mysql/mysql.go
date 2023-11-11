@@ -190,6 +190,10 @@ func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 		return err
 	}
 
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `attributes` WHERE instance_id = ? AND execution_id = ?", instance.InstanceID, instance.ExecutionID); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -231,7 +235,7 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	if lastSequenceID != nil {
 		historyEvents, err = tx.QueryContext(
 			ctx,
-			"SELECT event_id, sequence_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? AND execution_id = ? AND sequence_id > ? ORDER BY sequence_id",
+			"SELECT h.event_id, h.sequence_id, h.event_type, h.timestamp, h.schedule_event_id, a.data, h.visible_at FROM `history` h JOIN `attributes` a ON h.event_id = a.event_id AND a.instance_id = h.instance_id AND a.execution_id = h.execution_id WHERE h.instance_id = ? AND h.execution_id = ? AND h.sequence_id > ? ORDER BY h.sequence_id",
 			instance.InstanceID,
 			instance.ExecutionID,
 			*lastSequenceID,
@@ -239,7 +243,7 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 	} else {
 		historyEvents, err = tx.QueryContext(
 			ctx,
-			"SELECT event_id, sequence_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `history` WHERE instance_id = ? AND execution_id = ? ORDER BY sequence_id",
+			"SELECT h.event_id, h.sequence_id, h.event_type, h.timestamp, h.schedule_event_id, a.data, h.visible_at FROM `history` h JOIN `attributes` a ON h.event_id = a.event_id AND a.instance_id = h.instance_id AND a.execution_id = h.execution_id WHERE h.instance_id = ? AND h.execution_id = ? ORDER BY h.sequence_id",
 			instance.InstanceID,
 			instance.ExecutionID,
 		)
@@ -459,7 +463,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTa
 	// Get new events
 	events, err := tx.QueryContext(
 		ctx,
-		"SELECT event_id, sequence_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND (`visible_at` IS NULL OR `visible_at` <= ?) ORDER BY id",
+		"SELECT pe.event_id, pe.sequence_id, pe.event_type, pe.timestamp, pe.schedule_event_id, a.data, pe.visible_at FROM `pending_events` pe LEFT JOIN `attributes` a ON pe.instance_id = a.instance_id AND pe.execution_id = a.execution_id AND pe.event_id = a.event_id WHERE pe.instance_id = ? AND pe.execution_id = ? AND (pe.visible_at IS NULL OR pe.visible_at <= ?) ORDER BY pe.id",
 		instanceID,
 		executionID,
 		now,
@@ -503,13 +507,18 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTa
 	}
 
 	// Get most recent sequence id
-	row = tx.QueryRowContext(ctx, "SELECT sequence_id FROM `history` WHERE instance_id = ? AND execution_id = ? ORDER BY id DESC LIMIT 1", instanceID, executionID)
+	var lastSequenceID sql.NullInt64
+	row = tx.QueryRowContext(ctx, "SELECT MAX(sequence_id) FROM `history` WHERE instance_id = ? AND execution_id = ?", instanceID, executionID)
 	if err := row.Scan(
-		&t.LastSequenceID,
+		&lastSequenceID,
 	); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, fmt.Errorf("getting most recent sequence id: %w", err)
 		}
+	}
+
+	if lastSequenceID.Valid {
+		t.LastSequenceID = lastSequenceID.Int64
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -687,10 +696,11 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTa
 	now := time.Now()
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT activities.id, activity_id, activities.instance_id, activities.execution_id,
-			event_type, timestamp, schedule_event_id, attributes, visible_at
-			FROM activities
-			WHERE activities.locked_until IS NULL OR activities.locked_until < ?
+		`SELECT a.id, a.activity_id, a.instance_id, a.execution_id,
+			a.event_type, a.timestamp, a.schedule_event_id, at.data, a.visible_at
+			FROM activities a
+			JOIN attributes at ON at.event_id = a.activity_id AND at.instance_id = a.instance_id AND at.execution_id = a.execution_id
+			WHERE a.locked_until IS NULL OR a.locked_until < ?
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED`,
 		now,
@@ -815,22 +825,18 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 }
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event *history.Event) error {
-	a, err := history.SerializeAttributes(event.Attributes)
-	if err != nil {
-		return err
-	}
+	// Attributes are already persisted via the history, we do not need to add them again.
 
-	_, err = tx.ExecContext(
+	_, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
-			(activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			(activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
 		instance.InstanceID,
 		instance.ExecutionID,
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,
-		a,
 		event.VisibleAt,
 	)
 

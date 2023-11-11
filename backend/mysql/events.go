@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -26,11 +27,14 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 		}
 		batchEvents := events[batchStart:batchEnd]
 
-		query := "INSERT INTO `" + tableName +
-			"` (event_id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)" +
-			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+		aquery := "INSERT IGNORE INTO `attributes` (event_id, instance_id, execution_id, data) VALUES (?, ?, ?, ?)" + strings.Repeat(", (?, ?, ?, ?)", len(batchEvents)-1)
+		aargs := make([]interface{}, 0, len(batchEvents)*4)
 
-		args := make([]interface{}, 0, len(batchEvents)*7)
+		query := "INSERT INTO `" + tableName +
+			"` (event_id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
+			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
+
+		args := make([]interface{}, 0, len(batchEvents)*8)
 
 		for _, newEvent := range batchEvents {
 			a, err := history.SerializeAttributes(newEvent.Attributes)
@@ -38,9 +42,19 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 				return err
 			}
 
+			aargs = append(aargs, newEvent.ID, instance.InstanceID, instance.ExecutionID, a)
+
 			args = append(
 				args,
-				newEvent.ID, newEvent.SequenceID, instance.InstanceID, instance.ExecutionID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, a, newEvent.VisibleAt)
+				newEvent.ID, newEvent.SequenceID, instance.InstanceID, instance.ExecutionID, newEvent.Type, newEvent.Timestamp, newEvent.ScheduleEventID, newEvent.VisibleAt)
+		}
+
+		if _, err := tx.ExecContext(
+			ctx,
+			aquery,
+			aargs...,
+		); err != nil {
+			return fmt.Errorf("inserting attributes: %w", err)
 		}
 
 		_, err := tx.ExecContext(
@@ -49,7 +63,7 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 			args...,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("inserting events: %w", err)
 		}
 	}
 
@@ -59,7 +73,7 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 func removeFutureEvent(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, scheduleEventID int64) error {
 	_, err := tx.ExecContext(
 		ctx,
-		"DELETE FROM `pending_events` WHERE instance_id = ? AND execution_id = ? AND schedule_event_id = ? AND visible_at IS NOT NULL",
+		"DELETE `pending_events`, `attributes` FROM `pending_events` INNER JOIN `attributes` ON `pending_events`.event_id = `attributes`.event_id WHERE `pending_events`.instance_id = ? AND `pending_events`.execution_id = ? AND `pending_events`.schedule_event_id = ? AND `pending_events`.visible_at IS NOT NULL",
 		instance.InstanceID,
 		instance.ExecutionID,
 		scheduleEventID,
