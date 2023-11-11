@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS `attributes` (
   `instance_id` TEXT NOT NULL,
   `execution_id` TEXT NOT NULL,
   `data` BLOB NOT NULL,
-  PRIMARY KEY(`id`, `instance_id`)
+  PRIMARY KEY(`id`, `instance_id`, `execution_id`)
 );
 
 -- Move activity attributes to attributes table
