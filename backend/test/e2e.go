@@ -724,6 +724,11 @@ func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.Workfl
 	return nil, false, nil
 }
 
+// Evict implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Evict(ctx context.Context, instance *core.WorkflowInstance) error {
+	return nil
+}
+
 // StartEviction implements workflow.ExecutorCache
 func (*noopWorkflowExecutorCache) StartEviction(ctx context.Context) {
 }

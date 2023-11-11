@@ -60,6 +60,14 @@ func (lc *LruCache) Store(ctx context.Context, instance *core.WorkflowInstance, 
 	return nil
 }
 
+func (lc *LruCache) Evict(ctx context.Context, instance *core.WorkflowInstance) error {
+	lc.c.Delete(getKey(instance))
+
+	lc.mc.Gauge(metrickeys.WorkflowInstanceCacheSize, metrics.Tags{}, int64(lc.c.Len()))
+
+	return nil
+}
+
 func (lc *LruCache) StartEviction(ctx context.Context) {
 	go lc.c.Start()
 
