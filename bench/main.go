@@ -48,6 +48,12 @@ func main() {
 
 	wo := worker.DefaultOptions
 	wo.WorkflowExecutorCacheSize = *cacheSize
+
+	if *b == "redis" {
+		wo.ActivityPollingInterval = 0
+		wo.WorkflowPollingInterval = 0
+	}
+
 	w := worker.New(ba, &wo)
 
 	w.RegisterWorkflow(Root)
@@ -150,7 +156,10 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 			ReadTimeout:  time.Second * 30,
 		})
 
-		rclient.FlushAll(context.Background()).Result()
+		_, err := rclient.FlushAll(context.Background()).Result()
+		if err != nil {
+			panic(err)
+		}
 
 		b, err := redis.NewRedisBackend(rclient, redis.WithBackendOptions(opt...))
 		if err != nil {
