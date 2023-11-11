@@ -39,7 +39,6 @@ func RunWorker(ctx context.Context, mb backend.Backend) {
 		MaxParallelWorkflowTasks: 100,
 		ActivityPollers:          1,
 		MaxParallelActivityTasks: 100,
-		HeartbeatWorkflowTasks:   false,
 	})
 
 	w.RegisterWorkflow(scale.Workflow1)
