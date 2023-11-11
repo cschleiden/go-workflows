@@ -46,7 +46,7 @@ func main() {
 	)
 	defer ba.Close()
 
-	wo := worker.DefaultWorkerOptions
+	wo := worker.DefaultOptions
 	wo.WorkflowExecutorCacheSize = *cacheSize
 	w := worker.New(ba, &wo)
 

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/workflow"
+	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
 )
 
 type Options struct {
@@ -25,12 +26,8 @@ type Options struct {
 	// to 25 seconds
 	ActivityHeartbeatInterval time.Duration
 
-	// HeartbeatWorkflowTasks determines if the lock on workflow tasks should be periodically
-	// extended while they are being processed. Given that workflow executions should be
-	// very quick, this is usually not necessary.
-	HeartbeatWorkflowTasks bool
-
-	// WorkflowHeartbeatInterval is the interval between heartbeat attempts on workflow tasks, when enabled.
+	// WorkflowHeartbeatInterval is the interval between heartbeat attempts on workflow tasks. Defaults
+	// to 25 seconds
 	WorkflowHeartbeatInterval time.Duration
 
 	// WorkflowPollingInterval is the interval between polling for new workflow tasks.
@@ -56,15 +53,32 @@ type Options struct {
 
 var DefaultOptions = Options{
 	WorkflowPollers:           2,
-	ActivityPollers:           2,
-	MaxParallelWorkflowTasks:  0,
-	MaxParallelActivityTasks:  0,
-	ActivityHeartbeatInterval: 25 * time.Second,
-	WorkflowHeartbeatInterval: 25 * time.Second,
 	WorkflowPollingInterval:   200 * time.Millisecond,
-	ActivityPollingInterval:   200 * time.Millisecond,
+	MaxParallelWorkflowTasks:  0,
+	WorkflowHeartbeatInterval: 25 * time.Second,
 
 	WorkflowExecutorCacheSize: 128,
 	WorkflowExecutorCacheTTL:  time.Second * 10,
 	WorkflowExecutorCache:     nil,
+
+	ActivityPollers:           2,
+	ActivityPollingInterval:   200 * time.Millisecond,
+	MaxParallelActivityTasks:  0,
+	ActivityHeartbeatInterval: 25 * time.Second,
+}
+
+type RegisterOption workflowinternal.RegisterOption
+
+type registerOptions []RegisterOption
+
+func (opts registerOptions) asInternalOptions() []workflowinternal.RegisterOption {
+	repacked := make([]workflowinternal.RegisterOption, len(opts))
+	for i, opt := range opts {
+		repacked[i] = workflowinternal.RegisterOption(opt)
+	}
+	return repacked
+}
+
+func WithName(name string) RegisterOption {
+	return workflowinternal.WithName(name)
 }

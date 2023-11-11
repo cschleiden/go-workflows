@@ -704,7 +704,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		}
 	}
 
-	options := worker.DefaultWorkerOptions
+	options := worker.DefaultOptions
 
 	// Run with cache
 	run("", options)
