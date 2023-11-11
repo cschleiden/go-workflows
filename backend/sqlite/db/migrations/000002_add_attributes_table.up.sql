@@ -6,14 +6,14 @@ CREATE TABLE IF NOT EXISTS `attributes` (
   PRIMARY KEY(`id`, `instance_id`)
 );
 
--- Move activity attributes to payloads table
+-- Move activity attributes to attributes table
 INSERT OR IGNORE INTO `attributes` (`id`, `instance_id`, `execution_id`, `data`) SELECT `id`, `instance_id`, `execution_id`, `attributes` FROM `activities`;
 ALTER TABLE `activities` DROP COLUMN `attributes`;
 
--- Move history attributes to payloads table
+-- Move history attributes to attributes table
 INSERT OR IGNORE INTO `attributes` (`id`, `instance_id`, `execution_id`, `data`) SELECT `id`, `instance_id`, `execution_id`, `attributes` FROM `history`;
 ALTER TABLE `history` DROP COLUMN `attributes`;
 
--- Move pending_events attributes to payloads table
+-- Move pending_events attributes to attributes table
 INSERT OR IGNORE INTO `attributes` (`id`, `instance_id`, `execution_id`, `data`) SELECT `id`, `instance_id`, `execution_id`, `attributes` FROM `pending_events`;
 ALTER TABLE `pending_events` DROP COLUMN `attributes`;
