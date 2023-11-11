@@ -59,6 +59,13 @@ func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.Ex
 				metrickeys.ContinuedAsNew: fmt.Sprint(state == core.WorkflowInstanceStateContinuedAsNew),
 			}, 1)
 		}
+
+		// Workflow is finished, explicitly evict from cache (if one is used)
+		if wtw.cache != nil {
+			if err := wtw.cache.Evict(ctx, t.WorkflowInstance); err != nil {
+				wtw.logger.ErrorContext(ctx, "could not evict workflow executor from cache", "error", err)
+			}
+		}
 	}
 
 	wtw.backend.Metrics().Counter(metrickeys.ActivityTaskScheduled, metrics.Tags{}, int64(len(result.ActivityEvents)))
