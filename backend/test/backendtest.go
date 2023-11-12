@@ -40,17 +40,18 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 			name: "CreateWorkflowInstance_SameInstanceIDErrors",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				instanceID := uuid.NewString()
-				executionID := uuid.NewString()
+				executionID1 := uuid.NewString()
+				executionID2 := uuid.NewString()
 
 				err := b.CreateWorkflowInstance(ctx,
-					core.NewWorkflowInstance(instanceID, executionID),
+					core.NewWorkflowInstance(instanceID, executionID1),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.NoError(t, err)
 
 				err = b.CreateWorkflowInstance(
 					ctx,
-					core.NewWorkflowInstance(instanceID, executionID),
+					core.NewWorkflowInstance(instanceID, executionID2),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.Error(t, err)
