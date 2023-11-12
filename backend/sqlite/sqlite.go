@@ -168,6 +168,11 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	}
 	defer tx.Rollback()
 
+	// Check for existing instance
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? LIMIT 1", instance.InstanceID).Scan(new(int)); err != sql.ErrNoRows {
+		return backend.ErrInstanceAlreadyExists
+	}
+
 	// Create workflow instance
 	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
 		return err

@@ -15,12 +15,12 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	state, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	activeInstance, err := readActiveInstanceExecution(ctx, rb.rdb, instance.InstanceID)
 	if err != nil && err != backend.ErrInstanceNotFound {
 		return err
 	}
 
-	if state != nil {
+	if activeInstance != nil {
 		return backend.ErrInstanceAlreadyExists
 	}
 
