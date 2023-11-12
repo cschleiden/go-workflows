@@ -15,12 +15,12 @@ var e2eStatsTests = []backendTest{
 	{
 		name: "Stats_ActiveInstance",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-			as := make(chan bool, 1)
-			af := make(chan bool, 1)
+			activityRunning := make(chan bool, 1)
+			activityBlocked := make(chan bool, 1)
 
 			a := func(ctx context.Context) error {
-				as <- true
-				<-af
+				activityRunning <- true
+				<-activityBlocked
 
 				return nil
 			}
@@ -31,11 +31,14 @@ var e2eStatsTests = []backendTest{
 
 				return true, nil
 			}
-			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+			require.NoError(t, w.RegisterWorkflow(wf))
+			require.NoError(t, w.RegisterActivity(a))
 
 			s, err := b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), s.ActiveWorkflowInstances)
+			require.Equal(t, int64(0), s.PendingWorkflowTasks)
 			require.Equal(t, int64(0), s.PendingActivities)
 
 			wfi := runWorkflow(t, ctx, c, wf)
@@ -43,16 +46,29 @@ var e2eStatsTests = []backendTest{
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
+			require.Equal(t, int64(1), s.PendingWorkflowTasks)
+			require.Equal(t, int64(0), s.PendingActivities)
 
-			<-as
+			// Start worker
+			require.NoError(t, w.Start(ctx))
+
+			// Wait until the activity is running
+			<-activityRunning
+
+			s, err = b.GetStats(ctx)
+			require.NoError(t, err)
+			require.Equal(t, int64(0), s.PendingWorkflowTasks)
+			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
 			require.Equal(t, int64(1), s.PendingActivities)
 
-			af <- true
+			// Let the activity finish
+			activityBlocked <- true
 
+			// Let the workflow finish
 			err = c.SignalWorkflow(ctx, wfi.InstanceID, "test-signal", nil)
 			require.NoError(t, err)
 
