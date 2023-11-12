@@ -57,7 +57,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	require.False(t, ok)
 }
 
-func Test_Cache_Evict(t *testing.T) {
+func Test_Cache_AutoEviction(t *testing.T) {
 	c := NewWorkflowExecutorLRUCache(
 		metrics.NewNoopMetricsClient(),
 		128,
@@ -80,6 +80,37 @@ func Test_Cache_Evict(t *testing.T) {
 	go c.StartEviction(context.Background())
 	time.Sleep(1 * time.Millisecond)
 	runtime.Gosched()
+
+	e2, ok, err := c.Get(context.Background(), i)
+	require.NoError(t, err)
+	require.False(t, ok)
+	require.Nil(t, e2)
+}
+
+func Test_Cache_Evict(t *testing.T) {
+	c := NewWorkflowExecutorLRUCache(
+		metrics.NewNoopMetricsClient(),
+		128,
+		1, // Should evict immediately
+	)
+
+	i := core.NewWorkflowInstance("instanceID", "executionID")
+	r := wf.NewRegistry()
+	r.RegisterWorkflow(workflowWithActivity)
+	e, err := wf.NewExecutor(
+		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
+		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
+		&metadata.WorkflowMetadata{}, clock.New(),
+	)
+	require.NoError(t, err)
+
+	err = c.Store(context.Background(), i, e)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, c.c.Len())
+
+	require.NoError(t, c.Evict(context.Background(), i))
+	require.Equal(t, 0, c.c.Len())
 
 	e2, ok, err := c.Get(context.Background(), i)
 	require.NoError(t, err)

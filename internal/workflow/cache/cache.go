@@ -11,12 +11,12 @@ import (
 	"github.com/jellydator/ttlcache/v3"
 )
 
-type LruCache struct {
+type lruCache struct {
 	mc metrics.Client
 	c  *ttlcache.Cache[string, workflow.WorkflowExecutor]
 }
 
-func NewWorkflowExecutorLRUCache(mc metrics.Client, size int, expiration time.Duration) workflow.ExecutorCache {
+func NewWorkflowExecutorLRUCache(mc metrics.Client, size int, expiration time.Duration) *lruCache {
 	c := ttlcache.New(
 		ttlcache.WithCapacity[string, workflow.WorkflowExecutor](uint64(size)),
 		ttlcache.WithTTL[string, workflow.WorkflowExecutor](expiration),
@@ -37,13 +37,13 @@ func NewWorkflowExecutorLRUCache(mc metrics.Client, size int, expiration time.Du
 		mc.Counter(metrickeys.WorkflowInstanceCacheEviction, metrics.Tags{metrickeys.EvictionReason: reason}, 1)
 	})
 
-	return &LruCache{
+	return &lruCache{
 		mc: mc,
 		c:  c,
 	}
 }
 
-func (lc *LruCache) Get(ctx context.Context, instance *core.WorkflowInstance) (workflow.WorkflowExecutor, bool, error) {
+func (lc *lruCache) Get(ctx context.Context, instance *core.WorkflowInstance) (workflow.WorkflowExecutor, bool, error) {
 	e := lc.c.Get(getKey(instance))
 	if e != nil {
 		return e.Value(), true, nil
@@ -52,7 +52,7 @@ func (lc *LruCache) Get(ctx context.Context, instance *core.WorkflowInstance) (w
 	return nil, false, nil
 }
 
-func (lc *LruCache) Store(ctx context.Context, instance *core.WorkflowInstance, executor workflow.WorkflowExecutor) error {
+func (lc *lruCache) Store(ctx context.Context, instance *core.WorkflowInstance, executor workflow.WorkflowExecutor) error {
 	lc.c.Set(getKey(instance), executor, ttlcache.DefaultTTL)
 
 	lc.mc.Gauge(metrickeys.WorkflowInstanceCacheSize, metrics.Tags{}, int64(lc.c.Len()))
@@ -60,7 +60,7 @@ func (lc *LruCache) Store(ctx context.Context, instance *core.WorkflowInstance, 
 	return nil
 }
 
-func (lc *LruCache) Evict(ctx context.Context, instance *core.WorkflowInstance) error {
+func (lc *lruCache) Evict(ctx context.Context, instance *core.WorkflowInstance) error {
 	lc.c.Delete(getKey(instance))
 
 	lc.mc.Gauge(metrickeys.WorkflowInstanceCacheSize, metrics.Tags{}, int64(lc.c.Len()))
@@ -68,7 +68,7 @@ func (lc *LruCache) Evict(ctx context.Context, instance *core.WorkflowInstance) 
 	return nil
 }
 
-func (lc *LruCache) StartEviction(ctx context.Context) {
+func (lc *lruCache) StartEviction(ctx context.Context) {
 	go lc.c.Start()
 
 	<-ctx.Done()
