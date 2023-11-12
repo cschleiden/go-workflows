@@ -13,8 +13,6 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 )
 
-var backendType = flag.String("backend", "redis", "backend to use: sqlite, mysql, redis")
-
 func main() {
 	flag.Parse()
 
