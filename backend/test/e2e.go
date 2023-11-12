@@ -203,6 +203,39 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
+			name: "SubWorkflow_DuplicateInstanceID",
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 1).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					// Run another subworkflow with the same ID
+					r, err = workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 1).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.Error(t, err)
+				require.ErrorIs(t, err, backend.ErrInstanceAlreadyExists)
+			},
+		},
+		{
 			name: "SubWorkflow_PropagateCancellation",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				canceled := int32(0)
