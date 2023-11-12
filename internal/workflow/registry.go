@@ -20,7 +20,6 @@ type Registry struct {
 
 func NewRegistry() *Registry {
 	return &Registry{
-		Mutex:       sync.Mutex{},
 		workflowMap: make(map[string]wf.Workflow),
 		activityMap: make(map[string]interface{}),
 	}
