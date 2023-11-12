@@ -8,7 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/worker"
 )
 
 //go:embed app/build
@@ -16,7 +18,7 @@ var embeddedFiles embed.FS
 
 // NewServeMux returns an *http.ServeMux that serves the diagnostics web app at / and the diagnostics API at /api which is
 // used by the web app.
-func NewServeMux(backend Backend) *http.ServeMux {
+func NewServeMux(backend Backend, w *worker.Worker) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// API
@@ -86,14 +88,16 @@ func NewServeMux(backend Backend) *http.ServeMux {
 				return
 			}
 
-			history, err := backend.GetWorkflowInstanceHistory(r.Context(), instanceRef.Instance, nil)
+			h, err := backend.GetWorkflowInstanceHistory(r.Context(), instanceRef.Instance, nil)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
+			// c := backend.Converter()
+
 			newHistory := make([]*Event, 0)
-			for _, event := range history {
+			for _, event := range h {
 				newHistory = append(newHistory, &Event{
 					ID:              event.ID,
 					SequenceID:      event.SequenceID,
@@ -103,6 +107,16 @@ func NewServeMux(backend Backend) *http.ServeMux {
 					Attributes:      event.Attributes,
 					VisibleAt:       event.VisibleAt,
 				})
+
+				switch event.Type {
+				case history.EventType_WorkflowExecutionStarted:
+					a := event.Attributes.(*history.ExecutionStartedAttributes)
+					var i interface{}
+					if err := backend.Converter().From(a.Inputs[0], &i); err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}
 			}
 
 			result := &WorkflowInstanceInfo{

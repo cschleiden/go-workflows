@@ -238,7 +238,7 @@ func (e *executor) replayHistory(h []*history.Event) error {
 	for _, event := range h {
 		if event.SequenceID < e.lastSequenceID {
 			e.logger.Error("history has older events than current state")
-			panic("history has older events than current state")
+			panic("history has older events than current state") // TODO: Transition workflow to failed state?
 		}
 
 		if err := e.executeEvent(event); err != nil {
@@ -264,7 +264,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
 			e.logger.Error("workflow completed, but there are still pending futures")
-			panic("workflow completed, but there are still pending futures")
+			panic("workflow completed, but there are still pending futures") // TODO: Transition workflow to failed state?
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {

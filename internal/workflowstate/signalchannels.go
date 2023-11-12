@@ -39,7 +39,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 		receive: func(input payload.Payload) {
 			var t T
 			if err := converter.From(input, &t); err != nil {
-				panic(err)
+				panic(err) // TODO: Handle error?
 			}
 
 			// Channel is buffered, so we can just send without waiting and potentially
@@ -57,7 +57,7 @@ func GetSignalChannel[T any](ctx sync.Context, wf *WfState, name string) sync.Ch
 
 			var s T
 			if err := converter.From(payload, &s); err != nil {
-				panic(err)
+				panic(err) // TODO: Handle error?
 			}
 
 			c.Send(ctx, s)
