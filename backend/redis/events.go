@@ -34,19 +34,18 @@ func marshalEventWithoutAttributes(event *history.Event) (string, error) {
 	return string(data), nil
 }
 
-// KEYS[1..n] - payload keys
+// KEYS[1 - payload key
 // ARGV[1..n] - payload values
 var addPayloadsCmd = redis.NewScript(`
-	for i = 1, #ARGV do
-		redis.pcall("SET", KEYS[i], ARGV[i], "NX")
+	for i = 1, #ARGV, 2 do
+		redis.pcall("HSETNX", KEYS[1], ARGV[i], ARGV[i+1])
 	end
 
 	return 0
 `)
 
-func addEventPayloads(ctx context.Context, p redis.Pipeliner, events []*history.Event) error {
-	keys := make([]string, 0)
-	values := make([]interface{}, 0)
+func addEventPayloadsP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, events []*history.Event) error {
+	args := make([]interface{}, 0)
 
 	for _, event := range events {
 		payload, err := json.Marshal(event.Attributes)
@@ -54,11 +53,10 @@ func addEventPayloads(ctx context.Context, p redis.Pipeliner, events []*history.
 			return fmt.Errorf("marshaling event payload: %w", err)
 		}
 
-		keys = append(keys, payloadKey(event.ID))
-		values = append(values, string(payload))
+		args = append(args, event.ID, string(payload))
 	}
 
-	return addPayloadsCmd.Run(ctx, p, keys, values...).Err()
+	return addPayloadsCmd.Run(ctx, p, []string{payloadKey(instance)}, args...).Err()
 }
 
 func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, event *history.Event) error {
@@ -110,15 +108,16 @@ func addEventsToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string
 // Adds an event to be delivered in the future. Not cluster-safe.
 // KEYS[1] - future event zset key
 // KEYS[2] - future event key
-// KEYS[3] - future event payload key
+// KEYS[3] - instance payload key
 // ARGV[1] - timestamp
 // ARGV[2] - Instance segment
-// ARGV[3] - event data
-// ARGV[4] - event payload
+// ARGV[3] - event id
+// ARGV[4] - event data
+// ARGV[5] - event payload
 var addFutureEventCmd = redis.NewScript(`
 	redis.call("ZADD", KEYS[1], ARGV[1], KEYS[2])
-	redis.call("HSET", KEYS[2], "instance", ARGV[2], "event", ARGV[3], "payload", KEYS[3])
-	redis.call("SET", KEYS[3], ARGV[4], "NX")
+	redis.call("HSET", KEYS[2], "instance", ARGV[2], "id", ARGV[3], "event", ARGV[4])
+	redis.call("HSETNX", KEYS[3], ARGV[3], ARGV[5])
 	return 0
 `)
 
@@ -135,9 +134,10 @@ func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 	return addFutureEventCmd.Run(
 		ctx, p,
-		[]string{futureEventsKey(), futureEventKey(instance, event.ScheduleEventID), payloadKey(event.ID)},
+		[]string{futureEventsKey(), futureEventKey(instance, event.ScheduleEventID), payloadKey(instance)},
 		strconv.FormatInt(event.VisibleAt.UnixMilli(), 10),
 		instanceSegment(instance),
+		event.ID,
 		string(eventData),
 		string(payloadEventData),
 	).Err()
@@ -146,15 +146,16 @@ func addFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 // Remove a scheduled future event. Not cluster-safe.
 // KEYS[1] - future event zset key
 // KEYS[2] - future event key
+// KEYS[3] - instance payload key
 var removeFutureEventCmd = redis.NewScript(`
 	redis.call("ZREM", KEYS[1], KEYS[2])
-	local k = redis.call("HGET", KEYS[2], "payload")
-	redis.call("DEL", k)
+	local eventID = redis.call("HGET", KEYS[2], "id")
+	redis.call("HDEL", KEYS[3], eventID)
 	return redis.call("DEL", KEYS[2])
 `)
 
 // removeFutureEvent removes a scheduled future event for the given event. Events are associated via their ScheduleEventID
 func removeFutureEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) {
 	key := futureEventKey(instance, event.ScheduleEventID)
-	removeFutureEventCmd.Run(ctx, p, []string{futureEventsKey(), key})
+	removeFutureEventCmd.Run(ctx, p, []string{futureEventsKey(), key, payloadKey(instance)})
 }

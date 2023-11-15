@@ -99,13 +99,13 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}
 
-		payloadKeys = append(payloadKeys, payloadKey(event.ID))
+		payloadKeys = append(payloadKeys, event.ID)
 		newEvents = append(newEvents, event)
 	}
 
 	// Fetch event payloads
 	if len(payloadKeys) > 0 {
-		res, err := rb.rdb.MGet(ctx, payloadKeys...).Result()
+		res, err := rb.rdb.HMGet(ctx, payloadKey(instanceState.Instance), payloadKeys...).Result()
 		if err != nil {
 			return nil, fmt.Errorf("reading payloads: %w", err)
 		}
@@ -182,7 +182,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	p := rb.rdb.TxPipeline()
 
 	// Add executed events to the history
-	if err := addEventPayloads(ctx, p, executedEvents); err != nil {
+	if err := addEventPayloadsP(ctx, p, instance, executedEvents); err != nil {
 		return fmt.Errorf("adding event payloads: %w", err)
 	}
 
@@ -220,7 +220,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 
 			// Add pending event to stream
-			if err := addEventPayloads(ctx, p, []*history.Event{m.HistoryEvent}); err != nil {
+			if err := addEventPayloadsP(ctx, p, &targetInstance, []*history.Event{m.HistoryEvent}); err != nil {
 				return fmt.Errorf("adding event payloads: %w", err)
 			}
 
@@ -327,7 +327,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
-	if err := addEventPayloads(ctx, p, []*history.Event{event}); err != nil {
+	if err := addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
 		return err
 	}
 
