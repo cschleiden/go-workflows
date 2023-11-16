@@ -19,6 +19,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -310,6 +311,11 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 }
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata) error {
+	// Check for existing instance
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE instance_id = ? LIMIT 1", wfi.InstanceID).Scan(new(int)); err != sql.ErrNoRows {
+		return backend.ErrInstanceAlreadyExists
+	}
+
 	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	if wfi.SubWorkflow() {
@@ -618,23 +624,33 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
 	for targetInstance, events := range groupedEvents {
-		for _, m := range events {
-			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
-				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
-				// Create new instance
-				if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata); err != nil {
-					return err
+		// Are we creating a new sub-workflow instance?
+		m := events[0]
+		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
+			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+			// Create new instance
+			if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata); err != nil {
+				if err == backend.ErrInstanceAlreadyExists {
+					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
+						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
+							Error: workflowerrors.FromError(backend.ErrInstanceAlreadyExists),
+						}, history.ScheduleEventID(m.WorkflowInstance.ParentEventID)),
+					}); err != nil {
+						return fmt.Errorf("inserting sub-workflow failed event: %w", err)
+					}
+
+					continue
 				}
 
-				break
+				return fmt.Errorf("creating sub-workflow instance: %w", err)
 			}
 		}
 
+		// Insert pending events for target instance
 		historyEvents := []*history.Event{}
 		for _, m := range events {
 			historyEvents = append(historyEvents, m.HistoryEvent)
 		}
-
 		if err := insertPendingEvents(ctx, tx, &targetInstance, historyEvents); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
 		}
