@@ -31,7 +31,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 	}
 
 	// Create event stream with initial event
-	if err := addEventPayloads(ctx, p, []*history.Event{event}); err != nil {
+	if err := addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
 		return fmt.Errorf("adding event payloads: %w", err)
 	}
 
@@ -73,11 +73,11 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}
 
-		payloadKeys = append(payloadKeys, payloadKey(event.ID))
+		payloadKeys = append(payloadKeys, event.ID)
 		events = append(events, event)
 	}
 
-	res, err := rb.rdb.MGet(ctx, payloadKeys...).Result()
+	res, err := rb.rdb.HMGet(ctx, payloadKey(instance), payloadKeys...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("reading payloads: %w", err)
 	}
