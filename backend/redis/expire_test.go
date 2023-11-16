@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,6 +50,10 @@ func Test_AutoExpiration(t *testing.T) {
 
 	_, err = b.GetWorkflowInstanceState(ctx, wfi)
 	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+
+	insts, err := b.GetWorkflowInstances(ctx, "", "", 1)
+	require.NoError(t, err)
+	assert.Len(t, insts, 0)
 
 	cancel()
 	require.NoError(t, w.WaitForCompletion())
