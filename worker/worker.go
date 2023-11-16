@@ -7,6 +7,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
@@ -22,27 +23,23 @@ type Worker struct {
 
 	registry *workflowinternal.Registry
 
-	workflowWorker *internal.WorkflowWorker
-	activityWorker *internal.ActivityWorker
+	workflowWorker *internal.Worker[backend.WorkflowTask, workflowinternal.ExecutionResult]
+	activityWorker *internal.Worker[backend.ActivityTask, history.Event]
 
 	workflows  map[string]interface{}
 	activities map[string]interface{}
 }
 
-type Options = internal.Options
-
-var DefaultWorkerOptions = internal.DefaultOptions
-
 func New(backend backend.Backend, options *Options) *Worker {
 	if options == nil {
-		options = &internal.DefaultOptions
+		options = &DefaultOptions
 	} else {
 		if options.WorkflowExecutorCacheSize == 0 {
-			options.WorkflowExecutorCacheSize = internal.DefaultOptions.WorkflowExecutorCacheSize
+			options.WorkflowExecutorCacheSize = DefaultOptions.WorkflowExecutorCacheSize
 		}
 
 		if options.WorkflowExecutorCacheTTL == 0 {
-			options.WorkflowExecutorCacheTTL = internal.DefaultOptions.WorkflowExecutorCacheTTL
+			options.WorkflowExecutorCacheTTL = DefaultOptions.WorkflowExecutorCacheTTL
 		}
 	}
 
@@ -57,8 +54,24 @@ func New(backend backend.Backend, options *Options) *Worker {
 		done: make(chan struct{}),
 		wg:   &sync.WaitGroup{},
 
-		workflowWorker: internal.NewWorkflowWorker(backend, registry, options),
-		activityWorker: internal.NewActivityWorker(backend, registry, clock.New(), options),
+		workflowWorker: internal.NewWorkflowWorker(backend, registry, internal.WorkflowWorkerOptions{
+			WorkerOptions: internal.WorkerOptions{
+				Pollers:           options.WorkflowPollers,
+				PollingInterval:   options.WorkflowPollingInterval,
+				MaxParallelTasks:  options.MaxParallelWorkflowTasks,
+				HeartbeatInterval: options.WorkflowHeartbeatInterval,
+			},
+			WorkflowExecutorCache:     options.WorkflowExecutorCache,
+			WorkflowExecutorCacheSize: options.WorkflowExecutorCacheSize,
+			WorkflowExecutorCacheTTL:  options.WorkflowExecutorCacheTTL,
+		}),
+
+		activityWorker: internal.NewActivityWorker(backend, registry, clock.New(), internal.WorkerOptions{
+			Pollers:           options.ActivityPollers,
+			PollingInterval:   options.ActivityPollingInterval,
+			MaxParallelTasks:  options.MaxParallelActivityTasks,
+			HeartbeatInterval: options.ActivityHeartbeatInterval,
+		}),
 
 		registry: registry,
 	}

@@ -43,8 +43,12 @@ func Test_MysqlBackend(t *testing.T) {
 
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, options...)
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
+		if err := b.(*mysqlBackend).db.Close(); err != nil {
+			panic(err)
+		}
+
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -84,8 +88,12 @@ func TestMySqlBackendE2E(t *testing.T) {
 
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, options...)
+		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
+		if err := b.(*mysqlBackend).db.Close(); err != nil {
+			panic(err)
+		}
+
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
 		if err != nil {
 			panic(err)
@@ -113,11 +121,13 @@ func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 	// There is no index on `visible_at`, but this is okay for test only usage.
 	futureEvents, err := tx.QueryContext(
 		ctx,
-		"SELECT event_id, sequence_id, instance_id, event_type, timestamp, schedule_event_id, attributes, visible_at FROM `pending_events` WHERE visible_at IS NOT NULL",
+		"SELECT pe.id, pe.sequence_id, pe.instance_id, pe.execution_id, pe.event_type, pe.timestamp, pe.schedule_event_id, pe.visible_at, a.data FROM `pending_events` pe JOIN `attributes` a ON a.id = pe.id AND a.instance_id = pe.instance_id AND a.execution_id = pe.execution_id WHERE pe.visible_at IS NOT NULL",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
+
+	defer futureEvents.Close()
 
 	f := make([]*history.Event, 0)
 

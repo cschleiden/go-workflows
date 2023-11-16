@@ -30,19 +30,14 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		return err
 	}
 
-	// Create event stream
-	eventData, err := json.Marshal(event)
-	if err != nil {
-		return err
+	// Create event stream with initial event
+	if err := addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
+		return fmt.Errorf("adding event payloads: %w", err)
 	}
 
-	p.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(instance),
-		ID:     "*",
-		Values: map[string]interface{}{
-			"event": string(eventData),
-		},
-	})
+	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance), event); err != nil {
+		return fmt.Errorf("adding event to stream: %w", err)
+	}
 
 	// Queue workflow instance task
 	if err := rb.workflowQueue.Enqueue(ctx, p, instanceSegment(instance), nil); err != nil {
@@ -70,6 +65,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		return nil, err
 	}
 
+	payloadKeys := make([]string, 0, len(msgs))
 	var events []*history.Event
 	for _, msg := range msgs {
 		var event *history.Event
@@ -77,7 +73,20 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}
 
+		payloadKeys = append(payloadKeys, event.ID)
 		events = append(events, event)
+	}
+
+	res, err := rb.rdb.HMGet(ctx, payloadKey(instance), payloadKeys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("reading payloads: %w", err)
+	}
+
+	for i, event := range events {
+		event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i].(string)))
+		if err != nil {
+			return nil, fmt.Errorf("deserializing attributes for event %v: %w", event.Type, err)
+		}
 	}
 
 	return events, nil

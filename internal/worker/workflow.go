@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -14,126 +13,73 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	mi "github.com/cschleiden/go-workflows/internal/metrics"
+	im "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
 )
 
-type WorkflowWorker struct {
-	backend backend.Backend
+type WorkflowWorkerOptions struct {
+	WorkerOptions
 
-	options *Options
+	WorkflowExecutorCache     workflow.ExecutorCache
+	WorkflowExecutorCacheSize int
+	WorkflowExecutorCacheTTL  time.Duration
+}
 
+func NewWorkflowWorker(b backend.Backend, registry *workflow.Registry, options WorkflowWorkerOptions) *Worker[backend.WorkflowTask, workflow.ExecutionResult] {
+	if options.WorkflowExecutorCache == nil {
+		options.WorkflowExecutorCache = cache.NewWorkflowExecutorLRUCache(b.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
+	}
+
+	tw := &WorkflowTaskWorker{
+		backend:  b,
+		registry: registry,
+		cache:    options.WorkflowExecutorCache,
+		logger:   b.Logger(),
+	}
+
+	return NewWorker[backend.WorkflowTask, workflow.ExecutionResult](b, tw, &options.WorkerOptions)
+}
+
+type WorkflowTaskWorker struct {
+	backend  backend.Backend
 	registry *workflow.Registry
-
-	cache workflow.ExecutorCache
-
-	workflowTaskQueue chan *backend.WorkflowTask
-
-	logger *slog.Logger
-
-	pollersWg sync.WaitGroup
-	wg        sync.WaitGroup
+	cache    workflow.ExecutorCache
+	logger   *slog.Logger
 }
 
-func NewWorkflowWorker(b backend.Backend, registry *workflow.Registry, options *Options) *WorkflowWorker {
-	var c workflow.ExecutorCache
-	if options.WorkflowExecutorCache != nil {
-		c = options.WorkflowExecutorCache
-	} else {
-		c = cache.NewWorkflowExecutorLRUCache(b.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
-	}
-
-	return &WorkflowWorker{
-		backend: b,
-
-		options: options,
-
-		registry:          registry,
-		workflowTaskQueue: make(chan *backend.WorkflowTask),
-
-		cache: c,
-
-		logger: b.Logger(),
-	}
-}
-
-func (ww *WorkflowWorker) Start(ctx context.Context) error {
-	ww.pollersWg.Add(ww.options.WorkflowPollers)
-
-	for i := 0; i < ww.options.WorkflowPollers; i++ {
-		go ww.runPoll(ctx)
-	}
-
-	go ww.runDispatcher()
-
-	return nil
-}
-
-func (ww *WorkflowWorker) WaitForCompletion() error {
-	// Wait for task pollers to finish
-	ww.pollersWg.Wait()
-
-	// Wait for tasks to finish
-	ww.wg.Wait()
-	close(ww.workflowTaskQueue)
-
-	return nil
-}
-
-func (ww *WorkflowWorker) runPoll(ctx context.Context) {
-	defer ww.pollersWg.Done()
-
-	ticker := time.NewTicker(ww.options.WorkflowPollingInterval)
-	defer ticker.Stop()
-	for {
-		task, err := ww.poll(ctx, 30*time.Second)
-		if err != nil {
-			ww.logger.ErrorContext(ctx, "error while polling for workflow task", "error", err)
-		}
-		if task != nil {
-			ww.wg.Add(1)
-			ww.workflowTaskQueue <- task
-			continue // check for new tasks right away
+// Complete implements TaskWorker.
+func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.ExecutionResult, t *backend.WorkflowTask) error {
+	state := result.State
+	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
+		if t.WorkflowInstanceState != state {
+			// If the workflow is now finished, record
+			wtw.backend.Metrics().Counter(metrickeys.WorkflowInstanceFinished, metrics.Tags{
+				metrickeys.SubWorkflow:    fmt.Sprint(t.WorkflowInstance.SubWorkflow()),
+				metrickeys.ContinuedAsNew: fmt.Sprint(state == core.WorkflowInstanceStateContinuedAsNew),
+			}, 1)
 		}
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
-func (ww *WorkflowWorker) runDispatcher() {
-	var sem chan struct{}
-
-	if ww.options.MaxParallelWorkflowTasks > 0 {
-		sem = make(chan struct{}, ww.options.MaxParallelWorkflowTasks)
-	}
-
-	for t := range ww.workflowTaskQueue {
-		if sem != nil {
-			sem <- struct{}{}
-		}
-
-		t := t
-
-		go func() {
-			defer ww.wg.Done()
-
-			// Create new context to allow workflows to complete when root context is canceled
-			taskCtx := context.Background()
-			ww.handle(taskCtx, t)
-
-			if sem != nil {
-				<-sem
+		// Workflow is finished, explicitly evict from cache (if one is used)
+		if wtw.cache != nil {
+			if err := wtw.cache.Evict(ctx, t.WorkflowInstance); err != nil {
+				wtw.logger.ErrorContext(ctx, "could not evict workflow executor from cache", "error", err)
 			}
-		}()
+		}
 	}
+
+	wtw.backend.Metrics().Counter(metrickeys.ActivityTaskScheduled, metrics.Tags{}, int64(len(result.ActivityEvents)))
+
+	if err := wtw.backend.CompleteWorkflowTask(
+		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
+		wtw.logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
+		panic("could not complete workflow task")
+	}
+
+	return nil
 }
 
-func (ww *WorkflowWorker) handle(ctx context.Context, t *backend.WorkflowTask) {
+func (wtw *WorkflowTaskWorker) Execute(ctx context.Context, t *backend.WorkflowTask) (*workflow.ExecutionResult, error) {
 	// Record how long this task was in the queue
 	firstEvent := t.NewEvents[0]
 	var scheduledAt time.Time
@@ -147,116 +93,36 @@ func (ww *WorkflowWorker) handle(ctx context.Context, t *backend.WorkflowTask) {
 	eventName := fmt.Sprint(firstEvent.Type)
 
 	timeInQueue := time.Since(scheduledAt)
-	ww.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{
+	wtw.backend.Metrics().Distribution(metrickeys.WorkflowTaskDelay, metrics.Tags{
 		metrickeys.EventName: eventName,
 	}, float64(timeInQueue/time.Millisecond))
 
-	timer := mi.NewTimer(ww.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{
+	timer := im.NewTimer(wtw.backend.Metrics(), metrickeys.WorkflowTaskProcessed, metrics.Tags{
 		metrickeys.EventName: eventName,
 	})
 
-	result, err := ww.handleTask(ctx, t)
+	executor, err := wtw.getExecutor(ctx, t)
 	if err != nil {
-		ww.logger.ErrorContext(ctx, "could not handle workflow task", "error", err)
+		return nil, fmt.Errorf("getting executor: %w", err)
+	}
+
+	result, err := executor.ExecuteTask(ctx, t)
+	if err != nil {
+		return nil, fmt.Errorf("executing task: %w", err)
 	}
 
 	// Only record the time spent in the workflow code
 	timer.Stop()
 
-	state := result.State
-	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
-		if t.WorkflowInstanceState != state {
-			// If the workflow is now finished, record
-			ww.backend.Metrics().Counter(metrickeys.WorkflowInstanceFinished, metrics.Tags{
-				metrickeys.SubWorkflow:    fmt.Sprint(t.WorkflowInstance.SubWorkflow()),
-				metrickeys.ContinuedAsNew: fmt.Sprint(state == core.WorkflowInstanceStateContinuedAsNew),
-			}, 1)
-		}
-	}
-
-	ww.backend.Metrics().Counter(metrickeys.ActivityTaskScheduled, metrics.Tags{}, int64(len(result.ActivityEvents)))
-
-	if err := ww.backend.CompleteWorkflowTask(
-		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
-		ww.logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
-		panic("could not complete workflow task")
-	}
-}
-
-func (ww *WorkflowWorker) handleTask(
-	ctx context.Context,
-	t *backend.WorkflowTask,
-) (*workflow.ExecutionResult, error) {
-	executor, err := ww.getExecutor(ctx, t)
-	if err != nil {
-		return nil, err
-	}
-
-	if ww.options.HeartbeatWorkflowTasks {
-		// Start heartbeat while processing workflow task
-		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-		defer cancelHeartbeat()
-		go ww.heartbeatTask(heartbeatCtx, t)
-	}
-
-	result, err := executor.ExecuteTask(ctx, t)
-	if err != nil {
-		return nil, fmt.Errorf("executing workflow task: %w", err)
-	}
-
 	return result, nil
 }
 
-func (ww *WorkflowWorker) getExecutor(ctx context.Context, t *backend.WorkflowTask) (workflow.WorkflowExecutor, error) {
-	// Try to get a cached executor
-	executor, ok, err := ww.cache.Get(ctx, t.WorkflowInstance)
-	if err != nil {
-		ww.logger.ErrorContext(ctx, "could not get cached workflow task executor", "error", err)
-	}
-
-	if !ok {
-		executor, err = workflow.NewExecutor(
-			ww.backend.Logger(), ww.backend.Tracer(), ww.registry, ww.backend.Converter(), ww.backend.ContextPropagators(), ww.backend, t.WorkflowInstance, t.Metadata, clock.New(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("creating workflow task executor: %w", err)
-		}
-	}
-
-	// Cache executor instance for future continuation tasks, or refresh last access time
-	if err := ww.cache.Store(ctx, t.WorkflowInstance, executor); err != nil {
-		ww.logger.ErrorContext(ctx, "error while caching workflow task executor:", "error", err)
-	}
-
-	return executor, nil
+func (wtw *WorkflowTaskWorker) Extend(ctx context.Context, t *backend.WorkflowTask) error {
+	return wtw.backend.ExtendWorkflowTask(ctx, t.ID, t.WorkflowInstance)
 }
 
-func (ww *WorkflowWorker) heartbeatTask(ctx context.Context, task *backend.WorkflowTask) {
-	t := time.NewTicker(ww.options.WorkflowHeartbeatInterval)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			if err := ww.backend.ExtendWorkflowTask(ctx, task.ID, task.WorkflowInstance); err != nil {
-				ww.logger.ErrorContext(ctx, "could not heartbeat workflow task", "error", err)
-				panic("could not heartbeat workflow task")
-			}
-		}
-	}
-}
-
-func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*backend.WorkflowTask, error) {
-	if timeout == 0 {
-		timeout = 30 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	task, err := ww.backend.GetWorkflowTask(ctx)
+func (wtw *WorkflowTaskWorker) Get(ctx context.Context) (*backend.WorkflowTask, error) {
+	t, err := wtw.backend.GetWorkflowTask(ctx)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
@@ -265,5 +131,37 @@ func (ww *WorkflowWorker) poll(ctx context.Context, timeout time.Duration) (*bac
 		return nil, err
 	}
 
-	return task, nil
+	return t, nil
+}
+
+func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.WorkflowTask) (workflow.WorkflowExecutor, error) {
+	// Try to get a cached executor
+	executor, ok, err := wtw.cache.Get(ctx, t.WorkflowInstance)
+	if err != nil {
+		wtw.logger.ErrorContext(ctx, "could not get cached workflow task executor", "error", err)
+	}
+
+	if !ok {
+		executor, err = workflow.NewExecutor(
+			wtw.backend.Logger(),
+			wtw.backend.Tracer(),
+			wtw.registry,
+			wtw.backend.Converter(),
+			wtw.backend.ContextPropagators(),
+			wtw.backend,
+			t.WorkflowInstance,
+			t.Metadata,
+			clock.New(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating workflow task executor: %w", err)
+		}
+	}
+
+	// Cache executor instance for future continuation tasks, or refresh last access time
+	if err := wtw.cache.Store(ctx, t.WorkflowInstance, executor); err != nil {
+		wtw.logger.ErrorContext(ctx, "error while caching workflow task executor:", "error", err)
+	}
+
+	return executor, nil
 }

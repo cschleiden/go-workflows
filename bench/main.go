@@ -40,10 +40,20 @@ func main() {
 	defer cancel()
 
 	mm := newMemMetrics()
-	ba := getBackend(*b, backend.WithLogger(slog.New(&nullHandler{})), backend.WithMetrics(mm))
+	ba := getBackend(*b,
+		backend.WithLogger(slog.New(&nullHandler{})),
+		backend.WithMetrics(mm),
+	)
+	defer ba.Close()
 
-	wo := worker.DefaultWorkerOptions
+	wo := worker.DefaultOptions
 	wo.WorkflowExecutorCacheSize = *cacheSize
+
+	if *b == "redis" {
+		wo.ActivityPollingInterval = 0
+		wo.WorkflowPollingInterval = 0
+	}
+
 	w := worker.New(ba, &wo)
 
 	w.RegisterWorkflow(Root)
@@ -104,12 +114,12 @@ func main() {
 func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 	switch b {
 	case "memory":
-		return monoprocess.NewMonoprocessBackend(sqlite.NewInMemoryBackend(opt...))
+		return monoprocess.NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(opt...)))
 
 	case "sqlite":
 		os.Remove("bench.sqlite")
 
-		return monoprocess.NewMonoprocessBackend(sqlite.NewSqliteBackend("bench.sqlite", opt...))
+		return monoprocess.NewMonoprocessBackend(sqlite.NewSqliteBackend("bench.sqlite", sqlite.WithBackendOptions(opt...)))
 
 	case "mysql":
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", "root", "root"))
@@ -129,7 +139,12 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 			panic(err)
 		}
 
-		return monoprocess.NewMonoprocessBackend(mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", opt...))
+		return monoprocess.NewMonoprocessBackend(
+			mysql.NewMysqlBackend("localhost", 3306, "root", "root", "bench", mysql.WithBackendOptions(opt...),
+				mysql.WithMySQLOptions(func(db *sql.DB) {
+					db.SetMaxOpenConns(100)
+				})),
+		)
 
 	case "redis":
 		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{
@@ -141,7 +156,10 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 			ReadTimeout:  time.Second * 30,
 		})
 
-		rclient.FlushAll(context.Background()).Result()
+		_, err := rclient.FlushAll(context.Background()).Result()
+		if err != nil {
+			panic(err)
+		}
 
 		b, err := redis.NewRedisBackend(rclient, redis.WithBackendOptions(opt...))
 		if err != nil {

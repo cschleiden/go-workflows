@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/backend/test"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_MonoprocessBackend(t *testing.T) {
@@ -20,8 +21,10 @@ func Test_MonoprocessBackend(t *testing.T) {
 		// Disable sticky workflow behavior for the test execution
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...))
-	}, nil)
+		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(options...)))
+	}, func(b test.TestBackend) {
+		require.NoError(t, b.Close())
+	})
 }
 
 func Test_EndToEndMonoprocessBackend(t *testing.T) {
@@ -33,7 +36,7 @@ func Test_EndToEndMonoprocessBackend(t *testing.T) {
 		// Disable sticky workflow behavior for the test execution
 		options = append(options, backend.WithStickyTimeout(0))
 
-		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(options...))
+		return NewMonoprocessBackend(sqlite.NewInMemoryBackend(sqlite.WithBackendOptions(options...)))
 	}, nil)
 }
 
@@ -43,5 +46,6 @@ func (b *monoprocessBackend) GetFutureEvents(ctx context.Context) ([]*history.Ev
 	if testBackend, ok := b.Backend.(test.TestBackend); ok {
 		return testBackend.GetFutureEvents(ctx)
 	}
+
 	return nil, errors.New("not implemented")
 }

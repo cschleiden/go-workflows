@@ -26,7 +26,7 @@ func Test_AutoExpiration(t *testing.T) {
 	b := setup()
 
 	c := client.New(b)
-	w := worker.New(b, &worker.DefaultWorkerOptions)
+	w := worker.New(b, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -71,7 +71,7 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 	b := setup()
 
 	c := client.New(b)
-	w := worker.New(b, &worker.DefaultWorkerOptions)
+	w := worker.New(b, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
