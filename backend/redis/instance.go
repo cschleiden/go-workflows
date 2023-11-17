@@ -175,25 +175,6 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	return nil
 }
 
-func updateInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, state *instanceState) error {
-	key := instanceKey(instance)
-
-	b, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("marshaling instance state: %w", err)
-	}
-
-	p.Set(ctx, key, string(b), 0)
-
-	if state.State != core.WorkflowInstanceStateActive {
-		p.SRem(ctx, instancesActive(), instanceSegment(instance))
-	}
-
-	// CreatedAt does not change, so skip updating the instancesByCreation() ZSET
-
-	return nil
-}
-
 func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceKey string) (*instanceState, error) {
 	p := rdb.Pipeline()
 
@@ -254,10 +235,4 @@ func setActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instanc
 	}
 
 	return p.Set(ctx, key, string(b), 0).Err()
-}
-
-func removeActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance) error {
-	key := activeInstanceExecutionKey(instance.InstanceID)
-
-	return p.Del(ctx, key).Err()
 }
