@@ -165,9 +165,6 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	// The newly created instance is going to be the active execution
 	setActiveInstanceExecutionP(ctx, p, instance)
 
-	// Record instance id
-	p.HSet(ctx, instanceIDs(), instance.InstanceID, 1)
-
 	p.ZAdd(ctx, instancesByCreation(), redis.Z{
 		Member: instanceSegment(instance),
 		Score:  float64(createdAt.UnixMilli()),

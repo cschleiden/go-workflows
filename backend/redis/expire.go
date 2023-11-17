@@ -18,12 +18,10 @@ import (
 // KEYS[4] - pending events key
 // KEYS[5] - history key
 // KEYS[6] - payload key
-// KEYS[7] - instances key
 // ARGV[1] - current timestamp
 // ARGV[2] - expiration time in seconds
 // ARGV[3] - expiration timestamp in unix milliseconds
 // ARGV[4] - instance segment
-// ARGV[5] - instance id
 var expireCmd = redis.NewScript(
 	`-- Find instances which have already expired and remove from the index set
 	local expiredInstances = redis.call("ZRANGE", KEYS[2], "-inf", ARGV[1], "BYSCORE")
@@ -31,7 +29,6 @@ var expireCmd = redis.NewScript(
 		local instanceSegment = expiredInstances[i]
 		redis.call("ZREM", KEYS[1], instanceSegment) -- index set
 		redis.call("ZREM", KEYS[2], instanceSegment) -- expiration set
-		redis.call("HDEL", KEYS[7], ARGV[5])
 	end
 
 	-- Add expiration time for future cleanup
@@ -60,12 +57,10 @@ func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClien
 		pendingEventsKey(instance),
 		historyKey(instance),
 		payloadKey(instance),
-		instanceIDs(),
 	},
 		nowStr,
 		expiration.Seconds(),
 		expStr,
 		instanceSegment(instance),
-		instance.InstanceID,
 	).Err()
 }

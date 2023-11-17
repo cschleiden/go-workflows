@@ -206,18 +206,25 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			name: "SubWorkflow_DuplicateInstanceID",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
+					workflow.NewSignalChannel[any](ctx, "signal").Receive(ctx)
+
 					return i * 2, nil
 				}
 				wf := func(ctx workflow.Context) (int, error) {
-					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+					swf1 := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 						InstanceID: "subworkflow",
-					}, swf, 1).Get(ctx)
-					if err != nil {
-						return 0, err
-					}
+					}, swf, 1)
+
+					defer func() {
+						rctx := workflow.NewDisconnectedContext(ctx)
+
+						// Unblock waiting sub workflow
+						workflow.SignalWorkflow[any](rctx, "subworkflow", "signal", 1).Get(rctx)
+						swf1.Get(rctx)
+					}()
 
 					// Run another subworkflow with the same ID
-					r, err = workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 						InstanceID: "subworkflow",
 					}, swf, 1).Get(ctx)
 					if err != nil {

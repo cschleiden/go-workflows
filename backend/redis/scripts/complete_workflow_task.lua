@@ -21,7 +21,6 @@ local pendingEventsKey = getKey()
 local payloadHashKey = getKey()
 local futureEventZSetKey = getKey()
 local activeInstancesKey = getKey()
-local instancesByIdKey = getKey()
 
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
@@ -103,7 +102,7 @@ for i = 1, otherWorkflowInstances do
         local conflictEventPayloadData = getArgv()
 
         -- Does the instance exist already?
-        local instanceExists = redis.call("HEXISTS", instancesByIdKey, targetInstanceId)
+        local instanceExists = redis.call("EXISTS", targetActiveInstanceExecutionState)
         if instanceExists == 1 then
             redis.call("XADD", pendingEventsKey, "*", "event", conflictEventData)
             storePayload(conflictEventId, conflictEventPayloadData)
@@ -119,8 +118,6 @@ for i = 1, otherWorkflowInstances do
 
             -- Track active instance
             redis.call("SADD", activeInstancesKey, targetInstanceSegment)
-
-            redis.call("HSET", instancesByIdKey, targetInstanceId, 1)
         end
     end
 

@@ -312,7 +312,8 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 
 func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata) error {
 	// Check for existing instance
-	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE instance_id = ? LIMIT 1", wfi.InstanceID).Scan(new(int)); err != sql.ErrNoRows {
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE instance_id = ? AND state = ? LIMIT 1", wfi.InstanceID, core.WorkflowInstanceStateActive).
+		Scan(new(int)); err != sql.ErrNoRows {
 		return backend.ErrInstanceAlreadyExists
 	}
 

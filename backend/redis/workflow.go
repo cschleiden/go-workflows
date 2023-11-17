@@ -106,7 +106,6 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		payloadKey(instance),
 		futureEventsKey(),
 		instancesActive(),
-		instanceIDs(),
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
 	)
