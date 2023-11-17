@@ -37,6 +37,10 @@ func instancesExpiring() string {
 	return "instances-expiring"
 }
 
+func instanceIDs() string {
+	return "instances"
+}
+
 func pendingEventsKey(instance *core.WorkflowInstance) string {
 	return fmt.Sprintf("pending-events:%v", instanceSegment(instance))
 }

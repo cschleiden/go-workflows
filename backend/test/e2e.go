@@ -231,8 +231,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				instance := runWorkflow(t, ctx, c, wf)
 
 				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
-				require.Error(t, err)
-				require.ErrorIs(t, err, backend.ErrInstanceAlreadyExists)
+				require.Error(t, err, backend.ErrInstanceAlreadyExists.Error())
 			},
 		},
 		{

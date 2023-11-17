@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -119,7 +120,6 @@ var createGroupCmd = redis.NewScript(`
     return true
 `)
 
-
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
 	ds, err := json.Marshal(data)
 	if err != nil {
@@ -139,6 +139,7 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, l
 	}
 
 	if task != nil {
+		log.Println("Recovered task", task.ID)
 		return task, nil
 	}
 

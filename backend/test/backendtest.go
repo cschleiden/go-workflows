@@ -297,6 +297,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				task, err = b.GetWorkflowTask(ctx)
 				require.NoError(t, err)
+				require.NotNil(t, task)
 				require.Equal(t, subInstance1, task.WorkflowInstance)
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
 			},

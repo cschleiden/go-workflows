@@ -14,9 +14,12 @@ import (
 // KEYS[4] - payload key
 // KEYS[5] - active-instance-execution key
 // KEYS[6] - instances-by-creation key
+// KEYS[7] - instances
 // ARGV[1] - instance segment
+// ARGV[2] - instance id
 var deleteCmd = redis.NewScript(
 	`redis.call("DEL", KEYS[1], KEYS[2], KEYS[3], KEYS[4], KEYS[5])
+	redis.call("HDEL", KEYS[7], ARGV[1])
 	return redis.call("ZREM", KEYS[6], ARGV[1])`)
 
 // deleteInstance deletes an instance from Redis. It does not attempt to remove any future events or pending
@@ -31,7 +34,8 @@ func deleteInstance(ctx context.Context, rdb redis.UniversalClient, instance *co
 		payloadKey(instance),
 		activeInstanceExecutionKey(instance.InstanceID),
 		instancesByCreation(),
-	}, instanceSegment(instance)).Err(); err != nil {
+		instanceIDs(),
+	}, instanceSegment(instance), instance.InstanceID).Err(); err != nil {
 		return fmt.Errorf("failed to delete instance: %w", err)
 	}
 

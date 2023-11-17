@@ -26,7 +26,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 
 	p := rb.rdb.TxPipeline()
 
-	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
+	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
 		return err
 	}
 
@@ -145,7 +145,7 @@ type instanceState struct {
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *metadata.WorkflowMetadata, ignoreDuplicate bool) error {
+func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *metadata.WorkflowMetadata) error {
 	key := instanceKey(instance)
 
 	createdAt := time.Now()
@@ -164,6 +164,9 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 
 	// The newly created instance is going to be the active execution
 	setActiveInstanceExecutionP(ctx, p, instance)
+
+	// Record instance id
+	p.HSet(ctx, instanceIDs(), instance.InstanceID, 1)
 
 	p.ZAdd(ctx, instancesByCreation(), redis.Z{
 		Member: instanceSegment(instance),
