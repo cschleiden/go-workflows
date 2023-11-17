@@ -51,7 +51,8 @@ func Test_AutoExpiration(t *testing.T) {
 	_, err = b.GetWorkflowInstanceState(ctx, wfi)
 	require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 
-	insts, err := b.GetWorkflowInstances(ctx, "", "", 1)
+	// Check that the instance is gone from the list of instances
+	insts, err := b.(*redisBackend).GetWorkflowInstances(ctx, "", "", 1)
 	require.NoError(t, err)
 	assert.Len(t, insts, 0)
 
