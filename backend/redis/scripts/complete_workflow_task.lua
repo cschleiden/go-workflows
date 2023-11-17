@@ -165,8 +165,6 @@ if state == ContinuedAsNew or state == Finished then
 
     instance["completed_at"] = now
 
-    -- TODO: Set auto expiration
-
     redis.call("SREM", activeInstancesKey, instanceSegment)
 end
 

@@ -10,8 +10,12 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/log"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
@@ -245,7 +249,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// If there are pending events, queue the instance again
 	// 	No args/keys needed
 
-	// Commit transaction
+	// Run script
 	_, err := completeWorkflowTaskCmd.Run(ctx, rb.rdb, keys, args...).Result()
 	if err != nil {
 		return fmt.Errorf("completing workflow task: %w", err)
@@ -253,19 +257,18 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
 		// Trace workflow completion
-		// TODO: Return metadata from script
-		// ctx, err = (&tracing.TracingContextPropagator{}).Extract(ctx, instanceState.Metadata)
-		// if err != nil {
-		// 	rb.Logger().Error("extracting tracing context", log.ErrorKey, err)
-		// }
+		ctx, err = (&tracing.TracingContextPropagator{}).Extract(ctx, task.Metadata)
+		if err != nil {
+			rb.Logger().Error("extracting tracing context", log.ErrorKey, err)
+		}
 
-		// _, span := rb.Tracer().Start(ctx, "WorkflowComplete",
-		// 	trace.WithAttributes(
-		// 		attribute.String(log.NamespaceKey+log.InstanceIDKey, instanceState.Instance.InstanceID),
-		// 	))
-		// span.End()
+		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
+			trace.WithAttributes(
+				attribute.String(log.NamespaceKey+log.InstanceIDKey, task.WorkflowInstance.InstanceID),
+			))
+		span.End()
 
-		// TODO: Move to script
+		// Auto expiration
 		if rb.options.AutoExpiration > 0 {
 			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance, rb.options.AutoExpiration); err != nil {
 				return fmt.Errorf("setting workflow instance expiration: %w", err)
