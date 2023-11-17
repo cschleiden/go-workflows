@@ -557,8 +557,6 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 
 				return fmt.Errorf("creating sub-workflow instance: %w", err)
 			}
-
-			continue
 		}
 
 		// Insert pending events for target instance
