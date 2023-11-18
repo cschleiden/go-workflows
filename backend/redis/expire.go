@@ -17,6 +17,7 @@ import (
 // KEYS[3] - instance key
 // KEYS[4] - pending events key
 // KEYS[5] - history key
+// KEYS[6] - payload key
 // ARGV[1] - current timestamp
 // ARGV[2] - expiration time in seconds
 // ARGV[3] - expiration timestamp in unix milliseconds
@@ -55,6 +56,7 @@ func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClien
 		instanceKey(instance),
 		pendingEventsKey(instance),
 		historyKey(instance),
+		payloadKey(instance),
 	},
 		nowStr,
 		expiration.Seconds(),

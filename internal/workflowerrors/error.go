@@ -36,6 +36,10 @@ func (we *Error) Error() string {
 }
 
 func (we *Error) Unwrap() error {
+	if we == nil || we.Cause == (*Error)(nil) {
+		return nil
+	}
+
 	return we.Cause
 }
 

@@ -25,9 +25,6 @@ type Worker struct {
 
 	workflowWorker *internal.Worker[backend.WorkflowTask, workflowinternal.ExecutionResult]
 	activityWorker *internal.Worker[backend.ActivityTask, history.Event]
-
-	workflows  map[string]interface{}
-	activities map[string]interface{}
 }
 
 func New(backend backend.Backend, options *Options) *Worker {
@@ -46,7 +43,9 @@ func New(backend backend.Backend, options *Options) *Worker {
 	registry := workflowinternal.NewRegistry()
 
 	// Register internal activities
-	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)})
+	if err := registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}); err != nil {
+		panic(fmt.Errorf("registering internal activities: %w", err))
+	}
 
 	return &Worker{
 		backend: backend,

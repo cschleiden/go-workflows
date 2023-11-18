@@ -80,6 +80,7 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 				},
 			},
 		}
+
 	case CommandState_CancelPending:
 		c.state = CommandState_Canceled
 

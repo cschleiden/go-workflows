@@ -67,7 +67,9 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	defer span.End()
 
 	for _, propagator := range c.backend.ContextPropagators() {
-		propagator.Inject(ctx, metadata)
+		if err := propagator.Inject(ctx, metadata); err != nil {
+			return nil, fmt.Errorf("injecting context to propagate: %w", err)
+		}
 	}
 
 	startedEvent := history.NewPendingEvent(
