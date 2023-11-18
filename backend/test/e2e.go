@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/sync"
 	internalwf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -36,6 +37,48 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 					return msg + " world", nil
 				}
 				register(t, ctx, w, []interface{}{wf}, nil)
+
+				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
+
+				require.NoError(t, err)
+				require.Equal(t, "hello world", output)
+			},
+		},
+		{
+			name: "Workflow_LotsOfActivities",
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				a := func(ctx context.Context) (int, error) {
+					return 42, nil
+				}
+
+				wf := func(ctx workflow.Context, msg string) (string, error) {
+					done := 0
+
+					y := make([]workflow.SelectCase, 0)
+					for i := 0; i < 100; i++ {
+						var sc workflow.SelectCase
+						sc = workflow.Await[int](workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{}, a),
+							func(ctx sync.Context, f workflow.Future[int]) {
+								done++
+
+								// Remove sc from y
+								for i, v := range y {
+									if v == sc {
+										y = append(y[:i], y[i+1:]...)
+										break
+									}
+								}
+							})
+						y = append(y, sc)
+					}
+
+					for done < 100 {
+						workflow.Select(ctx, y...)
+					}
+
+					return msg + " world", nil
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
