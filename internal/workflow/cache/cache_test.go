@@ -24,7 +24,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	c := NewWorkflowExecutorLRUCache(metrics.NewNoopMetricsClient(), 1, time.Second*10)
 
 	r := wf.NewRegistry()
-	r.RegisterWorkflow(workflowWithActivity)
+	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	e, err := wf.NewExecutor(
@@ -52,7 +52,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	err = c.Store(context.Background(), i2, e2)
 	require.NoError(t, err)
 
-	re, ok, err = c.Get(context.Background(), i)
+	_, ok, err = c.Get(context.Background(), i)
 	require.NoError(t, err)
 	require.False(t, ok)
 }
@@ -66,7 +66,7 @@ func Test_Cache_AutoEviction(t *testing.T) {
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	r := wf.NewRegistry()
-	r.RegisterWorkflow(workflowWithActivity)
+	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
 		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
@@ -96,7 +96,7 @@ func Test_Cache_Evict(t *testing.T) {
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	r := wf.NewRegistry()
-	r.RegisterWorkflow(workflowWithActivity)
+	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
 		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,

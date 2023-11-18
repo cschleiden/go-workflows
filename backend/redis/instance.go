@@ -163,7 +163,9 @@ func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.Work
 	p.SetNX(ctx, key, string(b), 0)
 
 	// The newly created instance is going to be the active execution
-	setActiveInstanceExecutionP(ctx, p, instance)
+	if err := setActiveInstanceExecutionP(ctx, p, instance); err != nil {
+		return fmt.Errorf("setting active instance execution: %w", err)
+	}
 
 	p.ZAdd(ctx, instancesByCreation(), redis.Z{
 		Member: instanceSegment(instance),

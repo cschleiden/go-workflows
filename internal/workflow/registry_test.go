@@ -144,7 +144,7 @@ func Test_ActivityRegistration(t *testing.T) {
 	err = r.RegisterActivity(reg_activity, WithName("CustomName"))
 	require.NoError(t, err)
 
-	x, err = r.GetActivity("CustomName")
+	_, err = r.GetActivity("CustomName")
 	require.NoError(t, err)
 }
 

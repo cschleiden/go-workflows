@@ -41,8 +41,7 @@ func SpanFromContext(ctx sync.Context) trace.Span {
 }
 
 type WorkflowTracer struct {
-	parentSpan trace.Span
-	tracer     trace.Tracer
+	tracer trace.Tracer
 }
 
 func New(tracer trace.Tracer) *WorkflowTracer {

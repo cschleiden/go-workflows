@@ -235,10 +235,6 @@ func Test_Executor(t *testing.T) {
 				require.False(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 1)
 
-				h := []*history.Event{}
-				h = append(h, oldTask.NewEvents...)
-				h = append(h, taskResult.Executed...)
-
 				newTask := &backend.WorkflowTask{
 					ID:               "taskID",
 					WorkflowInstance: oldTask.WorkflowInstance,
@@ -399,7 +395,7 @@ func Test_Executor(t *testing.T) {
 					history.NewPendingEvent(time.Now(), history.EventType_ActivityCompleted, &history.ActivityCompletedAttributes{}, history.ScheduleEventID(2)),
 				}, result.Executed[len(result.Executed)-1].SequenceID)
 
-				result, err = e.ExecuteTask(context.Background(), task2)
+				_, err = e.ExecuteTask(context.Background(), task2)
 				require.NoError(t, err)
 				require.Nil(t, e.workflow.err)
 			},
@@ -573,7 +569,7 @@ func Test_Executor(t *testing.T) {
 				// Complete subworkflow
 				swr, _ := converter.DefaultConverter.To(nil)
 				hp.history = append(hp.history, result.Executed...)
-				result, err = e.ExecuteTask(context.Background(), continueTask("instanceID", []*history.Event{
+				_, err = e.ExecuteTask(context.Background(), continueTask("instanceID", []*history.Event{
 					history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowCompleted, &history.SubWorkflowCompletedAttributes{
 						Result: swr,
 					}, history.ScheduleEventID(1)),

@@ -59,12 +59,10 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
 	ctx := context.Background()
 	cmds := map[string]*redis.StringCmd{
-		"addFutureEventCmd":    addFutureEventCmd.Load(ctx, rb.rdb),
-		"futureEventsCmd":      futureEventsCmd.Load(ctx, rb.rdb),
-		"removeFutureEventCmd": removeFutureEventCmd.Load(ctx, rb.rdb),
-		"deleteInstanceCmd":    deleteCmd.Load(ctx, rb.rdb),
-		"expireInstanceCmd":    expireCmd.Load(ctx, rb.rdb),
-		"addPayloadsCmd":       addPayloadsCmd.Load(ctx, rb.rdb),
+		"futureEventsCmd":   futureEventsCmd.Load(ctx, rb.rdb),
+		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
+		"expireInstanceCmd": expireCmd.Load(ctx, rb.rdb),
+		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
 		// fmt.Println(name, cmd.Val())

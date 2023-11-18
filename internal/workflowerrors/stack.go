@@ -30,5 +30,5 @@ func stack(skip int) string {
 		buf.WriteString(frame.String())
 	}
 
-	return string(buf.Bytes())
+	return buf.String()
 }
