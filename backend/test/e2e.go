@@ -203,7 +203,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_DuplicateInstanceID",
+			name: "SubWorkflow_DuplicateActiveInstanceID",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					workflow.NewSignalChannel[any](ctx, "signal").Receive(ctx)
@@ -239,6 +239,40 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
 				require.Error(t, err, backend.ErrInstanceAlreadyExists.Error())
+			},
+		},
+		{
+			name: "SubWorkflow_DuplicateInactiveInstanceID",
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					// Let sub-workflow run to completion
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 1).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					// Run another subworkflow with the same ID
+					r, err = workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 2).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.NoError(t, err)
+				require.Equal(t, 4, r)
 			},
 		},
 		{
