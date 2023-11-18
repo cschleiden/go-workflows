@@ -19,6 +19,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
@@ -169,7 +170,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
+	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
 		return err
 	}
 
@@ -184,7 +185,13 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	return nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata) error {
+	// Check for existing instance
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? AND state = ? LIMIT 1", wfi.InstanceID, core.WorkflowInstanceStateActive).
+		Scan(new(int)); err != sql.ErrNoRows {
+		return backend.ErrInstanceAlreadyExists
+	}
+
 	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	if wfi.SubWorkflow() {
@@ -198,9 +205,9 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 		return fmt.Errorf("marshaling metadata: %w", err)
 	}
 
-	res, err := tx.ExecContext(
+	_, err = tx.ExecContext(
 		ctx,
-		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO `instances` (id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		wfi.InstanceID,
 		wfi.ExecutionID,
 		parentInstanceID,
@@ -211,17 +218,6 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 	)
 	if err != nil {
 		return fmt.Errorf("inserting workflow instance: %w", err)
-	}
-
-	if !ignoreDuplicate {
-		rows, err := res.RowsAffected()
-		if err != nil {
-			return err
-		}
-
-		if rows != 1 {
-			return backend.ErrInstanceAlreadyExists
-		}
 	}
 
 	return nil
@@ -542,15 +538,25 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
 	for targetInstance, events := range groupedEvents {
-		for _, m := range events {
-			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
-				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
-				// Create new instance
-				if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata, true); err != nil {
-					return err
+		// Are we creating a new sub-workflow instance?
+		m := events[0]
+		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
+			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+			// Create new instance
+			if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata); err != nil {
+				if err == backend.ErrInstanceAlreadyExists {
+					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
+						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
+							Error: workflowerrors.FromError(backend.ErrInstanceAlreadyExists),
+						}, history.ScheduleEventID(m.WorkflowInstance.ParentEventID)),
+					}); err != nil {
+						return fmt.Errorf("inserting sub-workflow failed event: %w", err)
+					}
+
+					continue
 				}
 
-				break
+				return fmt.Errorf("creating sub-workflow instance: %w", err)
 			}
 		}
 
