@@ -59,8 +59,13 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 
 	var instanceRefs []*diag.WorkflowInstanceRef
 	for _, instance := range instances {
+		instStr, ok := instance.(string)
+		if !ok {
+			continue
+		}
+
 		var state instanceState
-		if err := json.Unmarshal([]byte(instance.(string)), &state); err != nil {
+		if err := json.Unmarshal([]byte(instStr), &state); err != nil {
 			return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 		}
 
