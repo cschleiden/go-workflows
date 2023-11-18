@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -139,7 +138,6 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, l
 	}
 
 	if task != nil {
-		log.Println("Recovered task", task.ID)
 		return task, nil
 	}
 
