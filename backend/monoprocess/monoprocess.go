@@ -105,7 +105,9 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 		// Note that the worker will be notified even if the timer event gets
 		// cancelled. This is ok, because the poller will simply find no task
 		// and continue.
-		time.AfterFunc(attr.At.Sub(time.Now()), func() { b.notifyWorkflowWorker(context.Background()) })
+		time.AfterFunc(time.Until(attr.At), func() {
+			b.notifyWorkflowWorker(ctx)
+		})
 	}
 
 	b.notifyWorkflowWorker(ctx)
