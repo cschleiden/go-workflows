@@ -17,7 +17,6 @@ type monoprocessBackend struct {
 
 	workflowSignal chan struct{}
 	activitySignal chan struct{}
-	signalTimeout  time.Duration
 
 	logger *slog.Logger
 }
