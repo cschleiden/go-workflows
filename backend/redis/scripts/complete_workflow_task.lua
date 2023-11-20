@@ -102,7 +102,7 @@ for i = 1, otherWorkflowInstances do
         local conflictEventPayloadData = getArgv()
 
         -- Does the instance exist already?
-        local instanceExists = redis.call("EXISTS", targetActiveInstanceExecutionState)
+        local instanceExists = redis.call("EXISTS", targetActiveInstanceExecutionKey)
         if instanceExists == 1 then
             redis.call("XADD", pendingEventsKey, "*", "event", conflictEventData)
             storePayload(conflictEventId, conflictEventPayloadData)
