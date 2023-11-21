@@ -132,6 +132,15 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		args = append(args, event.ID, historyID(event.SequenceID), eventData, payloadData, event.SequenceID)
 	}
 
+	// Remove executed pending events
+	lastPendingEventMessageID := task.CustomData.(string)
+	args = append(args, lastPendingEventMessageID)
+
+	// Update instance state and update active execution
+	nowStr := time.Now().Format(time.RFC3339)
+	args = append(args, string(nowStr), int(state), int(core.WorkflowInstanceStateContinuedAsNew), int(core.WorkflowInstanceStateFinished))
+	keys = append(keys, activeInstanceExecutionKey(instance.InstanceID))
+
 	// Remove canceled timers
 	timersToCancel := make([]*history.Event, 0)
 	for _, event := range executedEvents {
@@ -163,6 +172,22 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		keys = append(keys, futureEventKey(instance, timerEvent.ScheduleEventID))
 	}
 
+	// Schedule activities
+	args = append(args, len(activityEvents))
+	activityQueueKeys := rb.activityQueue.Keys()
+	keys = append(keys, activityQueueKeys.SetKey, activityQueueKeys.StreamKey)
+	for _, activityEvent := range activityEvents {
+		activityData, err := json.Marshal(&activityData{
+			Instance: instance,
+			ID:       activityEvent.ID,
+			Event:    activityEvent,
+		})
+		if err != nil {
+			return fmt.Errorf("marshaling activity data: %w", err)
+		}
+		args = append(args, activityEvent.ID, activityData)
+	}
+
 	// Send new workflow events to the respective streams
 	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 	args = append(args, len(groupedEvents))
@@ -170,7 +195,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		keys = append(keys, instanceKey(&targetInstance), activeInstanceExecutionKey(targetInstance.InstanceID))
 		args = append(args, instanceSegment(&targetInstance), targetInstance.InstanceID)
 
-		// Are we creating a new sub-workflow instance?
+		// Are we creating a new workflow instance?
 		m := events[0]
 		createNewInstance := m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted
 		args = append(args, createNewInstance)
@@ -217,31 +242,6 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			args = append(args, m.HistoryEvent.ID, eventData, payloadEventData)
 		}
 	}
-
-	// Update instance state and update active execution
-	nowStr := time.Now().Format(time.RFC3339)
-	args = append(args, string(nowStr), int(state), int(core.WorkflowInstanceStateContinuedAsNew), int(core.WorkflowInstanceStateFinished))
-	keys = append(keys, activeInstanceExecutionKey(instance.InstanceID))
-
-	// Store activity data
-	args = append(args, len(activityEvents))
-	activityQueueKeys := rb.activityQueue.Keys()
-	keys = append(keys, activityQueueKeys.SetKey, activityQueueKeys.StreamKey)
-	for _, activityEvent := range activityEvents {
-		activityData, err := json.Marshal(&activityData{
-			Instance: instance,
-			ID:       activityEvent.ID,
-			Event:    activityEvent,
-		})
-		if err != nil {
-			return fmt.Errorf("marshaling activity data: %w", err)
-		}
-		args = append(args, activityEvent.ID, activityData)
-	}
-
-	// Remove executed pending events
-	lastPendingEventMessageID := task.CustomData.(string)
-	args = append(args, lastPendingEventMessageID)
 
 	// Complete workflow task and unlock instance.
 	args = append(args, task.ID, rb.workflowQueue.groupName)
