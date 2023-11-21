@@ -52,6 +52,38 @@ for i = 1, executedEvents do
     lastSequenceId = tonumber(sequenceId)
 end
 
+-- Remove executed pending events
+local lastPendingEventMessageId = getArgv()
+redis.call("XTRIM", pendingEventsKey, "MINID", lastPendingEventMessageId)
+redis.call("XDEL", pendingEventsKey, lastPendingEventMessageId)
+
+-- Update instance state
+local now = getArgv()
+local state = tonumber(getArgv())
+
+-- State constants
+local ContinuedAsNew = tonumber(getArgv())
+local Finished = tonumber(getArgv())
+
+instance["state"] = state
+
+-- If workflow instance finished, remove active execution
+local activeInstanceExecutionKey = getKey()
+if state == ContinuedAsNew or state == Finished then
+    -- Remove active execution
+    redis.call("DEL", activeInstanceExecutionKey)
+
+    instance["completed_at"] = now
+
+    redis.call("SREM", activeInstancesKey, instanceSegment)
+end
+
+if lastSequenceId > 0 then
+    instance["last_sequence_id"] = lastSequenceId
+end
+
+redis.call("SET", instanceKey, cjson.encode(instance))
+
 -- Remove canceled timers
 local timersToCancel = tonumber(getArgv())
 for i = 1, timersToCancel do
@@ -78,6 +110,20 @@ for i = 1, timersToSchedule do
     redis.call("ZADD", futureEventZSetKey, timestamp, futureEventKey)
 	redis.call("HSET", futureEventKey, "instance", instanceSegment, "id", eventId, "event", eventData)
 	storePayload(eventId, payloadData)
+end
+
+-- Schedule activities
+local activities = tonumber(getArgv())
+local activitySetKey = getKey()
+local activityStreamKey = getKey()
+for i = 1, activities do
+    local activityId = getArgv()
+    local activityData = getArgv()
+
+    local added = redis.call("SADD", activitySetKey, activityId)
+	if added == 1 then
+		redis.call("XADD", activityStreamKey, "*", "id", activityId, "data", activityData)
+	end
 end
 
 -- Send events to other workflow instances
@@ -147,53 +193,7 @@ for i = 1, otherWorkflowInstances do
     end
 end
 
--- Update instance state
-local now = getArgv()
-local state = tonumber(getArgv())
-
--- State constants
-local ContinuedAsNew = tonumber(getArgv())
-local Finished = tonumber(getArgv())
-
-instance["state"] = state
-
--- If workflow instance finished, remove active execution
-local activeInstanceExecutionKey = getKey()
-if state == ContinuedAsNew or state == Finished then
-    -- Remove active execution
-    redis.call("DEL", activeInstanceExecutionKey)
-
-    instance["completed_at"] = now
-
-    redis.call("SREM", activeInstancesKey, instanceSegment)
-end
-
-if lastSequenceId > 0 then
-    instance["last_sequence_id"] = lastSequenceId
-end
-
-redis.call("SET", instanceKey, cjson.encode(instance))
-
--- Schedule activities
-local activities = tonumber(getArgv())
-local activitySetKey = getKey()
-local activityStreamKey = getKey()
-for i = 1, activities do
-    local activityId = getArgv()
-    local activityData = getArgv()
-
-    local added = redis.call("SADD", activitySetKey, activityId)
-	if added == 1 then
-		redis.call("XADD", activityStreamKey, "*", "id", activityId, "data", activityData)
-	end
-end
-
--- Remove executed pending events
-local lastPendingEventMessageId = getArgv()
-redis.call("XTRIM", pendingEventsKey, "MINID", lastPendingEventMessageId)
-redis.call("XDEL", pendingEventsKey, lastPendingEventMessageId)
-
--- Complete workflow task and unlock instance
+-- Complete workflow task and mark instance task as completed
 local taskId = getArgv()
 local groupName = getArgv()
 local task = redis.call("XRANGE", workflowStreamKey, taskId, taskId)
@@ -201,7 +201,6 @@ if #task ~= 0 then
     local id = task[1][2][2]
     redis.call("SREM", workflowSetKey, id)
     redis.call("XACK", workflowStreamKey, groupName, taskId)
-
     redis.call("XDEL", workflowStreamKey, taskId)
 end
 
