@@ -659,13 +659,11 @@ func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideE
 	return e.workflow.Continue()
 }
 
-func (e *executor) workflowCompleted(result payload.Payload, wfErr error) error {
+func (e *executor) workflowCompleted(result payload.Payload, wfErr error) {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr))
 	e.workflowState.AddCommand(cmd)
-
-	return nil
 }
 
 func (e *executor) workflowRestarted(result payload.Payload, continueAsNew *continueasnew.Error) {

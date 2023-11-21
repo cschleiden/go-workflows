@@ -164,38 +164,6 @@ type instanceState struct {
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *metadata.WorkflowMetadata) error {
-	key := instanceKey(instance)
-
-	createdAt := time.Now()
-
-	b, err := json.Marshal(&instanceState{
-		Instance:  instance,
-		State:     core.WorkflowInstanceStateActive,
-		Metadata:  metadata,
-		CreatedAt: createdAt,
-	})
-	if err != nil {
-		return fmt.Errorf("marshaling instance state: %w", err)
-	}
-
-	p.SetNX(ctx, key, string(b), 0)
-
-	// The newly created instance is going to be the active execution
-	if err := setActiveInstanceExecutionP(ctx, p, instance); err != nil {
-		return fmt.Errorf("setting active instance execution: %w", err)
-	}
-
-	p.ZAdd(ctx, instancesByCreation(), redis.Z{
-		Member: instanceSegment(instance),
-		Score:  float64(createdAt.UnixMilli()),
-	})
-
-	p.SAdd(ctx, instancesActive(), instanceSegment(instance))
-
-	return nil
-}
-
 func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceKey string) (*instanceState, error) {
 	p := rdb.Pipeline()
 
@@ -245,15 +213,4 @@ func readActiveInstanceExecution(ctx context.Context, rdb redis.UniversalClient,
 	}
 
 	return instance, nil
-}
-
-func setActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance) error {
-	key := activeInstanceExecutionKey(instance.InstanceID)
-
-	b, err := json.Marshal(instance)
-	if err != nil {
-		return fmt.Errorf("marshaling instance: %w", err)
-	}
-
-	return p.Set(ctx, key, string(b), 0).Err()
 }

@@ -135,7 +135,9 @@ func (w *Worker[Task, TaskResult]) dispatcher() {
 
 			// Create new context to allow tasks to complete when root context is canceled
 			taskCtx := context.Background()
-			w.handle(taskCtx, t)
+			if err := w.handle(taskCtx, t); err != nil {
+				w.logger.ErrorContext(taskCtx, "error handling task", "error", err)
+			}
 
 			if sem != nil {
 				<-sem
