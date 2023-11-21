@@ -52,6 +52,10 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		instanceKeys = append(instanceKeys, instanceKeyFromSegment(instanceSegment))
 	}
 
+	if len(instanceKeys) == 0 {
+		return nil, nil
+	}
+
 	instances, err := rb.rdb.MGet(ctx, instanceKeys...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %w", err)
