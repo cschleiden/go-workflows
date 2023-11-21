@@ -15,40 +15,59 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	activeInstance, err := readActiveInstanceExecution(ctx, rb.rdb, instance.InstanceID)
-	if err != nil && err != backend.ErrInstanceNotFound {
-		return err
+	keyInfo := rb.workflowQueue.Keys()
+
+	instanceState, err := json.Marshal(&instanceState{
+		Instance:  instance,
+		State:     core.WorkflowInstanceStateActive,
+		Metadata:  event.Attributes.(*history.ExecutionStartedAttributes).Metadata,
+		CreatedAt: time.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling instance state: %w", err)
 	}
 
-	if activeInstance != nil {
-		return backend.ErrInstanceAlreadyExists
+	activeInstance, err := json.Marshal(instance)
+	if err != nil {
+		return fmt.Errorf("marshaling instance: %w", err)
 	}
 
-	p := rb.rdb.TxPipeline()
-
-	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
-		return err
+	eventData, err := marshalEventWithoutAttributes(event)
+	if err != nil {
+		return fmt.Errorf("marshaling event: %w", err)
 	}
 
-	// Create event stream with initial event
-	if err := addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
-		return fmt.Errorf("adding event payloads: %w", err)
+	payloadData, err := json.Marshal(event.Attributes)
+	if err != nil {
+		return fmt.Errorf("marshaling event payload: %w", err)
 	}
 
-	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance), event); err != nil {
-		return fmt.Errorf("adding event to stream: %w", err)
-	}
+	_, err = createWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
+		instanceKey(instance),
+		activeInstanceExecutionKey(instance.InstanceID),
+		pendingEventsKey(instance),
+		payloadKey(instance),
+		instancesActive(),
+		keyInfo.SetKey,
+		keyInfo.StreamKey,
+	},
+		instanceSegment(instance),
+		string(instanceState),
+		string(activeInstance),
+		event.ID,
+		eventData,
+		payloadData,
+	).Result()
 
-	// Queue workflow instance task
-	if err := rb.workflowQueue.Enqueue(ctx, p, instanceSegment(instance), nil); err != nil {
-		return fmt.Errorf("queueing workflow task: %w", err)
-	}
+	if err != nil {
+		if _, ok := err.(redis.Error); ok {
+			if err.Error() == "ERR InstanceAlreadyExists" {
+				return backend.ErrInstanceAlreadyExists
+			}
+		}
 
-	if _, err := p.Exec(ctx); err != nil {
 		return fmt.Errorf("creating workflow instance: %w", err)
 	}
-
-	rb.options.Logger.Debug("Created new workflow instance")
 
 	return nil
 }

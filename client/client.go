@@ -85,7 +85,12 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 
-	c.backend.Logger().Debug("Created workflow instance", log.InstanceIDKey, wfi.InstanceID, log.ExecutionIDKey, wfi.ExecutionID)
+	c.backend.Logger().Debug(
+		"Created workflow instance",
+		log.InstanceIDKey, wfi.InstanceID,
+		log.ExecutionIDKey, wfi.ExecutionID,
+		log.WorkflowNameKey, workflowName,
+	)
 
 	c.backend.Metrics().Counter(metrickeys.WorkflowInstanceCreated, metrics.Tags{}, 1)
 
