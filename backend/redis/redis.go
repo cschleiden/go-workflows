@@ -24,7 +24,10 @@ var _ backend.Backend = (*redisBackend)(nil)
 //go:embed scripts/*.lua
 var luaScripts embed.FS
 
-var completeWorkflowTaskCmd *redis.Script
+var (
+	createWorkflowInstanceCmd *redis.Script
+	completeWorkflowTaskCmd   *redis.Script
+)
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
 	workflowQueue, err := newTaskQueue[any](client, "workflows")
@@ -75,7 +78,8 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	// Load all Lua scripts
 
 	cmdMapping := map[string]**redis.Script{
-		"complete_workflow_task.lua": &completeWorkflowTaskCmd,
+		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
+		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
 	}
 
 	for scriptFile, cmd := range cmdMapping {
