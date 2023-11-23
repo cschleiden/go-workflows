@@ -1,0 +1,16 @@
+{{- range (iter .Items) -}}
+    {{- if eq .Entry.Kind "ordered" -}}
+        {{- .Entry.Number -}}. {{ hangingIndent (include "doc" .Entry) 2 -}}
+    {{- else -}}
+        - {{ hangingIndent (include "doc" .Entry) 2 -}}
+    {{- end -}}
+
+    {{- if (not .Last) -}}
+        {{- if $.BlankBetween -}}
+            {{- spacer -}}
+        {{- else -}}
+            {{- inlineSpacer -}}
+        {{- end -}}
+    {{- end -}}
+
+{{- end -}}

@@ -1,0 +1,11 @@
+{{- range . -}}
+	{{- if eq .Kind "text" -}}
+		{{- escape .Text -}}
+	{{- else if eq .Kind "rawText" -}}
+		{{- .Text -}}
+	{{- else if eq .Kind "autolink" -}}
+		{{- .Text -}}
+	{{- else if eq .Kind "link" -}}
+		{{- link (escape .Text) .URL -}}
+	{{- end -}}
+{{- end -}}

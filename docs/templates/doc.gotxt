@@ -1,0 +1,12 @@
+{{- range (iter .Blocks) -}}
+	{{- if eq .Entry.Kind "paragraph" -}}
+		{{- template "text" .Entry.Spans -}}
+	{{- else if eq .Entry.Kind "code" -}}
+		{{- codeBlock "" (include "text" .Entry.Spans) -}}
+	{{- else if eq .Entry.Kind "header" -}}
+		{{- header (add .Entry.Level 1) (include "text" .Entry.Spans) -}}
+    {{- else if eq .Entry.Kind "list" -}}
+        {{- template "list" .Entry.List -}}
+	{{- end -}}
+	{{- if (not .Last) -}}{{- spacer -}}{{- end -}}
+{{- end -}}

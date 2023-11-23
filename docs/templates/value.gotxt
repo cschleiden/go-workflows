@@ -1,0 +1,7 @@
+{{- header (add .Level 2) .Anchor -}}
+{{- spacer -}}
+{{- codeBlock "go" .Decl -}}
+{{- spacer -}}
+{{- template "doc" .Doc -}}
+
+

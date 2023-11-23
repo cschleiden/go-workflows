@@ -1,0 +1,60 @@
+{{- if eq .Name "main" -}}
+	{{- header (add .Level 1) .Dirname -}}
+{{- else -}}
+	{{- header (add .Level 1) .Name -}}
+{{- end -}}
+{{- spacer -}}
+
+{{- if len .Doc.Blocks -}}
+	{{- template "doc" .Doc -}}
+	{{- spacer -}}
+{{- end -}}
+
+{{- range (iter .Examples) -}}
+	{{- template "example" .Entry -}}
+	{{- spacer -}}
+{{- end -}}
+
+{{- if len .Consts -}}
+	{{- spacer -}}
+
+	{{- header (add .Level 2) "Constants" -}}
+	{{- spacer -}}
+
+	{{- range (iter .Consts) -}}
+		{{- template "value" .Entry -}}
+		{{- if (not .Last) -}}{{- spacer -}}{{- end -}}
+	{{- end -}}
+
+{{- end -}}
+
+{{- if len .Vars -}}
+	{{- spacer -}}
+
+	{{- header (add .Level 2) "Variables" -}}
+	{{- spacer -}}
+
+	{{- range (iter .Vars) -}}
+		{{- template "value" .Entry -}}
+		{{- if (not .Last) -}}{{- spacer -}}{{- end -}}
+	{{- end -}}
+
+{{- end -}}
+
+{{- if len .Funcs -}}
+	{{- spacer -}}
+
+	{{- range (iter .Funcs) -}}
+		{{- template "func" .Entry -}}
+		{{- if (not .Last) -}}{{- spacer -}}{{- end -}}
+	{{- end -}}
+{{- end -}}
+
+{{- if len .Types -}}
+	{{- spacer -}}
+
+	{{- range (iter .Types) -}}
+		{{- template "type" .Entry -}}
+		{{- if (not .Last) -}}{{- spacer -}}{{- end -}}
+	{{- end -}}
+{{- end -}}
