@@ -106,25 +106,6 @@ if err != nil {
 
 `CreateWorkflowInstance` on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.
 
-## Removing workflow instances
-
-```go
-err = c.RemoveWorkflowInstance(ctx, workflowInstance)
-if err != nil {
-	// ...
-}
-```
-
-`RemoveWorkflowInstance` on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.
-
-### Automatically expiring finished workflow instances
-
-```go
-b, err := redis.NewRedisBackend(redisClient, redis.WithAutoExpiration(time.Hour * 48))
-// ...
-```
-
-For now this is only supported for the Redis backend. When an `AutoExpiration` is passed to the backend, finished workflow instances will be automatically removed after the specified duration. This works by setting a TTL on the Redis keys for finished workflow instances. If `AutoExpiration` is set to `0` (the default), no TTL will be set.
 
 ## Canceling workflows
 
@@ -521,52 +502,59 @@ func TestActivity(t *testing.T) {
 
 Activities can be tested like any other function. If you make use of the activity context, for example, to retrieve a logger, you can use `activitytester.WithActivityTestState` to provide a test activity context. If you don't specify a logger, the default logger implementation will be used.
 
-## Logging
+## Removing workflow instances
 
 ```go
-type Logger interface {
-	Debug(msg string, fields ...interface{})
-	Warn(msg string, fields ...interface{})
-	Error(msg string, fields ...interface{})
-	Panic(msg string, fields ...interface{})
-
-	With(fields ...interface{}) Logger
+err = c.RemoveWorkflowInstance(ctx, workflowInstance)
+if err != nil {
+	// ...
 }
 ```
 
-For logging, you can pass a type to the backend via the `WithLogger` option to set a custom logger. The type has to implement this simple interface.
+`RemoveWorkflowInstance` on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.
 
-If you don't pass a logger, a very simple, unoptimized default logger is used. For production use it is strongly recommended to pass another logger.
+### Automatically expiring finished workflow instances
+
+```go
+b, err := redis.NewRedisBackend(redisClient, redis.WithAutoExpiration(time.Hour * 48))
+// ...
+```
+
+For now this is only supported for the Redis backend. When an `AutoExpiration` is passed to the backend, finished workflow instances will be automatically removed after the specified duration. This works by setting a TTL on the Redis keys for finished workflow instances. If `AutoExpiration` is set to `0` (the default), no TTL will be set.
+
+## Logging
+
+```go
+b := sqlite.NewInMemoryBackend(backend.WithLogger(slog.New(slog.Config{Level: slog.LevelDebug}))
+```
+
+go-workflows supports structured logging using Go's `slog` package. `slog.Default` is used by default, pass a custom logger with `backend.WithLogger` when creating a backend instance.
 
 ### Workflows
-
-For logging in workflows, you can get a logger using
 
 ```go
 logger := workflow.Logger(ctx)
 ```
 
-The returned `logger` implements the `Logger` interface, and already has the workflow instance set as default field.
+For logging in workflows, you can get a logger using `workflow.Logger`. The returned logger instance  already has the workflow instance set as a default field.
 
 ### Activities
-
-For logging in activities, you can get a logger using
 
 ```go
 logger := activity.Logger(ctx)
 ```
 
-The returned `logger` implements the `Logger` interface, and already has the id of the activity, and the workflow instance set as default field.
+For logging in activities, you can get a logger using `activity.Logger`. The returned logger already has the id of the activity, and the workflow instance set as default field.
 
 ## Tracing
 
 The library supports tracing via [OpenTelemetry](https://opentelemetry.io/). When you pass a `TracerProvider` when creating a backend instance, workflow execution will be traced. You can also add additional spans for both activities and workflows.
 
-_Note: the support is considered experimental right now, if you decide to use it, please leave feedback_
+<aside class="notice">
+	The support is considered experimental right now, if you decide to use it, please leave feedback.
+</aside>
 
 ### Activities
-
-The `context.Context` passed into activities is set up with the correct current span. If you create additional spans, they'll show up under the `ActivityTaskExecution`:
 
 ```go
 func Activity1(ctx context.Context, a, b int) (int, error) {
@@ -577,9 +565,10 @@ func Activity1(ctx context.Context, a, b int) (int, error) {
 }
 ```
 
-### Workflows
+The `context.Context` passed into activities is set up with the correct current span. If you create additional spans, they'll show up under the `ActivityTaskExecution`.
 
-For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not:
+
+### Workflows
 
 ```go
 func Workflow(ctx workflow.Context) error {
@@ -593,9 +582,9 @@ func Workflow(ctx workflow.Context) error {
 	span.End()
 ```
 
-## Context Propagation
+For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not.
 
-In go programs it is common to use `context.Context` to pass around request-scoped data. This library supports context propagation between activities and workflows. When you create a workflow, you can pass a `ContextPropagator` to the backend to propagate context values. The interface is:
+## Context Propagation
 
 ```go
 type ContextPropagator interface {
@@ -607,6 +596,8 @@ type ContextPropagator interface {
 }
 ```
 
+In Go programs it is common to use `context.Context` to pass around request-scoped data. This library supports context propagation between activities and workflows. When you create a workflow, you can pass a `ContextPropagator` to the backend to propagate context values.
+
 The `context-propagation` sample shows an example of how to use this.
 
 ## Tools
@@ -617,20 +608,20 @@ The `context-propagation` sample shows an example of how to use this.
 
 ### Diagnostics Web UI
 
-For investigating workflows, the package includes a simple diagnostic web UI. You can serve it via:
-
 ```go
 m := http.NewServeMux()
 m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(b)))
 go http.ListenAndServe(":3000", m)
 ```
 
+For investigating workflows, the package includes a simple diagnostic web UI. You can serve it via `diag.NewServeMux`.
+
 It provides a simple paginated list of workflow instances:
 
-<img src="./docs/diag-list.png" width="700">
+<img src="./images/diag-list.png" width="700">
 
 And a way to inspect the history of a workflow instance:
 
-<img src="./docs/diag-details.png" width="700">
+<img src="./images/diag-details.png" width="700">
 
 
