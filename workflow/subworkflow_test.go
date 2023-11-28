@@ -15,6 +15,25 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+func Test_createSubWorkflowInstance_NameAsString(t *testing.T) {
+	ctx := sync.Background()
+	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
+	ctx = workflowstate.WithWorkflowState(
+		ctx,
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
+	)
+	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
+
+	c := sync.NewCoroutine(ctx, func(ctx Context) error {
+		createSubWorkflowInstance[int](ctx, DefaultSubWorkflowOptions, 1, "workflowName", "foo")
+		return nil
+	})
+
+	c.Execute()
+	require.NoError(t, c.Error())
+	require.True(t, c.Finished())
+}
+
 func Test_createSubWorkflowInstance_ParamMismatch(t *testing.T) {
 	wf := func(Context, int) (int, error) {
 		return 42, nil

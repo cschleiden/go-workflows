@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -37,6 +38,38 @@ func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
 	}, wf, "foo")
 	require.Zero(t, result)
 	require.EqualError(t, err, "mismatched argument type: expected int, got string")
+	b.AssertExpectations(t)
+}
+
+func Test_Client_CreateWorkflowInstance_NameGiven(t *testing.T) {
+	ctx := context.Background()
+
+	b := &backend.MockBackend{}
+	b.On("Converter").Return(converter.DefaultConverter)
+	b.On("Logger").Return(slog.Default())
+	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
+	b.On("Metrics").Return(metrics.NewNoopMetricsClient())
+	b.On("ContextPropagators").Return(nil)
+	b.On("CreateWorkflowInstance", mock.Anything, mock.Anything, mock.MatchedBy(func(event *history.Event) bool {
+		if event.Type != history.EventType_WorkflowExecutionStarted {
+			return false
+		}
+
+		a := event.Attributes.(*history.ExecutionStartedAttributes)
+
+		return a.Name == "workflowName"
+	})).Return(nil, nil)
+
+	c := &Client{
+		backend: b,
+		clock:   clock.New(),
+	}
+
+	result, err := c.CreateWorkflowInstance(ctx, WorkflowInstanceOptions{
+		InstanceID: "id",
+	}, "workflowName", "foo")
+	require.NotZero(t, result)
+	require.NoError(t, err)
 	b.AssertExpectations(t)
 }
 

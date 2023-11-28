@@ -44,9 +44,17 @@ func New(backend backend.Backend) *Client {
 
 // CreateWorkflowInstance creates a new workflow instance of the given workflow.
 func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowInstanceOptions, wf workflow.Workflow, args ...any) (*workflow.Instance, error) {
-	// Check arguments
-	if err := a.ParamsMatch(wf, args...); err != nil {
-		return nil, err
+	var workflowName string
+
+	if name, ok := wf.(string); ok {
+		workflowName = name
+	} else {
+		workflowName = fn.Name(wf)
+
+		// Check arguments if actual workflow function given here
+		if err := a.ParamsMatch(wf, args...); err != nil {
+			return nil, err
+		}
 	}
 
 	inputs, err := a.ArgsToInputs(c.backend.Converter(), args...)
@@ -56,8 +64,6 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 	metadata := &workflow.Metadata{}
-
-	workflowName := fn.Name(wf)
 
 	// Start new span for the workflow instance
 	ctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(

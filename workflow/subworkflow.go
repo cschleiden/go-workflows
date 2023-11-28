@@ -50,18 +50,23 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	}
 
 	// Check return type
-	if err := a.ReturnTypeMatch[TResult](wf); err != nil {
-		f.Set(*new(TResult), err)
-		return f
-	}
+	var workflowName string
+	if name, ok := wf.(string); ok {
+		workflowName = name
+	} else {
+		workflowName = fn.Name(wf)
 
-	// Check arguments
-	if err := a.ParamsMatch(wf, args...); err != nil {
-		f.Set(*new(TResult), err)
-		return f
-	}
+		if err := a.ReturnTypeMatch[TResult](wf); err != nil {
+			f.Set(*new(TResult), err)
+			return f
+		}
 
-	name := fn.Name(wf)
+		// Check arguments
+		if err := a.ParamsMatch(wf, args...); err != nil {
+			f.Set(*new(TResult), err)
+			return f
+		}
+	}
 
 	cv := contextvalue.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
@@ -74,9 +79,9 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
-		fmt.Sprintf("CreateSubworkflowInstance: %s", name),
+		fmt.Sprintf("CreateSubworkflowInstance: %s", workflowName),
 		trace.WithAttributes(
-			attribute.String(log.WorkflowNameKey, name),
+			attribute.String(log.WorkflowNameKey, workflowName),
 			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
 			attribute.Int(log.AttemptKey, attempt),
 		))
@@ -90,7 +95,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 		return f
 	}
 
-	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs, metadata)
+	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, workflowName, inputs, metadata)
 
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
