@@ -1,13 +1,17 @@
 # Guide
 
-## Registering workflows
+## Writing workflows
 
 ```go
 func Workflow1(ctx workflow.Context) error {
 }
 ```
 
-Workflows need to accept `workflow.Context` as their first parameter, and any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.). Workflows need to return an `error` and optionally one additional result, which again needs to be serializable.
+Workflows must accept `workflow.Context` as their first parameter. They can also receive any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.) by the default or any custom _Converter_.
+
+Workflows must return an `error` and optionally one additional result, which again needs to be serializable by the used _Converter_.
+
+## Registering workflows
 
 ```go
 var b backend.Backend
@@ -16,26 +20,36 @@ w := worker.New(b)
 w.RegisterWorkflow(Workflow1)
 ```
 
-Workflows needs to be registered with the worker before they can be started.
+Workflows needs to be registered with the worker before they can be started. The name is automatically inferred from the function name.
 
-## Registering activities
+## Writing activities
 
 ```go
 func Activity1(ctx context.Context, a, b int) (int, error) {
 	return a + b, nil
 }
 
-var b backend.Backend
-w := worker.New(b)
+func Activity2(ctx context.Context) error {
+	return a + b, nil
+}
+```
 
+Activities must accept a `context.Context` as their first parameter. They can also receive any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.) by the default or any custom _Converter_. Activities must return an `error` and optionally one additional result, which again needs to be serializable by the used _Converter_.
+
+## Registering activities
+
+> Register activities as functions:
+
+```go
+func Activity1(ctx context.Context, a, b int) (int, error) {
+	return a + b, nil
+}
+
+var w worker.Worker
 w.RegisterActivity(Activity1)
 ```
 
-Similar to workflows, activities need to be registered with the worker before they can be started. They also need to accept `context.Context` as their first parameter, and any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no `chan`s etc.). Activities need to return an `error` and optionally one additional result, which again needs to be serializable.
-
-Activites can be registered as plain `func`s or as methods on a struct. The latter is useful if you want to provide some shared state to activities, for example, a database connection.
-
-And using a `struct`:
+> Register activities using a `struct`. `SharedState` will be available to all activities executed by this worker:
 
 ```go
 type act struct {
@@ -50,13 +64,22 @@ func (a *act) Activity2(ctx context.Context, a int) (int, error) {
 	return a * act.SharedState, nil
 }
 
-var b backend.Backend
-w := worker.New(b)
+var w worker.Worker
 
-w.RegisterActivity(&act{SharedState: 12})
+a := &act{
+  SharedState: 12,
+}
+
+w.RegisterActivity(a)
 ```
 
-to call activities registered on a struct from a workflow:
+Similar to workflows, activities need to be registered with the worker before they can be started.
+
+Activites can be registered as plain `func`s or as methods on a `struct`. The latter is useful if you want to provide some shared state to activities, for example, a database connection.
+
+To execute activities registered as methods on a `struct`, pass the method to `workflow.ExecuteActivity`.
+
+> Calling activities registered on a struct
 
 ```go
 // ...
@@ -72,8 +95,6 @@ if err != nil {
 
 ## Starting workflows
 
-`CreateWorkflowInstance` on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.
-
 ```go
 wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 	InstanceID: uuid.NewString(),
@@ -83,9 +104,9 @@ if err != nil {
 }
 ```
 
-## Removing workflow instances
+`CreateWorkflowInstance` on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.
 
-`RemoveWorkflowInstance` on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.
+## Removing workflow instances
 
 ```go
 err = c.RemoveWorkflowInstance(ctx, workflowInstance)
@@ -94,20 +115,18 @@ if err != nil {
 }
 ```
 
-### Automatically expiring finished workflow instances
+`RemoveWorkflowInstance` on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.
 
-For now this is only supported for the Redis backend. When an `AutoExpiration` is passed to the backend, finished workflow instances will be automatically removed after the specified duration. This works by setting a TTL on the Redis keys for finished workflow instances. If `AutoExpiration` is set to `0` (the default), no TTL will be set.
+### Automatically expiring finished workflow instances
 
 ```go
 b, err := redis.NewRedisBackend(redisClient, redis.WithAutoExpiration(time.Hour * 48))
 // ...
 ```
 
+For now this is only supported for the Redis backend. When an `AutoExpiration` is passed to the backend, finished workflow instances will be automatically removed after the specified duration. This works by setting a TTL on the Redis keys for finished workflow instances. If `AutoExpiration` is set to `0` (the default), no TTL will be set.
+
 ## Canceling workflows
-
-Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, it's workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Any activities already running when a workflow is canceled will still run to completion and their result will be available.
-
-Sub-workflows will be canceled if their parent workflow is canceled.
 
 ```go
 var c *client.Client
@@ -117,9 +136,11 @@ if err != nil {
 }
 ```
 
-### Perform any cleanup
+Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow. When a workflow is canceled, its workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Any activities already running when a workflow is canceled will still run to completion and their result will be available.
 
-If you need to run any activities or make calls using `workflow.Context` you need to create a new context with `workflow.NewDisconnectedContext`, since the original context is canceled at this point.
+Sub-workflows will be canceled if their parent workflow is canceled.
+
+### Perform any cleanup in cancelled workflow
 
 ```go
 func Workflow2(ctx workflow.Context, msg string) (string, error) {
@@ -151,9 +172,9 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 }
 ```
 
-## Running activities
+If you need to run any activities or make calls using `workflow.Context` you need to create a new context with `workflow.NewDisconnectedContext`, since the original context is canceled at this point.
 
-From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future[T]` you can await to get the result or any error it might return.
+## Executing activities
 
 ```go
 r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12, nil, "test").Get(ctx)
@@ -164,22 +185,26 @@ if err != nil {
 log.Println(r1)
 ```
 
+From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future[T]` you can await to get the result or any error it might return.
+
 ### Canceling activities
 
 Canceling activities is not supported at this time.
 
 ## Timers
 
-You can schedule timers to fire at any point in the future by calling `workflow.ScheduleTimer`. It returns a `Future` you can await to wait for the timer to fire.
-
 ```go
 t := workflow.ScheduleTimer(ctx, 2*time.Second)
 err := t.Get(ctx, nil)
 ```
 
-### Canceling timers
+You can schedule timers to fire at any point in the future by calling `workflow.ScheduleTimer`. It returns a `Future` you can await to wait for the timer to fire.
 
-There is no explicit API to cancel timers. You can cancel a timer by creating a cancelable context, and canceling that:
+<aside class="notice">
+    All timers must have either fired or been canceled before a workflow can complete. If the workflow function exits with pending timer futures an error will be returned.
+</aside>
+
+### Canceling timers
 
 ```go
 tctx, cancel := workflow.WithCancel(ctx)
@@ -188,6 +213,8 @@ t := workflow.ScheduleTimer(tctx, 2*time.Second)
 // Cancel the timer
 cancel()
 ```
+
+There is no explicit API to cancel timers. You can cancel a timer by creating a cancelable context, and canceling that.
 
 ## Signals
 
@@ -211,7 +238,7 @@ func Workflow(ctx workflow.Context) error {
 }
 ```
 
-Signals are a way to send a message to a workflow from the outside. You can send a signal to a workflow by calling `workflow.Signal` and listen to them by creating a `SignalChannel` via `NewSignalChannel`.
+Signals are a way to send a message to a running workflow instance. You can send a signal to a workflow by calling `workflow.Signal` and listen to them by creating a `SignalChannel` via `NewSignalChannel`.
 
 ### Signaling other workflows from within a workflow
 
@@ -223,6 +250,8 @@ func Workflow(ctx workflow.Context) error {
 }
 ```
 
+You can also signal a workflow from within another workflow. This is useful if you want to signal a sub-workflow from its parent or vice versa.
+
 ## Executing side effects
 
 ```go
@@ -233,7 +262,7 @@ id, _ := workflow.SideEffect[string](ctx, func(ctx workflow.Context) string) {
 
 Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
 
-## Running sub-workflows
+## Executing sub-workflows
 
 ```go
 func Workflow1(ctx workflow.Context, msg string) error {
@@ -269,14 +298,12 @@ Similar to timer cancellation, you can pass a cancelable context to `CreateSubWo
 
 ### Custom errors
 
-Errors returned from activities and subworkflows need to be marshalled/unmarshalled by the library so they are wrapped in a `workflow.Error`. You can access the original type via the `err.Type` field. If a stacktrace was captured, you can access it via `err.Stack()`. Example (see also `samples/errors`):
-
 ```go
 func handleError(ctx workflow.Context, logger log.Logger, err error) {
-	var werr *workflow.Error
+  var werr *workflow.Error
 	if errors.As(err, &werr) {
-		switch werr.Type {
-		case "CustomError": // This was a `type CustomError struct...` returned by an activity/subworkflow
+    switch werr.Type {
+      case "CustomError": // This was a `type CustomError struct...` returned by an activity/subworkflow
 			logger.Error("Custom error", "err", werr)
 			return
 		}
@@ -287,7 +314,7 @@ func handleError(ctx workflow.Context, logger log.Logger, err error) {
 
 	var perr *workflow.PanicError
 	if errors.As(err, &perr) {
-		// Activity/subworkflow ran into a panic
+    // Activity/subworkflow ran into a panic
 		logger.Error("Panic", "err", perr, "stack", perr.Stack())
 		return
 	}
@@ -296,10 +323,9 @@ func handleError(ctx workflow.Context, logger log.Logger, err error) {
 }
 ```
 
+Errors returned from activities and subworkflows need to be marshalled/unmarshalled by the library so they are wrapped in a `workflow.Error`. You can access the original type via the `err.Type` field. If a stacktrace was captured, you can access it via `err.Stack()`. Example (see also `samples/errors`).
+
 ### Panics
-
-A panic in an activity will be captured by the library and made available as a `workflow.PanicError` in the calling workflow. Example:
-
 
 ```go
 r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, "test").Get(ctx)
@@ -314,11 +340,11 @@ if errors.As(err, &perr) {
 }
 ```
 
+A panic in an activity will be captured by the library and made available as a `workflow.PanicError` in the calling workflow.
+
 ### Retries
 
-With the default `DefaultActivityOptions`, Activities are retried up to three times when they return an error. If you want to keep automatic retries, but want to avoid them when hitting certain error types, you can wrap an error with `workflow.NewPermanentError`:
-
-**Workflow**:
+> **Workflow**:
 
 ```go
 r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, "test").Get(ctx)
@@ -329,7 +355,7 @@ if err != nil {
 log.Println(r1)
 ```
 
-**Activity**:
+> **Activity**:
 
 ```go
 func Activity1(ctx context.Context, name string) (int, error) {
@@ -341,6 +367,8 @@ func Activity1(ctx context.Context, name string) (int, error) {
 	return http.Do("POST", "https://example.com", name)
 }
 ```
+
+With the default `DefaultActivityOptions`, Activities are retried up to three times when they return an error. If you want to keep automatic retries, but want to avoid them when hitting certain error types, you can wrap an error with `workflow.NewPermanentError`.
 
 ## `ContinueAsNew`
 
@@ -362,8 +390,6 @@ Here the workflow is going to be restarted when `workflow.ContinueAsNew` is retu
 If a sub-workflow is restarted, the caller doesn't notice this, only once it ends without being restarted the caller will get the result and control will be passed back.
 
 ## `select`
-
-Due its non-deterministic behavior you must not use a `select` statement in workflows. Instead you can use the provided `workflow.Select` function. It blocks until one of the provided cases is ready. Cases are evaluated in the order passed to `Select.
 
 ```go
 var f1 workflow.Future[int]
@@ -389,9 +415,9 @@ workflow.Select(
 )
 ```
 
-### Waiting for a Future
+Due its non-deterministic behavior you must not use a `select` statement in workflows. Instead you can use the provided `workflow.Select` function. It blocks until one of the provided cases is ready. Cases are evaluated in the order passed to `Select.
 
-`Await` adds a case to wait for a Future to have a value
+### Waiting for a Future
 
 ```go
 var f1, f2 workflow.Future[int]
@@ -409,9 +435,9 @@ workflow.Select(
 )
 ```
 
-### Waiting to receive from a Channel
+`Await` adds a case to wait for a `Future` to have a value.
 
-`Receive` adds a case to receive from a given channel
+### Waiting to receive from a Channel
 
 ```go
 var c workflow.Channel[int]
@@ -424,9 +450,9 @@ workflow.Select(
 )
 ```
 
-### Default/Non-blocking
+`Receive` adds a case to receive from a given channel.
 
-A `Default` case is executed if no previous case is ready and selected:
+### Default/Non-blocking
 
 ```go
 var f1 workflow.Future[int]
@@ -443,9 +469,9 @@ workflow.Select(
 )
 ```
 
-## Unit testing
+A `Default` case is executed if no previous case is ready to be selected.
 
-### Workflows
+## Testing Workflows
 
 ```go
 func TestWorkflow(t *testing.T) {
@@ -475,7 +501,7 @@ go-workflows includes support for testing workflows, a simple example using mock
 - Timers are automatically fired by advancing a mock workflow clock that is used for testing workflows
 - You can register callbacks to fire at specific times (in mock-clock time). Callbacks can send signals, cancel workflows etc.
 
-### Activities
+## Testing Activities
 
 ```go
 func Activity(ctx context.Context, a int, b int) (int, error) {
@@ -497,8 +523,6 @@ Activities can be tested like any other function. If you make use of the activit
 
 ## Logging
 
-For logging, you can pass a type to the backend via the `WithLogger` option to set a custom logger. The type has to implement this simple interface:
-
 ```go
 type Logger interface {
 	Debug(msg string, fields ...interface{})
@@ -509,6 +533,8 @@ type Logger interface {
 	With(fields ...interface{}) Logger
 }
 ```
+
+For logging, you can pass a type to the backend via the `WithLogger` option to set a custom logger. The type has to implement this simple interface.
 
 If you don't pass a logger, a very simple, unoptimized default logger is used. For production use it is strongly recommended to pass another logger.
 

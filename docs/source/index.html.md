@@ -21,15 +21,20 @@ meta:
 
 # go-workflows
 
-go-workflows is an embedded or two tier engine for orchestrating long running processes or "workflows" written in Go.
+go-workflows is an embedded engine for orchestrating long running processes or "workflows" written in Go.
 
-It borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as Azure's [Durable Task Framework (DTFx)](https://github.com/Azure/durabletask).
+It borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as Azure's [Durable Task Framework (DTFx)](https://github.com/Azure/durabletask). Workflows are written in plain Go.
 
-See also:
-- https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/
-- https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/
+go-workflows support pluggable backends with official implementations for Sqlite, MySql, and Redis.
+
+See also the following blog posts:
+
+* [https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/](https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/)
+* [https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/](https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/)
 
 # Quickstart
+
+A short walkthrough of the most important concepts:
 
 ## Workflow
 
@@ -53,13 +58,11 @@ func Workflow1(ctx workflow.Context, input string) error {
 }
 ```
 
-Workflows are written in plain Go code. The only exception is they must not use any of Go's non-deterministic features. For example:
+Let's first write a simple workflows. Our workflow executes two _activities_ in sequence waiting for each result. Both workflows and activities are written in plain Go. Workflows can be long-running and have to be deterministic so that they can be interrupted and resumed. Activities are functions that can have side-effects and don't have to be deterministic.
 
-- `select`
-- iteration over a `map`
-- goroutines
+Both workflows and activities support arbitrary inputs and outputs as long as those are serializable.
 
-Inputs and outputs for workflows and activities have to be serializable:
+Workflows have to take a `workflow.Context` as their first argument.
 
 ## Activities
 
@@ -73,8 +76,7 @@ func Activity2(ctx context.Context) (int, error) {
 }
 ```
 
-Activities can have side-effects and don't have to be deterministic. They will be executed only once and the result is persisted:
-
+Activities receive a plain `context.Context` as their first argument. Activities are automatically retried by default, so it's good practice to make them idempotent.
 
 ## Worker
 
@@ -93,7 +95,9 @@ func runWorker(ctx context.Context, mb backend.Backend) {
 }
 ```
 
-The worker is responsible for executing `Workflows` and `Activities`, both need to be registered with it.
+Next, we'll have to start a _worker_. Workers are responsible for executing workflows and activities and therefore we need to register both with the worker.
+
+Backends support multiple worker processes, so you can scale out horizontially.
 
 ## Backend
 
@@ -128,4 +132,6 @@ func main() {
 }
 ```
 
-We can start workflows from the same process the worker runs in -- or they can be separate. Here we use the SQLite backend, spawn a single worker (which then executes both `Workflows` and `Activities`), and then start a single instance of our workflow
+To finish the example, we create the backend, start a worker in a separate go-routine. We then create a `Client` instance which we then  use to create a new _workflow instance_. A workflow instance is just one running instance of a previously registered workflow.
+
+With the exception of the in-memory backend, we do not have to start the workflow from the same process the worker runs in, we could create the client from another process and create/wait for/cancel/... workflow instances from there.
