@@ -10,6 +10,10 @@ import (
 )
 
 func Test_Diag_GetWorkflowInstances(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	rclient := getClient()
 	setup := getCreateBackend(rclient)
 
