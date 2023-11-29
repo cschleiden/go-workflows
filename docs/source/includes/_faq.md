@@ -10,6 +10,8 @@ For now, I've intentionally left out versioning. Cadence, Temporal, and DTFx all
 
 **Example**: when you change a workflow from:
 
+> Workflow version 1
+
 ```go
 func Workflow1(ctx workflow.Context) {
 	r1, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
@@ -20,7 +22,7 @@ func Workflow1(ctx workflow.Context) {
 }
 ```
 
-to:
+> Workflow version 2
 
 ```go
 func Workflow1(ctx workflow.Context) {
