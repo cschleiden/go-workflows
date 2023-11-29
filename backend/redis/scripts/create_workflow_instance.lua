@@ -19,6 +19,7 @@ local pendingEventsKey = getKey()
 local payloadHashKey = getKey()
 
 local instancesActiveKey = getKey()
+local instancesByCreation = getKey()
 
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
@@ -49,6 +50,9 @@ redis.call("XADD", pendingEventsKey, "*", "event", eventData)
 
 local payload = getArgv()
 redis.pcall("HSETNX", payloadHashKey, eventId, payload)
+
+local creationTimestamp = tonumber(getArgv())
+redis.call("ZADD", instancesByCreation, creationTimestamp, instanceSegment)
 
 -- queue workflow task
 local added = redis.call("SADD", workflowSetKey, instanceSegment)

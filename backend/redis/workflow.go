@@ -110,6 +110,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		payloadKey(instance),
 		futureEventsKey(),
 		instancesActive(),
+		instancesByCreation(),
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
 	)
@@ -137,8 +138,17 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	args = append(args, lastPendingEventMessageID)
 
 	// Update instance state and update active execution
-	nowStr := time.Now().Format(time.RFC3339)
-	args = append(args, string(nowStr), int(state), int(core.WorkflowInstanceStateContinuedAsNew), int(core.WorkflowInstanceStateFinished))
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+	nowUnix := now.Unix()
+	args = append(
+		args,
+		string(nowStr),
+		nowUnix,
+		int(state),
+		int(core.WorkflowInstanceStateContinuedAsNew),
+		int(core.WorkflowInstanceStateFinished),
+	)
 	keys = append(keys, activeInstanceExecutionKey(instance.InstanceID))
 
 	// Remove canceled timers
