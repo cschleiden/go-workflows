@@ -21,6 +21,7 @@ local pendingEventsKey = getKey()
 local payloadHashKey = getKey()
 local futureEventZSetKey = getKey()
 local activeInstancesKey = getKey()
+local instancesByCreation = getKey()
 
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
@@ -59,6 +60,7 @@ redis.call("XDEL", pendingEventsKey, lastPendingEventMessageId)
 
 -- Update instance state
 local now = getArgv()
+local nowUnix = tonumber(getArgv())
 local state = tonumber(getArgv())
 
 -- State constants
@@ -164,6 +166,7 @@ for i = 1, otherWorkflowInstances do
 
             -- Track active instance
             redis.call("SADD", activeInstancesKey, targetInstanceSegment)
+            redis.call("ZADD", instancesByCreation, nowUnix, targetInstanceSegment)
         end
     end
 

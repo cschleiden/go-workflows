@@ -48,6 +48,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		pendingEventsKey(instance),
 		payloadKey(instance),
 		instancesActive(),
+		instancesByCreation(),
 		keyInfo.SetKey,
 		keyInfo.StreamKey,
 	},
@@ -57,6 +58,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		event.ID,
 		eventData,
 		payloadData,
+		time.Now().UTC().Unix(),
 	).Result()
 
 	if err != nil {

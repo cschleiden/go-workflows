@@ -24,11 +24,13 @@ func instanceKeyFromSegment(segment string) string {
 }
 
 // instancesByCreation returns the key for the ZSET that contains all instances sorted by creation date. The score is the
-// creation time. Used for listing all workflow instances in the diagnostics UI.
+// creation time as a unix timestamp. Used for listing all workflow instances in the diagnostics UI.
 func instancesByCreation() string {
 	return "instances-by-creation"
 }
 
+// instancesActive returns the key for the SET that contains all active instances. Used for reporting active workflow
+// instances in stats.
 func instancesActive() string {
 	return "instances-active"
 }
