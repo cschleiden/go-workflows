@@ -3,8 +3,8 @@ package worker
 import (
 	"time"
 
+	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/workflow"
-	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
 )
 
 type Options struct {
@@ -67,18 +67,18 @@ var DefaultOptions = Options{
 	ActivityHeartbeatInterval: 25 * time.Second,
 }
 
-type RegisterOption workflowinternal.RegisterOption
+type RegisterOption registry.RegisterOption
 
 type registerOptions []RegisterOption
 
-func (opts registerOptions) asInternalOptions() []workflowinternal.RegisterOption {
-	repacked := make([]workflowinternal.RegisterOption, len(opts))
+func (opts registerOptions) asInternalOptions() []registry.RegisterOption {
+	repacked := make([]registry.RegisterOption, len(opts))
 	for i, opt := range opts {
-		repacked[i] = workflowinternal.RegisterOption(opt)
+		repacked[i] = registry.RegisterOption(opt)
 	}
 	return repacked
 }
 
 func WithName(name string) RegisterOption {
-	return workflowinternal.WithName(name)
+	return registry.WithName(name)
 }

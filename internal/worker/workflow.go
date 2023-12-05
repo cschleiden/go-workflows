@@ -14,6 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
+	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
 )
@@ -26,7 +27,11 @@ type WorkflowWorkerOptions struct {
 	WorkflowExecutorCacheTTL  time.Duration
 }
 
-func NewWorkflowWorker(b backend.Backend, registry *workflow.Registry, options WorkflowWorkerOptions) *Worker[backend.WorkflowTask, workflow.ExecutionResult] {
+func NewWorkflowWorker(
+	b backend.Backend,
+	registry *registry.Registry,
+	options WorkflowWorkerOptions,
+) *Worker[backend.WorkflowTask, workflow.ExecutionResult] {
 	if options.WorkflowExecutorCache == nil {
 		options.WorkflowExecutorCache = cache.NewWorkflowExecutorLRUCache(b.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
 	}
@@ -43,7 +48,7 @@ func NewWorkflowWorker(b backend.Backend, registry *workflow.Registry, options W
 
 type WorkflowTaskWorker struct {
 	backend  backend.Backend
-	registry *workflow.Registry
+	registry *registry.Registry
 	cache    workflow.ExecutorCache
 	logger   *slog.Logger
 }

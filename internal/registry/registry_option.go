@@ -1,4 +1,4 @@
-package workflow
+package registry
 
 type RegisterOption interface {
 	applyRegisterOption(RegisterConfig) RegisterConfig

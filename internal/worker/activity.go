@@ -13,11 +13,16 @@ import (
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 )
 
-func NewActivityWorker(b backend.Backend, registry *workflow.Registry, clock clock.Clock, options WorkerOptions) *Worker[backend.ActivityTask, history.Event] {
+func NewActivityWorker(
+	b backend.Backend,
+	registry *registry.Registry,
+	clock clock.Clock,
+	options WorkerOptions,
+) *Worker[backend.ActivityTask, history.Event] {
 	ae := activity.NewExecutor(b.Logger(), b.Tracer(), b.Converter(), b.ContextPropagators(), registry)
 
 	tw := &ActivityTaskWorker{

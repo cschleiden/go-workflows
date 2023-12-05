@@ -9,6 +9,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
@@ -21,7 +22,7 @@ type Worker struct {
 	done chan struct{}
 	wg   *sync.WaitGroup
 
-	registry *workflowinternal.Registry
+	registry *registry.Registry
 
 	workflowWorker *internal.Worker[backend.WorkflowTask, workflowinternal.ExecutionResult]
 	activityWorker *internal.Worker[backend.ActivityTask, history.Event]
@@ -40,7 +41,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 		}
 	}
 
-	registry := workflowinternal.NewRegistry()
+	registry := registry.NewRegistry()
 
 	// Register internal activities
 	if err := registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}); err != nil {

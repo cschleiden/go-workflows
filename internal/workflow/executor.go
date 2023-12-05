@@ -18,6 +18,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
 	"github.com/cschleiden/go-workflows/internal/log"
+	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
@@ -45,7 +46,7 @@ type WorkflowExecutor interface {
 }
 
 type executor struct {
-	registry          *Registry
+	registry          *registry.Registry
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
 	workflowName      string
@@ -64,7 +65,7 @@ type executor struct {
 func NewExecutor(
 	logger *slog.Logger,
 	tracer trace.Tracer,
-	registry *Registry,
+	registry *registry.Registry,
 	cv converter.Converter,
 	propagators []wf.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
