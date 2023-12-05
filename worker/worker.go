@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
@@ -21,7 +22,7 @@ type Worker struct {
 	done chan struct{}
 	wg   *sync.WaitGroup
 
-	registry *workflowinternal.Registry
+	registry *registry.Registry
 
 	workflowWorker *internal.Worker[backend.WorkflowTask, workflowinternal.ExecutionResult]
 	activityWorker *internal.Worker[backend.ActivityTask, history.Event]
@@ -40,7 +41,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 		}
 	}
 
-	registry := workflowinternal.NewRegistry()
+	registry := registry.New()
 
 	// Register internal activities
 	if err := registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}); err != nil {
@@ -92,6 +93,7 @@ func (w *Worker) Start(ctx context.Context) error {
 	return nil
 }
 
+// WaitForCompletion waits for all active tasks to complete.
 func (w *Worker) WaitForCompletion() error {
 	if err := w.workflowWorker.WaitForCompletion(); err != nil {
 		return err
@@ -104,10 +106,12 @@ func (w *Worker) WaitForCompletion() error {
 	return nil
 }
 
-func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...RegisterOption) error {
-	return w.registry.RegisterWorkflow(wf, registerOptions(opts).asInternalOptions()...)
+// RegisterWorkflow registers a workflow with the worker's registry.
+func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterWorkflow(wf, opts...)
 }
 
-func (w *Worker) RegisterActivity(a workflow.Activity, opts ...RegisterOption) error {
-	return w.registry.RegisterActivity(a, registerOptions(opts).asInternalOptions()...)
+// RegisterActivity registers an activity with the worker's registry.
+func (w *Worker) RegisterActivity(a workflow.Activity, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterActivity(a, opts...)
 }

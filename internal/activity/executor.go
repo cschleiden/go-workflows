@@ -13,8 +13,8 @@ import (
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/log"
-	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
+	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -25,10 +25,16 @@ type Executor struct {
 	tracer      trace.Tracer
 	converter   converter.Converter
 	propagators []wf.ContextPropagator
-	r           *workflow.Registry
+	r           *registry.Registry
 }
 
-func NewExecutor(logger *slog.Logger, tracer trace.Tracer, converter converter.Converter, propagators []wf.ContextPropagator, r *workflow.Registry) *Executor {
+func NewExecutor(
+	logger *slog.Logger,
+	tracer trace.Tracer,
+	converter converter.Converter,
+	propagators []wf.ContextPropagator,
+	r *registry.Registry,
+) *Executor {
 	return &Executor{
 		logger:      logger,
 		tracer:      tracer,

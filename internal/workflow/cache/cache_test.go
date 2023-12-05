@@ -15,6 +15,7 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrics"
 	wf "github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
@@ -23,7 +24,7 @@ import (
 func Test_Cache_StoreAndGet(t *testing.T) {
 	c := NewWorkflowExecutorLRUCache(metrics.NewNoopMetricsClient(), 1, time.Second*10)
 
-	r := wf.NewRegistry()
+	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
@@ -65,7 +66,7 @@ func Test_Cache_AutoEviction(t *testing.T) {
 	)
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
-	r := wf.NewRegistry()
+	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
@@ -95,7 +96,7 @@ func Test_Cache_Evict(t *testing.T) {
 	)
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
-	r := wf.NewRegistry()
+	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,

@@ -19,13 +19,14 @@ import (
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/activity"
-	margs "github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	wf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -80,7 +81,7 @@ type WorkflowTester[TResult any] interface {
 
 	Execute(ctx context.Context, args ...interface{})
 
-	Registry() *wf.Registry
+	Registry() *registry.Registry
 
 	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
 
@@ -125,7 +126,7 @@ type workflowTester[TResult any] struct {
 	workflowResult   payload.Payload
 	workflowErr      *workflowerrors.Error
 
-	registry *wf.Registry
+	registry *registry.Registry
 
 	ma               *mock.Mock
 	mockedActivities map[string]bool
@@ -164,7 +165,7 @@ type workflowTester[TResult any] struct {
 var _ WorkflowTester[any] = (*workflowTester[any])(nil)
 
 func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...WorkflowTesterOption) *workflowTester[TResult] {
-	if err := margs.ReturnTypeMatch[TResult](workflow); err != nil {
+	if err := args.ReturnTypeMatch[TResult](workflow); err != nil {
 		panic(fmt.Sprintf("workflow return type does not match: %s", err))
 	}
 
@@ -173,7 +174,7 @@ func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...Workflow
 	c.Set(time.Now())
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	registry := wf.NewRegistry()
+	registry := registry.New()
 
 	options := &options{
 		TestTimeout: time.Second * 10,
@@ -234,7 +235,7 @@ func (wt *workflowTester[TResult]) Now() time.Time {
 	return wt.clock.Now()
 }
 
-func (wt *workflowTester[TResult]) Registry() *wf.Registry {
+func (wt *workflowTester[TResult]) Registry() *registry.Registry {
 	return wt.registry
 }
 
@@ -252,7 +253,7 @@ func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.Workflo
 
 func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...any) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
-	wt.registry.RegisterActivity(activity, wf.WithName(name))
+	wt.registry.RegisterActivity(activity, registry.WithName(name))
 
 	wt.mockedActivities[name] = true
 	return wt.ma.On(name, args...)
@@ -269,7 +270,7 @@ func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args .
 
 func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...any) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
-	wt.registry.RegisterWorkflow(workflow, wf.WithName(name))
+	wt.registry.RegisterWorkflow(workflow, registry.WithName(name))
 
 	wt.mockedWorkflows[name] = true
 	return wt.mw.On(name, args...)
@@ -578,7 +579,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 				panic("Could not find activity " + e.Name + " in registry")
 			}
 
-			argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
+			argValues, addContext, err := args.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
 			if err != nil {
 				panic("Could not convert activity inputs to args: " + err.Error())
 			}
@@ -737,7 +738,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 		panic("Could not find workflow " + a.Name + " in registry")
 	}
 
-	argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
+	argValues, addContext, err := args.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
 	if err != nil {
 		panic("Could not convert workflow inputs to args: " + err.Error())
 	}
@@ -795,10 +796,10 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 }
 
-func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) *history.Event {
+func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, a []interface{}) *history.Event {
 	name := fn.Name(wf)
 
-	inputs, err := margs.ArgsToInputs(wt.converter, args...)
+	inputs, err := args.ArgsToInputs(wt.converter, a...)
 	if err != nil {
 		panic(err)
 	}

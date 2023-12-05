@@ -7,7 +7,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 
@@ -54,8 +54,8 @@ func runWorkflow(ctx context.Context, c *client.Client) {
 func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
 	w := worker.New(mb, nil)
 
-	w.RegisterWorkflow(Workflow1, workflow.WithName("WorkflowName"))
-	w.RegisterWorkflow(SubWorkflow1, workflow.WithName("SubWorkflowName"))
+	w.RegisterWorkflow(Workflow1, registry.WithName("WorkflowName"))
+	w.RegisterWorkflow(SubWorkflow1, registry.WithName("SubWorkflowName"))
 
 	w.RegisterActivity(Activity1)
 

@@ -1,4 +1,4 @@
-package workflow
+package registry
 
 import (
 	"errors"
@@ -18,51 +18,20 @@ type Registry struct {
 	activityMap map[string]interface{}
 }
 
-func NewRegistry() *Registry {
+// New creates a new registry instance.
+func New() *Registry {
 	return &Registry{
 		workflowMap: make(map[string]wf.Workflow),
 		activityMap: make(map[string]interface{}),
 	}
 }
 
-type ErrInvalidWorkflow struct {
-	msg string
-}
-
-func (e *ErrInvalidWorkflow) Error() string {
-	return e.msg
-}
-
-type ErrWorkflowAlreadyRegistered struct {
-	msg string
-}
-
-func (e *ErrWorkflowAlreadyRegistered) Error() string {
-	return e.msg
-}
-
-type ErrInvalidActivity struct {
-	msg string
-}
-
-func (e *ErrInvalidActivity) Error() string {
-	return e.msg
-}
-
-type ErrActivityAlreadyRegistered struct {
-	msg string
-}
-
-func (e *ErrActivityAlreadyRegistered) Error() string {
-	return e.msg
-}
-
-type RegisterConfig struct {
+type registerConfig struct {
 	Name string
 }
 
 func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption) error {
-	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
+	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 	name := cfg.Name
 	if name == "" {
 		name = fn.Name(workflow)
@@ -107,7 +76,7 @@ func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption
 }
 
 func (r *Registry) RegisterActivity(activity wf.Activity, opts ...RegisterOption) error {
-	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
+	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 
 	t := reflect.TypeOf(activity)
 

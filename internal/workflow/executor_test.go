@@ -18,6 +18,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,7 @@ func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, in
 	return t.history, nil
 }
 
-func newExecutor(r *Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) (*executor, error) {
+func newExecutor(r *registry.Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) (*executor, error) {
 	logger := slog.Default()
 	tracer := trace.NewNoopTracerProvider().Tracer("test")
 
@@ -49,11 +50,11 @@ func activity1(ctx context.Context, r int) (int, error) {
 func Test_Executor(t *testing.T) {
 	tests := []struct {
 		name string
-		f    func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider)
+		f    func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider)
 	}{
 		{
 			name: "Simple_workflow_to_completion",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowHits := 0
 				wf := func(ctx sync.Context) error {
 					workflowHits++
@@ -75,7 +76,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Workflow with activity command",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowActivityHit := 0
 				workflowWithActivity := func(ctx sync.Context) error {
 					workflowActivityHit++
@@ -121,7 +122,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Workflow with activity replay",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowActivityHit := 0
 				workflowWithActivity := func(ctx sync.Context) error {
 					workflowActivityHit++
@@ -186,7 +187,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Workflow with new events",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowActivityHit := 0
 				workflowWithActivity := func(ctx sync.Context) error {
 					workflowActivityHit++
@@ -264,7 +265,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Workflow with selector",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				var workflowWithSelectorHits int
 
 				workflowWithSelector := func(ctx sync.Context) error {
@@ -320,7 +321,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Workflow with timer",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowTimerHits := 0
 
 				workflowWithTimer := func(ctx sync.Context) error {
@@ -366,7 +367,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Cancel timer multiple times",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowWithTimer := func(ctx sync.Context) error {
 					tctx, cancel := wf.WithCancel(ctx)
 
@@ -402,7 +403,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Workflow with signal",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowSignalHits := 0
 
 				workflowWithSignal := func(ctx sync.Context) error {
@@ -453,7 +454,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Completes workflow on unhandled error",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				workflowPanic := func(ctx sync.Context) error {
 					panic("wf error")
 				}
@@ -487,7 +488,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Schedule subworkflow",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				subworkflow := func(ctx wf.Context) error {
 					return nil
 				}
@@ -515,7 +516,7 @@ func Test_Executor(t *testing.T) {
 		},
 		{
 			name: "Schedule and cancel subworkflow",
-			f: func(t *testing.T, r *Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				subworkflow := func(ctx wf.Context) error {
 					return nil
 				}
@@ -583,7 +584,7 @@ func Test_Executor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := NewRegistry()
+			r := registry.New()
 
 			i := core.NewWorkflowInstance(uuid.NewString(), "")
 			hp := &testHistoryProvider{}

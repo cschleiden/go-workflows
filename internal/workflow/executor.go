@@ -22,6 +22,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -45,7 +46,7 @@ type WorkflowExecutor interface {
 }
 
 type executor struct {
-	registry          *Registry
+	registry          *registry.Registry
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
 	workflowName      string
@@ -64,7 +65,7 @@ type executor struct {
 func NewExecutor(
 	logger *slog.Logger,
 	tracer trace.Tracer,
-	registry *Registry,
+	registry *registry.Registry,
 	cv converter.Converter,
 	propagators []wf.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
