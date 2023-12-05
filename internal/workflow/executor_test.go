@@ -584,7 +584,7 @@ func Test_Executor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := registry.NewRegistry()
+			r := registry.New()
 
 			i := core.NewWorkflowInstance(uuid.NewString(), "")
 			hp := &testHistoryProvider{}

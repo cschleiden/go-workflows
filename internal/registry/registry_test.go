@@ -83,7 +83,7 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := NewRegistry()
+			r := New()
 
 			err := r.RegisterWorkflow(tt.args.workflow, WithName(tt.args.name))
 
@@ -102,7 +102,7 @@ func TestRegistry_RegisterWorkflow(t *testing.T) {
 }
 
 func Test_RegisterWorkflow_Conflict(t *testing.T) {
-	r := NewRegistry()
+	r := New()
 	require.NotNil(t, r)
 
 	var wantErr *ErrWorkflowAlreadyRegistered
@@ -125,7 +125,7 @@ func reg_activity(ctx context.Context) error {
 }
 
 func Test_ActivityRegistration(t *testing.T) {
-	r := NewRegistry()
+	r := New()
 	require.NotNil(t, r)
 
 	err := r.RegisterActivity(reg_activity)
@@ -152,7 +152,7 @@ func reg_activity_invalid(ctx context.Context) {
 }
 
 func Test_ActivityRegistration_Invalid(t *testing.T) {
-	r := NewRegistry()
+	r := New()
 	require.NotNil(t, r)
 
 	err := r.RegisterActivity(reg_activity_invalid)
@@ -172,7 +172,7 @@ func (r *reg_activities) privateActivity(ctx context.Context) error {
 }
 
 func Test_ActivityRegistrationOnStruct(t *testing.T) {
-	r := NewRegistry()
+	r := New()
 	require.NotNil(t, r)
 
 	a := &reg_activities{
@@ -200,7 +200,7 @@ func Test_ActivityRegistrationOnStruct(t *testing.T) {
 }
 
 func Test_RegisterActivity_Conflict(t *testing.T) {
-	r := NewRegistry()
+	r := New()
 	require.NotNil(t, r)
 
 	var wantErr *ErrActivityAlreadyRegistered
@@ -226,7 +226,7 @@ func (r *reg_invalid_activities) Activity1(ctx context.Context) {
 }
 
 func Test_ActivityRegistrationOnStruct_Invalid(t *testing.T) {
-	r := NewRegistry()
+	r := New()
 	require.NotNil(t, r)
 
 	a := &reg_invalid_activities{

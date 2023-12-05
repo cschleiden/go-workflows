@@ -41,7 +41,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 		}
 	}
 
-	registry := registry.NewRegistry()
+	registry := registry.New()
 
 	// Register internal activities
 	if err := registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}); err != nil {

@@ -18,7 +18,7 @@ type Registry struct {
 	activityMap map[string]interface{}
 }
 
-func NewRegistry() *Registry {
+func New() *Registry {
 	return &Registry{
 		workflowMap: make(map[string]wf.Workflow),
 		activityMap: make(map[string]interface{}),

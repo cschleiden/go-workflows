@@ -24,7 +24,7 @@ import (
 func Test_Cache_StoreAndGet(t *testing.T) {
 	c := NewWorkflowExecutorLRUCache(metrics.NewNoopMetricsClient(), 1, time.Second*10)
 
-	r := registry.NewRegistry()
+	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
@@ -66,7 +66,7 @@ func Test_Cache_AutoEviction(t *testing.T) {
 	)
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
-	r := registry.NewRegistry()
+	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
@@ -96,7 +96,7 @@ func Test_Cache_Evict(t *testing.T) {
 	)
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
-	r := registry.NewRegistry()
+	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := wf.NewExecutor(
 		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,

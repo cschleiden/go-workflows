@@ -174,7 +174,7 @@ func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...Workflow
 	c.Set(time.Now())
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	registry := registry.NewRegistry()
+	registry := registry.New()
 
 	options := &options{
 		TestTimeout: time.Second * 10,
