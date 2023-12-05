@@ -1,30 +1,31 @@
 package main
 
-import "github.com/cschleiden/go-workflows/log"
+import (
+	"context"
+	"log/slog"
+)
 
-type nullLogger struct {
-	defaultFields []interface{}
+type nullHandler struct {
 }
 
-// Debug implements log.Logger
-func (*nullLogger) Debug(msg string, fields ...interface{}) {
+// Enabled implements slog.Handler.
+func (*nullHandler) Enabled(context.Context, slog.Level) bool {
+	return false
 }
 
-// Error implements log.Logger
-func (*nullLogger) Error(msg string, fields ...interface{}) {
+// Handle implements slog.Handler.
+func (*nullHandler) Handle(context.Context, slog.Record) error {
+	return nil
 }
 
-// Panic implements log.Logger
-func (*nullLogger) Panic(msg string, fields ...interface{}) {
-}
-
-// Warn implements log.Logger
-func (*nullLogger) Warn(msg string, fields ...interface{}) {
-}
-
-// With implements log.Logger
-func (nl *nullLogger) With(fields ...interface{}) log.Logger {
+// WithAttrs implements slog.Handler.
+func (nl *nullHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return nl
 }
 
-var _ log.Logger = (*nullLogger)(nil)
+// WithGroup implements slog.Handler.
+func (nl *nullHandler) WithGroup(name string) slog.Handler {
+	return nl
+}
+
+var _ slog.Handler = (*nullHandler)(nil)

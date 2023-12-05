@@ -119,7 +119,6 @@ var createGroupCmd = redis.NewScript(`
     return true
 `)
 
-
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
 	ds, err := json.Marshal(data)
 	if err != nil {

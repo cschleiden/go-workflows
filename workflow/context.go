@@ -31,6 +31,8 @@ func WithValue(parent Context, key, val interface{}) Context {
 	return sync.WithValue(parent, key, val)
 }
 
+// NewDisconnectedContext creates a new context that is disconnected from any parent
+// context.
 func NewDisconnectedContext(ctx Context) Context {
 	return sync.NewDisconnectedContext(ctx)
 }

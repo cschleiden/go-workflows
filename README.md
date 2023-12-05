@@ -59,7 +59,7 @@ The worker is responsible for executing `Workflows` and `Activities`, both need 
 func runWorker(ctx context.Context, mb backend.Backend) {
 	w := worker.New(mb, nil)
 
-	r.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(Workflow1)
 
 	w.RegisterActivity(Activity1)
 	w.RegisterActivity(Activity2)
@@ -125,7 +125,7 @@ For all backends, for now the initial schema is applied upon first usage. In the
 
 #### Sqlite
 
-The Sqlite backend implementation supports two different modes, in-memory and on-disk.
+The Sqlite backend implementation supports two different modes, in-memory and on-disk:
 
  * In-memory:
 	```go
@@ -136,11 +136,15 @@ The Sqlite backend implementation supports two different modes, in-memory and on
 	b := sqlite.NewSqliteBackend("simple.sqlite")
 	```
 
+By default the schema is automatically created/migrations are automatically applied. Use `WithApplyMigrations(false)` to disable this behavior.
+
 #### MySql
 
 ```go
 b := mysql.NewMysqlBackend("localhost", 3306, "root", "SqlPassw0rd", "simple")
 ```
+
+By default the schema is automatically created/migrations are automatically applied. Use `WithApplyMigrations(false)` to disable this behavior.
 
 #### Redis
 
@@ -268,7 +272,7 @@ Create a `Client` instance then then call `CancelWorkflow` to cancel a workflow.
 Sub-workflows will be canceled if their parent workflow is canceled.
 
 ```go
-var c client.Client
+var c *client.Client
 err = c.CancelWorkflowInstance(context.Background(), workflowInstance)
 if err != nil {
 	panic("could not cancel workflow")

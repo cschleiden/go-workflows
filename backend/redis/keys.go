@@ -3,7 +3,7 @@ package redis
 import (
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 // activeInstanceExecutionKey returns the key for the latest execution of the given instance
@@ -24,11 +24,13 @@ func instanceKeyFromSegment(segment string) string {
 }
 
 // instancesByCreation returns the key for the ZSET that contains all instances sorted by creation date. The score is the
-// creation time. Used for listing all workflow instances in the diagnostics UI.
+// creation time as a unix timestamp. Used for listing all workflow instances in the diagnostics UI.
 func instancesByCreation() string {
 	return "instances-by-creation"
 }
 
+// instancesActive returns the key for the SET that contains all active instances. Used for reporting active workflow
+// instances in stats.
 func instancesActive() string {
 	return "instances-active"
 }
@@ -54,5 +56,9 @@ func futureEventsKey() string {
 }
 
 func futureEventKey(instance *core.WorkflowInstance, scheduleEventID int64) string {
-	return fmt.Sprintf("future-event:%v:%v:%v", instance.InstanceID, instance.ExecutionID, scheduleEventID)
+	return fmt.Sprintf("future-event:%v:%v", instanceSegment(instance), scheduleEventID)
+}
+
+func payloadKey(instance *core.WorkflowInstance) string {
+	return fmt.Sprintf("payload:%v", instanceSegment(instance))
 }

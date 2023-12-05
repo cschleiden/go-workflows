@@ -4,22 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/task"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/registry"
+	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -36,13 +40,13 @@ type WorkflowHistoryProvider interface {
 }
 
 type WorkflowExecutor interface {
-	ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error)
+	ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error)
 
 	Close()
 }
 
 type executor struct {
-	registry          *Registry
+	registry          *registry.Registry
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
 	workflowName      string
@@ -52,21 +56,21 @@ type executor struct {
 	workflowCtxCancel sync.CancelFunc
 	cv                converter.Converter
 	clock             clock.Clock
-	logger            log.Logger
+	logger            *slog.Logger
 	tracer            trace.Tracer
 	lastSequenceID    int64
 	parentSpan        trace.Span
 }
 
 func NewExecutor(
-	logger log.Logger,
+	logger *slog.Logger,
 	tracer trace.Tracer,
-	registry *Registry,
+	registry *registry.Registry,
 	cv converter.Converter,
-	propagators []contextpropagation.ContextPropagator,
+	propagators []wf.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
 	instance *core.WorkflowInstance,
-	metadata *core.WorkflowMetadata,
+	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
 ) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, clock)
@@ -74,10 +78,10 @@ func NewExecutor(
 	wfTracer := workflowtracer.New(tracer)
 
 	wfCtx := sync.Background()
-	wfCtx = converter.WithConverter(wfCtx, cv)
+	wfCtx = contextvalue.WithConverter(wfCtx, cv)
 	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
-	wfCtx = contextpropagation.WithPropagators(wfCtx, propagators)
+	wfCtx = sync.WithValue(wfCtx, contextvalue.PropagatorsCtxKey, propagators)
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	for _, propagator := range propagators {
@@ -106,7 +110,7 @@ func NewExecutor(
 	}, nil
 }
 
-func (e *executor) ExecuteTask(ctx context.Context, t *task.Workflow) (*ExecutionResult, error) {
+func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error) {
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
 		log.InstanceIDKey, t.WorkflowInstance.InstanceID,
@@ -234,7 +238,8 @@ func (e *executor) replayHistory(h []*history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range h {
 		if event.SequenceID < e.lastSequenceID {
-			e.logger.Panic("history has older events than current state")
+			e.logger.Error("history has older events than current state")
+			panic("history has older events than current state")
 		}
 
 		if err := e.executeEvent(event); err != nil {
@@ -259,7 +264,8 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	if e.workflow.Completed() {
 		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
-			e.logger.Panic("workflow completed, but there are still pending futures")
+			e.logger.Error("workflow completed, but there are still pending futures")
+			panic("workflow completed, but there are still pending futures")
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
@@ -654,13 +660,11 @@ func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideE
 	return e.workflow.Continue()
 }
 
-func (e *executor) workflowCompleted(result payload.Payload, wfErr error) error {
+func (e *executor) workflowCompleted(result payload.Payload, wfErr error) {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr))
 	e.workflowState.AddCommand(cmd)
-
-	return nil
 }
 
 func (e *executor) workflowRestarted(result payload.Payload, continueAsNew *continueasnew.Error) {

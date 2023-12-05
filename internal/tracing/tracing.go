@@ -3,10 +3,8 @@ package tracing
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -16,29 +14,29 @@ var propagator propagation.TextMapPropagator = propagation.NewCompositeTextMapPr
 	propagation.Baggage{},
 )
 
-func injectSpan(ctx context.Context, metadata *core.WorkflowMetadata) {
+func injectSpan(ctx context.Context, metadata *workflow.Metadata) {
 	propagator.Inject(ctx, metadata)
 }
 
-func extractSpan(ctx context.Context, metadata *core.WorkflowMetadata) context.Context {
+func extractSpan(ctx context.Context, metadata *workflow.Metadata) context.Context {
 	return propagator.Extract(ctx, metadata)
 }
 
 type TracingContextPropagator struct {
 }
 
-var _ contextpropagation.ContextPropagator = &TracingContextPropagator{}
+var _ workflow.ContextPropagator = &TracingContextPropagator{}
 
-func (*TracingContextPropagator) Inject(ctx context.Context, metadata *core.WorkflowMetadata) error {
+func (*TracingContextPropagator) Inject(ctx context.Context, metadata *workflow.Metadata) error {
 	injectSpan(ctx, metadata)
 	return nil
 }
 
-func (*TracingContextPropagator) Extract(ctx context.Context, metadata *core.WorkflowMetadata) (context.Context, error) {
+func (*TracingContextPropagator) Extract(ctx context.Context, metadata *workflow.Metadata) (context.Context, error) {
 	return extractSpan(ctx, metadata), nil
 }
 
-func (*TracingContextPropagator) InjectFromWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata) error {
+func (*TracingContextPropagator) InjectFromWorkflow(ctx workflow.Context, metadata *workflow.Metadata) error {
 	span := workflowtracer.SpanFromContext(ctx)
 	sctx := trace.ContextWithSpan(context.Background(), span)
 
@@ -47,7 +45,7 @@ func (*TracingContextPropagator) InjectFromWorkflow(ctx sync.Context, metadata *
 	return nil
 }
 
-func (*TracingContextPropagator) ExtractToWorkflow(ctx sync.Context, metadata *core.WorkflowMetadata) (sync.Context, error) {
+func (*TracingContextPropagator) ExtractToWorkflow(ctx workflow.Context, metadata *workflow.Metadata) (workflow.Context, error) {
 	sctx := extractSpan(context.Background(), metadata)
 	span := trace.SpanFromContext(sctx)
 

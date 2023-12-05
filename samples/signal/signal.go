@@ -33,7 +33,7 @@ func main() {
 	<-c2
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func startWorkflow(ctx context.Context, c *client.Client) {
 	subID := uuid.NewString()
 
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
@@ -75,7 +75,7 @@ func Workflow1(ctx workflow.Context, msg string, subID string) (string, error) {
 	logger.Debug("Waiting for first signal")
 	workflow.Select(ctx,
 		workflow.Receive(workflow.NewSignalChannel[int](ctx, "test"), func(ctx workflow.Context, r int, ok bool) {
-			logger.Debug("Received signal:", r)
+			logger.Debug("Received signal:", "r", r)
 		}),
 	)
 

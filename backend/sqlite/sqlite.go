@@ -3,71 +3,146 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"embed"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/metrics"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/log"
-	"github.com/cschleiden/go-workflows/metrics"
+	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-//go:embed schema.sql
-var schema string
+//go:embed db/migrations/*.sql
+var migrationsFS embed.FS
 
-func NewInMemoryBackend(opts ...backend.BackendOption) *sqliteBackend {
-	b := newSqliteBackend("file::memory:?_mode=memory", opts...)
+func NewInMemoryBackend(opts ...option) *sqliteBackend {
+	b := newSqliteBackend("file::memory:?mode=memory&cache=shared", opts...)
 
-	b.db.SetMaxOpenConns(1)
+	b.db.SetConnMaxIdleTime(0)
+	b.db.SetMaxIdleConns(1)
 
-	return b
-}
+	// WORKAROUND: Keep a connection open at all times to prevent hte in-memory db from being dropped
+	b.db.SetMaxOpenConns(2)
 
-func NewSqliteBackend(path string, opts ...backend.BackendOption) *sqliteBackend {
-	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
-}
-
-func newSqliteBackend(dsn string, opts ...backend.BackendOption) *sqliteBackend {
-	db, err := sql.Open("sqlite3", dsn)
+	var err error
+	b.memConn, err = b.db.Conn(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	// Initialize database
-	if _, err := db.Exec(schema); err != nil {
+	return b
+}
+
+func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
+	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
+}
+
+func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
+	options := &options{
+		Options:         backend.ApplyOptions(),
+		ApplyMigrations: true,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
 		panic(err)
 	}
 
-	return &sqliteBackend{
+	// SQLite does not support multiple writers on the database, see https://www.sqlite.org/faq.html#q5
+	// A frequently used workaround is to have a single connection, effectively acting as a mutex
+	// See https://github.com/mattn/go-sqlite3/issues/274 for more context
+	db.SetMaxOpenConns(1)
+
+	b := &sqliteBackend{
 		db:         db,
 		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
-		options:    backend.ApplyOptions(opts...),
+		options:    options,
 	}
+
+	// Apply migrations
+	if options.ApplyMigrations {
+		if err := b.Migrate(); err != nil {
+			panic(err)
+		}
+	}
+
+	return b
 }
 
 type sqliteBackend struct {
 	db         *sql.DB
 	workerName string
-	options    backend.Options
+	options    *options
+
+	memConn *sql.Conn
 }
 
 var _ backend.Backend = (*sqliteBackend)(nil)
 
-func (sb *sqliteBackend) Logger() log.Logger {
+func (sb *sqliteBackend) Close() error {
+	if sb.memConn != nil {
+		if err := sb.memConn.Close(); err != nil {
+			return err
+		}
+	}
+
+	return sb.db.Close()
+}
+
+// Migrate applies any pending database migrations.
+func (sb *sqliteBackend) Migrate() error {
+	sb.options.Logger.Info("Applying migrations...")
+
+	dbi, err := sqlite.WithInstance(sb.db, &sqlite.Config{})
+	if err != nil {
+		return fmt.Errorf("creating migration instance: %w", err)
+	}
+
+	migrations, err := iofs.New(migrationsFS, "db/migrations")
+	if err != nil {
+		return fmt.Errorf("creating migration source: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", migrations, "sqlite", dbi)
+	if err != nil {
+		return fmt.Errorf("creating migration: %w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("running migrations: %w", err)
+		}
+
+		sb.options.Logger.Info("No migrations to apply")
+	}
+
+	return nil
+}
+
+func (sb *sqliteBackend) Logger() *slog.Logger {
 	return sb.options.Logger
 }
 
@@ -83,7 +158,7 @@ func (sb *sqliteBackend) Converter() converter.Converter {
 	return sb.options.Converter
 }
 
-func (sb *sqliteBackend) ContextPropagators() []contextpropagation.ContextPropagator {
+func (sb *sqliteBackend) ContextPropagators() []workflow.ContextPropagator {
 	return sb.options.ContextPropagators
 }
 
@@ -95,7 +170,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
+	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
 		return err
 	}
 
@@ -110,7 +185,13 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	return nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata, ignoreDuplicate bool) error {
+func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata) error {
+	// Check for existing instance
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? AND state = ? LIMIT 1", wfi.InstanceID, core.WorkflowInstanceStateActive).
+		Scan(new(int)); err != sql.ErrNoRows {
+		return backend.ErrInstanceAlreadyExists
+	}
+
 	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	if wfi.SubWorkflow() {
@@ -124,9 +205,9 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 		return fmt.Errorf("marshaling metadata: %w", err)
 	}
 
-	res, err := tx.ExecContext(
+	_, err = tx.ExecContext(
 		ctx,
-		"INSERT OR IGNORE INTO `instances` (id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO `instances` (id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		wfi.InstanceID,
 		wfi.ExecutionID,
 		parentInstanceID,
@@ -137,17 +218,6 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 	)
 	if err != nil {
 		return fmt.Errorf("inserting workflow instance: %w", err)
-	}
-
-	if !ignoreDuplicate {
-		rows, err := res.RowsAffected()
-		if err != nil {
-			return err
-		}
-
-		if rows != 1 {
-			return backend.ErrInstanceAlreadyExists
-		}
 	}
 
 	return nil
@@ -185,6 +255,10 @@ func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 		return err
 	}
 
+	if _, err := tx.ExecContext(ctx, "DELETE FROM `attributes` WHERE instance_id = ? AND execution_id = ?", instanceID, executionID); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -216,7 +290,9 @@ func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *w
 }
 
 func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]*history.Event, error) {
-	tx, err := sb.db.BeginTx(ctx, nil)
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -230,8 +306,16 @@ func (sb *sqliteBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 	return h, nil
 }
 
-func (s *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
-	row := s.db.QueryRowContext(
+func (sb *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
+	if err != nil {
+		return core.WorkflowInstanceStateActive, err
+	}
+	defer tx.Rollback()
+
+	row := tx.QueryRowContext(
 		ctx,
 		"SELECT state FROM instances WHERE id = ? AND execution_id = ?",
 		instance.InstanceID,
@@ -269,7 +353,7 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, error) {
+func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -288,7 +372,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 					WHERE
 						(locked_until IS NULL OR locked_until < ?)
 						AND (sticky_until IS NULL OR sticky_until < ? OR worker = ?)
-						AND completed_at IS NULL
+						AND state = ? AND i.completed_at IS NULL
 						AND EXISTS (
 							SELECT 1
 								FROM pending_events
@@ -298,10 +382,11 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 			) RETURNING id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`,
 		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
-		now,           // locked_until
-		now,           // sticky_until
-		sb.workerName, // worker
-		now,           // event.visible_at
+		now,                              // locked_until
+		now,                              // sticky_until
+		sb.workerName,                    // worker
+		core.WorkflowInstanceStateActive, // state
+		now,                              // pending_event.visible_at
 	)
 
 	var instanceID, executionID string
@@ -324,14 +409,14 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 		wfi = core.NewWorkflowInstance(instanceID, executionID)
 	}
 
-	var metadata *core.WorkflowMetadata
+	var metadata *metadata.WorkflowMetadata
 	if metadataJson.Valid {
 		if err := json.Unmarshal([]byte(metadataJson.String), &metadata); err != nil {
 			return nil, fmt.Errorf("parsing workflow metadata: %w", err)
 		}
 	}
 
-	t := &task.Workflow{
+	t := &backend.WorkflowTask{
 		ID:                    wfi.InstanceID,
 		WorkflowInstance:      wfi,
 		WorkflowInstanceState: core.WorkflowInstanceStateActive,
@@ -370,7 +455,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*task.Workflow, e
 
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
-	task *task.Workflow,
+	task *backend.WorkflowTask,
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
@@ -383,7 +468,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	defer tx.Rollback()
 
 	var completedAt *time.Time
-	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
+	if state == core.WorkflowInstanceStateContinuedAsNew || state == core.WorkflowInstanceStateFinished {
 		t := time.Now()
 		completedAt = &t
 	}
@@ -414,6 +499,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 			args = append(args, e.ID)
 		}
 
+		// Remove from pending
 		if _, err := tx.ExecContext(
 			ctx,
 			fmt.Sprintf(`DELETE FROM pending_events WHERE instance_id = ? AND execution_id = ? AND id IN (?%v)`, strings.Repeat(",?", len(executedEvents)-1)),
@@ -423,9 +509,8 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		}
 	}
 
-	// Add events from last execution to history
-	if err := insertHistoryEvents(ctx, tx, instance, executedEvents); err != nil {
-		return fmt.Errorf("inserting new history events: %w", err)
+	if err := insertEvents(ctx, tx, "history", instance, executedEvents); err != nil {
+		return fmt.Errorf("inserting history events: %w", err)
 	}
 
 	// Schedule activities
@@ -453,15 +538,25 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 
 	for targetInstance, events := range groupedEvents {
-		for _, m := range events {
-			if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
-				a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
-				// Create new instance
-				if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata, true); err != nil {
-					return err
+		// Are we creating a new sub-workflow instance?
+		m := events[0]
+		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
+			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+			// Create new instance
+			if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata); err != nil {
+				if err == backend.ErrInstanceAlreadyExists {
+					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
+						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
+							Error: workflowerrors.FromError(backend.ErrInstanceAlreadyExists),
+						}, history.ScheduleEventID(m.WorkflowInstance.ParentEventID)),
+					}); err != nil {
+						return fmt.Errorf("inserting sub-workflow failed event: %w", err)
+					}
+
+					continue
 				}
 
-				break
+				return fmt.Errorf("creating sub-workflow instance: %w", err)
 			}
 		}
 
@@ -507,7 +602,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, error) {
+func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -523,7 +618,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 			SET locked_until = ?, worker = ?
 			WHERE rowid = (
 				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
-			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at`,
+			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at`,
 		now.Add(sb.options.ActivityLockTimeout),
 		sb.workerName,
 		now,
@@ -533,7 +628,6 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 	}
 
 	var instanceID, executionID string
-	var attributes []byte
 	event := &history.Event{}
 
 	if err := row.Scan(
@@ -543,7 +637,6 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		&event.Type,
 		&event.Timestamp,
 		&event.ScheduleEventID,
-		&attributes,
 		&event.VisibleAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
@@ -552,6 +645,13 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		}
 
 		return nil, fmt.Errorf("scanning event: %w", err)
+	}
+
+	var attributes []byte
+	if err := tx.QueryRowContext(
+		ctx, "SELECT data FROM attributes WHERE instance_id = ? AND execution_id = ? AND id = ?", instanceID, executionID, event.ID,
+	).Scan(&attributes); err != nil {
+		return nil, fmt.Errorf("scanning attributes: %w", err)
 	}
 
 	a, err := history.DeserializeAttributes(event.Type, attributes)
@@ -571,7 +671,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*task.Activity, e
 		return nil, fmt.Errorf("unmarshaling metadata: %w", err)
 	}
 
-	t := &task.Activity{
+	t := &backend.ActivityTask{
 		ID:               event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,
@@ -591,7 +691,7 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	}
 	defer tx.Rollback()
 
-	// Remove activity
+	// Remove activity but keep the attributes, they are still needed for the history
 	if res, err := tx.ExecContext(
 		ctx,
 		`DELETE FROM activities WHERE instance_id = ? AND execution_id = ? AND id = ? AND worker = ?`,

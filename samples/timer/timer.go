@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/cschleiden/go-workflows/activity"
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/samples"
@@ -31,7 +32,7 @@ func main() {
 	w.WaitForCompletion()
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func startWorkflow(ctx context.Context, c *client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world")
@@ -47,7 +48,7 @@ func startWorkflow(ctx context.Context, c client.Client) {
 	log.Println("Workflow finished. Result:", result)
 }
 
-func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
+func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
 	w := worker.New(mb, nil)
 
 	w.RegisterWorkflow(Workflow1)
@@ -63,7 +64,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) worker.Worker {
 
 func Workflow1(ctx workflow.Context, msg string) (string, error) {
 	logger := workflow.Logger(ctx)
-	logger.Debug("Entering Workflow1, input: ", msg)
+	logger.Debug("Entering Workflow1, input: ", "msg", msg)
 	defer logger.Debug("Leaving Workflow1")
 
 	a1 := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12)
@@ -72,7 +73,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 
 	workflow.Select(
 		ctx,
-		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(workflow.ScheduleTimer(tctx, 2*time.Second), func(ctx workflow.Context, f workflow.Future[any]) {
 			if _, err := f.Get(ctx); err != nil {
 				logger.Debug("Timer canceled")
 			} else {
@@ -85,7 +86,7 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 				panic(err)
 			}
 
-			logger.Debug("Activity result", r)
+			logger.Debug("Activity result", "r", r)
 
 			// Cancel timer
 			cancel()
@@ -96,12 +97,13 @@ func Workflow1(ctx workflow.Context, msg string) (string, error) {
 }
 
 func Activity1(ctx context.Context, a, b int) (int, error) {
-	log.Println("Entering Activity1")
+	logger := activity.Logger(ctx)
+	logger.Debug("Entering Activity1")
 
 	time.Sleep(10 * time.Second)
 
 	defer func() {
-		log.Println("Leaving Activity1")
+		logger.Debug("Leaving Activity1")
 	}()
 
 	return a + b, nil

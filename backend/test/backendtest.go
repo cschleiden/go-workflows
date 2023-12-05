@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/payload"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -39,17 +40,18 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 			name: "CreateWorkflowInstance_SameInstanceIDErrors",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				instanceID := uuid.NewString()
-				executionID := uuid.NewString()
+				executionID1 := uuid.NewString()
+				executionID2 := uuid.NewString()
 
 				err := b.CreateWorkflowInstance(ctx,
-					core.NewWorkflowInstance(instanceID, executionID),
+					core.NewWorkflowInstance(instanceID, executionID1),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.NoError(t, err)
 
 				err = b.CreateWorkflowInstance(
 					ctx,
-					core.NewWorkflowInstance(instanceID, executionID),
+					core.NewWorkflowInstance(instanceID, executionID2),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.Error(t, err)
@@ -233,7 +235,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{
 					Name:     "some-workflow",
 					Inputs:   []payload.Payload{},
-					Metadata: &core.WorkflowMetadata{},
+					Metadata: &metadata.WorkflowMetadata{},
 				})
 
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
@@ -295,6 +297,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				task, err = b.GetWorkflowTask(ctx)
 				require.NoError(t, err)
+				require.NotNil(t, task)
 				require.Equal(t, subInstance1, task.WorkflowInstance)
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
 			},
@@ -361,7 +364,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 	}
 }
 
-func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c client.Client, instance *core.WorkflowInstance) {
+func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c *client.Client, instance *core.WorkflowInstance) {
 	err := b.CreateWorkflowInstance(
 		ctx, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 	require.NoError(t, err)

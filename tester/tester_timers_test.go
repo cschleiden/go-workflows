@@ -109,11 +109,11 @@ func timerCancellationSubWorkflow(ctx workflow.Context) error {
 
 	workflow.Select(
 		ctx,
-		workflow.Await(t, func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(t, func(ctx workflow.Context, _ workflow.Future[any]) {
 			// Cancel t2
 			cancel()
 		}),
-		workflow.Await(t2, func(ctx workflow.Context, f workflow.Future[struct{}]) {
+		workflow.Await(t2, func(ctx workflow.Context, _ workflow.Future[any]) {
 			// do nothing here, should never fire
 			panic("timer should have been cancelled")
 		}),
@@ -197,7 +197,7 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	dl := newDebugLogger()
 
-	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*10), WithLogger(dl))
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*10), WithLogger(dl.logger))
 
 	tester.OnActivity(activity1).Return("activity", nil)
 
@@ -232,7 +232,7 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	dl := newDebugLogger()
 
-	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl))
+	tester := NewWorkflowTester[string](wf, WithTestTimeout(time.Second*3), WithLogger(dl.logger))
 
 	tester.OnActivity(activity1).Return("activity", nil)
 

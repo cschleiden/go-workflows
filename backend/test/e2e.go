@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/sync"
 	internalwf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -20,17 +21,18 @@ import (
 )
 
 type backendTest struct {
-	name         string
-	options      []backend.BackendOption
-	withoutCache bool // If set, test will only be run when the cache is disabled
-	f            func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend)
+	name                string
+	options             []backend.BackendOption
+	withoutCache        bool // If set, test will only be run when the cache is disabled
+	f                   func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend)
+	customWorkerOptions func(options *worker.Options)
 }
 
 func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOption) TestBackend, teardown func(b TestBackend)) {
 	tests := []backendTest{
 		{
 			name: "SimpleWorkflow",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -43,8 +45,50 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
+			name: "Workflow_LotsOfActivities",
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				a := func(ctx context.Context) (int, error) {
+					return 42, nil
+				}
+
+				wf := func(ctx workflow.Context, msg string) (string, error) {
+					done := 0
+
+					y := make([]workflow.SelectCase, 0)
+					for i := 0; i < 100; i++ {
+						var sc workflow.SelectCase
+						sc = workflow.Await[int](workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{}, a),
+							func(ctx sync.Context, f workflow.Future[int]) {
+								done++
+
+								// Remove sc from y
+								for i, v := range y {
+									if v == sc {
+										y = append(y[:i], y[i+1:]...)
+										break
+									}
+								}
+							})
+						y = append(y, sc)
+					}
+
+					for done < 100 {
+						workflow.Select(ctx, y...)
+					}
+
+					return msg + " world", nil
+				}
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
+
+				require.NoError(t, err)
+				require.Equal(t, "hello world", output)
+			},
+		},
+		{
 			name: "SimpleWorkflow_ExpectedHistory",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -66,7 +110,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "UnregisteredWorkflow_Errors",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -80,7 +124,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "WorkflowArgumentMismatch",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, p1 int) (int, error) {
 					return 42, nil
 				}
@@ -96,7 +140,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "UnregisteredActivity_Errors",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(context.Context) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
@@ -115,7 +159,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "ActivityArgumentMismatch",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(context.Context, int, int) error { return nil }
 				wf := func(ctx workflow.Context) (int, error) {
 					return workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
@@ -134,7 +178,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "SideEffect_Simple",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				i := 2
 				wf := func(ctx workflow.Context) (int, error) {
 					r1, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) int {
@@ -163,7 +207,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "Signal_after_completion",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context) error {
 					return nil
 				}
@@ -180,7 +224,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "SubWorkflow_Simple",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					return i * 2, nil
 				}
@@ -202,8 +246,81 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
+			name: "SubWorkflow_DuplicateActiveInstanceID",
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					workflow.NewSignalChannel[any](ctx, "signal").Receive(ctx)
+
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					swf1 := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 1)
+
+					defer func() {
+						rctx := workflow.NewDisconnectedContext(ctx)
+
+						// Unblock waiting sub workflow
+						workflow.SignalWorkflow[any](rctx, "subworkflow", "signal", 1).Get(rctx)
+						swf1.Get(rctx)
+					}()
+
+					// Run another subworkflow with the same ID
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 1).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.Error(t, err, backend.ErrInstanceAlreadyExists.Error())
+			},
+		},
+		{
+			name: "SubWorkflow_DuplicateInactiveInstanceID",
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					// Let sub-workflow run to completion
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 1).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					// Run another subworkflow with the same ID
+					r, err = workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, swf, 2).Get(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					return r, nil
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.NoError(t, err)
+				require.Equal(t, 4, r)
+			},
+		},
+		{
 			name: "SubWorkflow_PropagateCancellation",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				canceled := int32(0)
 
 				swf := func(ctx workflow.Context, i int) (int, error) {
@@ -267,7 +384,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "SubWorkflow_CancelBeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swInstanceID := "subworkflow"
 
 				swfrun := 0
@@ -313,7 +430,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "SubWorkflow_Signal",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					workflow.NewSignalChannel[string](ctx, "signal").Receive(ctx)
 
@@ -347,7 +464,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "SubWorkflow_Signal_BeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context) (int, error) {
 					id, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) string {
 						id := uuid.New().String()
@@ -371,7 +488,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "Timer_CancelWorkflowInstance",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
 					return nil
 				}
@@ -398,7 +515,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "Timer_CancelBeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
 					return nil
 				}
@@ -441,7 +558,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "Timer_CancelTwice",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
 					return nil
 				}
@@ -484,7 +601,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "Timer_CancelBeforeFiringRemovesFutureEvent",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) error {
 					return nil
 				}
@@ -523,7 +640,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		{
 			name:         "NonDeterminism",
 			withoutCache: true,
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				i := 0
 				wf := func(ctx workflow.Context) (int, error) {
 					var r int
@@ -553,7 +670,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "RemoveWorkflowInstance",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
@@ -576,7 +693,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		{
 			name:    "ContextPropagation",
 			options: []backend.BackendOption{backend.WithContextPropagator(&testContextPropagator{})},
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				a := func(ctx context.Context) (int, error) {
 					d := myValues(ctx)
 					return d.Count, nil
@@ -610,7 +727,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "ContinueAsNew",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context, run int) (int, error) {
 					run = run + 1
 					if run < 3 {
@@ -634,7 +751,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		},
 		{
 			name: "ContinueAsNew_Subworkflow",
-			f: func(t *testing.T, ctx context.Context, c client.Client, w worker.Worker, b TestBackend) {
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, run int) (int, error) {
 					l := workflow.Logger(ctx)
 
@@ -654,7 +771,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				instance := runWorkflow(t, ctx, c, wf, 0)
 
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
 				require.NoError(t, err)
 				require.Equal(t, 3, r)
 			},
@@ -664,7 +781,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 	tests = append(tests, e2eActivityTests...)
 	tests = append(tests, e2eStatsTests...)
 
-	run := func(suffix string, workerOptions *worker.Options) {
+	run := func(suffix string, workerOptions worker.Options) {
 		for _, tt := range tests {
 			if tt.withoutCache && workerOptions.WorkflowExecutorCache != nil {
 				// Skip test
@@ -677,7 +794,12 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				ctx, cancel := context.WithCancel(ctx)
 
 				c := client.New(b)
-				w := worker.New(b, workerOptions)
+
+				if tt.customWorkerOptions != nil {
+					tt.customWorkerOptions(&workerOptions)
+				}
+
+				w := worker.New(b, &workerOptions)
 
 				t.Cleanup(func() {
 					cancel()
@@ -698,14 +820,14 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 		}
 	}
 
-	options := worker.DefaultWorkerOptions
+	options := worker.DefaultOptions
 
 	// Run with cache
-	run("", &options)
+	run("", options)
 
 	// Disable cache for this execution
 	options.WorkflowExecutorCache = &noopWorkflowExecutorCache{}
-	run("_without_cache", &options)
+	run("_without_cache", options)
 }
 
 type noopWorkflowExecutorCache struct {
@@ -718,6 +840,11 @@ func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.Workfl
 	return nil, false, nil
 }
 
+// Evict implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Evict(ctx context.Context, instance *core.WorkflowInstance) error {
+	return nil
+}
+
 // StartEviction implements workflow.ExecutorCache
 func (*noopWorkflowExecutorCache) StartEviction(ctx context.Context) {
 }
@@ -727,7 +854,7 @@ func (*noopWorkflowExecutorCache) Store(ctx context.Context, instance *core.Work
 	return nil
 }
 
-func register(t *testing.T, ctx context.Context, w worker.Worker, workflows []interface{}, activities []interface{}) {
+func register(t *testing.T, ctx context.Context, w *worker.Worker, workflows []interface{}, activities []interface{}) {
 	for _, wf := range workflows {
 		require.NoError(t, w.RegisterWorkflow(wf))
 	}
@@ -740,7 +867,7 @@ func register(t *testing.T, ctx context.Context, w worker.Worker, workflows []in
 	require.NoError(t, err)
 }
 
-func runWorkflow(t *testing.T, ctx context.Context, c client.Client, wf interface{}, inputs ...interface{}) *workflow.Instance {
+func runWorkflow(t *testing.T, ctx context.Context, c *client.Client, wf interface{}, inputs ...interface{}) *workflow.Instance {
 	instance, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, wf, inputs...)
@@ -749,7 +876,7 @@ func runWorkflow(t *testing.T, ctx context.Context, c client.Client, wf interfac
 	return instance
 }
 
-func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c client.Client, wf interface{}, inputs ...interface{}) (T, error) {
+func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c *client.Client, wf interface{}, inputs ...interface{}) (T, error) {
 	instance := runWorkflow(t, ctx, c, wf, inputs...)
 	return client.GetWorkflowResult[T](ctx, c, instance, time.Second*10)
 }

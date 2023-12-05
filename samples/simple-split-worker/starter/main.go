@@ -20,7 +20,7 @@ func main() {
 	startWorkflow(ctx, c)
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func startWorkflow(ctx context.Context, c *client.Client) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, simple_split_worker.Workflow1, "Hello world "+uuid.NewString())

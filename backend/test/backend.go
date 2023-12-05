@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/history"
 )
 
 type TestBackend interface {

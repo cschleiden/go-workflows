@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/internal/log"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -54,6 +54,10 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		instanceKeys = append(instanceKeys, instanceKeyFromSegment(instanceSegment))
 	}
 
+	if len(instanceKeys) == 0 {
+		return nil, nil
+	}
+
 	instances, err := rb.rdb.MGet(ctx, instanceKeys...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %w", err)
@@ -61,8 +65,13 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 
 	var instanceRefs []*diag.WorkflowInstanceRef
 	for _, instance := range instances {
+		instStr, ok := instance.(string)
+		if !ok {
+			continue
+		}
+
 		var state instanceState
-		if err := json.Unmarshal([]byte(instance.(string)), &state); err != nil {
+		if err := json.Unmarshal([]byte(instStr), &state); err != nil {
 			return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 		}
 

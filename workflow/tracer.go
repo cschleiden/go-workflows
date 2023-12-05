@@ -9,21 +9,19 @@ type Span interface {
 	End()
 }
 
-type WorkflowTracer interface {
-	Start(ctx Context, name string, opts ...trace.SpanStartOption) (Context, Span)
-}
-
-func Tracer(ctx Context) WorkflowTracer {
-	return &workflowTracer{
+// Tracer creates a the workflow tracer.
+func Tracer(ctx Context) *WorkflowTracer {
+	return &WorkflowTracer{
 		t: workflowtracer.Tracer(ctx),
 	}
 }
 
-type workflowTracer struct {
+type WorkflowTracer struct {
 	t *workflowtracer.WorkflowTracer
 }
 
-func (wt *workflowTracer) Start(ctx Context, name string, opts ...trace.SpanStartOption) (Context, Span) {
+// Start starts a new span.
+func (wt *WorkflowTracer) Start(ctx Context, name string, opts ...trace.SpanStartOption) (Context, Span) {
 	ctx, span := wt.t.Start(ctx, name, opts...)
 
 	return ctx, &span

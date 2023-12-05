@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/core"
 )
 
 var _ diag.Backend = (*mysqlBackend)(nil)
@@ -46,6 +46,8 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	if err != nil {
 		return nil, err
 	}
+
+	defer rows.Close()
 
 	var instances []*diag.WorkflowInstanceRef
 

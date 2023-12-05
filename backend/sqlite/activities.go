@@ -3,30 +3,29 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event *history.Event) error {
-	attributes, err := history.SerializeAttributes(event.Attributes)
-	if err != nil {
-		return err
-	}
+	// Attributes are already persisted via the history, we do not need to add them again.
 
-	_, err = tx.ExecContext(
+	if _, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
-			(id, instance_id, execution_id, event_type, timestamp, schedule_event_id, attributes, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
 		instance.InstanceID,
 		instance.ExecutionID,
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,
-		attributes,
 		event.VisibleAt,
-	)
+	); err != nil {
+		return fmt.Errorf("inserting events: %w", err)
+	}
 
-	return err
+	return nil
 }

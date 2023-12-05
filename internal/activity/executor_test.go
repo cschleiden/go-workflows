@@ -3,19 +3,19 @@ package activity
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
@@ -24,12 +24,12 @@ import (
 func TestExecutor_ExecuteActivity(t *testing.T) {
 	tests := []struct {
 		name   string
-		setup  func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes
+		setup  func(t *testing.T, r *registry.Registry) *history.ActivityScheduledAttributes
 		result func(t *testing.T, result payload.Payload, err error)
 	}{
 		{
 			name: "unknown activity",
-			setup: func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes {
+			setup: func(t *testing.T, r *registry.Registry) *history.ActivityScheduledAttributes {
 				return &history.ActivityScheduledAttributes{
 					Name: "unknown",
 				}
@@ -42,7 +42,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 		},
 		{
 			name: "mismatched argument count",
-			setup: func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes {
+			setup: func(t *testing.T, r *registry.Registry) *history.ActivityScheduledAttributes {
 				a := func(context.Context, int, int) error { return nil }
 				require.NoError(t, r.RegisterActivity(a))
 
@@ -58,7 +58,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 		},
 		{
 			name: "wrap error",
-			setup: func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes {
+			setup: func(t *testing.T, r *registry.Registry) *history.ActivityScheduledAttributes {
 				a := func(context.Context, int) error {
 					return errors.New("some error")
 				}
@@ -81,7 +81,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 		},
 		{
 			name: "handle panic",
-			setup: func(t *testing.T, r *workflow.Registry) *history.ActivityScheduledAttributes {
+			setup: func(t *testing.T, r *registry.Registry) *history.ActivityScheduledAttributes {
 				a := func(context.Context, int) error {
 					panic("activity panic")
 				}
@@ -107,16 +107,16 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := workflow.NewRegistry()
+			r := registry.New()
 			attr := tt.setup(t, r)
 
 			e := &Executor{
-				logger:    logger.NewDefaultLogger(),
+				logger:    slog.Default(),
 				r:         r,
 				converter: converter.DefaultConverter,
 				tracer:    trace.NewNoopTracerProvider().Tracer(""),
 			}
-			got, err := e.ExecuteActivity(context.Background(), &task.Activity{
+			got, err := e.ExecuteActivity(context.Background(), &backend.ActivityTask{
 				ID:               uuid.NewString(),
 				WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
 				Event:            history.NewHistoryEvent(1, time.Now(), history.EventType_ActivityScheduled, attr),
