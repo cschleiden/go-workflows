@@ -19,7 +19,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/activity"
-	margs "github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
@@ -164,7 +164,7 @@ type workflowTester[TResult any] struct {
 var _ WorkflowTester[any] = (*workflowTester[any])(nil)
 
 func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...WorkflowTesterOption) *workflowTester[TResult] {
-	if err := margs.ReturnTypeMatch[TResult](workflow); err != nil {
+	if err := args.ReturnTypeMatch[TResult](workflow); err != nil {
 		panic(fmt.Sprintf("workflow return type does not match: %s", err))
 	}
 
@@ -578,7 +578,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 				panic("Could not find activity " + e.Name + " in registry")
 			}
 
-			argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
+			argValues, addContext, err := args.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
 			if err != nil {
 				panic("Could not convert activity inputs to args: " + err.Error())
 			}
@@ -737,7 +737,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 		panic("Could not find workflow " + a.Name + " in registry")
 	}
 
-	argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
+	argValues, addContext, err := args.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
 	if err != nil {
 		panic("Could not convert workflow inputs to args: " + err.Error())
 	}
@@ -795,10 +795,10 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 }
 
-func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) *history.Event {
+func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, a []interface{}) *history.Event {
 	name := fn.Name(wf)
 
-	inputs, err := margs.ArgsToInputs(wt.converter, args...)
+	inputs, err := args.ArgsToInputs(wt.converter, a...)
 	if err != nil {
 		panic(err)
 	}
