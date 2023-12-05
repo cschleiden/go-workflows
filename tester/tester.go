@@ -3,6 +3,7 @@ package tester
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"sort"
 	"sync"
@@ -12,21 +13,21 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/activity"
-	margs "github.com/cschleiden/go-workflows/internal/args"
+	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/signals"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	wf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/registry"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"go.opentelemetry.io/otel/trace"
@@ -69,33 +70,44 @@ func (tt *testTimer) fire() *history.WorkflowEvent {
 
 type testWorkflow struct {
 	instance      *core.WorkflowInstance
-	metadata      *core.WorkflowMetadata
+	metadata      *metadata.WorkflowMetadata
 	history       []*history.Event
 	pendingEvents []*history.Event
 }
 
 type WorkflowTester[TResult any] interface {
-	// Now returns the current time of the simulated clock in the tester
+	// Now returns the current time of the simulated clock in the tester.
 	Now() time.Time
 
+	// Execute executes the workflow under test with the given inputs.
 	Execute(ctx context.Context, args ...interface{})
 
-	Registry() *workflow.Registry
+	// Registry returns the registry used by the tester.
+	Registry() *registry.Registry
 
+	// OnActivity registers a mock activity.
 	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
 
+	// OnActivityByName registers a mock activity with the given name.
 	OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call
 
+	// OnSubworkflow registers a mock sub-workflow.
 	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
 
+	// OnSubWorkflowByName registers a mock sub-workflow with the given name.
 	OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call
 
+	// SignalWorkflow signals the workflow under test with the given signal name and value.
 	SignalWorkflow(signalName string, value interface{})
 
+	// SignalWorkflowInstance signals the given workflow instance with the given signal name and value.
 	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{}) error
 
+	// WorkflowFinished returns true if the workflow under test is finished.
 	WorkflowFinished() bool
 
+	// WorkflowResult returns the result of the workflow under test. If the workflow is not finished yet, this will
+	// error.
 	WorkflowResult() (TResult, error)
 
 	// AssertExpectations asserts any assertions set up for mock activities and sub-workflow
@@ -104,9 +116,12 @@ type WorkflowTester[TResult any] interface {
 	// ScheduleCallback schedules the given callback after the given delay in workflow time (not wall clock).
 	ScheduleCallback(delay time.Duration, callback func())
 
-	// ListenSubWorkflow registers a handler to be called when a sub-workflow is started.
+	// ListenSubWorkflow registers a listener that is called whenever a sub-workflow is started. The listener is called
+	// with the workflow instance of the sub-workflow and the name of the sub-workflow.
 	ListenSubWorkflow(listener func(instance *core.WorkflowInstance, name string))
 }
+
+var _ WorkflowTester[any] = (*workflowTester[any])(nil)
 
 type workflowTester[TResult any] struct {
 	options *options
@@ -114,7 +129,7 @@ type workflowTester[TResult any] struct {
 	// Workflow under test
 	wf  interface{}
 	wfi *core.WorkflowInstance
-	wfm *core.WorkflowMetadata
+	wfm *metadata.WorkflowMetadata
 
 	// Workflows
 	mtw                       sync.RWMutex
@@ -125,7 +140,7 @@ type workflowTester[TResult any] struct {
 	workflowResult   payload.Payload
 	workflowErr      *workflowerrors.Error
 
-	registry *workflow.Registry
+	registry *registry.Registry
 
 	ma               *mock.Mock
 	mockedActivities map[string]bool
@@ -152,19 +167,17 @@ type workflowTester[TResult any] struct {
 
 	runningActivities int32
 
-	logger log.Logger
+	logger *slog.Logger
 
 	tracer trace.Tracer
 
 	converter converter.Converter
 
-	propagators []contextpropagation.ContextPropagator
+	propagators []workflow.ContextPropagator
 }
 
-var _ WorkflowTester[any] = (*workflowTester[any])(nil)
-
-func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption) *workflowTester[TResult] {
-	if err := margs.ReturnTypeMatch[TResult](wf); err != nil {
+func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...WorkflowTesterOption) *workflowTester[TResult] {
+	if err := args.ReturnTypeMatch[TResult](workflow); err != nil {
 		panic(fmt.Sprintf("workflow return type does not match: %s", err))
 	}
 
@@ -173,11 +186,11 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 	c.Set(time.Now())
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	registry := workflow.NewRegistry()
+	registry := registry.New()
 
 	options := &options{
 		TestTimeout: time.Second * 10,
-		Logger:      logger.NewDefaultLogger(),
+		Logger:      slog.Default(),
 		Converter:   converter.DefaultConverter,
 	}
 
@@ -190,9 +203,9 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 	wt := &workflowTester[TResult]{
 		options: options,
 
-		wf:       wf,
+		wf:       workflow,
 		wfi:      wfi,
-		wfm:      &core.WorkflowMetadata{},
+		wfm:      &metadata.WorkflowMetadata{},
 		registry: registry,
 
 		testWorkflows:             make([]*testWorkflow, 0),
@@ -223,21 +236,24 @@ func NewWorkflowTester[TResult any](wf interface{}, opts ...WorkflowTesterOption
 	registry.RegisterActivity(signalActivities)
 
 	// Always register the workflow under test
-	if err := wt.registry.RegisterWorkflow(wf); err != nil {
+	if err := wt.registry.RegisterWorkflow(workflow); err != nil {
 		panic(fmt.Sprintf("could not register workflow under test: %v", err))
 	}
 
 	return wt
 }
 
+// Now returns the current time in the workflow tester's clock
 func (wt *workflowTester[TResult]) Now() time.Time {
 	return wt.clock.Now()
 }
 
-func (wt *workflowTester[TResult]) Registry() *workflow.Registry {
+// Registry returns the registry used by the workflow tester.
+func (wt *workflowTester[TResult]) Registry() *registry.Registry {
 	return wt.registry
 }
 
+// ScheduleCallback schedules a callback to be called after the given delay.
 func (wt *workflowTester[TResult]) ScheduleCallback(delay time.Duration, callback func()) {
 	wt.timers = append(wt.timers, &testTimer{
 		At:         wt.clock.Now().Add(delay),
@@ -246,19 +262,23 @@ func (wt *workflowTester[TResult]) ScheduleCallback(delay time.Duration, callbac
 	})
 }
 
+// ListenSubWorkflow registers a listener that is called whenever a sub-workflow is started. It receives
+// the workflow instance and the name of the sub-workflow.
 func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.WorkflowInstance, string)) {
 	wt.subWorkflowListener = listener
 }
 
-func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call {
+// OnActivityByName registers a mock activity with the given name.
+func (wt *workflowTester[TResult]) OnActivityByName(name string, activity workflow.Activity, args ...any) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
-	wt.registry.RegisterActivityByName(name, activity)
+	wt.registry.RegisterActivity(activity, registry.WithName(name))
 
 	wt.mockedActivities[name] = true
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call {
+// OnActivity registers a mock activity.
+func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args ...any) *mock.Call {
 	// Register activity so that we can correctly identify its arguments later
 	wt.registry.RegisterActivity(activity)
 
@@ -267,15 +287,17 @@ func (wt *workflowTester[TResult]) OnActivity(activity workflow.Activity, args .
 	return wt.ma.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call {
+// OnSubWorkflowByName registers a mock sub-workflow with the given name.
+func (wt *workflowTester[TResult]) OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...any) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
-	wt.registry.RegisterWorkflowByName(name, workflow)
+	wt.registry.RegisterWorkflow(workflow, registry.WithName(name))
 
 	wt.mockedWorkflows[name] = true
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call {
+// OnSubWorkflow registers a mock sub-workflow.
+func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, args ...any) *mock.Call {
 	// Register workflow so that we can correctly identify its arguments later
 	wt.registry.RegisterWorkflow(workflow)
 
@@ -284,7 +306,8 @@ func (wt *workflowTester[TResult]) OnSubWorkflow(workflow workflow.Workflow, arg
 	return wt.mw.On(name, args...)
 }
 
-func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...interface{}) {
+// Execute executes the workflow under test with the given arguments.
+func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 	for _, propagator := range wt.propagators {
 		if err := propagator.Inject(ctx, wt.wfm); err != nil {
 			panic(fmt.Errorf("failed to inject context: %w", err))
@@ -313,7 +336,7 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...interfac
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := workflow.NewExecutor(wt.logger, wt.tracer, wt.registry, wt.converter, wt.propagators, &testHistoryProvider{tw.history}, tw.instance, tw.metadata, wt.clock)
+			e, err := wf.NewExecutor(wt.logger, wt.tracer, wt.registry, wt.converter, wt.propagators, &testHistoryProvider{tw.history}, tw.instance, tw.metadata, wt.clock)
 			if err != nil {
 				panic(fmt.Errorf("could not create workflow executor: %v", err))
 			}
@@ -507,11 +530,13 @@ func (wt *workflowTester[TResult]) sendEvent(wfi *core.WorkflowInstance, event *
 	w.pendingEvents = append(w.pendingEvents, event)
 }
 
-func (wt *workflowTester[TResult]) SignalWorkflow(name string, value interface{}) {
+// SignalWorkflow sends a signal to the workflow under test.
+func (wt *workflowTester[TResult]) SignalWorkflow(name string, value any) {
 	wt.SignalWorkflowInstance(wt.wfi, name, value)
 }
 
-func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInstance, name string, value interface{}) error {
+// SignalWorkflowInstance sends a signal to the given workflow instance.
+func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInstance, name string, value any) error {
 	if wt.getWorkflow(wfi) == nil {
 		return backend.ErrInstanceNotFound
 	}
@@ -540,10 +565,12 @@ func (wt *workflowTester[TResult]) SignalWorkflowInstance(wfi *core.WorkflowInst
 	return nil
 }
 
+// WorkflowFinished returns true if the workflow under test has finished.
 func (wt *workflowTester[TResult]) WorkflowFinished() bool {
 	return wt.workflowFinished
 }
 
+// WorkflowResult returns the result of the workflow under test.
 func (wt *workflowTester[TResult]) WorkflowResult() (TResult, error) {
 	var r TResult
 	if wt.workflowResult != nil {
@@ -556,11 +583,12 @@ func (wt *workflowTester[TResult]) WorkflowResult() (TResult, error) {
 	return r, err
 }
 
+// AssertExpectations asserts that all expected activities were executed.
 func (wt *workflowTester[TResult]) AssertExpectations(t *testing.T) {
 	wt.ma.AssertExpectations(t)
 }
 
-func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, wfm *core.WorkflowMetadata, event *history.Event) {
+func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, wfm *metadata.WorkflowMetadata, event *history.Event) {
 	e := event.Attributes.(*history.ActivityScheduledAttributes)
 
 	atomic.AddInt32(&wt.runningActivities, 1)
@@ -578,7 +606,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 				panic("Could not find activity " + e.Name + " in registry")
 			}
 
-			argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
+			argValues, addContext, err := args.InputsToArgs(wt.converter, reflect.ValueOf(afn), e.Inputs)
 			if err != nil {
 				panic("Could not convert activity inputs to args: " + err.Error())
 			}
@@ -629,7 +657,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 
 		} else {
 			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.propagators, wt.registry)
-			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &task.Activity{
+			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &backend.ActivityTask{
 				ID:               uuid.NewString(),
 				WorkflowInstance: wfi,
 				Event:            event,
@@ -708,7 +736,7 @@ func (wt *workflowTester[TResult]) getWorkflow(instance *core.WorkflowInstance) 
 	return wt.testWorkflowsByInstanceID[instance.InstanceID]
 }
 
-func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, initialEvent *history.Event) *testWorkflow {
+func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, metadata *metadata.WorkflowMetadata, initialEvent *history.Event) *testWorkflow {
 	wt.mtw.Lock()
 	defer wt.mtw.Unlock()
 
@@ -737,7 +765,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 		panic("Could not find workflow " + a.Name + " in registry")
 	}
 
-	argValues, addContext, err := margs.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
+	argValues, addContext, err := args.InputsToArgs(wt.converter, reflect.ValueOf(wfn), a.Inputs)
 	if err != nil {
 		panic("Could not convert workflow inputs to args: " + err.Error())
 	}
@@ -795,10 +823,10 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 	}
 }
 
-func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interface{}) *history.Event {
+func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, a []interface{}) *history.Event {
 	name := fn.Name(wf)
 
-	inputs, err := margs.ArgsToInputs(wt.converter, args...)
+	inputs, err := args.ArgsToInputs(wt.converter, a...)
 	if err != nil {
 		panic(err)
 	}
@@ -809,32 +837,22 @@ func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, args []interf
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
 			Name:     name,
-			Metadata: &core.WorkflowMetadata{},
+			Metadata: &metadata.WorkflowMetadata{},
 			Inputs:   inputs,
 		},
 	)
 }
 
-func getNextWorkflowTask(wfi *core.WorkflowInstance, history []*history.Event, newEvents []*history.Event) *task.Workflow {
+func getNextWorkflowTask(wfi *core.WorkflowInstance, history []*history.Event, newEvents []*history.Event) *backend.WorkflowTask {
 	var lastSequenceID int64
 	if len(history) > 0 {
 		lastSequenceID = history[len(history)-1].SequenceID
 	}
 
-	return &task.Workflow{
+	return &backend.WorkflowTask{
 		WorkflowInstance: wfi,
-		Metadata:         &core.WorkflowMetadata{},
+		Metadata:         &metadata.WorkflowMetadata{},
 		LastSequenceID:   lastSequenceID,
 		NewEvents:        newEvents,
 	}
 }
-
-type signaler[T any] struct {
-	wt *workflowTester[T]
-}
-
-func (s *signaler[T]) SignalWorkflow(ctx context.Context, instanceID string, name string, arg interface{}) error {
-	return s.wt.SignalWorkflowInstance(core.NewWorkflowInstance(instanceID, ""), name, arg)
-}
-
-var _ signals.Signaler = (*signaler[any])(nil)

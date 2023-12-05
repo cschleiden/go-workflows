@@ -3,15 +3,16 @@ package client
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/logger"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -27,7 +28,7 @@ func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}
@@ -40,6 +41,38 @@ func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
 	b.AssertExpectations(t)
 }
 
+func Test_Client_CreateWorkflowInstance_NameGiven(t *testing.T) {
+	ctx := context.Background()
+
+	b := &backend.MockBackend{}
+	b.On("Converter").Return(converter.DefaultConverter)
+	b.On("Logger").Return(slog.Default())
+	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
+	b.On("Metrics").Return(metrics.NewNoopMetricsClient())
+	b.On("ContextPropagators").Return(nil)
+	b.On("CreateWorkflowInstance", mock.Anything, mock.Anything, mock.MatchedBy(func(event *history.Event) bool {
+		if event.Type != history.EventType_WorkflowExecutionStarted {
+			return false
+		}
+
+		a := event.Attributes.(*history.ExecutionStartedAttributes)
+
+		return a.Name == "workflowName"
+	})).Return(nil, nil)
+
+	c := &Client{
+		backend: b,
+		clock:   clock.New(),
+	}
+
+	result, err := c.CreateWorkflowInstance(ctx, WorkflowInstanceOptions{
+		InstanceID: "id",
+	}, "workflowName", "foo")
+	require.NotZero(t, result)
+	require.NoError(t, err)
+	b.AssertExpectations(t)
+}
+
 func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
 	instance := core.NewWorkflowInstance(uuid.NewString(), "test")
 
@@ -49,7 +82,7 @@ func Test_Client_GetWorkflowResultTimeout(t *testing.T) {
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
 	b.On("GetWorkflowInstanceState", mock.Anything, instance).Return(core.WorkflowInstanceStateActive, nil)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}
@@ -85,7 +118,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 	}, nil)
 	b.On("Converter").Return(converter.DefaultConverter)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   mockClock,
 	}
@@ -103,14 +136,14 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 
 	b := &backend.MockBackend{}
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
-	b.On("Logger").Return(logger.NewDefaultLogger())
+	b.On("Logger").Return(slog.Default())
 	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", mock.Anything, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
 	})).Return(nil)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}
@@ -132,7 +165,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 
 	b := &backend.MockBackend{}
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
-	b.On("Logger").Return(logger.NewDefaultLogger())
+	b.On("Logger").Return(slog.Default())
 	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", mock.Anything, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
@@ -140,7 +173,7 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 			bytes.Equal(event.Attributes.(*history.SignalReceivedAttributes).Arg, input)
 	})).Return(nil)
 
-	c := &client{
+	c := &Client{
 		backend: b,
 		clock:   clock.New(),
 	}

@@ -33,7 +33,7 @@ func main() {
 	<-c2
 }
 
-func startWorkflow(ctx context.Context, c client.Client) {
+func startWorkflow(ctx context.Context, c *client.Client) {
 	_, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, Workflow1, "Hello world"+uuid.NewString())
@@ -69,13 +69,13 @@ func Workflow1(ctx workflow.Context, msg string) error {
 	if r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity1, 35, 12, nil, "test").Get(ctx); err != nil {
 		return errors.New("error getting activity 1 result")
 	} else {
-		logger.Debug("R1 result:", r1)
+		logger.Debug("R1 result:", "r1", r1)
 	}
 
 	if r2, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a.Activity2).Get(ctx); err != nil {
 		return errors.New("error getting activity 2 result")
 	} else {
-		logger.Debug("R2 result:", r2)
+		logger.Debug("R2 result:", "r2", r2)
 	}
 
 	return nil

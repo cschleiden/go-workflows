@@ -7,52 +7,69 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	state, err := readInstance(ctx, rb.rdb, instanceKey(instance))
-	if err != nil && err != backend.ErrInstanceNotFound {
-		return err
-	}
+	keyInfo := rb.workflowQueue.Keys()
 
-	if state != nil {
-		return backend.ErrInstanceAlreadyExists
-	}
-
-	p := rb.rdb.TxPipeline()
-
-	if err := createInstanceP(ctx, p, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata, false); err != nil {
-		return err
-	}
-
-	// Create event stream
-	eventData, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-
-	p.XAdd(ctx, &redis.XAddArgs{
-		Stream: pendingEventsKey(instance),
-		ID:     "*",
-		Values: map[string]interface{}{
-			"event": string(eventData),
-		},
+	instanceState, err := json.Marshal(&instanceState{
+		Instance:  instance,
+		State:     core.WorkflowInstanceStateActive,
+		Metadata:  event.Attributes.(*history.ExecutionStartedAttributes).Metadata,
+		CreatedAt: time.Now(),
 	})
-
-	// Queue workflow instance task
-	if err := rb.workflowQueue.Enqueue(ctx, p, instanceSegment(instance), nil); err != nil {
-		return fmt.Errorf("queueing workflow task: %w", err)
+	if err != nil {
+		return fmt.Errorf("marshaling instance state: %w", err)
 	}
 
-	if _, err := p.Exec(ctx); err != nil {
+	activeInstance, err := json.Marshal(instance)
+	if err != nil {
+		return fmt.Errorf("marshaling instance: %w", err)
+	}
+
+	eventData, err := marshalEventWithoutAttributes(event)
+	if err != nil {
+		return fmt.Errorf("marshaling event: %w", err)
+	}
+
+	payloadData, err := json.Marshal(event.Attributes)
+	if err != nil {
+		return fmt.Errorf("marshaling event payload: %w", err)
+	}
+
+	_, err = createWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
+		instanceKey(instance),
+		activeInstanceExecutionKey(instance.InstanceID),
+		pendingEventsKey(instance),
+		payloadKey(instance),
+		instancesActive(),
+		instancesByCreation(),
+		keyInfo.SetKey,
+		keyInfo.StreamKey,
+	},
+		instanceSegment(instance),
+		string(instanceState),
+		string(activeInstance),
+		event.ID,
+		eventData,
+		payloadData,
+		time.Now().UTC().Unix(),
+	).Result()
+
+	if err != nil {
+		if _, ok := err.(redis.Error); ok {
+			if err.Error() == "ERR InstanceAlreadyExists" {
+				return backend.ErrInstanceAlreadyExists
+			}
+		}
+
 		return fmt.Errorf("creating workflow instance: %w", err)
 	}
-
-	rb.options.Logger.Debug("Created new workflow instance")
 
 	return nil
 }
@@ -69,6 +86,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		return nil, err
 	}
 
+	payloadKeys := make([]string, 0, len(msgs))
 	var events []*history.Event
 	for _, msg := range msgs {
 		var event *history.Event
@@ -76,7 +94,20 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 			return nil, fmt.Errorf("unmarshaling event: %w", err)
 		}
 
+		payloadKeys = append(payloadKeys, event.ID)
 		events = append(events, event)
+	}
+
+	res, err := rb.rdb.HMGet(ctx, payloadKey(instance), payloadKeys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("reading payloads: %w", err)
+	}
+
+	for i, event := range events {
+		event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i].(string)))
+		if err != nil {
+			return nil, fmt.Errorf("deserializing attributes for event %v: %w", event.Type, err)
+		}
 	}
 
 	return events, nil
@@ -127,61 +158,12 @@ type instanceState struct {
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`
 
-	Metadata *core.WorkflowMetadata `json:"metadata,omitempty"`
+	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
 
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
-}
-
-func createInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, metadata *core.WorkflowMetadata, ignoreDuplicate bool) error {
-	key := instanceKey(instance)
-
-	createdAt := time.Now()
-
-	b, err := json.Marshal(&instanceState{
-		Instance:  instance,
-		State:     core.WorkflowInstanceStateActive,
-		Metadata:  metadata,
-		CreatedAt: createdAt,
-	})
-	if err != nil {
-		return fmt.Errorf("marshaling instance state: %w", err)
-	}
-
-	p.SetNX(ctx, key, string(b), 0)
-
-	// The newly created instance is going to be the active execution
-	setActiveInstanceExecutionP(ctx, p, instance)
-
-	p.ZAdd(ctx, instancesByCreation(), redis.Z{
-		Member: instanceSegment(instance),
-		Score:  float64(createdAt.UnixMilli()),
-	})
-
-	p.SAdd(ctx, instancesActive(), instanceSegment(instance))
-
-	return nil
-}
-
-func updateInstanceP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, state *instanceState) error {
-	key := instanceKey(instance)
-
-	b, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("marshaling instance state: %w", err)
-	}
-
-	p.Set(ctx, key, string(b), 0)
-
-	if state.State != core.WorkflowInstanceStateActive {
-		p.SRem(ctx, instancesActive(), instanceSegment(instance))
-	}
-
-	// CreatedAt does not change, so skip updating the instancesByCreation() ZSET
-
-	return nil
 }
 
 func readInstance(ctx context.Context, rdb redis.UniversalClient, instanceKey string) (*instanceState, error) {
@@ -233,21 +215,4 @@ func readActiveInstanceExecution(ctx context.Context, rdb redis.UniversalClient,
 	}
 
 	return instance, nil
-}
-
-func setActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance) error {
-	key := activeInstanceExecutionKey(instance.InstanceID)
-
-	b, err := json.Marshal(instance)
-	if err != nil {
-		return fmt.Errorf("marshaling instance: %w", err)
-	}
-
-	return p.Set(ctx, key, string(b), 0).Err()
-}
-
-func removeActiveInstanceExecutionP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance) error {
-	key := activeInstanceExecutionKey(instance.InstanceID)
-
-	return p.Del(ctx, key).Err()
 }

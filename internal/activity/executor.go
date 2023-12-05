@@ -4,30 +4,37 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/args"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
-	"github.com/cschleiden/go-workflows/log"
+	"github.com/cschleiden/go-workflows/registry"
+	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type Executor struct {
-	logger      log.Logger
+	logger      *slog.Logger
 	tracer      trace.Tracer
 	converter   converter.Converter
-	propagators []contextpropagation.ContextPropagator
-	r           *workflow.Registry
+	propagators []wf.ContextPropagator
+	r           *registry.Registry
 }
 
-func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Converter, propagators []contextpropagation.ContextPropagator, r *workflow.Registry) *Executor {
+func NewExecutor(
+	logger *slog.Logger,
+	tracer trace.Tracer,
+	converter converter.Converter,
+	propagators []wf.ContextPropagator,
+	r *registry.Registry,
+) *Executor {
 	return &Executor{
 		logger:      logger,
 		tracer:      tracer,
@@ -37,7 +44,7 @@ func NewExecutor(logger log.Logger, tracer trace.Tracer, converter converter.Con
 	}
 }
 
-func (e *Executor) ExecuteActivity(ctx context.Context, task *task.Activity) (payload.Payload, error) {
+func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTask) (payload.Payload, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 
 	activity, err := e.r.GetActivity(a.Name)

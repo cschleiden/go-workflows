@@ -9,12 +9,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-type analyzerPlugin struct{}
-
-func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
-	return []*analysis.Analyzer{
-		analyzer.New(),
-	}
+func New(conf any) ([]*analysis.Analyzer, error) {
+	// The configuration type will be map[string]any or []interface, it depends
+	// on your configuration.
+	return []*analysis.Analyzer{analyzer.New()}, nil
 }
-
-var AnalyzerPlugin analyzerPlugin

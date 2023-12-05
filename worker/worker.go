@@ -7,90 +7,81 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
-type WorkflowRegistry interface {
-	RegisterWorkflow(w workflow.Workflow) error
-}
-
-type ActivityRegistry interface {
-	RegisterActivity(a interface{}) error
-}
-
-type Registry interface {
-	WorkflowRegistry
-	ActivityRegistry
-}
-
-type Worker interface {
-	Registry
-
-	// Start starts the worker.
-	//
-	// To stop the worker, cancel the context passed to Start. To wait for completion of the active
-	// work items, call `WaitForCompletion`.
-	Start(ctx context.Context) error
-
-	// WaitForCompletion
-	WaitForCompletion() error
-}
-
-type worker struct {
+type Worker struct {
 	backend backend.Backend
 
 	done chan struct{}
 	wg   *sync.WaitGroup
 
-	registry *workflowinternal.Registry
+	registry *registry.Registry
 
-	workflowWorker *internal.WorkflowWorker
-	activityWorker *internal.ActivityWorker
-
-	workflows  map[string]interface{}
-	activities map[string]interface{}
+	workflowWorker *internal.Worker[backend.WorkflowTask, workflowinternal.ExecutionResult]
+	activityWorker *internal.Worker[backend.ActivityTask, history.Event]
 }
 
-type Options = internal.Options
-
-var DefaultWorkerOptions = internal.DefaultOptions
-
-func New(backend backend.Backend, options *Options) Worker {
+func New(backend backend.Backend, options *Options) *Worker {
 	if options == nil {
-		options = &internal.DefaultOptions
+		options = &DefaultOptions
+	} else {
+		if options.WorkflowExecutorCacheSize == 0 {
+			options.WorkflowExecutorCacheSize = DefaultOptions.WorkflowExecutorCacheSize
+		}
+
+		if options.WorkflowExecutorCacheTTL == 0 {
+			options.WorkflowExecutorCacheTTL = DefaultOptions.WorkflowExecutorCacheTTL
+		}
 	}
 
-	if options.WorkflowExecutorCacheSize == 0 {
-		options.WorkflowExecutorCacheSize = internal.DefaultOptions.WorkflowExecutorCacheSize
-	}
-
-	if options.WorkflowExecutorCacheTTL == 0 {
-		options.WorkflowExecutorCacheTTL = internal.DefaultOptions.WorkflowExecutorCacheTTL
-	}
-
-	registry := workflowinternal.NewRegistry()
+	registry := registry.New()
 
 	// Register internal activities
-	registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)})
+	if err := registry.RegisterActivity(&signals.Activities{Signaler: client.New(backend)}); err != nil {
+		panic(fmt.Errorf("registering internal activities: %w", err))
+	}
 
-	return &worker{
+	return &Worker{
 		backend: backend,
 
 		done: make(chan struct{}),
 		wg:   &sync.WaitGroup{},
 
-		workflowWorker: internal.NewWorkflowWorker(backend, registry, options),
-		activityWorker: internal.NewActivityWorker(backend, registry, clock.New(), options),
+		workflowWorker: internal.NewWorkflowWorker(backend, registry, internal.WorkflowWorkerOptions{
+			WorkerOptions: internal.WorkerOptions{
+				Pollers:           options.WorkflowPollers,
+				PollingInterval:   options.WorkflowPollingInterval,
+				MaxParallelTasks:  options.MaxParallelWorkflowTasks,
+				HeartbeatInterval: options.WorkflowHeartbeatInterval,
+			},
+			WorkflowExecutorCache:     options.WorkflowExecutorCache,
+			WorkflowExecutorCacheSize: options.WorkflowExecutorCacheSize,
+			WorkflowExecutorCacheTTL:  options.WorkflowExecutorCacheTTL,
+		}),
+
+		activityWorker: internal.NewActivityWorker(backend, registry, clock.New(), internal.WorkerOptions{
+			Pollers:           options.ActivityPollers,
+			PollingInterval:   options.ActivityPollingInterval,
+			MaxParallelTasks:  options.MaxParallelActivityTasks,
+			HeartbeatInterval: options.ActivityHeartbeatInterval,
+		}),
 
 		registry: registry,
 	}
 }
 
-func (w *worker) Start(ctx context.Context) error {
+// Start starts the worker.
+//
+// To stop the worker, cancel the context passed to Start. To wait for completion of the active
+// tasks, call `WaitForCompletion`.
+func (w *Worker) Start(ctx context.Context) error {
 	if err := w.workflowWorker.Start(ctx); err != nil {
 		return fmt.Errorf("starting workflow worker: %w", err)
 	}
@@ -102,7 +93,8 @@ func (w *worker) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *worker) WaitForCompletion() error {
+// WaitForCompletion waits for all active tasks to complete.
+func (w *Worker) WaitForCompletion() error {
 	if err := w.workflowWorker.WaitForCompletion(); err != nil {
 		return err
 	}
@@ -114,10 +106,12 @@ func (w *worker) WaitForCompletion() error {
 	return nil
 }
 
-func (w *worker) RegisterWorkflow(wf workflow.Workflow) error {
-	return w.registry.RegisterWorkflow(wf)
+// RegisterWorkflow registers a workflow with the worker's registry.
+func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterWorkflow(wf, opts...)
 }
 
-func (w *worker) RegisterActivity(a interface{}) error {
-	return w.registry.RegisterActivity(a)
+// RegisterActivity registers an activity with the worker's registry.
+func (w *Worker) RegisterActivity(a workflow.Activity, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterActivity(a, opts...)
 }

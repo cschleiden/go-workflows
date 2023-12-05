@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -20,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.19
+        go-version: 1.21
         check-latest: true
         cache: true
 
@@ -34,7 +35,7 @@ jobs:
 
 
     - name: Test Summary
-      uses: test-summary/action@v1
+      uses: test-summary/action@v2
       with:
         paths: |
           ${{ github.workspace }}/report.xml
@@ -50,7 +51,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.19
+        go-version: 1.21
         check-latest: true
         cache: true
 
@@ -68,7 +69,7 @@ jobs:
         go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
     - name: Test Summary
-      uses: test-summary/action@v1
+      uses: test-summary/action@v2
       with:
         paths: |
           ${{ github.workspace }}/report.xml
@@ -84,7 +85,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.19
+        go-version: 1.21
         check-latest: true
         cache: true
 
@@ -94,7 +95,7 @@ jobs:
         go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
     - name: Test Summary
-      uses: test-summary/action@v1
+      uses: test-summary/action@v2
       with:
         paths: |
           ${{ github.workspace }}/report.xml
@@ -110,7 +111,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.19
+        go-version: 1.21
         check-latest: true
         cache: true
 
@@ -123,7 +124,7 @@ jobs:
         go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
     - name: Test Summary
-      uses: test-summary/action@v1
+      uses: test-summary/action@v2
       with:
         paths: |
           ${{ github.workspace }}/report.xml

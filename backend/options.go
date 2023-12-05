@@ -1,21 +1,19 @@
 package backend
 
 import (
+	"log/slog"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/logger"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/metrics"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/tracing"
-	"github.com/cschleiden/go-workflows/log"
-	"github.com/cschleiden/go-workflows/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type Options struct {
-	Logger log.Logger
+	Logger *slog.Logger
 
 	Metrics metrics.Client
 
@@ -26,7 +24,7 @@ type Options struct {
 	Converter converter.Converter
 
 	// ContextPropagators is a list of context propagators to use for passing context into workflows and activities.
-	ContextPropagators []contextpropagation.ContextPropagator
+	ContextPropagators []workflow.ContextPropagator
 
 	StickyTimeout time.Duration
 
@@ -46,12 +44,12 @@ var DefaultOptions Options = Options{
 	WorkflowLockTimeout: time.Minute,
 	ActivityLockTimeout: time.Minute * 2,
 
-	Logger:         logger.NewDefaultLogger(),
+	Logger:         slog.Default(),
 	Metrics:        mi.NewNoopMetricsClient(),
 	TracerProvider: trace.NewNoopTracerProvider(),
 	Converter:      converter.DefaultConverter,
 
-	ContextPropagators: []contextpropagation.ContextPropagator{&tracing.TracingContextPropagator{}},
+	ContextPropagators: []workflow.ContextPropagator{&tracing.TracingContextPropagator{}},
 }
 
 type BackendOption func(*Options)
@@ -62,7 +60,7 @@ func WithStickyTimeout(timeout time.Duration) BackendOption {
 	}
 }
 
-func WithLogger(logger log.Logger) BackendOption {
+func WithLogger(logger *slog.Logger) BackendOption {
 	return func(o *Options) {
 		o.Logger = logger
 	}
@@ -100,7 +98,7 @@ func ApplyOptions(opts ...BackendOption) Options {
 	}
 
 	if options.Logger == nil {
-		options.Logger = logger.NewDefaultLogger()
+		options.Logger = slog.Default()
 	}
 
 	return options

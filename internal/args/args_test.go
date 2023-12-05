@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,7 +67,7 @@ func TestInputsToArgs(t *testing.T) {
 				inputs = append(inputs, p)
 			}
 
-			args, addContext, err := InputsToArgs(converter.DefaultConverter, reflect.ValueOf(tt.args.fn), inputs)
+			_, addContext, err := InputsToArgs(converter.DefaultConverter, reflect.ValueOf(tt.args.fn), inputs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InputsToArgs() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -75,16 +75,6 @@ func TestInputsToArgs(t *testing.T) {
 			if tt.wantErr {
 				require.EqualError(t, err, tt.err)
 				require.Equal(t, tt.addContext, addContext)
-			} else {
-				if addContext {
-					// Skip the first argument, it will be filled with the context later
-					args = args[1:]
-				}
-
-				argValues := make([]interface{}, 0)
-				for _, arg := range args {
-					argValues = append(argValues, arg.Interface())
-				}
 			}
 		})
 	}

@@ -5,15 +5,17 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/cschleiden/go-workflows/internal/core"
 )
 
 var _ diag.Backend = (*sqliteBackend)(nil)
 
 func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	var err error
-	tx, err := sb.db.BeginTx(ctx, nil)
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +49,8 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 		return nil, err
 	}
 
+	defer rows.Close()
+
 	var instances []*diag.WorkflowInstanceRef
 
 	for rows.Next() {
@@ -71,11 +75,15 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 		})
 	}
 
+	tx.Commit()
+
 	return instances, nil
 }
 
 func (sb *sqliteBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
-	tx, err := sb.db.BeginTx(ctx, nil)
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -15,17 +15,13 @@ import (
 )
 
 var tostart = flag.Int("count", 100, "Number of workflow instances to start")
-var backendType = flag.String("backend", "redis", "backend to use: sqlite, mysql, redis")
 var count int32
 
 func main() {
-	flag.Parse()
-
 	ctx := context.Background()
+	b := samples.GetBackend("scale")
 
 	count = int32(*tostart)
-
-	b := samples.GetBackend("scale")
 
 	// Start workflow via client
 	c := client.New(b)
@@ -45,7 +41,7 @@ func main() {
 	log.Println("Finished in", time.Since(now))
 }
 
-func startWorkflow(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
+func startWorkflow(ctx context.Context, c *client.Client, wg *sync.WaitGroup) {
 	wf, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, scale.Workflow1, "Hello world "+uuid.NewString())

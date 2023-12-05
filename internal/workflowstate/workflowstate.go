@@ -2,15 +2,16 @@ package workflowstate
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/log"
 )
 
 type key int
@@ -55,13 +56,13 @@ type WfState struct {
 	pendingSignals map[string][]payload.Payload
 	signalChannels map[string]*signalChannel
 
-	logger log.Logger
+	logger *slog.Logger
 
 	clock clock.Clock
 	time  time.Time
 }
 
-func NewWorkflowState(instance *core.WorkflowInstance, logger log.Logger, clock clock.Clock) *WfState {
+func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, clock clock.Clock) *WfState {
 	state := &WfState{
 		instance:        instance,
 		commands:        []command.Command{},
@@ -150,6 +151,6 @@ func (wf *WfState) Instance() *core.WorkflowInstance {
 	return wf.instance
 }
 
-func (wf *WfState) Logger() log.Logger {
+func (wf *WfState) Logger() *slog.Logger {
 	return wf.logger
 }

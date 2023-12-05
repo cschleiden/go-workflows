@@ -7,8 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type foo struct {
-}
+type foo struct{}
 
 func (f *foo) DoSomething(ctx context.Context) error {
 	return nil
@@ -23,7 +22,7 @@ var f foo
 func bar(_ int) {
 }
 
-func Test_GetFunctionName(t *testing.T) {
+func Test_FuncName(t *testing.T) {
 	tests := []struct {
 		name string
 		i    interface{}
@@ -43,6 +42,11 @@ func Test_GetFunctionName(t *testing.T) {
 			name: "exported struct method",
 			i:    f.DoSomething,
 			want: "DoSomething",
+		},
+		{
+			name: "anonymous function",
+			i:    func() {},
+			want: "func1",
 		},
 	}
 	for _, tt := range tests {

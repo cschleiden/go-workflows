@@ -2,9 +2,9 @@ package command
 
 import (
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/history"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/backend/payload"
 )
 
 type ScheduleActivityCommand struct {
@@ -12,12 +12,12 @@ type ScheduleActivityCommand struct {
 
 	Name     string
 	Inputs   []payload.Payload
-	Metadata *core.WorkflowMetadata
+	Metadata *metadata.WorkflowMetadata
 }
 
 var _ Command = (*ScheduleActivityCommand)(nil)
 
-func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, metadata *core.WorkflowMetadata) *ScheduleActivityCommand {
+func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, metadata *metadata.WorkflowMetadata) *ScheduleActivityCommand {
 	return &ScheduleActivityCommand{
 		command: command{
 			id:    id,

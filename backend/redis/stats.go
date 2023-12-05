@@ -20,6 +20,14 @@ func (rb *redisBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 
 	s.ActiveWorkflowInstances = activeInstances
 
+	// get pending workflow tasks
+	pendingWorkflows, err := rb.workflowQueue.Size(ctx, rb.rdb)
+	if err != nil {
+		return nil, fmt.Errorf("getting active workflows: %w", err)
+	}
+
+	s.PendingWorkflowTasks = pendingWorkflows
+
 	// get pending activities
 	pendingActivities, err := rb.activityQueue.Size(ctx, rb.rdb)
 	if err != nil {

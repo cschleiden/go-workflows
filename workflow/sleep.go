@@ -3,14 +3,14 @@ package workflow
 import (
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Sleep(ctx sync.Context, d time.Duration) error {
+// Sleep sleeps for the given duration.
+func Sleep(ctx Context, d time.Duration) error {
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "Sleep",
 		trace.WithAttributes(attribute.Int64(log.DurationKey, int64(d/time.Millisecond))))
 	defer span.End()

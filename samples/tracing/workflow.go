@@ -67,7 +67,7 @@ func Activity1(ctx context.Context, a, b int) (int, error) {
 	ctx, span := otel.Tracer("activity").Start(ctx, "Custom Activity1 span")
 	defer span.End()
 
-	ctx, span = otel.Tracer("activity").Start(ctx, "Another one")
+	_, span = otel.Tracer("activity").Start(ctx, "Another one")
 	defer span.End()
 
 	time.Sleep(300 * time.Millisecond)

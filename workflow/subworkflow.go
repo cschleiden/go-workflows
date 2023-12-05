@@ -3,16 +3,15 @@ package workflow
 import (
 	"fmt"
 
+	"github.com/cschleiden/go-workflows/backend/metadata"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/contextpropagation"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/fn"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -34,13 +33,14 @@ var (
 	}
 )
 
-func CreateSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, workflow interface{}, args ...interface{}) Future[TResult] {
-	return WithRetries(ctx, options.RetryOptions, func(ctx sync.Context, attempt int) Future[TResult] {
+// CreateSubWorkflowInstance creates a new sub-workflow instance of the given workflow.
+func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, workflow Workflow, args ...any) Future[TResult] {
+	return WithRetries(ctx, options.RetryOptions, func(ctx Context, attempt int) Future[TResult] {
 		return createSubWorkflowInstance[TResult](ctx, options, attempt, workflow, args...)
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflowOptions, attempt int, wf interface{}, args ...interface{}) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf Workflow, args ...any) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
@@ -50,20 +50,25 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	}
 
 	// Check return type
-	if err := a.ReturnTypeMatch[TResult](wf); err != nil {
-		f.Set(*new(TResult), err)
-		return f
+	var workflowName string
+	if name, ok := wf.(string); ok {
+		workflowName = name
+	} else {
+		workflowName = fn.Name(wf)
+
+		if err := a.ReturnTypeMatch[TResult](wf); err != nil {
+			f.Set(*new(TResult), err)
+			return f
+		}
+
+		// Check arguments
+		if err := a.ParamsMatch(wf, args...); err != nil {
+			f.Set(*new(TResult), err)
+			return f
+		}
 	}
 
-	// Check arguments
-	if err := a.ParamsMatch(wf, args...); err != nil {
-		f.Set(*new(TResult), err)
-		return f
-	}
-
-	name := fn.Name(wf)
-
-	cv := converter.GetConverter(ctx)
+	cv := contextvalue.Converter(ctx)
 	inputs, err := a.ArgsToInputs(cv, args...)
 	if err != nil {
 		f.Set(*new(TResult), fmt.Errorf("converting subworkflow input: %w", err))
@@ -74,23 +79,23 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
 	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
-		fmt.Sprintf("CreateSubworkflowInstance: %s", name),
+		fmt.Sprintf("CreateSubworkflowInstance: %s", workflowName),
 		trace.WithAttributes(
-			attribute.String(log.WorkflowNameKey, name),
+			attribute.String(log.WorkflowNameKey, workflowName),
 			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
 			attribute.Int(log.AttemptKey, attempt),
 		))
 	defer span.End()
 
 	// Capture context
-	propagators := contextpropagation.Propagators(ctx)
-	metadata := &core.WorkflowMetadata{}
-	if err := contextpropagation.InjectFromWorkflow(ctx, metadata, propagators); err != nil {
+	propagators := propagators(ctx)
+	metadata := &metadata.WorkflowMetadata{}
+	if err := injectFromWorkflow(ctx, metadata, propagators); err != nil {
 		f.Set(*new(TResult), fmt.Errorf("injecting workflow context: %w", err))
 		return f
 	}
 
-	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, name, inputs, metadata)
+	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, workflowName, inputs, metadata)
 
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
@@ -105,7 +110,7 @@ func createSubWorkflowInstance[TResult any](ctx sync.Context, options SubWorkflo
 					if fi, ok := f.(sync.FutureInternal[TResult]); ok {
 						if !fi.Ready() {
 							wfState.RemoveFuture(scheduleEventID)
-							f.Set(*new(TResult), sync.Canceled)
+							f.Set(*new(TResult), Canceled)
 						}
 					}
 				}

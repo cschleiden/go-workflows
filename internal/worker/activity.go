@@ -2,199 +2,97 @@ package worker
 
 import (
 	"context"
-	"errors"
-	"log"
-	"sync"
+	"log/slog"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metrics"
+	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/activity"
-	"github.com/cschleiden/go-workflows/internal/history"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/internal/payload"
-	"github.com/cschleiden/go-workflows/internal/task"
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	im "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
-	"github.com/cschleiden/go-workflows/metrics"
+	"github.com/cschleiden/go-workflows/registry"
 )
 
-type ActivityWorker struct {
-	backend backend.Backend
+func NewActivityWorker(
+	b backend.Backend,
+	registry *registry.Registry,
+	clock clock.Clock,
+	options WorkerOptions,
+) *Worker[backend.ActivityTask, history.Event] {
+	ae := activity.NewExecutor(b.Logger(), b.Tracer(), b.Converter(), b.ContextPropagators(), registry)
 
-	options *Options
+	tw := &ActivityTaskWorker{
+		backend:              b,
+		activityTaskExecutor: ae,
+		clock:                clock,
+		logger:               b.Logger(),
+	}
 
-	activityTaskQueue    chan *task.Activity
+	return NewWorker[backend.ActivityTask, history.Event](b, tw, &options)
+}
+
+type ActivityTaskWorker struct {
+	backend              backend.Backend
 	activityTaskExecutor *activity.Executor
-
-	wg        sync.WaitGroup
-	pollersWg sync.WaitGroup
-
-	clock clock.Clock
+	clock                clock.Clock
+	logger               *slog.Logger
 }
 
-func NewActivityWorker(backend backend.Backend, registry *workflow.Registry, clock clock.Clock, options *Options) *ActivityWorker {
-	return &ActivityWorker{
-		backend: backend,
-
-		options: options,
-
-		activityTaskQueue:    make(chan *task.Activity),
-		activityTaskExecutor: activity.NewExecutor(backend.Logger(), backend.Tracer(), backend.Converter(), backend.ContextPropagators(), registry),
-
-		clock: clock,
+func (atw *ActivityTaskWorker) Complete(ctx context.Context, event *history.Event, task *backend.ActivityTask) error {
+	if err := atw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
+		atw.backend.Logger().Error("completing activity task", "error", err)
 	}
-}
-
-func (aw *ActivityWorker) Start(ctx context.Context) error {
-	aw.pollersWg.Add(aw.options.ActivityPollers)
-
-	for i := 0; i < aw.options.ActivityPollers; i++ {
-		go aw.runPoll(ctx)
-	}
-
-	go aw.runDispatcher(context.Background())
 
 	return nil
 }
 
-func (aw *ActivityWorker) WaitForCompletion() error {
-	// Wait for task pollers to finish
-	aw.pollersWg.Wait()
-
-	// Wait for tasks to finish
-	aw.wg.Wait()
-	close(aw.activityTaskQueue)
-
-	return nil
-}
-
-func (aw *ActivityWorker) runPoll(ctx context.Context) {
-	defer aw.pollersWg.Done()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			task, err := aw.poll(ctx, 30*time.Second)
-			if err != nil {
-				log.Println("error while polling for activity task:", err)
-				continue
-			}
-
-			if task != nil {
-				aw.activityTaskQueue <- task
-			}
-		}
-	}
-}
-
-func (aw *ActivityWorker) runDispatcher(ctx context.Context) {
-	var sem chan struct{}
-	if aw.options.MaxParallelActivityTasks > 0 {
-		sem = make(chan struct{}, aw.options.MaxParallelActivityTasks)
-	}
-
-	for task := range aw.activityTaskQueue {
-		if sem != nil {
-			sem <- struct{}{}
-		}
-
-		task := task
-
-		aw.wg.Add(1)
-		go func() {
-			defer aw.wg.Done()
-
-			// Create new context to allow activities to complete when root context is canceled
-			taskCtx := context.Background()
-			aw.handleTask(taskCtx, task)
-
-			if sem != nil {
-				<-sem
-			}
-		}()
-	}
-}
-
-func (aw *ActivityWorker) handleTask(ctx context.Context, task *task.Activity) {
+func (atw *ActivityTaskWorker) Execute(ctx context.Context, task *backend.ActivityTask) (*history.Event, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
-	ametrics := aw.backend.Metrics().WithTags(metrics.Tags{metrickeys.ActivityName: a.Name})
+	ametrics := atw.backend.Metrics().WithTags(metrics.Tags{metrickeys.ActivityName: a.Name})
 
 	// Record how long this task was in the queue
 	scheduledAt := task.Event.Timestamp
 	timeInQueue := time.Since(scheduledAt)
 	ametrics.Distribution(metrickeys.ActivityTaskDelay, metrics.Tags{}, float64(timeInQueue/time.Millisecond))
 
-	// Start heartbeat while activity is running
-	if aw.options.ActivityHeartbeatInterval > 0 {
-		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-		defer cancelHeartbeat()
-
-		go func(ctx context.Context) {
-			t := time.NewTicker(aw.options.ActivityHeartbeatInterval)
-			defer t.Stop()
-
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-t.C:
-					if err := aw.backend.ExtendActivityTask(ctx, task.ID); err != nil {
-						aw.backend.Logger().Panic("extending activity task", "error", err)
-					}
-				}
-			}
-		}(heartbeatCtx)
-	}
-
-	timer := metrics.Timer(ametrics, metrickeys.ActivityTaskProcessed, metrics.Tags{})
+	timer := im.NewTimer(ametrics, metrickeys.ActivityTaskProcessed, metrics.Tags{})
 	defer timer.Stop()
 
-	result, err := aw.activityTaskExecutor.ExecuteActivity(ctx, task)
-	event := aw.resultToEvent(task.Event.ScheduleEventID, result, err)
+	result, err := atw.activityTaskExecutor.ExecuteActivity(ctx, task)
+	event := atw.resultToEvent(task.Event.ScheduleEventID, result, err)
 
-	if err := aw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
-		aw.backend.Logger().Panic("completing activity task", "error", err)
-	}
+	return event, nil
 }
 
-func (aw *ActivityWorker) resultToEvent(ScheduleEventID int64, result payload.Payload, err error) *history.Event {
+func (atw *ActivityTaskWorker) Extend(ctx context.Context, task *backend.ActivityTask) error {
+	return atw.backend.ExtendActivityTask(ctx, task.ID)
+}
+
+func (atw *ActivityTaskWorker) Get(ctx context.Context) (*backend.ActivityTask, error) {
+	return atw.backend.GetActivityTask(ctx)
+}
+
+func (atw *ActivityTaskWorker) resultToEvent(scheduleEventID int64, result payload.Payload, err error) *history.Event {
 	if err != nil {
 		return history.NewPendingEvent(
-			aw.clock.Now(),
+			atw.clock.Now(),
 			history.EventType_ActivityFailed,
 			&history.ActivityFailedAttributes{
 				Error: workflowerrors.FromError(err),
 			},
-			history.ScheduleEventID(ScheduleEventID),
+			history.ScheduleEventID(scheduleEventID),
 		)
 	}
 
 	return history.NewPendingEvent(
-		aw.clock.Now(),
+		atw.clock.Now(),
 		history.EventType_ActivityCompleted,
 		&history.ActivityCompletedAttributes{
 			Result: result,
 		},
-		history.ScheduleEventID(ScheduleEventID))
-}
-
-func (aw *ActivityWorker) poll(ctx context.Context, timeout time.Duration) (*task.Activity, error) {
-	if timeout == 0 {
-		timeout = 30 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	task, err := aw.backend.GetActivityTask(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil, nil
-		}
-	}
-
-	return task, nil
+		history.ScheduleEventID(scheduleEventID))
 }

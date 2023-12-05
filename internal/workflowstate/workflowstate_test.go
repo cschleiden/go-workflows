@@ -1,13 +1,13 @@
 package workflowstate
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/internal/converter"
-	"github.com/cschleiden/go-workflows/internal/core"
-	"github.com/cschleiden/go-workflows/internal/logger"
-	"github.com/cschleiden/go-workflows/internal/payload"
+	"github.com/cschleiden/go-workflows/backend/converter"
+	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ import (
 func Test_PendingFutures(t *testing.T) {
 	i := core.NewWorkflowInstance(uuid.NewString(), "")
 
-	wfState := NewWorkflowState(i, logger.NewDefaultLogger(), clock.New())
+	wfState := NewWorkflowState(i, slog.Default(), clock.New())
 
 	require.False(t, wfState.HasPendingFutures())
 

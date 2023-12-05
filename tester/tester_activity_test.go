@@ -24,7 +24,7 @@ func Test_Activity_Long(t *testing.T) {
 
 		workflow.Select(ctx,
 			// Fire timer before `activity1` completes
-			workflow.Await(workflow.ScheduleTimer(tctx, time.Millisecond*100), func(ctx workflow.Context, f workflow.Future[struct{}]) {
+			workflow.Await(workflow.ScheduleTimer(tctx, time.Millisecond*100), func(ctx workflow.Context, f workflow.Future[any]) {
 				// Timer fired
 				r = "timer"
 			}),
