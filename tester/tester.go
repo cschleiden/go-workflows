@@ -75,6 +75,54 @@ type testWorkflow struct {
 	pendingEvents []*history.Event
 }
 
+type WorkflowTester[TResult any] interface {
+	// Now returns the current time of the simulated clock in the tester.
+	Now() time.Time
+
+	// Execute executes the workflow under test with the given inputs.
+	Execute(ctx context.Context, args ...interface{})
+
+	// Registry returns the registry used by the tester.
+	Registry() *registry.Registry
+
+	// OnActivity registers a mock activity.
+	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
+
+	// OnActivityByName registers a mock activity with the given name.
+	OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call
+
+	// OnSubworkflow registers a mock sub-workflow.
+	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
+
+	// OnSubWorkflowByName registers a mock sub-workflow with the given name.
+	OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call
+
+	// SignalWorkflow signals the workflow under test with the given signal name and value.
+	SignalWorkflow(signalName string, value interface{})
+
+	// SignalWorkflowInstance signals the given workflow instance with the given signal name and value.
+	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{}) error
+
+	// WorkflowFinished returns true if the workflow under test is finished.
+	WorkflowFinished() bool
+
+	// WorkflowResult returns the result of the workflow under test. If the workflow is not finished yet, this will
+	// error.
+	WorkflowResult() (TResult, error)
+
+	// AssertExpectations asserts any assertions set up for mock activities and sub-workflow
+	AssertExpectations(t *testing.T)
+
+	// ScheduleCallback schedules the given callback after the given delay in workflow time (not wall clock).
+	ScheduleCallback(delay time.Duration, callback func())
+
+	// ListenSubWorkflow registers a listener that is called whenever a sub-workflow is started. The listener is called
+	// with the workflow instance of the sub-workflow and the name of the sub-workflow.
+	ListenSubWorkflow(listener func(instance *core.WorkflowInstance, name string))
+}
+
+var _ WorkflowTester[any] = (*workflowTester[any])(nil)
+
 type workflowTester[TResult any] struct {
 	options *options
 
