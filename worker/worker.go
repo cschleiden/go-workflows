@@ -9,10 +9,10 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
 	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
@@ -105,10 +105,10 @@ func (w *Worker) WaitForCompletion() error {
 	return nil
 }
 
-func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...RegisterOption) error {
-	return w.registry.RegisterWorkflow(wf, registerOptions(opts).asInternalOptions()...)
+func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterWorkflow(wf, opts...)
 }
 
-func (w *Worker) RegisterActivity(a workflow.Activity, opts ...RegisterOption) error {
-	return w.registry.RegisterActivity(a, registerOptions(opts).asInternalOptions()...)
+func (w *Worker) RegisterActivity(a workflow.Activity, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterActivity(a, opts...)
 }

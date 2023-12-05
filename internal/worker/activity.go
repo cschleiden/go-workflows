@@ -13,8 +13,8 @@ import (
 	"github.com/cschleiden/go-workflows/internal/activity"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
-	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
+	"github.com/cschleiden/go-workflows/registry"
 )
 
 func NewActivityWorker(

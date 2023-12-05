@@ -14,9 +14,9 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
-	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflow/cache"
+	"github.com/cschleiden/go-workflows/registry"
 )
 
 type WorkflowWorkerOptions struct {

@@ -18,11 +18,11 @@ import (
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
 	"github.com/cschleiden/go-workflows/internal/log"
-	"github.com/cschleiden/go-workflows/internal/registry"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
 )
