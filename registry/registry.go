@@ -18,6 +18,7 @@ type Registry struct {
 	activityMap map[string]interface{}
 }
 
+// New creates a new registry instance.
 func New() *Registry {
 	return &Registry{
 		workflowMap: make(map[string]wf.Workflow),
@@ -25,12 +26,12 @@ func New() *Registry {
 	}
 }
 
-type RegisterConfig struct {
+type registerConfig struct {
 	Name string
 }
 
 func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption) error {
-	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
+	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 	name := cfg.Name
 	if name == "" {
 		name = fn.Name(workflow)
@@ -75,7 +76,7 @@ func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption
 }
 
 func (r *Registry) RegisterActivity(activity wf.Activity, opts ...RegisterOption) error {
-	cfg := registerOptions(opts).applyRegisterOptions(RegisterConfig{})
+	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 
 	t := reflect.TypeOf(activity)
 

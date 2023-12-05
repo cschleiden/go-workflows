@@ -93,6 +93,7 @@ func (w *Worker) Start(ctx context.Context) error {
 	return nil
 }
 
+// WaitForCompletion waits for all active tasks to complete.
 func (w *Worker) WaitForCompletion() error {
 	if err := w.workflowWorker.WaitForCompletion(); err != nil {
 		return err
@@ -105,10 +106,12 @@ func (w *Worker) WaitForCompletion() error {
 	return nil
 }
 
+// RegisterWorkflow registers a workflow with the worker's registry.
 func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...registry.RegisterOption) error {
 	return w.registry.RegisterWorkflow(wf, opts...)
 }
 
+// RegisterActivity registers an activity with the worker's registry.
 func (w *Worker) RegisterActivity(a workflow.Activity, opts ...registry.RegisterOption) error {
 	return w.registry.RegisterActivity(a, opts...)
 }

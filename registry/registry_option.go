@@ -1,26 +1,26 @@
 package registry
 
 type RegisterOption interface {
-	applyRegisterOption(RegisterConfig) RegisterConfig
+	applyRegisterOption(registerConfig) registerConfig
 }
 
 type registerOptions []RegisterOption
 
-func (opts registerOptions) applyRegisterOptions(cfg RegisterConfig) RegisterConfig {
+func (opts registerOptions) applyRegisterOptions(cfg registerConfig) registerConfig {
 	for _, opt := range opts {
 		cfg = opt.applyRegisterOption(cfg)
 	}
 	return cfg
 }
 
-type registerOptionFunc func(RegisterConfig) RegisterConfig
+type registerOptionFunc func(registerConfig) registerConfig
 
-func (f registerOptionFunc) applyRegisterOption(cfg RegisterConfig) RegisterConfig {
+func (f registerOptionFunc) applyRegisterOption(cfg registerConfig) registerConfig {
 	return f(cfg)
 }
 
 func WithName(name string) RegisterOption {
-	return registerOptionFunc(func(cfg RegisterConfig) RegisterConfig {
+	return registerOptionFunc(func(cfg registerConfig) registerConfig {
 		cfg.Name = name
 		return cfg
 	})
