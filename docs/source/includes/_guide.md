@@ -356,7 +356,7 @@ With the default `DefaultActivityOptions`, Activities are retried up to three ti
 ```go
 wf := func(ctx workflow.Context, run int) (int, error) {
 	run = run + 1
-	if run < 3 {
+	if run > 3 {
 		return run, workflow.ContinueAsNew(ctx, run)
 	}
 
