@@ -221,6 +221,10 @@ func Workflow(ctx workflow.Context) error {
 
 Signals are a way to send a message to a running workflow instance. You can send a signal to a workflow by calling `workflow.Signal` and listen to them by creating a `SignalChannel` via `NewSignalChannel`.
 
+<aside class="notice">
+    Signals can only be delivered to active workflow instances. If a workflow instance has completed, `SignalWorkflow` will return a `backend.ErrInstanceNotFound` error.
+</aside>
+
 ### Signaling other workflows from within a workflow
 
 ```go
