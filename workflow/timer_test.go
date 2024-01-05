@@ -42,7 +42,7 @@ func Test_Timer_Cancellation(t *testing.T) {
 	cmd.Done()
 	fs, ok := state.FutureByScheduleEventID(1)
 	require.True(t, ok)
-	fs(nil, nil)
+	fs.Set(nil, nil)
 
 	c.Execute()
 	require.False(t, c.Finished())

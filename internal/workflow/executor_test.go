@@ -580,6 +580,35 @@ func Test_Executor(t *testing.T) {
 				require.True(t, e.workflow.Completed())
 			},
 		},
+		{
+			name: "Pending futures result in panic",
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+				subworkflow := func(ctx wf.Context) error {
+					return nil
+				}
+
+				workflow := func(ctx wf.Context) error {
+					// Start but not wait for sub-workflow
+					wf.CreateSubWorkflowInstance[any](ctx, wf.SubWorkflowOptions{
+						InstanceID: "subworkflow",
+					}, subworkflow)
+
+					// Schedule but not wait for timer
+					wf.ScheduleTimer(ctx, time.Second*2)
+
+					return nil
+				}
+
+				r.RegisterWorkflow(workflow)
+				r.RegisterWorkflow(subworkflow)
+
+				task := startWorkflowTask("instanceID", workflow)
+
+				require.PanicsWithValue(t, "workflow completed, but there are still pending futures: [1-subworkflow:1 2-timer:2s]", func() {
+					e.ExecuteTask(context.Background(), task)
+				})
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -98,7 +98,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, workflowName, inputs, metadata)
 
 	wfState.AddCommand(cmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, f))
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, fmt.Sprintf("subworkflow:%s", workflowName), f))
 
 	// Check if the channel is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
