@@ -18,26 +18,32 @@ type key int
 
 var workflowCtxKey key
 
-type DecodingSettable func(v payload.Payload, err error) error
+type DecodingSettable struct {
+	Set  func(v payload.Payload, err error) error
+	Name string
+}
 
 // Use this to track futures for the workflow state. It's required to map the generic Future interface
 // to a type without type parameters.
-func AsDecodingSettable[T any](cv converter.Converter, f sync.SettableFuture[T]) DecodingSettable {
-	return func(v payload.Payload, err error) error {
-		if f.HasValue() {
-			return fmt.Errorf("future already has value")
-		}
-
-		var t T
-		if v != nil {
-			if err := cv.From(v, &t); err != nil {
-				return fmt.Errorf("failed to decode future: %v", err)
+func AsDecodingSettable[T any](cv converter.Converter, name string, f sync.SettableFuture[T]) *DecodingSettable {
+	return &DecodingSettable{
+		Name: name,
+		Set: func(v payload.Payload, err error) error {
+			if f.HasValue() {
+				return fmt.Errorf("future already has value")
 			}
-		}
 
-		f.Set(t, err)
+			var t T
+			if v != nil {
+				if err := cv.From(v, &t); err != nil {
+					return fmt.Errorf("failed to decode future: %v", err)
+				}
+			}
 
-		return nil
+			f.Set(t, err)
+
+			return nil
+		},
 	}
 }
 
@@ -50,7 +56,7 @@ type WfState struct {
 	instance        *core.WorkflowInstance
 	scheduleEventID int64
 	commands        []command.Command
-	pendingFutures  map[int64]DecodingSettable
+	pendingFutures  map[int64]*DecodingSettable
 	replaying       bool
 
 	pendingSignals map[string][]payload.Payload
@@ -67,7 +73,7 @@ func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, cloc
 		instance:        instance,
 		commands:        []command.Command{},
 		scheduleEventID: 1,
-		pendingFutures:  map[int64]DecodingSettable{},
+		pendingFutures:  map[int64]*DecodingSettable{},
 
 		pendingSignals: map[string][]payload.Payload{},
 		signalChannels: make(map[string]*signalChannel),
@@ -96,15 +102,24 @@ func (wf *WfState) GetNextScheduleEventID() int64 {
 	return scheduleEventID
 }
 
-func (wf *WfState) TrackFuture(scheduleEventID int64, f DecodingSettable) {
+func (wf *WfState) TrackFuture(scheduleEventID int64, f *DecodingSettable) {
 	wf.pendingFutures[scheduleEventID] = f
+}
+
+func (wf *WfState) PendingFutureNames() map[int64]string {
+	result := map[int64]string{}
+	for id, f := range wf.pendingFutures {
+		result[id] = f.Name
+	}
+
+	return result
 }
 
 func (wf *WfState) HasPendingFutures() bool {
 	return len(wf.pendingFutures) > 0
 }
 
-func (wf *WfState) FutureByScheduleEventID(scheduleEventID int64) (DecodingSettable, bool) {
+func (wf *WfState) FutureByScheduleEventID(scheduleEventID int64) (*DecodingSettable, bool) {
 	f, ok := wf.pendingFutures[scheduleEventID]
 	return f, ok
 }
