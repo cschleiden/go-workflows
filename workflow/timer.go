@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cschleiden/go-workflows/internal/command"
@@ -30,7 +31,7 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[any] {
 
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at)
 	wfState.AddCommand(timerCmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(contextvalue.Converter(ctx), f))
+	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(contextvalue.Converter(ctx), fmt.Sprintf("timer:%v", delay), f))
 
 	cancelReceiver := &sync.Receiver[struct{}]{
 		Receive: func(v struct{}, ok bool) {
