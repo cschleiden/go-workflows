@@ -24,14 +24,19 @@ func (rh *replayHandler) Handle(ctx context.Context, r slog.Record) error {
 	return rh.handler.Handle(ctx, r)
 }
 
-// WithAttrs implements slog.Handler.
 func (rh *replayHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return rh.handler.WithAttrs(attrs)
+	return &replayHandler{
+		state:   rh.state,
+		handler: rh.handler.WithAttrs(attrs),
+	}
 }
 
 // WithGroup implements slog.Handler.
 func (rh *replayHandler) WithGroup(name string) slog.Handler {
-	return rh.handler.WithGroup(name)
+	return &replayHandler{
+		state:   rh.state,
+		handler: rh.handler.WithGroup(name),
+	}
 }
 
 var _ slog.Handler = (*replayHandler)(nil)
