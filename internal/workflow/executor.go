@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
@@ -264,8 +265,15 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	if e.workflow.Completed() {
 		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
-			e.logger.Error("workflow completed, but there are still pending futures")
-			panic("workflow completed, but there are still pending futures")
+			var pending []string
+			pf := e.workflowState.PendingFutureNames()
+			for id, name := range pf {
+				pending = append(pending, fmt.Sprintf("%d-%s", id, name))
+			}
+			slices.Sort(pending)
+
+			e.logger.Error("workflow completed, but there are still pending futures", "pending", pending)
+			panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
@@ -411,7 +419,7 @@ func (e *executor) handleActivityCompleted(event *history.Event, a *history.Acti
 		return fmt.Errorf("could not find pending future for activity completion")
 	}
 
-	err := f(a.Result, nil)
+	err := f.Set(a.Result, nil)
 	if err != nil {
 		return fmt.Errorf("setting activity completed result: %w", err)
 	}
@@ -440,7 +448,7 @@ func (e *executor) handleActivityFailed(event *history.Event, a *history.Activit
 	}
 
 	actErr := workflowerrors.ToError(a.Error)
-	if err := f(nil, actErr); err != nil {
+	if err := f.Set(nil, actErr); err != nil {
 		return fmt.Errorf("setting activity failed result: %w", err)
 	}
 
@@ -483,7 +491,7 @@ func (e *executor) handleTimerFired(event *history.Event, a *history.TimerFiredA
 		return nil
 	}
 
-	if err := f(nil, nil); err != nil {
+	if err := f.Set(nil, nil); err != nil {
 		return fmt.Errorf("setting timer fired result: %w", err)
 	}
 
@@ -523,7 +531,7 @@ func (e *executor) handleTimerCanceled(event *history.Event, a *history.TimerCan
 		return nil
 	}
 
-	if err := f(nil, sync.Canceled); err != nil {
+	if err := f.Set(nil, sync.Canceled); err != nil {
 		return fmt.Errorf("setting timer canceled result: %w", err)
 	}
 
@@ -580,7 +588,7 @@ func (e *executor) handleSubWorkflowFailed(event *history.Event, a *history.SubW
 
 	wfErr := workflowerrors.ToError(a.Error)
 
-	if err := f(nil, wfErr); err != nil {
+	if err := f.Set(nil, wfErr); err != nil {
 		return fmt.Errorf("setting sub workflow failed result: %w", err)
 	}
 
@@ -606,7 +614,7 @@ func (e *executor) handleSubWorkflowCompleted(event *history.Event, a *history.S
 		return errors.New("no pending future found for sub workflow completed event")
 	}
 
-	if err := f(a.Result, nil); err != nil {
+	if err := f.Set(a.Result, nil); err != nil {
 		return fmt.Errorf("setting sub workflow completed result: %w", err)
 	}
 
@@ -651,7 +659,7 @@ func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideE
 		return errors.New("no pending future found for side effect result event")
 	}
 
-	if err := f(a.Result, nil); err != nil {
+	if err := f.Set(a.Result, nil); err != nil {
 		return fmt.Errorf("setting side effect result result: %w", err)
 	}
 

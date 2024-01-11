@@ -6,7 +6,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend/converter"
-	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/google/uuid"
@@ -21,12 +20,7 @@ func Test_PendingFutures(t *testing.T) {
 	require.False(t, wfState.HasPendingFutures())
 
 	f := sync.NewFuture[int]()
-	wfState.TrackFuture(1, func(v payload.Payload, err error) error {
-		var r int
-		require.NoError(t, converter.DefaultConverter.From(v, &r))
-		f.Set(r, err)
-		return nil
-	})
+	wfState.TrackFuture(1, AsDecodingSettable[int](converter.DefaultConverter, "f", f))
 
 	require.True(t, wfState.HasPendingFutures())
 
