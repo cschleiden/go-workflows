@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"testing"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
@@ -266,7 +267,6 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	}
 
 	if e.workflow.Completed() {
-		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
 			var pending []string
 			pf := e.workflowState.PendingFutureNames()
@@ -276,7 +276,15 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 			slices.Sort(pending)
 
 			e.logger.Error("workflow completed, but there are still pending futures", "pending", pending)
-			panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
+
+			// Transition workflow to error state
+			e.workflowCompleted(nil, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending))
+
+			if testing.Testing() {
+				panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
+			}
+
+			return newEvents, nil
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
