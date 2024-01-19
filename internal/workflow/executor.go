@@ -93,6 +93,11 @@ func NewExecutor(
 		}
 	}
 
+	logger = logger.With(
+		slog.String(log.InstanceIDKey, instance.InstanceID),
+		slog.String(log.ExecutionIDKey, instance.ExecutionID),
+	)
+
 	// Get span from the workflow context, set by the default context propagator
 	parentSpan := workflowtracer.SpanFromContext(wfCtx)
 
@@ -114,8 +119,6 @@ func NewExecutor(
 func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error) {
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
-		log.InstanceIDKey, t.WorkflowInstance.InstanceID,
-		log.ExecutionIDKey, t.WorkflowInstance.ExecutionID,
 	)
 
 	logger.Debug("Executing workflow task", log.TaskLastSequenceIDKey, t.LastSequenceID)
