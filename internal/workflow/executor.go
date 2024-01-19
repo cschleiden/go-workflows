@@ -186,6 +186,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		if err != nil {
 			logger.Error("Error while executing new events", "error", err)
 
+			// Transition workflow to error state
 			e.workflowCompleted(nil, err)
 		}
 	}
@@ -275,16 +276,11 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 			}
 			slices.Sort(pending)
 
-			e.logger.Error("workflow completed, but there are still pending futures", "pending", pending)
-
-			// Transition workflow to error state
-			e.workflowCompleted(nil, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending))
-
 			if testing.Testing() {
 				panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
 			}
 
-			return newEvents, nil
+			return newEvents, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending)
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
