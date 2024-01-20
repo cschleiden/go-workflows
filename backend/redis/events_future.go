@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -54,14 +53,12 @@ func scheduleFutureEvents(ctx context.Context, rb *redisBackend) error {
 
 	queueKeys := rb.workflowQueue.Keys()
 
-	if r, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
+	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
 		futureEventsKey(),
 		queueKeys.StreamKey,
 		queueKeys.SetKey,
 	}, nowStr).Result(); err != nil && err != redis.Nil {
 		return fmt.Errorf("checking future events: %w", err)
-	} else {
-		log.Println("Scheduled", r.(int64), "future events")
 	}
 
 	return nil
