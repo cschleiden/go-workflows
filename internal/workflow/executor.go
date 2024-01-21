@@ -245,7 +245,7 @@ func (e *executor) replayHistory(h []*history.Event) error {
 	for _, event := range h {
 		if event.SequenceID < e.lastSequenceID {
 			e.logger.Error("history has older events than current state")
-			panic("history has older events than current state")
+			return errors.New("history has older events than current state")
 		}
 
 		if err := e.executeEvent(event); err != nil {
