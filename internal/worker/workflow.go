@@ -78,7 +78,7 @@ func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.Ex
 	if err := wtw.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
 		wtw.logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
-		panic("could not complete workflow task")
+		return fmt.Errorf("completing workflow task: %w", err)
 	}
 
 	return nil
