@@ -23,24 +23,25 @@ import (
 // Note: this does not work with Redis Cluster since not all keys are passed into the script.
 var futureEventsCmd = redis.NewScript(`
 	-- Find events which should become visible now
-	local events = redis.call("ZRANGE", KEYS[1], "-inf", ARGV[1], "BYSCORE")
+	local now = ARGV[1]
+	local events = redis.call("ZRANGE", KEYS[1], "-inf", now, "BYSCORE")
 	for i = 1, #events do
 		local instanceSegment = redis.call("HGET", events[i], "instance")
 
-		-- Add event to pending event stream
-		local eventData = redis.call("HGET", events[i], "event")
-		local pending_events_key = "pending-events:" .. instanceSegment
-		redis.call("XADD", pending_events_key, "*", "event", eventData)
-
-		-- Try to queue workflow task
-		local already_queued = redis.call("SADD", KEYS[3], instanceSegment)
-		if already_queued ~= 0 then
+		-- Try to queue workflow task. If a workflow task is already queued, ignore this event for now.
+		local added = redis.call("SADD", KEYS[3], instanceSegment)
+		if added == 1 then
 			redis.call("XADD", KEYS[2], "*", "id", instanceSegment, "data", "")
-		end
 
-		-- Delete event hash data
-		redis.call("DEL", events[i])
-		redis.call("ZREM", KEYS[1], events[i])
+			-- Add event to pending event stream
+			local eventData = redis.call("HGET", events[i], "event")
+			local pending_events_key = "pending-events:" .. instanceSegment
+			redis.call("XADD", pending_events_key, "*", "event", eventData)
+
+			-- Delete event hash data
+			redis.call("DEL", events[i])
+			redis.call("ZREM", KEYS[1], events[i])
+		end
 	end
 
 	return #events

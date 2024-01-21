@@ -91,12 +91,16 @@ local timersToCancel = tonumber(getArgv())
 for i = 1, timersToCancel do
     local futureEventKey = getKey()
 
-    redis.call("ZREM", futureEventZSetKey, futureEventKey)
-    -- remove payload
-    local eventId = redis.call("HGET", futureEventKey, "id")
-    redis.call("HDEL", payloadHashKey, eventId)
-    -- remove event hash
-    redis.call("DEL", futureEventKey)
+    local eventRemoved = redis.call("ZREM", futureEventZSetKey, futureEventKey)
+    -- Event might've become visible while this task was being processed, in that
+    -- case it would be already removed from futureEventZSetKey
+    if eventRemoved == 1 then
+        -- remove payload
+        local eventId = redis.call("HGET", futureEventKey, "id")
+        redis.call("HDEL", payloadHashKey, eventId)
+        -- remove event hash
+        redis.call("DEL", futureEventKey)
+    end
 end
 
 -- Schedule timers
