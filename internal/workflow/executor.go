@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"testing"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
@@ -93,6 +94,11 @@ func NewExecutor(
 		}
 	}
 
+	logger = logger.With(
+		slog.String(log.InstanceIDKey, instance.InstanceID),
+		slog.String(log.ExecutionIDKey, instance.ExecutionID),
+	)
+
 	// Get span from the workflow context, set by the default context propagator
 	parentSpan := workflowtracer.SpanFromContext(wfCtx)
 
@@ -114,8 +120,6 @@ func NewExecutor(
 func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*ExecutionResult, error) {
 	logger := e.logger.With(
 		log.TaskIDKey, t.ID,
-		log.InstanceIDKey, t.WorkflowInstance.InstanceID,
-		log.ExecutionIDKey, t.WorkflowInstance.ExecutionID,
 	)
 
 	logger.Debug("Executing workflow task", log.TaskLastSequenceIDKey, t.LastSequenceID)
@@ -182,6 +186,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		if err != nil {
 			logger.Error("Error while executing new events", "error", err)
 
+			// Transition workflow to error state
 			e.workflowCompleted(nil, err)
 		}
 	}
@@ -240,7 +245,7 @@ func (e *executor) replayHistory(h []*history.Event) error {
 	for _, event := range h {
 		if event.SequenceID < e.lastSequenceID {
 			e.logger.Error("history has older events than current state")
-			panic("history has older events than current state")
+			return errors.New("history has older events than current state")
 		}
 
 		if err := e.executeEvent(event); err != nil {
@@ -263,7 +268,6 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	}
 
 	if e.workflow.Completed() {
-		// TODO: Is this too early? We haven't committed some of the commands
 		if e.workflowState.HasPendingFutures() {
 			var pending []string
 			pf := e.workflowState.PendingFutureNames()
@@ -272,8 +276,11 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 			}
 			slices.Sort(pending)
 
-			e.logger.Error("workflow completed, but there are still pending futures", "pending", pending)
-			panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
+			if testing.Testing() {
+				panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
+			}
+
+			return newEvents, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending)
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
