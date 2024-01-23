@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"runtime"
 	"testing"
 	"time"
 
@@ -607,6 +608,68 @@ func Test_Executor(t *testing.T) {
 				require.PanicsWithValue(t, "workflow completed, but there are still pending futures: [1-subworkflow:1 2-timer:2s]", func() {
 					e.ExecuteTask(context.Background(), task)
 				})
+			},
+		},
+		{
+			name: "Close_removes_any_goroutines",
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+				wf := func(ctx sync.Context) error {
+					c := wf.NewSignalChannel[int](ctx, "signal")
+
+					// Block workflow
+					c.Receive(ctx)
+
+					return nil
+				}
+
+				r.RegisterWorkflow(wf)
+
+				task := startWorkflowTask(i.InstanceID, wf)
+
+				goRoutines := runtime.NumGoroutine()
+
+				_, err := e.ExecuteTask(context.Background(), task)
+				require.NoError(t, err)
+
+				require.Equal(t, goRoutines+1, runtime.NumGoroutine())
+
+				e.Close()
+
+				require.Equal(t, goRoutines, runtime.NumGoroutine())
+			},
+		},
+		{
+			name: "Close_removes_any_goroutines_nested",
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+				wf := func(ctx sync.Context) error {
+					c := wf.NewSignalChannel[int](ctx, "signal")
+
+					wf.Go(ctx, func(ctx wf.Context) {
+						c.Receive(ctx)
+					})
+
+					// Block workflow
+					c.Receive(ctx)
+
+					return nil
+				}
+
+				r.RegisterWorkflow(wf)
+
+				task := startWorkflowTask(i.InstanceID, wf)
+
+				goRoutines := runtime.NumGoroutine()
+
+				_, err := e.ExecuteTask(context.Background(), task)
+				require.NoError(t, err)
+
+				// Expect two pending goroutines
+				require.Equal(t, goRoutines+2, runtime.NumGoroutine())
+
+				e.Close()
+
+				// Expect them to be removed
+				require.Equal(t, goRoutines, runtime.NumGoroutine())
 			},
 		},
 	}

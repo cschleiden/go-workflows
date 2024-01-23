@@ -2,6 +2,7 @@ package sync
 
 import (
 	"errors"
+	"runtime"
 	"testing"
 	"time"
 
@@ -119,15 +120,16 @@ func Test_Coroutine_Exit(t *testing.T) {
 		return nil
 	})
 
+	r := runtime.NumGoroutine()
 	c.Exit()
 
 	require.True(t, c.Finished())
+	require.Equal(t, r-1, runtime.NumGoroutine())
 }
 
 func Test_Coroutine_ExitIfAlreadyFinished(t *testing.T) {
 	c := NewCoroutine(Background(), func(ctx Context) error {
-		// Complete immedeiately
-
+		// Complete immediately
 		return nil
 	})
 
