@@ -146,11 +146,16 @@ func (s *coState) yield(markBlocking bool) {
 
 	s.logger.Println("yielded")
 
+	// Wait for the next Execute() call
 	<-s.unblock
+
+	// Once we're here, another Execute() call has been made. s.blocking is empty
+
 	if s.shouldExit.Load() != nil {
-		s.logger.Println("shouldExit")
-		s.blocking <- true
-		s.logger.Println("goexit")
+		s.logger.Println("exiting")
+
+		// Goexit runs all deferred functions, which includes calling finish() in the main
+		// execution function. That marks the coroutine as finished and blocking.
 		runtime.Goexit()
 	}
 
