@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/log"
@@ -85,6 +86,14 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 }
 
 func (rb *redisBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
+	if instance.ExecutionID == "" {
+		var err error
+		instance, err = readActiveInstanceExecution(ctx, rb.rdb, instance.InstanceID)
+		if err != nil {
+			return nil, backend.ErrInstanceNotFound
+		}
+	}
+
 	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
 	if err != nil {
 		return nil, err
