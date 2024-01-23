@@ -39,7 +39,7 @@ func NewChannel[T any]() Channel[T] {
 
 func NewBufferedChannel[T any](size int) Channel[T] {
 	return &channel[T]{
-		c:    make([]T, 0, size),
+		c:    make([]T, 0),
 		size: size,
 	}
 }
