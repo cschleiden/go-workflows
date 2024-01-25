@@ -53,6 +53,14 @@ type WorkflowTaskWorker struct {
 	logger   *slog.Logger
 }
 
+func (wtw *WorkflowTaskWorker) Start(ctx context.Context) error {
+	if wtw.cache != nil {
+		go wtw.cache.StartEviction(ctx)
+	}
+
+	return nil
+}
+
 // Complete implements TaskWorker.
 func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.ExecutionResult, t *backend.WorkflowTask) error {
 	state := result.State

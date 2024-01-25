@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/goleak"
 )
 
 type testHistoryProvider struct {
@@ -639,6 +640,37 @@ func Test_Executor(t *testing.T) {
 			},
 		},
 		{
+			name: "Close_removes_any_goroutines_defer",
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+				wf := func(ctx sync.Context) error {
+					defer func() {
+						_, err := wf.SignalWorkflow[any](ctx, "some-id", "signal", nil).Get(ctx)
+						if err != nil {
+							panic(err)
+						}
+					}()
+
+					c := wf.NewSignalChannel[int](ctx, "signal")
+
+					// Block workflow
+					c.Receive(ctx)
+
+					return nil
+				}
+
+				r.RegisterWorkflow(wf)
+
+				task := startWorkflowTask(i.InstanceID, wf)
+
+				_, err := e.ExecuteTask(context.Background(), task)
+				require.NoError(t, err)
+
+				e.Close()
+
+				goleak.VerifyNone(t)
+			},
+		},
+		{
 			name: "Close_removes_any_goroutines_nested",
 			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
 				wf := func(ctx sync.Context) error {
@@ -683,6 +715,8 @@ func Test_Executor(t *testing.T) {
 			e, err := newExecutor(r, i, hp)
 			require.NoError(t, err)
 			tt.f(t, r, e, i, hp)
+
+			e.Close()
 		})
 	}
 }
