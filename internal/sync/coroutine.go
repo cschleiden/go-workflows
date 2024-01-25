@@ -1,15 +1,16 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
-	"io"
-	"log"
 	"runtime"
 	"sync/atomic"
 	"time"
 )
 
 const DeadlockDetection = 40 * time.Second
+
+var ErrCoroutineAlreadyFinished = errors.New("coroutine already finished")
 
 type CoroutineCreator interface {
 	NewCoroutine(ctx Context, fn func(Context) error)
@@ -53,7 +54,8 @@ type coState struct {
 
 	err error
 
-	logger logger
+	// logger logger
+	// idx    int
 
 	deadlockDetection time.Duration
 
@@ -68,6 +70,11 @@ func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 		defer s.finish() // Ensure we always mark the coroutine as finished
 		defer func() {
 			if r := recover(); r != nil {
+				if err, ok := r.(error); ok && errors.Is(err, ErrCoroutineAlreadyFinished) {
+					// Ignore this specific error
+					return
+				}
+
 				s.err = fmt.Errorf("panic: %v", r)
 			}
 		}()
@@ -86,21 +93,26 @@ func NewCoroutine(ctx Context, fn func(ctx Context) error) Coroutine {
 func newState() *coState {
 	// i++
 
-	return &coState{
+	c := &coState{
 		blocking: make(chan bool, 1),
 		unblock:  make(chan bool),
 		// Only used while debugging issues, default to discarding log messages
-		logger: log.New(io.Discard, "[co]", log.LstdFlags),
 		// logger:            log.New(os.Stderr, fmt.Sprintf("[co %v]", i), log.Lmsgprefix|log.Ltime),
+		// idx:               i,
 		deadlockDetection: DeadlockDetection,
 	}
+
+	// Start out as blocked
+	c.blocked.Store(true)
+
+	return c
 }
 
 func (s *coState) finish() {
 	s.finished.Store(true)
 	s.blocking <- true
 
-	s.logger.Println("finish")
+	// s.logger.Println("finish")
 }
 
 func (s *coState) SetCoroutineCreator(creator CoroutineCreator) {
@@ -136,15 +148,20 @@ func (s *coState) Yield() {
 }
 
 func (s *coState) yield(markBlocking bool) {
-	s.logger.Println("yielding")
-
-	s.blocked.Store(true)
+	// s.logger.Println("yielding")
 
 	if markBlocking {
+		if s.shouldExit.Load() != nil {
+			// s.logger.Println("yielding, but should exit")
+			panic(ErrCoroutineAlreadyFinished)
+		}
+
+		s.blocked.Store(true)
+
 		s.blocking <- true
 	}
 
-	s.logger.Println("yielded")
+	// s.logger.Println("yielded")
 
 	// Wait for the next Execute() call
 	<-s.unblock
@@ -152,7 +169,7 @@ func (s *coState) yield(markBlocking bool) {
 	// Once we're here, another Execute() call has been made. s.blocking is empty
 
 	if s.shouldExit.Load() != nil {
-		s.logger.Println("exiting")
+		// s.logger.Println("exiting")
 
 		// Goexit runs all deferred functions, which includes calling finish() in the main
 		// execution function. That marks the coroutine as finished and blocking.
@@ -161,37 +178,37 @@ func (s *coState) yield(markBlocking bool) {
 
 	s.blocked.Store(false)
 
-	s.logger.Println("done yielding, continuing")
+	// s.logger.Println("done yielding, continuing")
 }
 
 func (s *coState) Execute() {
 	s.ResetProgress()
 
 	if s.Finished() {
-		s.logger.Println("execute: already finished")
+		// s.logger.Println("execute: already finished")
 		return
 	}
 
 	t := time.NewTimer(s.deadlockDetection)
 	defer t.Stop()
 
-	s.logger.Println("execute: unblocking")
+	// s.logger.Println("execute: unblocking")
 	s.unblock <- true
-	s.logger.Println("execute: unblocked")
+	// s.logger.Println("execute: unblocked")
 
 	runtime.Gosched()
 
 	// Run until blocked (which is also true when finished)
 	select {
 	case <-s.blocking:
-		s.logger.Println("execute: blocked")
+		// s.logger.Println("execute: blocked")
 	case <-t.C:
 		panic("coroutine timed out")
 	}
 }
 
 func (s *coState) Exit() {
-	s.logger.Println("exit")
+	// s.logger.Println("exit")
 
 	if s.Finished() {
 		return

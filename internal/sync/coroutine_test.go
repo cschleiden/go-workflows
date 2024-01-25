@@ -109,7 +109,7 @@ func Test_Coroutine_ContinueAndBlock(t *testing.T) {
 	require.True(t, reached)
 }
 
-func Test_Coroutine_Exit(t *testing.T) {
+func Test_Coroutine_Exit_Before_Yield(t *testing.T) {
 	c := NewCoroutine(Background(), func(ctx Context) error {
 		s := getCoState(ctx)
 
@@ -124,6 +124,51 @@ func Test_Coroutine_Exit(t *testing.T) {
 	c.Exit()
 
 	require.True(t, c.Finished())
+	require.Equal(t, r-1, runtime.NumGoroutine())
+}
+
+func Test_Coroutine_Exit(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
+		s := getCoState(ctx)
+
+		s.Yield()
+
+		require.FailNow(t, "should not reach this")
+
+		return nil
+	})
+
+	c.Execute()
+
+	r := runtime.NumGoroutine()
+	c.Exit()
+
+	require.True(t, c.Finished())
+	require.Equal(t, r-1, runtime.NumGoroutine())
+}
+
+func Test_Coroutine_Exit_with_defer(t *testing.T) {
+	c := NewCoroutine(Background(), func(ctx Context) error {
+		s := getCoState(ctx)
+
+		defer func() {
+			s.Yield()
+		}()
+
+		s.Yield()
+
+		require.FailNow(t, "should not reach this")
+
+		return nil
+	})
+
+	c.Execute()
+
+	r := runtime.NumGoroutine()
+	c.Exit()
+
+	require.True(t, c.Finished())
+	require.NoError(t, c.Error())
 	require.Equal(t, r-1, runtime.NumGoroutine())
 }
 
