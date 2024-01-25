@@ -50,6 +50,10 @@ func (atw *ActivityTaskWorker) Complete(ctx context.Context, event *history.Even
 	return nil
 }
 
+func (atw *ActivityTaskWorker) Start(ctx context.Context) error {
+	return nil
+}
+
 func (atw *ActivityTaskWorker) Execute(ctx context.Context, task *backend.ActivityTask) (*history.Event, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 	ametrics := atw.backend.Metrics().WithTags(metrics.Tags{metrickeys.ActivityName: a.Name})
