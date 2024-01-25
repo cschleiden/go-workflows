@@ -12,6 +12,7 @@ import (
 )
 
 type TaskWorker[Task, Result any] interface {
+	Start(context.Context) error
 	Get(context.Context) (*Task, error)
 	Extend(context.Context, *Task) error
 	Execute(context.Context, *Task) (*Result, error)
@@ -55,6 +56,10 @@ func NewWorker[Task, TaskResult any](
 }
 
 func (w *Worker[Task, TaskResult]) Start(ctx context.Context) error {
+	if err := w.tw.Start(ctx); err != nil {
+		return fmt.Errorf("starting task worker: %w", err)
+	}
+
 	w.pollersWg.Add(w.options.Pollers)
 
 	for i := 0; i < w.options.Pollers; i++ {
