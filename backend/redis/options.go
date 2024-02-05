@@ -11,7 +11,8 @@ type RedisOptions struct {
 
 	BlockTimeout time.Duration
 
-	AutoExpiration time.Duration
+	AutoExpiration              time.Duration
+	AutoExpirationContinueAsNew time.Duration
 }
 
 type RedisBackendOption func(*RedisOptions)
@@ -35,5 +36,14 @@ func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
 func WithAutoExpiration(expireFinishedRunsAfter time.Duration) RedisBackendOption {
 	return func(o *RedisOptions) {
 		o.AutoExpiration = expireFinishedRunsAfter
+	}
+}
+
+// WithAutoExpirationContinueAsNew sets the duration after which runs that were completed with `ContinueAsNew`
+// automatically expire.
+// If set to 0 (default), the overall expiration setting set with `WithAutoExpiration` will be used.
+func WithAutoExpirationContinueAsNew(expireContinuedAsNewRunsAfter time.Duration) RedisBackendOption {
+	return func(o *RedisOptions) {
+		o.AutoExpirationContinueAsNew = expireContinuedAsNewRunsAfter
 	}
 }
