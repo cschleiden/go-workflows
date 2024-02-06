@@ -279,8 +279,13 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		span.End()
 
 		// Auto expiration
-		if rb.options.AutoExpiration > 0 {
-			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance, rb.options.AutoExpiration); err != nil {
+		expiration := rb.options.AutoExpiration
+		if state == core.WorkflowInstanceStateContinuedAsNew && rb.options.AutoExpirationContinueAsNew > 0 {
+			expiration = rb.options.AutoExpirationContinueAsNew
+		}
+
+		if expiration > 0 {
+			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance, expiration); err != nil {
 				return fmt.Errorf("setting workflow instance expiration: %w", err)
 			}
 		}
