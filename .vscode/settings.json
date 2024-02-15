@@ -15,4 +15,10 @@
   ],
   "go.testExplorer.showDynamicSubtestsInEditor": true,
   "go.lintTool": "golangci-lint",
+  "Lua.diagnostics.globals": [
+    "KEYS",
+    "ARGV",
+    "redis",
+    "cjson"
+  ]
 }
