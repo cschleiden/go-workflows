@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflow"
@@ -63,6 +64,8 @@ func (wtw *WorkflowTaskWorker) Start(ctx context.Context) error {
 
 // Complete implements TaskWorker.
 func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.ExecutionResult, t *backend.WorkflowTask) error {
+	logger := wtw.taskLogger(t)
+
 	state := result.State
 	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
 		if t.WorkflowInstanceState != state {
@@ -76,7 +79,7 @@ func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.Ex
 		// Workflow is finished, explicitly evict from cache (if one is used)
 		if wtw.cache != nil {
 			if err := wtw.cache.Evict(ctx, t.WorkflowInstance); err != nil {
-				wtw.logger.ErrorContext(ctx, "could not evict workflow executor from cache", "error", err)
+				logger.ErrorContext(ctx, "could not evict workflow executor from cache", "error", err)
 			}
 		}
 	}
@@ -85,7 +88,7 @@ func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.Ex
 
 	if err := wtw.backend.CompleteWorkflowTask(
 		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
-		wtw.logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
+		logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
 		return fmt.Errorf("completing workflow task: %w", err)
 	}
 
@@ -156,7 +159,7 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 
 	if !ok {
 		executor, err = workflow.NewExecutor(
-			wtw.backend.Logger(),
+			wtw.taskLogger(t),
 			wtw.backend.Tracer(),
 			wtw.registry,
 			wtw.backend.Converter(),
@@ -177,4 +180,12 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 	}
 
 	return executor, nil
+}
+
+func (wtw *WorkflowTaskWorker) taskLogger(t *backend.WorkflowTask) *slog.Logger {
+	return wtw.logger.With(
+		slog.String(log.TaskIDKey, t.ID),
+		slog.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
+		slog.String(log.ExecutionIDKey, t.WorkflowInstance.ExecutionID),
+	)
 }
