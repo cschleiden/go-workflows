@@ -23,7 +23,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// ErrWorkflowCanceled is returned when a workflow was already canceled.
 var ErrWorkflowCanceled = errors.New("workflow canceled")
+
+// ErrWorkflowTerminated is returned when a workflow was already terminated.
 var ErrWorkflowTerminated = errors.New("workflow terminated")
 
 type WorkflowInstanceOptions struct {
@@ -35,6 +38,7 @@ type Client struct {
 	clock   clock.Clock
 }
 
+// New creates a new client for the given backend.
 func New(backend backend.Backend) *Client {
 	return &Client{
 		backend: backend,
