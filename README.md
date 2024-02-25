@@ -10,6 +10,10 @@ See also:
 
 On Go support: the current version of the library requires **Go 1.18** or later. There is a version that doesn't require generics and relies more on `interface{}` instead, but I think the improved type safety is worth not supporting a version of Go before 1.18 for now.
 
+## Docs
+
+See http://cschleiden.github.io/go-workflows for the current version of the documentation.
+
 ## Simple example
 
 ### Workflow
@@ -104,7 +108,3 @@ func main() {
 	<-c2
 }
 ```
-
-## Docs
-
-See http://cschleiden.github.io/go-workflows for the current version of the documentation.
