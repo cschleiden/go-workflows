@@ -1,27 +1,100 @@
 # Backends
 
-There are three backend implementations maintained in this repository.
+There are three backend implementations maintained in this repository. Some backend implementations have custom options and all of them accept:
+
+- `WithStickyTimeout(timeout time.Duration)` - Set the timeout for sticky tasks. Defaults to 30 seconds
+- `WithLogger(logger *slog.Logger)` - Set the logger implementation
+- `WithMetrics(client metrics.Client)` - Set the metrics client
+- `WithTracerProvider(tp trace.TracerProvider)` - Set the OpenTelemetry tracer provider
+- `WithConverter(converter converter.Converter)` - Provide a custom `Converter` implementation
+- `WithContextPropagator(prop workflow.ContextPropagator)` - Adds a custom context propagator
+
 
 ## SQLite
 
+```go
+func NewSqliteBackend(path string, opts ...option)
+```
+
+Create a new SQLite backend instance with `NewSqliteBackend`.
+
+### Options
+
+- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true`
+- `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
+
+### Schema
+
+See `migrations/sqlite` for the schema and migrations. Main tables:
+
+- `instances` - Tracks workflow instances. Functions as instance queue joined with `pending_events`
+- `pending_events` - Pending events for workflow instances
+- `history` - History for workflow instances
+- `activities` - Queue of pending activities
+- `attributes` - Payloads of events
+
 ## MySQL
+
+```go
+func NewMysqlBackend(host string, port int, user, password, database string, opts ...option)
+```
+
+Create a new MySQL backend instance with `NewMysqlBackend`.
+
+### Options
+
+- `WithMySQLOptions(f func(db *sql.DB))` - Apply custom options to the MySQL database connection
+- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true`
+- `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
+
+
+### Schema
+
+See `migrations/mysql` for the schema and migrations. Main tables:
+
+- `instances` - Tracks workflow instances. Functions as instance queue joined with `pending_events`
+- `pending_events` - Pending events for workflow instances
+- `history` - History for workflow instances
+- `activities` - Queue of pending activities
+- `attributes` - Payloads of events
 
 ## Redis
 
-### How it works
+```go
+func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption)
+```
 
-#### Keys used
+Create a new Redis backend instance with `NewRedisBackend`.
 
-Global state:
+### Options
 
-- Future events TODO
-- Active instances
-- Expired instances
+- `WithBlockTimeout(timeout time.Duration)` - Set the timeout for blocking operations. Defaults to `5s`
+- `WithAutoExpiration(expireFinishedRunsAfter time.Duration)` - Set the expiration time for finished runs. Defaults to `0`, which never expires runs
+- `WithAutoExpirationContinueAsNew(expireContinuedAsNewRunsAfter time.Duration)` - Set the expiration time for continued as new runs. Defaults to `0`, which uses the same value as `WithAutoExpiration`
+- `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
-State per instance:
 
-- History (`STREAM`)
-- Pending Events (`STREAM`)
+### Schema/Keys
+
+Shared keys:
+
+- `instances-by-creation` - `ZSET` - Instances sorted by creation time
+- `instances-active` - `SET` - Active instances
+- `instances-expiring` - `SET` - Instances about to expire
+
+- `task-queue:workflows` - `STREAM` - Task queue for workflows
+- `task-queue:activities` - `STREAM` - Task queue for activities
+
+Instance specific keys:
+
+- `active-instance-execution:{instanceID}` - Latest execution for a workflow instance
+- `instance:{instanceID}:{executionID}` - State of the workflow instance
+- `pending-events:{instanceID}:{executionID}` - `STREAM` - Pending events for a workflow instance
+- `history:{instanceID}:{executionID}` - `STREAM` - History for a workflow instance
+- `payload:{instanceID}:{executionID}` - `HASH` - Payloads of events for given workflow instance
+
+- `future-events` - `ZSET` - Events not yet visible like timer events
+
 
 
 ## Custom implementation
