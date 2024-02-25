@@ -22,6 +22,10 @@ func Workflow1(ctx workflow.Context) {
 }
 ```
 
+<div style="clear: both"></div>
+
+to
+
 > Workflow version 2
 
 ```go
@@ -37,6 +41,8 @@ func Workflow1(ctx workflow.Context) {
 	log.Println("A2 result:", r2)
 }
 ```
+
+<div style="clear: both"></div>
 
 and you replay a workflow history that contains:
 
@@ -63,6 +69,14 @@ func Workflow1(ctx workflow.Context) {
 }
 ```
 
+<div style="clear: both"></div>
+
 and only if a workflow instance was created with a version of `>= 2` will `Activity3` be executed. Older workflows are persisted with a version `< 2` and will not execute `Activity3`.
 
 This kind of check is understandable for simple changes, but it becomes hard and a source of bugs for more complicated workflows. Therefore for now versioning is not supported and the guidance is to rely on **side-by-side** deployments. See also Azure's [Durable Functions](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-versioning) documentation for the same topic.
+
+## How to safely upgrade?
+
+All backend implementations have limited support for migrations which by default are automatically executed when a backend is started. This generally assumes only a single running worker. If you use multiple workers, you need to synchronize migration execution yourself.
+
+In general, the guidance is to rely on **side-by-side** deployments. See also the previous section about workflow versioning.
