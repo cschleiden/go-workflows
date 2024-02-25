@@ -391,9 +391,6 @@ workflow.Select(
 	workflow.Receive(c, func (ctx workflow.Context, v int, ok bool) {
 		// use v
 	}),
-	workflow.Send(c, &value, func (ctx workflow.Context) {
-		// value has been sent to the channel
-	}),
 	workflow.Default(ctx, func (ctx workflow.Context) {
 		// ...
 	})
