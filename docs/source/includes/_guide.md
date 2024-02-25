@@ -586,7 +586,7 @@ func Workflow(ctx workflow.Context) error {
 	span.End()
 ```
 
-For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not.
+For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not. You can get a replay-aware racer with `workflow.Tracer(ctx)`.
 
 ## Context Propagation
 
