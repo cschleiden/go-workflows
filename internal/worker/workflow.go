@@ -134,7 +134,14 @@ func (wtw *WorkflowTaskWorker) Execute(ctx context.Context, t *backend.WorkflowT
 }
 
 func (wtw *WorkflowTaskWorker) Extend(ctx context.Context, t *backend.WorkflowTask) error {
-	return wtw.backend.ExtendWorkflowTask(ctx, t.ID, t.WorkflowInstance)
+	wtw.taskLogger(t).Info("extending workflow task")
+
+	err := wtw.backend.ExtendWorkflowTask(ctx, t.ID, t.WorkflowInstance)
+	if err != nil {
+		return fmt.Errorf("extending workflow task: %w", err)
+	}
+
+	return nil
 }
 
 func (wtw *WorkflowTaskWorker) Get(ctx context.Context) (*backend.WorkflowTask, error) {
@@ -159,7 +166,7 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 
 	if !ok {
 		executor, err = workflow.NewExecutor(
-			wtw.taskLogger(t),
+			wtw.backend.Logger(),
 			wtw.backend.Tracer(),
 			wtw.registry,
 			wtw.backend.Converter(),

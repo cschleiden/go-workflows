@@ -122,7 +122,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		log.TaskIDKey, t.ID,
 	)
 
-	logger.Debug("Executing workflow task", log.TaskLastSequenceIDKey, t.LastSequenceID)
+	logger.Info("Executing workflow task", slog.Int64(log.TaskLastSequenceIDKey, t.LastSequenceID))
 
 	if t.WorkflowInstanceState == core.WorkflowInstanceStateFinished {
 		// This could happen if signals are delivered after the workflow is finished
@@ -131,9 +131,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		// Log events that caused this task to be scheduled
 		for _, event := range t.NewEvents {
 			logger.Debug("Discarded event:",
-				log.EventIDKey, event.ID,
-				log.EventTypeKey, event.Type.String(),
-				log.ScheduleEventIDKey, event.ScheduleEventID)
+				slog.String(log.EventIDKey, event.ID),
+				slog.String(log.EventTypeKey, event.Type.String()),
+				slog.Int64(log.ScheduleEventIDKey, event.ScheduleEventID))
 		}
 
 		return &ExecutionResult{
@@ -144,7 +144,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 	skipNewEvents := false
 
 	if t.LastSequenceID > e.lastSequenceID {
-		logger.Debug("Task has newer history than current state, fetching and replaying history",
+		logger.Info("Task has newer history than current state, fetching and replaying history",
 			log.TaskSequenceIDKey, t.LastSequenceID,
 			log.LocalSequenceIDKey, e.lastSequenceID)
 
@@ -225,7 +225,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		executedEvents[i].SequenceID = e.nextSequenceID()
 	}
 
-	logger.Debug("Finished workflow task",
+	logger.Info("Finished workflow task",
 		log.ExecutedEventsKey, len(executedEvents),
 		log.TaskLastSequenceIDKey, e.lastSequenceID,
 		log.WorkflowInstanceStateKey, state,
@@ -295,7 +295,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 
 func (e *executor) Close() {
 	if e.workflow != nil {
-		e.logger.Debug("Stopping workflow executor", log.InstanceIDKey, e.workflowState.Instance().InstanceID)
+		e.logger.Debug("Stopping workflow executor")
 
 		// End workflow if running to prevent leaking goroutines
 		e.workflow.Close()
@@ -304,12 +304,11 @@ func (e *executor) Close() {
 
 func (e *executor) executeEvent(event *history.Event) error {
 	fields := []any{
-		log.InstanceIDKey, e.workflowState.Instance().InstanceID,
-		log.EventIDKey, event.ID,
-		log.SeqIDKey, event.SequenceID,
-		log.EventTypeKey, event.Type,
-		log.ScheduleEventIDKey, event.ScheduleEventID,
-		log.IsReplayingKey, e.workflowState.Replaying(),
+		slog.String(log.EventIDKey, event.ID),
+		slog.Int64(log.SeqIDKey, event.SequenceID),
+		slog.String(log.EventTypeKey, event.Type.String()),
+		slog.Int64(log.ScheduleEventIDKey, event.ScheduleEventID),
+		slog.Bool(log.IsReplayingKey, e.workflowState.Replaying()),
 	}
 
 	attributesFields := getAttributesLoggingFields(event)
