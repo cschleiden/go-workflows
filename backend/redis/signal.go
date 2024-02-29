@@ -15,7 +15,7 @@ import (
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
 	// Get current execution of the instance
-	instance, err := readActiveInstanceExecution(ctx, rb.rdb, instanceID)
+	instance, err := rb.readActiveInstanceExecution(ctx, instanceID)
 	if err != nil {
 		return fmt.Errorf("reading active instance execution: %w", err)
 	}
@@ -24,7 +24,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 		return backend.ErrInstanceNotFound
 	}
 
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
 	if err != nil {
 		return err
 	}

@@ -53,6 +53,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	rb := &redisBackend{
 		rdb:     client,
 		options: options,
+		keys:    newKeys(options.KeyPrefix),
 
 		workflowQueue: workflowQueue,
 		activityQueue: activityQueue,
@@ -101,6 +102,8 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 type redisBackend struct {
 	rdb     redis.UniversalClient
 	options *RedisOptions
+
+	keys *keys
 
 	workflowQueue *taskQueue[any]
 	activityQueue *taskQueue[activityData]

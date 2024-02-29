@@ -54,7 +54,7 @@ func scheduleFutureEvents(ctx context.Context, rb *redisBackend) error {
 	queueKeys := rb.workflowQueue.Keys()
 
 	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
-		futureEventsKey(),
+		rb.keys.futureEventsKey(),
 		queueKeys.StreamKey,
 		queueKeys.SetKey,
 	}, nowStr).Result(); err != nil && err != redis.Nil {

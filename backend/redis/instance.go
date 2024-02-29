@@ -43,12 +43,12 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 	}
 
 	_, err = createWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
-		instanceKey(instance),
-		activeInstanceExecutionKey(instance.InstanceID),
-		pendingEventsKey(instance),
-		payloadKey(instance),
-		instancesActive(),
-		instancesByCreation(),
+		rb.keys.instanceKey(instance),
+		rb.keys.activeInstanceExecutionKey(instance.InstanceID),
+		rb.keys.pendingEventsKey(instance),
+		rb.keys.payloadKey(instance),
+		rb.keys.instancesActive(),
+		rb.keys.instancesByCreation(),
 		keyInfo.SetKey,
 		keyInfo.StreamKey,
 	},
@@ -81,7 +81,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		start = "(" + historyID(*lastSequenceID)
 	}
 
-	msgs, err := rb.rdb.XRange(ctx, historyKey(instance), start, "+").Result()
+	msgs, err := rb.rdb.XRange(ctx, rb.keys.historyKey(instance), start, "+").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 		events = append(events, event)
 	}
 
-	res, err := rb.rdb.HMGet(ctx, payloadKey(instance), payloadKeys...).Result()
+	res, err := rb.rdb.HMGet(ctx, rb.keys.payloadKey(instance), payloadKeys...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("reading payloads: %w", err)
 	}
@@ -114,7 +114,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 }
 
 func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *core.WorkflowInstance) (core.WorkflowInstanceState, error) {
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
 	if err != nil {
 		return core.WorkflowInstanceStateActive, err
 	}
@@ -124,7 +124,7 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	// Read the instance to check if it exists
-	_, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	_, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 }
 
 func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
-	i, err := readInstance(ctx, rb.rdb, instanceKey(instance))
+	i, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 		return backend.ErrInstanceNotFinished
 	}
 
-	return deleteInstance(ctx, rb.rdb, instance)
+	return rb.deleteInstance(ctx, instance)
 }
 
 type instanceState struct {
@@ -199,8 +199,8 @@ func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 	return &state, nil
 }
 
-func readActiveInstanceExecution(ctx context.Context, rdb redis.UniversalClient, instanceID string) (*core.WorkflowInstance, error) {
-	val, err := rdb.Get(ctx, activeInstanceExecutionKey(instanceID)).Result()
+func (rb *redisBackend) readActiveInstanceExecution(ctx context.Context, instanceID string) (*core.WorkflowInstance, error) {
+	val, err := rb.rdb.Get(ctx, rb.keys.activeInstanceExecutionKey(instanceID)).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, nil
