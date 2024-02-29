@@ -34,16 +34,21 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](rdb redis.UniversalClient, tasktype string) (*taskQueue[T], error) {
+func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
+	// Ensure the key prefix ends with a colon
+	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
+		keyPrefix += ":"
+	}
+
 	tq := &taskQueue[T]{
 		tasktype:   tasktype,
-		setKey:     "task-set:" + tasktype,
-		streamKey:  "task-stream:" + tasktype,
+		setKey:     keyPrefix + "task-set:" + tasktype,
+		streamKey:  keyPrefix + "task-stream:" + tasktype,
 		groupName:  "task-workers",
 		workerName: uuid.NewString(),
 	}
 
-	// Pre-load script
+	// Pre-load scripts
 	cmds := map[string]*redis.StringCmd{
 		"createGroupCmd": createGroupCmd.Load(context.Background(), rdb),
 		"enqueueCmd":     enqueueCmd.Load(context.Background(), rdb),
