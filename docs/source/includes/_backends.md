@@ -68,6 +68,7 @@ Create a new Redis backend instance with `NewRedisBackend`.
 
 ### Options
 
+- `WithKeyPrefix` - Set the key prefix for all keys. Defaults to `""`
 - `WithBlockTimeout(timeout time.Duration)` - Set the timeout for blocking operations. Defaults to `5s`
 - `WithAutoExpiration(expireFinishedRunsAfter time.Duration)` - Set the expiration time for finished runs. Defaults to `0`, which never expires runs
 - `WithAutoExpirationContinueAsNew(expireContinuedAsNewRunsAfter time.Duration)` - Set the expiration time for continued as new runs. Defaults to `0`, which uses the same value as `WithAutoExpiration`

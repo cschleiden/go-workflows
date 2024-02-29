@@ -19,23 +19,17 @@ type RedisOptions struct {
 
 type RedisBackendOption func(*RedisOptions)
 
+// WithKeyPrefix sets the prefix for all keys used in the Redis backend.
 func WithKeyPrefix(prefix string) RedisBackendOption {
 	return func(o *RedisOptions) {
 		o.KeyPrefix = prefix
 	}
 }
 
+// WithBlockTimeout sets the timeout for blocking operations like dequeuing a workflow or activity task
 func WithBlockTimeout(timeout time.Duration) RedisBackendOption {
 	return func(o *RedisOptions) {
 		o.BlockTimeout = timeout
-	}
-}
-
-func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
-	return func(o *RedisOptions) {
-		for _, opt := range opts {
-			opt(&o.Options)
-		}
 	}
 }
 
@@ -53,5 +47,13 @@ func WithAutoExpiration(expireFinishedRunsAfter time.Duration) RedisBackendOptio
 func WithAutoExpirationContinueAsNew(expireContinuedAsNewRunsAfter time.Duration) RedisBackendOption {
 	return func(o *RedisOptions) {
 		o.AutoExpirationContinueAsNew = expireContinuedAsNewRunsAfter
+	}
+}
+
+func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
+	return func(o *RedisOptions) {
+		for _, opt := range opts {
+			opt(&o.Options)
+		}
 	}
 }
