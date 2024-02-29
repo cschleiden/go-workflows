@@ -43,20 +43,20 @@ var expireCmd = redis.NewScript(
 	`,
 )
 
-func setWorkflowInstanceExpiration(ctx context.Context, rdb redis.UniversalClient, instance *core.WorkflowInstance, expiration time.Duration) error {
+func (rb *redisBackend) setWorkflowInstanceExpiration(ctx context.Context, instance *core.WorkflowInstance, expiration time.Duration) error {
 	now := time.Now().UnixMilli()
 	nowStr := strconv.FormatInt(now, 10)
 
 	exp := time.Now().Add(expiration).UnixMilli()
 	expStr := strconv.FormatInt(exp, 10)
 
-	return expireCmd.Run(ctx, rdb, []string{
-		instancesByCreation(),
-		instancesExpiring(),
-		instanceKey(instance),
-		pendingEventsKey(instance),
-		historyKey(instance),
-		payloadKey(instance),
+	return expireCmd.Run(ctx, rb.rdb, []string{
+		rb.keys.instancesByCreation(),
+		rb.keys.instancesExpiring(),
+		rb.keys.instanceKey(instance),
+		rb.keys.pendingEventsKey(instance),
+		rb.keys.historyKey(instance),
+		rb.keys.payloadKey(instance),
 	},
 		nowStr,
 		expiration.Seconds(),

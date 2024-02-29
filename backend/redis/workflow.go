@@ -33,13 +33,13 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 		return nil, nil
 	}
 
-	instanceState, err := readInstance(ctx, rb.rdb, instanceKeyFromSegment(instanceTask.ID))
+	instanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKeyFromSegment(instanceTask.ID))
 	if err != nil {
 		return nil, fmt.Errorf("reading workflow instance: %w", err)
 	}
 
 	// Read all pending events for this instance
-	msgs, err := rb.rdb.XRange(ctx, pendingEventsKey(instanceState.Instance), "-", "+").Result()
+	msgs, err := rb.rdb.XRange(ctx, rb.keys.pendingEventsKey(instanceState.Instance), "-", "+").Result()
 	if err != nil {
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
@@ -59,7 +59,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 
 	// Fetch event payloads
 	if len(payloadKeys) > 0 {
-		res, err := rb.rdb.HMGet(ctx, payloadKey(instanceState.Instance), payloadKeys...).Result()
+		res, err := rb.rdb.HMGet(ctx, rb.keys.payloadKey(instanceState.Instance), payloadKeys...).Result()
 		if err != nil {
 			return nil, fmt.Errorf("reading payloads: %w", err)
 		}
@@ -104,13 +104,13 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	queueKeys := rb.workflowQueue.Keys()
 	keys = append(keys,
-		instanceKey(instance),
-		historyKey(instance),
-		pendingEventsKey(instance),
-		payloadKey(instance),
-		futureEventsKey(),
-		instancesActive(),
-		instancesByCreation(),
+		rb.keys.instanceKey(instance),
+		rb.keys.historyKey(instance),
+		rb.keys.pendingEventsKey(instance),
+		rb.keys.payloadKey(instance),
+		rb.keys.futureEventsKey(),
+		rb.keys.instancesActive(),
+		rb.keys.instancesByCreation(),
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
 	)
@@ -149,7 +149,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		int(core.WorkflowInstanceStateContinuedAsNew),
 		int(core.WorkflowInstanceStateFinished),
 	)
-	keys = append(keys, activeInstanceExecutionKey(instance.InstanceID))
+	keys = append(keys, rb.keys.activeInstanceExecutionKey(instance.InstanceID))
 
 	// Remove canceled timers
 	timersToCancel := make([]*history.Event, 0)
@@ -162,7 +162,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	args = append(args, len(timersToCancel))
 	for _, event := range timersToCancel {
-		keys = append(keys, futureEventKey(instance, event.ScheduleEventID))
+		keys = append(keys, rb.keys.futureEventKey(instance, event.ScheduleEventID))
 	}
 
 	// Schedule timers
@@ -179,7 +179,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 
 		args = append(args, timerEvent.ID, strconv.FormatInt(timerEvent.VisibleAt.UnixMilli(), 10), eventData, payloadEventData)
-		keys = append(keys, futureEventKey(instance, timerEvent.ScheduleEventID))
+		keys = append(keys, rb.keys.futureEventKey(instance, timerEvent.ScheduleEventID))
 	}
 
 	// Schedule activities
@@ -202,7 +202,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	groupedEvents := history.EventsByWorkflowInstance(workflowEvents)
 	args = append(args, len(groupedEvents))
 	for targetInstance, events := range groupedEvents {
-		keys = append(keys, instanceKey(&targetInstance), activeInstanceExecutionKey(targetInstance.InstanceID))
+		keys = append(keys, rb.keys.instanceKey(&targetInstance), rb.keys.activeInstanceExecutionKey(targetInstance.InstanceID))
 		args = append(args, instanceSegment(&targetInstance), targetInstance.InstanceID)
 
 		// Are we creating a new workflow instance?
@@ -242,7 +242,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			args = append(args, pfe.ID, eventData, payloadEventData)
 		}
 
-		keys = append(keys, pendingEventsKey(&targetInstance), payloadKey(&targetInstance))
+		keys = append(keys, rb.keys.pendingEventsKey(&targetInstance), rb.keys.payloadKey(&targetInstance))
 		for _, m := range events {
 			eventData, payloadEventData, err := marshalEvent(m.HistoryEvent)
 			if err != nil {
@@ -285,7 +285,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		}
 
 		if expiration > 0 {
-			if err := setWorkflowInstanceExpiration(ctx, rb.rdb, instance, expiration); err != nil {
+			if err := rb.setWorkflowInstanceExpiration(ctx, instance, expiration); err != nil {
 				return fmt.Errorf("setting workflow instance expiration: %w", err)
 			}
 		}
@@ -309,11 +309,11 @@ func marshalEvent(event *history.Event) (string, string, error) {
 
 func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
-	if err := addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
+	if err := rb.addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
 		return err
 	}
 
-	if err := addEventToStreamP(ctx, p, pendingEventsKey(instance), event); err != nil {
+	if err := addEventToStreamP(ctx, p, rb.keys.pendingEventsKey(instance), event); err != nil {
 		return err
 	}
 

@@ -43,7 +43,7 @@ var addPayloadsCmd = redis.NewScript(`
 	return 0
 `)
 
-func addEventPayloadsP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, events []*history.Event) error {
+func (rb *redisBackend) addEventPayloadsP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, events []*history.Event) error {
 	args := make([]interface{}, 0)
 
 	for _, event := range events {
@@ -55,7 +55,7 @@ func addEventPayloadsP(ctx context.Context, p redis.Pipeliner, instance *core.Wo
 		args = append(args, event.ID, string(payload))
 	}
 
-	return addPayloadsCmd.Run(ctx, p, []string{payloadKey(instance)}, args...).Err()
+	return addPayloadsCmd.Run(ctx, p, []string{rb.keys.payloadKey(instance)}, args...).Err()
 }
 
 func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string, event *history.Event) error {

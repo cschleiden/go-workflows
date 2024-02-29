@@ -33,7 +33,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Create queue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "test")
+				q, err := newTaskQueue[any](client, "", "test")
 				require.NoError(t, err)
 				require.NotNil(t, q)
 			},
@@ -41,7 +41,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "test")
+				q, err := newTaskQueue[any](client, "prefix", "test")
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -60,7 +60,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Guarantee uniqueness",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "test")
+				q, err := newTaskQueue[any](client, "prefix", "test")
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -101,7 +101,7 @@ func Test_TaskQueue(t *testing.T) {
 
 				ctx := context.Background()
 
-				q, err := newTaskQueue[foo](client, "test")
+				q, err := newTaskQueue[foo](client, "prefix", "test")
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
@@ -123,7 +123,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue different worker",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "test")
+				q, _ := newTaskQueue[any](client, "prefix", "test")
 
 				ctx := context.Background()
 
@@ -132,7 +132,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[any](client, "test")
+				q2, _ := newTaskQueue[any](client, "prefix", "test")
 				require.NoError(t, err)
 
 				// Dequeue using second worker
@@ -145,8 +145,8 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Complete removes task",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "test")
-				q2, _ := newTaskQueue[any](client, "test")
+				q, _ := newTaskQueue[any](client, "prefix", "test")
+				q2, _ := newTaskQueue[any](client, "prefix", "test")
 
 				ctx := context.Background()
 
@@ -177,7 +177,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Recover task",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "test")
+				q, _ := newTaskQueue[any](client, "prefix", "test")
 
 				ctx := context.Background()
 
@@ -186,7 +186,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[any](client, "test")
+				q2, _ := newTaskQueue[any](client, "prefix", "test")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
@@ -206,7 +206,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Extending task prevents recovering",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "test")
+				q, _ := newTaskQueue[any](client, "prefix", "test")
 
 				ctx := context.Background()
 
@@ -216,7 +216,7 @@ func Test_TaskQueue(t *testing.T) {
 				require.NoError(t, err)
 
 				// Create second worker (with different name)
-				q2, _ := newTaskQueue[any](client, "test")
+				q2, _ := newTaskQueue[any](client, "prefix", "test")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, lockTimeout, blockTimeout)
