@@ -60,10 +60,6 @@ func (k *keys) historyKey(instance *core.WorkflowInstance) string {
 	return fmt.Sprintf("%shistory:%v", k.prefix, instanceSegment(instance))
 }
 
-func historyID(sequenceID int64) string {
-	return fmt.Sprintf("%v-0", sequenceID)
-}
-
 func (k *keys) futureEventsKey() string {
 	return fmt.Sprintf("%sfuture-events", k.prefix)
 }

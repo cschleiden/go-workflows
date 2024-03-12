@@ -130,7 +130,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			return fmt.Errorf("marshaling event payload: %w", err)
 		}
 
-		args = append(args, event.ID, historyID(event.SequenceID), eventData, payloadData, event.SequenceID)
+		args = append(args, event.ID, eventData, payloadData, event.SequenceID)
 	}
 
 	// Remove executed pending events

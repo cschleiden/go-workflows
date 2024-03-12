@@ -78,7 +78,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 	start := "-"
 
 	if lastSequenceID != nil {
-		start = "(" + historyID(*lastSequenceID)
+		start = fmt.Sprintf("(%d", *lastSequenceID)
 	}
 
 	msgs, err := rb.rdb.XRange(ctx, rb.keys.historyKey(instance), start, "+").Result()
