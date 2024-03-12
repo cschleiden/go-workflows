@@ -49,7 +49,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 
 	activity, err := e.r.GetActivity(a.Name)
 	if err != nil {
-		return nil, workflowerrors.NewPermanentError(fmt.Errorf("activity not found %w", err))
+		return nil, workflowerrors.NewPermanentError(fmt.Errorf("activity not found: %w", err))
 	}
 
 	activityFn := reflect.ValueOf(activity)
