@@ -17,7 +17,6 @@ import (
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
