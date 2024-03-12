@@ -40,13 +40,12 @@ local executedEvents = tonumber(getArgv())
 local lastSequenceId = 0
 for i = 1, executedEvents do
     local eventId = getArgv()
-    local historyId = getArgv()
     local eventData = getArgv()
     local payloadData = getArgv()
     local sequenceId = getArgv()
 
     -- Add event to history
-    redis.call("XADD", historyStreamKey, historyId, "event", eventData)
+    redis.call("XADD", historyStreamKey, sequenceId, "event", eventData)
 
     storePayload(eventId, payloadData)
 
