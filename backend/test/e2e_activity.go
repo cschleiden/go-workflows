@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/activity"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -73,6 +74,39 @@ var e2eActivityTests = []backendTest{
 
 			require.True(t, output, "error should be PanicError")
 			require.NoError(t, err)
+		},
+	},
+	{
+		name: "Activity_ReceiveAttempt",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			var maxAttempt int
+
+			a := func(context.Context) error {
+				attempt := activity.Attempt(ctx)
+				maxAttempt = attempt
+
+				if attempt < 2 {
+					return &CustomError{msg: "custom error"}
+				}
+
+				return nil
+			}
+
+			wf := func(ctx workflow.Context) error {
+				_, err := workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
+					RetryOptions: workflow.RetryOptions{
+						MaxAttempts: 4,
+					},
+				}, a).Get(ctx)
+
+				return err
+			}
+			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+			_, err := runWorkflowWithResult[bool](t, ctx, c, wf)
+			require.NoError(t, err)
+
+			require.Equal(t, 2, maxAttempt)
 		},
 	},
 	{

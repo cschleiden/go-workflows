@@ -71,7 +71,7 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 		return f
 	}
 
-	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs, metadata)
+	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs, attempt, metadata)
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, fmt.Sprintf("activity: %s", name), f))
 

@@ -8,6 +8,8 @@ import (
 type ActivityScheduledAttributes struct {
 	Name string `json:"name,omitempty"`
 
+	Attempt int `json:"attempt,omitempty"`
+
 	Inputs []payload.Payload `json:"inputs,omitempty"`
 
 	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`

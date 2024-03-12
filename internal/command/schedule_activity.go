@@ -12,12 +12,13 @@ type ScheduleActivityCommand struct {
 
 	Name     string
 	Inputs   []payload.Payload
+	Attempt  int
 	Metadata *metadata.WorkflowMetadata
 }
 
 var _ Command = (*ScheduleActivityCommand)(nil)
 
-func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, metadata *metadata.WorkflowMetadata) *ScheduleActivityCommand {
+func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, attempt int, metadata *metadata.WorkflowMetadata) *ScheduleActivityCommand {
 	return &ScheduleActivityCommand{
 		command: command{
 			id:    id,
@@ -25,6 +26,7 @@ func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload,
 			state: CommandState_Pending,
 		},
 		Name:     name,
+		Attempt:  attempt,
 		Inputs:   inputs,
 		Metadata: metadata,
 	}
@@ -41,6 +43,7 @@ func (c *ScheduleActivityCommand) Execute(clock clock.Clock) *CommandResult {
 			&history.ActivityScheduledAttributes{
 				Name:     c.Name,
 				Inputs:   c.Inputs,
+				Attempt:  c.Attempt,
 				Metadata: c.Metadata,
 			},
 			history.ScheduleEventID(c.id))
