@@ -81,7 +81,7 @@ var e2eActivityTests = []backendTest{
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			var maxAttempt int
 
-			a := func(context.Context) error {
+			a := func(ctx context.Context) error {
 				attempt := activity.Attempt(ctx)
 				maxAttempt = attempt
 
