@@ -355,6 +355,17 @@ func Activity1(ctx context.Context, name string) (int, error) {
 
 With the default `DefaultActivityOptions`, Activities are retried up to three times when they return an error. If you want to keep automatic retries, but want to avoid them when hitting certain error types, you can wrap an error with `workflow.NewPermanentError`.
 
+```go
+func Activity1(ctx context.Context, name string) (int, error) {
+	// Current retry attempt
+	attempt := activity.Attempt(ctx)
+
+	return http.Do("POST", "https://example.com", name)
+}
+```
+
+`activity.Attempt` returns the current attempt retry.
+
 ## `ContinueAsNew`
 
 ```go

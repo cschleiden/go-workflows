@@ -49,7 +49,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 
 	activity, err := e.r.GetActivity(a.Name)
 	if err != nil {
-		return nil, err
+		return nil, workflowerrors.NewPermanentError(fmt.Errorf("activity not found: %w", err))
 	}
 
 	activityFn := reflect.ValueOf(activity)
@@ -65,6 +65,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 	// Add activity state to context
 	as := NewActivityState(
 		task.Event.ID,
+		a.Attempt,
 		task.WorkflowInstance,
 		e.logger)
 	activityCtx := WithActivityState(ctx, as)
@@ -80,6 +81,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 		attribute.String(log.ActivityNameKey, a.Name),
 		attribute.String(log.InstanceIDKey, task.WorkflowInstance.InstanceID),
 		attribute.String(log.ActivityIDKey, task.ID),
+		attribute.Int(log.AttemptKey, a.Attempt),
 	))
 	defer span.End()
 

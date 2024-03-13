@@ -37,7 +37,7 @@ func TestScheduleActivityCommand_StateTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clock := clock.NewMock()
-			cmd := NewScheduleActivityCommand(1, "activity", []payload.Payload{}, &metadata.WorkflowMetadata{})
+			cmd := NewScheduleActivityCommand(1, "activity", []payload.Payload{}, 0, &metadata.WorkflowMetadata{})
 
 			tt.f(t, cmd, clock)
 		})

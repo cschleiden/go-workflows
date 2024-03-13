@@ -10,18 +10,21 @@ import (
 
 type ActivityState struct {
 	ActivityID string
+	Attempt    int
 	Instance   *workflow.Instance
 	Logger     *slog.Logger
 }
 
-func NewActivityState(activityID string, instance *workflow.Instance, logger *slog.Logger) *ActivityState {
+func NewActivityState(activityID string, attempt int, instance *workflow.Instance, logger *slog.Logger) *ActivityState {
 	return &ActivityState{
 		activityID,
+		attempt,
 		instance,
 		logger.With(
 			log.ActivityIDKey, activityID,
 			log.InstanceIDKey, instance.InstanceID,
 			log.ExecutionIDKey, instance.ExecutionID,
+			log.AttemptKey, attempt,
 		)}
 }
 

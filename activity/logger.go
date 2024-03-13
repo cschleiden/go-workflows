@@ -11,3 +11,8 @@ import (
 func Logger(ctx context.Context) *slog.Logger {
 	return activity.GetActivityState(ctx).Logger
 }
+
+// Attempt returns the current attempt of this activity execution
+func Attempt(ctx context.Context) int {
+	return activity.GetActivityState(ctx).Attempt
+}
