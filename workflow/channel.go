@@ -19,6 +19,9 @@ type Channel[T any] interface {
 
 	// Close closes the channel. This will cause all future send operations to panic.
 	Close()
+
+	// Len returns the number of elements currently in the channel.
+	Len() int
 }
 
 // NewChannel creates a new channel.
