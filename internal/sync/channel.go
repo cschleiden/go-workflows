@@ -10,6 +10,8 @@ type Channel[T any] interface {
 	ReceiveNonBlocking() (v T, ok bool)
 
 	Close()
+
+	Len() int
 }
 
 type Receiver[T any] struct {
@@ -50,6 +52,10 @@ type channel[T any] struct {
 	senders   []func() T
 	closed    bool
 	size      int
+}
+
+func (c *channel[T]) Len() int {
+	return len(c.c)
 }
 
 func (c *channel[T]) Close() {

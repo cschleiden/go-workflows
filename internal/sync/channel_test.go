@@ -470,3 +470,47 @@ func Test_CancellationHandler_Remove(t *testing.T) {
 
 	require.Equal(t, 1, f)
 }
+
+func Test_Channel_Len(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(ctx Context) Channel[int]
+		expected int
+	}{
+		{
+			name: "EmptyChannel",
+			setup: func(ctx Context) Channel[int] {
+				return NewChannel[int]()
+			},
+			expected: 0,
+		},
+		{
+			name: "NonEmptyBufferedChannel",
+			setup: func(ctx Context) Channel[int] {
+				c := NewBufferedChannel[int](4)
+				c.Send(ctx, 42)
+				c.Send(ctx, 23)
+				return c
+			},
+			expected: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var actual int
+			ctx := Background()
+
+			cr := NewCoroutine(ctx, func(ctx Context) error {
+				c := tt.setup(ctx)
+				actual = c.Len()
+
+				return nil
+			})
+
+			cr.Execute()
+
+			require.Equal(t, tt.expected, actual)
+		})
+	}
+}

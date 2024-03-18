@@ -162,24 +162,71 @@ type CancelFunc func()
 // Canceling this context releases resources associated with it, so code should
 // call cancel as soon as the operations running in this Context complete.
 func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {
+	c := withCancel(parent)
+	return c, func() { c.cancel(true, Canceled, nil) }
+}
+
+// A CancelCauseFunc behaves like a [CancelFunc] but additionally sets the cancellation cause.
+// This cause can be retrieved by calling [Cause] on the canceled Context or on
+// any of its derived Contexts.
+//
+// If the context has already been canceled, CancelCauseFunc does not set the cause.
+// For example, if childContext is derived from parentContext:
+//   - if parentContext is canceled with cause1 before childContext is canceled with cause2,
+//     then Cause(parentContext) == Cause(childContext) == cause1
+//   - if childContext is canceled with cause2 before parentContext is canceled with cause1,
+//     then Cause(parentContext) == cause1 and Cause(childContext) == cause2
+type CancelCauseFunc func(cause error)
+
+// WithCancelCause behaves like [WithCancel] but returns a [CancelCauseFunc] instead of a [CancelFunc].
+// Calling cancel with a non-nil error (the "cause") records that error in ctx;
+// it can then be retrieved using Cause(ctx).
+// Calling cancel with nil sets the cause to Canceled.
+//
+// Example use:
+//
+//	ctx, cancel := context.WithCancelCause(parent)
+//	cancel(myError)
+//	ctx.Err() // returns context.Canceled
+//	context.Cause(ctx) // returns myError
+func WithCancelCause(parent Context) (ctx Context, cancel CancelCauseFunc) {
+	c := withCancel(parent)
+	return c, func(cause error) { c.cancel(true, Canceled, cause) }
+}
+
+func withCancel(parent Context) *cancelCtx {
 	if parent == nil {
 		panic("cannot create context from nil parent")
 	}
-	c := newCancelCtx(parent)
-	propagateCancel(parent, &c)
-	return &c, func() { c.cancel(true, Canceled) }
+	c := newCancelCtx()
+	c.propagateCancel(parent, c)
+	return c
+}
+
+// Cause returns a non-nil error explaining why c was canceled.
+// The first cancellation of c or one of its parents sets the cause.
+// If that cancellation happened via a call to CancelCauseFunc(err),
+// then [Cause] returns err.
+// Otherwise Cause(c) returns the same value as c.Err().
+// Cause returns nil if c has not been canceled yet.
+func Cause(c Context) error {
+	if cc, ok := c.Value(&cancelCtxKey).(*cancelCtx); ok {
+		return cc.cause
+	}
+	return nil
 }
 
 // newCancelCtx returns an initialized cancelCtx.
-func newCancelCtx(parent Context) cancelCtx {
-	return cancelCtx{
-		Context: parent,
-		done:    NewChannel[struct{}](),
+func newCancelCtx() *cancelCtx {
+	return &cancelCtx{
+		done: NewChannel[struct{}](),
 	}
 }
 
 // propagateCancel arranges for child to be canceled when parent is.
-func propagateCancel(parent Context, child canceler) {
+func (c *cancelCtx) propagateCancel(parent Context, child canceler) {
+	c.Context = parent
+
 	done := parent.Done()
 	if done == nil {
 		return // parent is never canceled
@@ -189,7 +236,7 @@ func propagateCancel(parent Context, child canceler) {
 		parent,
 		Receive(done, func(ctx Context, _ struct{}, _ bool) {
 			// Parent is already canceled
-			child.cancel(false, parent.Err())
+			child.cancel(false, parent.Err(), Cause(parent))
 		}),
 		Default(func(_ Context) {
 			// Ignore
@@ -199,7 +246,7 @@ func propagateCancel(parent Context, child canceler) {
 	if p, ok := parentCancelCtx(parent); ok {
 		if p.err != nil {
 			// parent has already been canceled
-			child.cancel(false, p.err)
+			child.cancel(false, p.err, p.cause)
 		} else {
 			if p.children == nil {
 				p.children = make(map[canceler]struct{})
@@ -257,7 +304,7 @@ func removeChild(parent Context, child canceler) {
 // A canceler is a context type that can be canceled directly. The
 // implementations are *cancelCtx and *timerCtx.
 type canceler interface {
-	cancel(removeFromParent bool, err error)
+	cancel(removeFromParent bool, err, cause error)
 	Done() Channel[struct{}]
 }
 
@@ -276,6 +323,7 @@ type cancelCtx struct {
 	done     Channel[struct{}]
 	children map[canceler]struct{} // set to nil by the first cancel call
 	err      error                 // set to non-nil by the first cancel call
+	cause    error                 // set to non-nil by the first cancel call
 }
 
 func (c *cancelCtx) Value(key interface{}) interface{} {
@@ -296,21 +344,25 @@ func (c *cancelCtx) Err() error {
 
 // cancel closes c.done, cancels each of c's children, and, if
 // removeFromParent is true, removes c from its parent's children.
-func (c *cancelCtx) cancel(removeFromParent bool, err error) {
+func (c *cancelCtx) cancel(removeFromParent bool, err, cause error) {
 	if err == nil {
 		panic("context: internal error: missing cancel error")
+	}
+	if cause == nil {
+		cause = err
 	}
 	if c.err != nil {
 		return // already canceled
 	}
 	c.err = err
+	c.cause = cause
 	if c.done == nil {
 		c.done = closedchan
 	} else {
 		c.done.Close()
 	}
 	for child := range c.children {
-		child.cancel(false, err)
+		child.cancel(false, err, cause)
 	}
 	c.children = nil
 

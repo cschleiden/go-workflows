@@ -14,6 +14,33 @@ func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {
 	return sync.WithCancel(parent)
 }
 
+// A CancelCauseFunc behaves like a [CancelFunc] but additionally sets the cancellation cause.
+// This cause can be retrieved by calling [Cause] on the canceled Context or on
+// any of its derived Contexts.
+//
+// If the context has already been canceled, CancelCauseFunc does not set the cause.
+// For example, if childContext is derived from parentContext:
+//   - if parentContext is canceled with cause1 before childContext is canceled with cause2,
+//     then Cause(parentContext) == Cause(childContext) == cause1
+//   - if childContext is canceled with cause2 before parentContext is canceled with cause1,
+//     then Cause(parentContext) == cause1 and Cause(childContext) == cause2
+type CancelCauseFunc = sync.CancelCauseFunc
+
+// WithCancelCause behaves like [WithCancel] but returns a [CancelCauseFunc] instead of a [CancelFunc].
+// Calling cancel with a non-nil error (the "cause") records that error in ctx;
+// it can then be retrieved using Cause(ctx).
+// Calling cancel with nil sets the cause to Canceled.
+//
+// Example use:
+//
+//	ctx, cancel := context.WithCancelCause(parent)
+//	cancel(myError)
+//	ctx.Err() // returns context.Canceled
+//	context.Cause(ctx) // returns myError
+func WithCancelCause(parent Context) (ctx Context, cancel CancelCauseFunc) {
+	return sync.WithCancelCause(parent)
+}
+
 // WithValue returns a copy of parent in which the value associated with key is
 // val.
 //
