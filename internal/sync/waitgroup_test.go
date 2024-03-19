@@ -14,6 +14,25 @@ func Test_WaitGroup_PanicsForInvalidCounters(t *testing.T) {
 	})
 }
 
+func Test_WaitGroup_WaitAfterdone(t *testing.T) {
+	s := NewScheduler()
+	ctx := Background()
+
+	wg := NewWaitGroup()
+	wg.Add(2)
+	wg.Done()
+	wg.Done()
+
+	s.NewCoroutine(ctx, func(ctx Context) error {
+		wg.Wait(ctx)
+
+		return nil
+	})
+
+	s.Execute()
+	require.Equal(t, 0, s.RunningCoroutines())
+}
+
 func Test_WaitGroup_Blocks(t *testing.T) {
 	s := NewScheduler()
 	ctx := Background()

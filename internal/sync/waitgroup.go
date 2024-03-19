@@ -37,11 +37,7 @@ func (wg *waitGroup) Add(delta int) {
 		panic("WaitGroup misuse: Add called concurrently with Wait")
 	}
 
-	if wg.n > 0 || !wg.waiting {
-		return
-	}
-
-	if wg.n == 0 {
+	if delta < 0 && wg.n == 0 {
 		wg.f.Set(struct{}{}, nil)
 	}
 }
