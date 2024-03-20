@@ -64,7 +64,11 @@ func (wtw *WorkflowTaskWorker) Start(ctx context.Context) error {
 
 // Complete implements TaskWorker.
 func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.ExecutionResult, t *backend.WorkflowTask) error {
-	logger := wtw.taskLogger(t)
+	logger := wtw.logger.With(
+		slog.String(log.TaskIDKey, t.ID),
+		slog.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
+		slog.String(log.ExecutionIDKey, t.WorkflowInstance.ExecutionID),
+	)
 
 	state := result.State
 	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
@@ -159,7 +163,10 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 
 	if !ok {
 		executor, err = workflow.NewExecutor(
-			wtw.taskLogger(t),
+			wtw.logger.With(
+				slog.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
+				slog.String(log.ExecutionIDKey, t.WorkflowInstance.ExecutionID),
+			),
 			wtw.backend.Tracer(),
 			wtw.registry,
 			wtw.backend.Converter(),
@@ -180,12 +187,4 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 	}
 
 	return executor, nil
-}
-
-func (wtw *WorkflowTaskWorker) taskLogger(t *backend.WorkflowTask) *slog.Logger {
-	return wtw.logger.With(
-		slog.String(log.TaskIDKey, t.ID),
-		slog.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
-		slog.String(log.ExecutionIDKey, t.WorkflowInstance.ExecutionID),
-	)
 }
