@@ -19,12 +19,14 @@ import (
 // KEYS[2] - workflow task queue stream
 // KEYS[3] - workflow task queue set
 // ARGV[1] - current timestamp for zrange
+// ARGV[2] - redis key prefix
 //
 // Note: this does not work with Redis Cluster since not all keys are passed into the script.
 var futureEventsCmd = redis.NewScript(`
 	-- Find events which should become visible now
 	local now = ARGV[1]
 	local events = redis.call("ZRANGE", KEYS[1], "-inf", now, "BYSCORE")
+	local prefix = ARGV[2]
 	for i = 1, #events do
 		local instanceSegment = redis.call("HGET", events[i], "instance")
 
@@ -35,7 +37,7 @@ var futureEventsCmd = redis.NewScript(`
 
 			-- Add event to pending event stream
 			local eventData = redis.call("HGET", events[i], "event")
-			local pending_events_key = "pending-events:" .. instanceSegment
+			local pending_events_key = prefix .. "pending-events:" .. instanceSegment
 			redis.call("XADD", pending_events_key, "*", "event", eventData)
 
 			-- Delete event hash data
@@ -57,7 +59,7 @@ func scheduleFutureEvents(ctx context.Context, rb *redisBackend) error {
 		rb.keys.futureEventsKey(),
 		queueKeys.StreamKey,
 		queueKeys.SetKey,
-	}, nowStr).Result(); err != nil && err != redis.Nil {
+	}, nowStr, rb.keys.prefix).Result(); err != nil && err != redis.Nil {
 		return fmt.Errorf("checking future events: %w", err)
 	}
 
