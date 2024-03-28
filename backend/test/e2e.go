@@ -13,9 +13,9 @@ import (
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	internalwf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/cschleiden/go-workflows/workflow/executor"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -834,10 +834,10 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 type noopWorkflowExecutorCache struct {
 }
 
-var _ internalwf.ExecutorCache = (*noopWorkflowExecutorCache)(nil)
+var _ executor.ExecutorCache = (*noopWorkflowExecutorCache)(nil)
 
 // Get implements workflow.ExecutorCache
-func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.WorkflowInstance) (internalwf.WorkflowExecutor, bool, error) {
+func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.WorkflowInstance) (executor.WorkflowExecutor, bool, error) {
 	return nil, false, nil
 }
 
@@ -851,7 +851,7 @@ func (*noopWorkflowExecutorCache) StartEviction(ctx context.Context) {
 }
 
 // Store implements workflow.ExecutorCache
-func (*noopWorkflowExecutorCache) Store(ctx context.Context, instance *core.WorkflowInstance, workflow internalwf.WorkflowExecutor) error {
+func (*noopWorkflowExecutorCache) Store(ctx context.Context, instance *core.WorkflowInstance, workflow executor.WorkflowExecutor) error {
 	return nil
 }
 

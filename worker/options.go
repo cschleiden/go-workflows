@@ -3,7 +3,7 @@ package worker
 import (
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/workflow"
+	"github.com/cschleiden/go-workflows/workflow/executor"
 )
 
 type Options struct {
@@ -47,7 +47,7 @@ type Options struct {
 
 	// WorkflowExecutorCache is the cache to use for workflow executors. If nil, a default cache implementation
 	// will be used.
-	WorkflowExecutorCache workflow.ExecutorCache
+	WorkflowExecutorCache executor.ExecutorCache
 }
 
 var DefaultOptions = Options{

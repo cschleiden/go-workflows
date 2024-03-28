@@ -15,15 +15,15 @@ import (
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
-	"github.com/cschleiden/go-workflows/internal/workflow"
-	"github.com/cschleiden/go-workflows/internal/workflow/cache"
 	"github.com/cschleiden/go-workflows/registry"
+	"github.com/cschleiden/go-workflows/workflow/executor"
+	"github.com/cschleiden/go-workflows/workflow/executor/cache"
 )
 
 type WorkflowWorkerOptions struct {
 	WorkerOptions
 
-	WorkflowExecutorCache     workflow.ExecutorCache
+	WorkflowExecutorCache     executor.ExecutorCache
 	WorkflowExecutorCacheSize int
 	WorkflowExecutorCacheTTL  time.Duration
 }
@@ -32,7 +32,7 @@ func NewWorkflowWorker(
 	b backend.Backend,
 	registry *registry.Registry,
 	options WorkflowWorkerOptions,
-) *Worker[backend.WorkflowTask, workflow.ExecutionResult] {
+) *Worker[backend.WorkflowTask, executor.ExecutionResult] {
 	if options.WorkflowExecutorCache == nil {
 		options.WorkflowExecutorCache = cache.NewWorkflowExecutorLRUCache(b.Metrics(), options.WorkflowExecutorCacheSize, options.WorkflowExecutorCacheTTL)
 	}
@@ -44,13 +44,13 @@ func NewWorkflowWorker(
 		logger:   b.Logger(),
 	}
 
-	return NewWorker[backend.WorkflowTask, workflow.ExecutionResult](b, tw, &options.WorkerOptions)
+	return NewWorker[backend.WorkflowTask, executor.ExecutionResult](b, tw, &options.WorkerOptions)
 }
 
 type WorkflowTaskWorker struct {
 	backend  backend.Backend
 	registry *registry.Registry
-	cache    workflow.ExecutorCache
+	cache    executor.ExecutorCache
 	logger   *slog.Logger
 }
 
@@ -63,7 +63,7 @@ func (wtw *WorkflowTaskWorker) Start(ctx context.Context) error {
 }
 
 // Complete implements TaskWorker.
-func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.ExecutionResult, t *backend.WorkflowTask) error {
+func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *executor.ExecutionResult, t *backend.WorkflowTask) error {
 	logger := wtw.logger.With(
 		slog.String(log.TaskIDKey, t.ID),
 		slog.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
@@ -99,7 +99,7 @@ func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *workflow.Ex
 	return nil
 }
 
-func (wtw *WorkflowTaskWorker) Execute(ctx context.Context, t *backend.WorkflowTask) (*workflow.ExecutionResult, error) {
+func (wtw *WorkflowTaskWorker) Execute(ctx context.Context, t *backend.WorkflowTask) (*executor.ExecutionResult, error) {
 	// Record how long this task was in the queue
 	firstEvent := t.NewEvents[0]
 	var scheduledAt time.Time
@@ -154,15 +154,15 @@ func (wtw *WorkflowTaskWorker) Get(ctx context.Context) (*backend.WorkflowTask, 
 	return t, nil
 }
 
-func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.WorkflowTask) (workflow.WorkflowExecutor, error) {
+func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.WorkflowTask) (executor.WorkflowExecutor, error) {
 	// Try to get a cached executor
-	executor, ok, err := wtw.cache.Get(ctx, t.WorkflowInstance)
+	e, ok, err := wtw.cache.Get(ctx, t.WorkflowInstance)
 	if err != nil {
 		wtw.logger.ErrorContext(ctx, "could not get cached workflow task executor", "error", err)
 	}
 
 	if !ok {
-		executor, err = workflow.NewExecutor(
+		e, err = executor.NewExecutor(
 			wtw.logger.With(
 				slog.String(log.InstanceIDKey, t.WorkflowInstance.InstanceID),
 				slog.String(log.ExecutionIDKey, t.WorkflowInstance.ExecutionID),
@@ -182,9 +182,9 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 	}
 
 	// Cache executor instance for future continuation tasks, or refresh last access time
-	if err := wtw.cache.Store(ctx, t.WorkflowInstance, executor); err != nil {
+	if err := wtw.cache.Store(ctx, t.WorkflowInstance, e); err != nil {
 		wtw.logger.ErrorContext(ctx, "error while caching workflow task executor:", "error", err)
 	}
 
-	return executor, nil
+	return e, nil
 }

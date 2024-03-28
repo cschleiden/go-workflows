@@ -11,9 +11,9 @@ import (
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	internal "github.com/cschleiden/go-workflows/internal/worker"
-	workflowinternal "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/cschleiden/go-workflows/workflow/executor"
 )
 
 type Worker struct {
@@ -24,7 +24,7 @@ type Worker struct {
 
 	registry *registry.Registry
 
-	workflowWorker *internal.Worker[backend.WorkflowTask, workflowinternal.ExecutionResult]
+	workflowWorker *internal.Worker[backend.WorkflowTask, executor.ExecutionResult]
 	activityWorker *internal.Worker[backend.ActivityTask, history.Event]
 }
 
