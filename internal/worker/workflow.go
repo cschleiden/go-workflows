@@ -23,7 +23,7 @@ import (
 type WorkflowWorkerOptions struct {
 	WorkerOptions
 
-	WorkflowExecutorCache     executor.ExecutorCache
+	WorkflowExecutorCache     executor.Cache
 	WorkflowExecutorCacheSize int
 	WorkflowExecutorCacheTTL  time.Duration
 }
@@ -50,7 +50,7 @@ func NewWorkflowWorker(
 type WorkflowTaskWorker struct {
 	backend  backend.Backend
 	registry *registry.Registry
-	cache    executor.ExecutorCache
+	cache    executor.Cache
 	logger   *slog.Logger
 }
 

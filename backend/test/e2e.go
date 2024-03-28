@@ -834,7 +834,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 type noopWorkflowExecutorCache struct {
 }
 
-var _ executor.ExecutorCache = (*noopWorkflowExecutorCache)(nil)
+var _ executor.Cache = (*noopWorkflowExecutorCache)(nil)
 
 // Get implements workflow.ExecutorCache
 func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.WorkflowInstance) (executor.WorkflowExecutor, bool, error) {

@@ -47,7 +47,7 @@ type Options struct {
 
 	// WorkflowExecutorCache is the cache to use for workflow executors. If nil, a default cache implementation
 	// will be used.
-	WorkflowExecutorCache executor.ExecutorCache
+	WorkflowExecutorCache executor.Cache
 }
 
 var DefaultOptions = Options{
