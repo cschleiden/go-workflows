@@ -85,6 +85,11 @@ type WorkflowTester[TResult any] interface {
 	// Registry returns the registry used by the tester.
 	Registry() *registry.Registry
 
+	// ActivityMock returns the mock instance that's used for activities. In most cases, OnActivity or OnActivityByName
+	// should be used, but sometimes it's necessary to access the mock directly. For instance, to ensure
+	// a certain activity is not called at all
+	ActivityMock() *mock.Mock
+
 	// OnActivity registers a mock activity.
 	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
 
@@ -266,6 +271,11 @@ func (wt *workflowTester[TResult]) ScheduleCallback(delay time.Duration, callbac
 // the workflow instance and the name of the sub-workflow.
 func (wt *workflowTester[TResult]) ListenSubWorkflow(listener func(*core.WorkflowInstance, string)) {
 	wt.subWorkflowListener = listener
+}
+
+// ActivityMock returns the mock for activities.
+func (wt *workflowTester[TResult]) ActivityMock() *mock.Mock {
+	return wt.ma
 }
 
 // OnActivityByName registers a mock activity with the given name.
