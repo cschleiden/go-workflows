@@ -19,7 +19,7 @@ type workflow struct {
 	err    error
 }
 
-func NewWorkflow(workflowFn reflect.Value) *workflow {
+func newWorkflow(workflowFn reflect.Value) *workflow {
 	s := sync.NewScheduler()
 
 	return &workflow{

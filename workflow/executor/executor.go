@@ -391,7 +391,7 @@ func (e *executor) handleWorkflowExecutionStarted(a *history.ExecutionStartedAtt
 		return fmt.Errorf("workflow %s not found", a.Name)
 	}
 
-	e.workflow = NewWorkflow(reflect.ValueOf(wfFn))
+	e.workflow = newWorkflow(reflect.ValueOf(wfFn))
 
 	return e.workflow.Execute(e.workflowCtx, a.Inputs)
 }

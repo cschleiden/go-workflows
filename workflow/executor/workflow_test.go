@@ -25,7 +25,7 @@ func Test_Workflow_WrapsPanic(t *testing.T) {
 	ctx := sync.Background()
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 
-	wf := NewWorkflow(reflect.ValueOf(w))
+	wf := newWorkflow(reflect.ValueOf(w))
 	err := wf.Execute(ctx, nil)
 	require.NoError(t, err)
 
