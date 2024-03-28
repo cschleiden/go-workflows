@@ -57,6 +57,7 @@ func (wt *WorkflowTracer) Start(ctx sync.Context, name string, opts ...trace.Spa
 	opts = append(opts, trace.WithTimestamp(state.Time()))
 	sctx, span := wt.tracer.Start(sctx, name, opts...)
 
+	// When replaying, try to get the span from the context TODO
 	if state.Replaying() {
 		sctx = trace.ContextWithSpanContext(sctx, span.SpanContext())
 		span = trace.SpanFromContext(sctx)

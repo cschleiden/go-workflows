@@ -63,6 +63,15 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 
 	name := fn.Name(activity)
 
+	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
+		fmt.Sprintf("ExecuteActivity: %s", name),
+		trace.WithAttributes(
+			attribute.String(log.ActivityNameKey, name),
+			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
+			attribute.Int(log.AttemptKey, attempt),
+		))
+	defer span.End()
+
 	// Capture context
 	propagators := propagators(ctx)
 	metadata := &Metadata{}
@@ -74,15 +83,6 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 	cmd := command.NewScheduleActivityCommand(scheduleEventID, name, inputs, attempt, metadata)
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, fmt.Sprintf("activity: %s", name), f))
-
-	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
-		fmt.Sprintf("ExecuteActivity: %s", name),
-		trace.WithAttributes(
-			attribute.String(log.ActivityNameKey, name),
-			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
-			attribute.Int(log.AttemptKey, attempt),
-		))
-	defer span.End()
 
 	// Handle cancellation
 	if d := ctx.Done(); d != nil {
