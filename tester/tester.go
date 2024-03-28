@@ -24,10 +24,10 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/signals"
-	wf "github.com/cschleiden/go-workflows/internal/workflow"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/cschleiden/go-workflows/workflow/executor"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"go.opentelemetry.io/otel/trace"
@@ -346,7 +346,7 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := wf.NewExecutor(wt.logger, wt.tracer, wt.registry, wt.converter, wt.propagators, &testHistoryProvider{tw.history}, tw.instance, tw.metadata, wt.clock)
+			e, err := executor.NewExecutor(wt.logger, wt.tracer, wt.registry, wt.converter, wt.propagators, &testHistoryProvider{tw.history}, tw.instance, tw.metadata, wt.clock)
 			if err != nil {
 				panic(fmt.Errorf("could not create workflow executor: %v", err))
 			}

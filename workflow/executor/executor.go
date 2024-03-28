@@ -1,4 +1,4 @@
-package workflow
+package executor
 
 import (
 	"context"
@@ -30,10 +30,19 @@ import (
 )
 
 type ExecutionResult struct {
-	State          core.WorkflowInstanceState
-	Executed       []*history.Event
+	// New state of the workflow instance
+	State core.WorkflowInstanceState
+
+	// Events executed during the tastk execution
+	Executed []*history.Event
+
+	// Activities that were scheduled
 	ActivityEvents []*history.Event
-	TimerEvents    []*history.Event
+
+	// Timers that were scheduled
+	TimerEvents []*history.Event
+
+	// Events for other workflow instances
 	WorkflowEvents []history.WorkflowEvent
 }
 
@@ -382,7 +391,7 @@ func (e *executor) handleWorkflowExecutionStarted(a *history.ExecutionStartedAtt
 		return fmt.Errorf("workflow %s not found", a.Name)
 	}
 
-	e.workflow = NewWorkflow(reflect.ValueOf(wfFn))
+	e.workflow = newWorkflow(reflect.ValueOf(wfFn))
 
 	return e.workflow.Execute(e.workflowCtx, a.Inputs)
 }
