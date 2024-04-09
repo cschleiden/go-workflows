@@ -61,6 +61,13 @@ func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Cont
 				break
 			}
 
+			attempt++
+
+			if attempt >= retryOptions.MaxAttempts {
+				// Reached maximum number of attempts, abort retries
+				break
+			}
+
 			if err == Canceled {
 				break
 			}
@@ -75,19 +82,14 @@ func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Cont
 				backoffDuration = time.Duration(math.Min(float64(backoffDuration), float64(retryOptions.MaxRetryInterval)))
 			}
 
+			if !retryExpiration.IsZero() && Now(ctx).Add(backoffDuration).After(retryExpiration) {
+				// Waiting would reach maximum retry time, abort retries
+				break
+			}
+
 			if err := Sleep(ctx, backoffDuration); err != nil {
 				r.Set(*new(T), err)
 				return
-			}
-
-			if !retryExpiration.IsZero() && Now(ctx).After(retryExpiration) {
-				// Reached maximum retry time, abort retries
-				break
-			}
-
-			attempt++
-			if attempt >= retryOptions.MaxAttempts {
-				break
 			}
 
 			f = fn(ctx, attempt)
