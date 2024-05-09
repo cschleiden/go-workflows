@@ -58,7 +58,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		event.ID,
 		eventData,
 		payloadData,
-		time.Now().UTC().Unix(),
+		time.Now().UTC().UnixNano(),
 	).Result()
 
 	if err != nil {
