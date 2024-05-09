@@ -25,7 +25,7 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			ctx,
 			`SELECT i.instance_id, i.execution_id, i.created_at, i.completed_at
 			FROM instances i
-			INNER JOIN (SELECT instance_id, created_at FROM instances WHERE id = ? AND execution_id = ?) ii
+			INNER JOIN (SELECT instance_id, created_at FROM instances WHERE instance_id = ? AND execution_id = ?) ii
 				ON i.created_at < ii.created_at OR (i.created_at = ii.created_at AND i.instance_id < ii.instance_id)
 			ORDER BY i.created_at DESC, i.instance_id DESC
 			LIMIT ?`,
