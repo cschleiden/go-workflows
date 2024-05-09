@@ -17,10 +17,10 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	max := "+inf"
 
 	if afterInstanceID != "" {
-		afterID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
-		scores, err := rb.rdb.ZMScore(ctx, rb.keys.instancesByCreation(), afterID).Result()
+		afterSegmentID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
+		scores, err := rb.rdb.ZMScore(ctx, rb.keys.instancesByCreation(), afterSegmentID).Result()
 		if err != nil {
-			return nil, fmt.Errorf("getting instance score for %v: %w", afterID, err)
+			return nil, fmt.Errorf("getting instance score for %v: %w", afterSegmentID, err)
 		}
 
 		if len(scores) == 0 {
