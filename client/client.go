@@ -151,6 +151,11 @@ func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name str
 	return nil
 }
 
+// GetWorkflowInstanceState returns the current state of the given workflow instance
+func (c *Client) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
+	return c.backend.GetWorkflowInstanceState(ctx, instance)
+}
+
 // WaitForWorkflowInstance waits for the given workflow instance to finish or until the given timeout has expired.
 func (c *Client) WaitForWorkflowInstance(ctx context.Context, instance *workflow.Instance, timeout time.Duration) error {
 	if timeout == 0 {
