@@ -64,7 +64,7 @@ func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype s
 	}
 
 	// Create the consumer group
-	err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey, tq.groupName}).Err()
+	err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey}, tq.groupName).Err()
 	if err != nil {
 		return nil, fmt.Errorf("creating task queue: %w", err)
 	}
@@ -99,7 +99,7 @@ var enqueueCmd = redis.NewScript(
 
 var createGroupCmd = redis.NewScript(`
     local streamKey = KEYS[1]
-    local groupName = KEYS[2]
+    local groupName = ARGV[1]
     local exists = false
     local res = redis.pcall('XINFO', 'GROUPS', streamKey)
 
