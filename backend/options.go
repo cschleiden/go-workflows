@@ -2,6 +2,7 @@ package backend
 
 import (
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend/converter"
@@ -38,9 +39,7 @@ type Options struct {
 	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
 
-	WorkflowNamespace string
-
-	ActivityNamespace string
+	Namespaces []string
 }
 
 var DefaultOptions Options = Options{
@@ -94,6 +93,12 @@ func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
 	}
 }
 
+func WithNamespace(namespace string) BackendOption {
+	return func(o *Options) {
+		o.Namespaces = append(o.Namespaces, namespace)
+	}
+}
+
 func ApplyOptions(opts ...BackendOption) Options {
 	options := DefaultOptions
 
@@ -103,6 +108,14 @@ func ApplyOptions(opts ...BackendOption) Options {
 
 	if options.Logger == nil {
 		options.Logger = slog.Default()
+	}
+
+	if !slices.Contains(options.Namespaces, NamespaceSystem) {
+		options.Namespaces = append(options.Namespaces, NamespaceSystem)
+	}
+
+	if len(options.Namespaces) == 0 {
+		options.Namespaces = append(options.Namespaces, NamespaceDefault)
 	}
 
 	return options

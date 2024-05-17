@@ -157,7 +157,7 @@ func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 }
 
 // GetActivityTask provides a mock function with given fields: ctx
-func (_m *MockBackend) GetActivityTask(ctx context.Context) (*ActivityTask, error) {
+func (_m *MockBackend) GetActivityTask(ctx context.Context, namespaces []string) (*ActivityTask, error) {
 	ret := _m.Called(ctx)
 
 	var r0 *ActivityTask

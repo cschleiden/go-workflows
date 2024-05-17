@@ -141,8 +141,8 @@ func (wtw *WorkflowTaskWorker) Extend(ctx context.Context, t *backend.WorkflowTa
 	return wtw.backend.ExtendWorkflowTask(ctx, t.ID, t.WorkflowInstance)
 }
 
-func (wtw *WorkflowTaskWorker) Get(ctx context.Context) (*backend.WorkflowTask, error) {
-	t, err := wtw.backend.GetWorkflowTask(ctx)
+func (wtw *WorkflowTaskWorker) Get(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
+	t, err := wtw.backend.GetWorkflowTask(ctx, namespaces)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil

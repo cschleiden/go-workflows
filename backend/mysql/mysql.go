@@ -370,7 +370,7 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 }
 
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
-func (b *mysqlBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
+func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -689,7 +689,7 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 }
 
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
-func (b *mysqlBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
+func (b *mysqlBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})

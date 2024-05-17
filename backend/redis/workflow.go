@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
+func (rb *redisBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
 	if err := scheduleFutureEvents(ctx, rb); err != nil {
 		return nil, fmt.Errorf("scheduling future events: %w", err)
 	}

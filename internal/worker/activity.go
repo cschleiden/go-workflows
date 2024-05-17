@@ -76,8 +76,8 @@ func (atw *ActivityTaskWorker) Extend(ctx context.Context, task *backend.Activit
 	return atw.backend.ExtendActivityTask(ctx, task.ID)
 }
 
-func (atw *ActivityTaskWorker) Get(ctx context.Context) (*backend.ActivityTask, error) {
-	return atw.backend.GetActivityTask(ctx)
+func (atw *ActivityTaskWorker) Get(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
+	return atw.backend.GetActivityTask(ctx, namespaces)
 }
 
 func (atw *ActivityTaskWorker) resultToEvent(scheduleEventID int64, result payload.Payload, err error) *history.Event {

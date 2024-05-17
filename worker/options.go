@@ -48,6 +48,10 @@ type Options struct {
 	// WorkflowExecutorCache is the cache to use for workflow executors. If nil, a default cache implementation
 	// will be used.
 	WorkflowExecutorCache executor.Cache
+
+	WorkflowNamespaces []string
+
+	ActivityNamespaces []string
 }
 
 var DefaultOptions = Options{

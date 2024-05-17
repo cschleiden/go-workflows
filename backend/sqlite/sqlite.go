@@ -353,7 +353,7 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
+func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -602,7 +602,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
+func (sb *sqliteBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
