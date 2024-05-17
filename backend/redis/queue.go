@@ -11,9 +11,9 @@ import (
 )
 
 type taskQueue[T any] struct {
+	namespaces []string
 	tasktype   string
-	setKey     string
-	streamKey  string
+	keys       map[string]KeyInfo
 	groupName  string
 	workerName string
 }
@@ -34,16 +34,23 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
+func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, namespaces []string, tasktype string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
 	}
 
+	keys := map[string]KeyInfo{}
+	for _, ns := range namespaces {
+		keys[ns] = KeyInfo{
+			StreamKey: fmt.Sprintf("%stask-stream:%s:%s", keyPrefix, ns, tasktype),
+			SetKey:    fmt.Sprintf("%stask-set:%s:%s", keyPrefix, ns, tasktype),
+		}
+	}
+
 	tq := &taskQueue[T]{
 		tasktype:   tasktype,
-		setKey:     keyPrefix + "task-set:" + tasktype,
-		streamKey:  keyPrefix + "task-stream:" + tasktype,
+		keys:       keys,
 		groupName:  "task-workers",
 		workerName: uuid.NewString(),
 	}
@@ -63,24 +70,23 @@ func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype s
 		}
 	}
 
-	// Create the consumer group
-	err := createGroupCmd.Run(context.Background(), rdb, []string{tq.streamKey}, tq.groupName).Err()
-	if err != nil {
-		return nil, fmt.Errorf("creating task queue: %w", err)
+	// Create the consumer groups
+	for _, k := range keys {
+		err := createGroupCmd.Run(context.Background(), rdb, []string{k.StreamKey}, tq.groupName).Err()
+		if err != nil {
+			return nil, fmt.Errorf("creating task queue: %w", err)
+		}
 	}
 
 	return tq, nil
 }
 
-func (q *taskQueue[T]) Keys() KeyInfo {
-	return KeyInfo{
-		StreamKey: q.streamKey,
-		SetKey:    q.setKey,
-	}
+func (q *taskQueue[T]) Keys(namespace string) KeyInfo {
+	return q.keys[namespace]
 }
 
-func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient) (int64, error) {
-	return rdb.XLen(ctx, q.streamKey).Result()
+func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient, namespace string) (int64, error) {
+	return rdb.XLen(ctx, q.keys[namespace].StreamKey).Result()
 }
 
 // KEYS[1] = set
@@ -124,20 +130,20 @@ var createGroupCmd = redis.NewScript(`
     return true
 `)
 
-func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, id string, data *T) error {
+func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, namespace string, id string, data *T) error {
 	ds, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
-	enqueueCmd.Run(ctx, p, []string{q.setKey, q.streamKey}, id, string(ds))
+	enqueueCmd.Run(ctx, p, []string{q.keys[namespace].SetKey, q.keys[namespace].StreamKey}, id, string(ds))
 
 	return nil
 }
 
-func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
+func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, namespaces []string, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
 	// Try to recover abandoned messages
-	task, err := q.recover(ctx, rdb, lockTimeout)
+	task, err := q.recover(ctx, rdb, namespaces, lockTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("checking for abandoned tasks: %w", err)
 	}
@@ -147,8 +153,16 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, l
 	}
 
 	// Check for new tasks
+	streamKeys := []string{}
+	streamIds := []string{}
+	for _, ns := range namespaces {
+		streamKeys = append(streamKeys, q.keys[ns].StreamKey)
+		streamIds = append(streamIds, ">")
+	}
+
+	// Try to dequeue from all given namespaces
 	ids, err := rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
-		Streams:  []string{q.streamKey, ">"},
+		Streams:  append(streamKeys, streamIds...),
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		Count:    1,
@@ -166,11 +180,11 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, l
 	return msgToTaskItem[T](&msg)
 }
 
-func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, taskID string) error {
+func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, namespace string, taskID string) error {
 	// Claiming a message resets the idle timer. Don't use the `JUSTID` variant, we
 	// want to increase the retry counter.
 	_, err := p.XClaim(ctx, &redis.XClaimArgs{
-		Stream:   q.streamKey,
+		Stream:   q.keys[namespace].StreamKey,
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		Messages: []string{taskID},
@@ -204,8 +218,11 @@ var completeCmd = redis.NewScript(
 	return redis.call("XDEL", KEYS[2], ARGV[1])
 `)
 
-func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, taskID string) (*redis.Cmd, error) {
-	cmd := completeCmd.Run(ctx, p, []string{q.setKey, q.streamKey}, taskID, q.groupName)
+func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, namespace string, taskID string) (*redis.Cmd, error) {
+	cmd := completeCmd.Run(ctx, p, []string{
+		q.keys[namespace].SetKey,
+		q.keys[namespace].StreamKey,
+	}, taskID, q.groupName)
 	if err := cmd.Err(); err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("completing task: %w", err)
 	}
@@ -213,8 +230,8 @@ func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, taskID s
 	return cmd, nil
 }
 
-func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, taskID string) (*TaskItem[T], error) {
-	msg, err := p.XRange(ctx, q.streamKey, taskID, taskID).Result()
+func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, namespace string, taskID string) (*TaskItem[T], error) {
+	msg, err := p.XRange(ctx, q.keys[namespace].StreamKey, taskID, taskID).Result()
 	if err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("finding task: %w", err)
 	}
@@ -222,27 +239,29 @@ func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, taskID strin
 	return msgToTaskItem[T](&msg[0])
 }
 
-func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, idleTimeout time.Duration) (*TaskItem[T], error) {
-	// Ignore the start argument, we are deleting tasks as they are completed, so we'll always
-	// start this scan from the beginning.
-	msgs, _, err := rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
-		Stream:   q.streamKey,
-		Group:    q.groupName,
-		Consumer: q.workerName,
-		MinIdle:  idleTimeout,
-		Count:    1,   // Get at most one abandoned task
-		Start:    "0", // Start at the beginning of the pending items
-	}).Result()
+func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, namespaces []string, idleTimeout time.Duration) (*TaskItem[T], error) {
+	for _, ns := range namespaces {
+		// Ignore the start argument, we are deleting tasks as they are completed, so we'll always
+		// start this scan from the beginning.
+		msgs, _, err := rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+			Stream:   q.keys[ns].StreamKey,
+			Group:    q.groupName,
+			Consumer: q.workerName,
+			MinIdle:  idleTimeout,
+			Count:    1,   // Get at most one abandoned task
+			Start:    "0", // Start at the beginning of the pending items
+		}).Result()
 
-	if err != nil {
-		return nil, fmt.Errorf("recovering tasks: %w", err)
+		if err != nil {
+			return nil, fmt.Errorf("recovering tasks: %w", err)
+		}
+
+		if len(msgs) > 0 {
+			return msgToTaskItem[T](&msgs[0])
+		}
 	}
 
-	if len(msgs) == 0 {
-		return nil, nil
-	}
-
-	return msgToTaskItem[T](&msgs[0])
+	return nil, nil
 }
 
 func msgToTaskItem[T any](msg *redis.XMessage) (*TaskItem[T], error) {
