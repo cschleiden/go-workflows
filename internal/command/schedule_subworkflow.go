@@ -65,7 +65,7 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 				),
 			},
 			// Send event to new workflow instance
-			WorkflowEvents: []history.WorkflowEvent{
+			WorkflowEvents: []*history.WorkflowEvent{
 				{
 					WorkflowInstance: c.Instance,
 					HistoryEvent: history.NewPendingEvent(
@@ -98,7 +98,7 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 			},
 
 			// Send cancellation event to sub-workflow
-			WorkflowEvents: []history.WorkflowEvent{
+			WorkflowEvents: []*history.WorkflowEvent{
 				{
 					WorkflowInstance: c.Instance,
 					HistoryEvent:     history.NewWorkflowCancellationEvent(clock.Now()),

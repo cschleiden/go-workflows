@@ -535,7 +535,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
-	workflowEvents []history.WorkflowEvent,
+	workflowEvents []*history.WorkflowEvent,
 ) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,

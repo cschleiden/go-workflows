@@ -88,7 +88,7 @@ func (c *CompleteWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 				)
 			}
 
-			r.WorkflowEvents = []history.WorkflowEvent{
+			r.WorkflowEvents = []*history.WorkflowEvent{
 				{
 					WorkflowInstance: c.Instance.Parent,
 					HistoryEvent:     historyEvent,

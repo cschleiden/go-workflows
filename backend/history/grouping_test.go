@@ -13,7 +13,7 @@ func TestGrouping_MultipleEventsSameInstance(t *testing.T) {
 	id := uuid.NewString()
 	instance := core.NewWorkflowInstance(id, "exid")
 
-	r := EventsByWorkflowInstance([]WorkflowEvent{
+	r := EventsByWorkflowInstance([]*WorkflowEvent{
 		{
 			WorkflowInstance: instance,
 			HistoryEvent:     NewPendingEvent(time.Now(), EventType_SubWorkflowScheduled, &SubWorkflowScheduledAttributes{}),

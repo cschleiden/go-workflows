@@ -85,7 +85,7 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
-	workflowEvents []history.WorkflowEvent,
+	workflowEvents []*history.WorkflowEvent,
 ) error {
 	if err := b.Backend.CompleteWorkflowTask(ctx, task, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents); err != nil {
 		return err

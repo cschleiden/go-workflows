@@ -459,7 +459,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
-	workflowEvents []history.WorkflowEvent,
+	workflowEvents []*history.WorkflowEvent,
 ) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
