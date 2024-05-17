@@ -43,7 +43,7 @@ type ExecutionResult struct {
 	TimerEvents []*history.Event
 
 	// Events for other workflow instances
-	WorkflowEvents []history.WorkflowEvent
+	WorkflowEvents []*history.WorkflowEvent
 }
 
 type WorkflowHistoryProvider interface {
@@ -205,7 +205,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 	newCommandEvents := make([]*history.Event, 0)
 	activityEvents := make([]*history.Event, 0)
 	timerEvents := make([]*history.Event, 0)
-	workflowEvents := make([]history.WorkflowEvent, 0)
+	workflowEvents := make([]*history.WorkflowEvent, 0)
 
 	for _, c := range e.workflowState.Commands() {
 		if c.State() == command.CommandState_Done {

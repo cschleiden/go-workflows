@@ -34,7 +34,7 @@ type CommandResult struct {
 	Events         []*history.Event
 	ActivityEvents []*history.Event
 	TimerEvents    []*history.Event
-	WorkflowEvents []history.WorkflowEvent
+	WorkflowEvents []*history.WorkflowEvent
 }
 
 type command struct {

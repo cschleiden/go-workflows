@@ -55,7 +55,7 @@ type Backend interface {
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
 		ctx context.Context, task *WorkflowTask, instance *workflow.Instance, state core.WorkflowInstanceState,
-		executedEvents, activityEvents, timerEvents []*history.Event, workflowEvents []history.WorkflowEvent) error
+		executedEvents, activityEvents, timerEvents []*history.Event, workflowEvents []*history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context) (*ActivityTask, error)

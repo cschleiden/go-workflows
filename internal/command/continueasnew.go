@@ -65,7 +65,7 @@ func (c *ContinueAsNewCommand) Execute(clock clock.Clock) *CommandResult {
 					},
 				),
 			},
-			WorkflowEvents: []history.WorkflowEvent{
+			WorkflowEvents: []*history.WorkflowEvent{
 				// Schedule a new workflow execution
 				{
 					WorkflowInstance: continuedInstance,

@@ -37,6 +37,10 @@ type Options struct {
 	// ActivityLockTimeout determines how long an activity task can be locked for. If the activity task is not completed
 	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
+
+	WorkflowNamespace string
+
+	ActivityNamespace string
 }
 
 var DefaultOptions Options = Options{

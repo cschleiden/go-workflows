@@ -762,7 +762,7 @@ func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, 
 	return tw
 }
 
-func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEvent) {
+func (wt *workflowTester[TResult]) scheduleSubWorkflow(event *history.WorkflowEvent) {
 	a := event.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 
 	// TODO: Right location to call handler?
@@ -829,7 +829,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event history.WorkflowEve
 			0, event.WorkflowInstance, workflowResult, workflowerrors.FromError(workflowRawErr),
 		).Execute(wt.clock)
 
-		return &r.WorkflowEvents[0]
+		return r.WorkflowEvents[0]
 	}
 }
 
