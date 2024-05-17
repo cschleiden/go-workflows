@@ -43,7 +43,7 @@ type Backend interface {
 	SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error
 
 	// GetWorkflowTask returns a pending workflow task or nil if there are no pending workflow executions
-	GetWorkflowTask(ctx context.Context) (*WorkflowTask, error)
+	GetWorkflowTask(ctx context.Context, namespaces []string) (*WorkflowTask, error)
 
 	// ExtendWorkflowTask extends the lock of a workflow task
 	ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error
@@ -58,13 +58,13 @@ type Backend interface {
 		executedEvents, activityEvents, timerEvents []*history.Event, workflowEvents []*history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
-	GetActivityTask(ctx context.Context) (*ActivityTask, error)
+	GetActivityTask(ctx context.Context, namespaces []string) (*ActivityTask, error)
 
 	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
-	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event *history.Event) error
+	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityTaskID string, event *history.Event) error
 
 	// ExtendActivityTask extends the lock of an activity task
-	ExtendActivityTask(ctx context.Context, activityID string) error
+	ExtendActivityTask(ctx context.Context, activityTaskID string) error
 
 	// GetStats returns stats about the backend
 	GetStats(ctx context.Context) (*Stats, error)

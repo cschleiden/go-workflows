@@ -76,7 +76,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -119,7 +119,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				time.Sleep(1 * time.Millisecond)
 
-				task, _ := b.GetWorkflowTask(ctx)
+				task, _ := b.GetWorkflowTask(ctx, nil)
 				require.Nil(t, task)
 			},
 		},
@@ -132,7 +132,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 
 				require.NoError(t, err)
 				require.NotNil(t, task)
@@ -149,7 +149,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				require.Nil(t, err)
 
 				// Get and lock only task
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -157,7 +157,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
 				defer cancel()
 
-				task, err = b.GetWorkflowTask(ctx)
+				task, err = b.GetWorkflowTask(ctx, nil)
 				require.Nil(t, task)
 				require.True(t, err == nil || errors.Is(err, context.DeadlineExceeded))
 			},
@@ -169,7 +169,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 				require.NoError(t, err)
 
-				tk, err := b.GetWorkflowTask(ctx)
+				tk, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 				require.NotNil(t, tk)
 
@@ -192,7 +192,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, wfi, startedEvent)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 
 				taskStartedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
@@ -242,7 +242,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, wfi, startedEvent)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 
 				events := []*history.Event{
@@ -283,7 +283,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				require.NoError(t, err)
 
 				// Simulate context and sub-workflow cancellation
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 				err = b.CompleteWorkflowTask(ctx, task, instance, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []*history.WorkflowEvent{
 					{
@@ -295,7 +295,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				})
 				require.NoError(t, err)
 
-				task, err = b.GetWorkflowTask(ctx)
+				task, err = b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, subInstance1, task.WorkflowInstance)
@@ -330,7 +330,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := c.CancelWorkflowInstance(ctx, instance)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx)
+				task, err := b.GetWorkflowTask(ctx, nil)
 				require.NoError(t, err)
 
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
@@ -342,7 +342,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
 				defer cancel()
 
-				task, _ := b.GetActivityTask(ctx)
+				task, _ := b.GetActivityTask(ctx, []string{backend.NamespaceDefault})
 				require.Nil(t, task)
 			},
 		},
@@ -370,7 +370,7 @@ func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, c *clie
 	require.NoError(t, err)
 
 	// Get task to clear initial event
-	task, err := b.GetWorkflowTask(ctx)
+	task, err := b.GetWorkflowTask(ctx, nil)
 	require.NoError(t, err)
 
 	err = b.CompleteWorkflowTask(

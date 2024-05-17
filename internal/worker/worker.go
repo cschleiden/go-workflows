@@ -13,7 +13,7 @@ import (
 
 type TaskWorker[Task, Result any] interface {
 	Start(context.Context) error
-	Get(context.Context) (*Task, error)
+	Get(context.Context, []string) (*Task, error)
 	Extend(context.Context, *Task) error
 	Execute(context.Context, *Task) (*Result, error)
 	Complete(context.Context, *Result, *Task) error
@@ -41,6 +41,8 @@ type WorkerOptions struct {
 	HeartbeatInterval time.Duration
 
 	PollingInterval time.Duration
+
+	Namespaces []string
 }
 
 func NewWorker[Task, TaskResult any](
@@ -195,7 +197,7 @@ func (w *Worker[Task, TaskResult]) poll(ctx context.Context, timeout time.Durati
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	task, err := w.tw.Get(ctx)
+	task, err := w.tw.Get(ctx, w.options.Namespaces)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil

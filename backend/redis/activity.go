@@ -8,7 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 )
 
-func (rb *redisBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
+func (rb *redisBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
 	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.rdb, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err

@@ -39,10 +39,10 @@ func NewMonoprocessBackend(b backend.Backend) *monoprocessBackend {
 	return mb
 }
 
-func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
+func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
 	// loop until either we find a task or the context is cancelled
 	for {
-		if w, err := b.Backend.GetWorkflowTask(ctx); w != nil || err != nil {
+		if w, err := b.Backend.GetWorkflowTask(ctx, namespaces); w != nil || err != nil {
 			return w, err
 		}
 		b.logger.DebugContext(ctx, "worker waiting for workflow task signal")
@@ -55,10 +55,10 @@ func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context) (*backend.Work
 	}
 }
 
-func (b *monoprocessBackend) GetActivityTask(ctx context.Context) (*backend.ActivityTask, error) {
+func (b *monoprocessBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
 	// loop until either we find a task or the context is cancelled
 	for {
-		if a, err := b.Backend.GetActivityTask(ctx); a != nil || err != nil {
+		if a, err := b.Backend.GetActivityTask(ctx, namespaces); a != nil || err != nil {
 			return a, err
 		}
 		b.logger.DebugContext(ctx, "worker waiting for activity task signal")

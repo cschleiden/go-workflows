@@ -60,6 +60,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 				PollingInterval:   options.WorkflowPollingInterval,
 				MaxParallelTasks:  options.MaxParallelWorkflowTasks,
 				HeartbeatInterval: options.WorkflowHeartbeatInterval,
+				Namespaces:        options.WorkflowNamespaces,
 			},
 			WorkflowExecutorCache:     options.WorkflowExecutorCache,
 			WorkflowExecutorCacheSize: options.WorkflowExecutorCacheSize,
@@ -71,6 +72,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 			PollingInterval:   options.ActivityPollingInterval,
 			MaxParallelTasks:  options.MaxParallelActivityTasks,
 			HeartbeatInterval: options.ActivityHeartbeatInterval,
+			Namespaces:        options.ActivityNamespaces,
 		}),
 
 		registry: registry,
