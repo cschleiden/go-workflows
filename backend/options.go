@@ -2,7 +2,6 @@ package backend
 
 import (
 	"log/slog"
-	"slices"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend/converter"
@@ -38,8 +37,6 @@ type Options struct {
 	// ActivityLockTimeout determines how long an activity task can be locked for. If the activity task is not completed
 	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
-
-	Queues []workflow.Queue
 }
 
 var DefaultOptions Options = Options{
@@ -93,12 +90,6 @@ func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
 	}
 }
 
-func WithNamespace(queue workflow.Queue) BackendOption {
-	return func(o *Options) {
-		o.Queues = append(o.Queues, queue)
-	}
-}
-
 func ApplyOptions(opts ...BackendOption) *Options {
 	options := DefaultOptions
 
@@ -108,16 +99,6 @@ func ApplyOptions(opts ...BackendOption) *Options {
 
 	if options.Logger == nil {
 		options.Logger = slog.Default()
-	}
-
-	// If no queues given, add the default queue
-	if len(options.Queues) == 0 {
-		options.Queues = append(options.Queues, workflow.NamespaceDefault)
-	}
-
-	// Always include system queue
-	if !slices.Contains(options.Queues, workflow.NamespaceSystem) {
-		options.Queues = append(options.Queues, workflow.NamespaceSystem)
 	}
 
 	return &options

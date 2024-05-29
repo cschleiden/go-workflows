@@ -29,7 +29,7 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context, queues []workflow.Q
 func (rb *redisBackend) ExtendActivityTask(ctx context.Context, task *backend.ActivityTask) error {
 	p := rb.rdb.Pipeline()
 
-	if err := rb.activityQueue.Extend(ctx, p, task.Namespace, task.ID); err != nil {
+	if err := rb.activityQueue.Extend(ctx, p, task.Queue, task.ID); err != nil {
 		return err
 	}
 
@@ -40,12 +40,12 @@ func (rb *redisBackend) ExtendActivityTask(ctx context.Context, task *backend.Ac
 func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
 	p := rb.rdb.TxPipeline()
 
-	if err := rb.addWorkflowInstanceEventP(ctx, p, task.Namespace, task.WorkflowInstance, result); err != nil {
+	if err := rb.addWorkflowInstanceEventP(ctx, p, task.Queue, task.WorkflowInstance, result); err != nil {
 		return err
 	}
 
 	// Unlock activity
-	if _, err := rb.activityQueue.Complete(ctx, p, task.Namespace, task.ID); err != nil {
+	if _, err := rb.activityQueue.Complete(ctx, p, task.Queue, task.ID); err != nil {
 		return err
 	}
 

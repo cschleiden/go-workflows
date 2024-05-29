@@ -45,7 +45,7 @@ func NewWorkflowWorker(
 		logger:   b.Options().Logger,
 	}
 
-	return NewWorker[backend.WorkflowTask, executor.ExecutionResult](b, tw, &options.WorkerOptions)
+	return NewWorker(b, tw, &options.WorkerOptions)
 }
 
 type WorkflowTaskWorker struct {

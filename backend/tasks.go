@@ -12,8 +12,8 @@ type WorkflowTask struct {
 	// ID is an identifier for this task. It's set by the backend
 	ID string
 
-	// Namespace is the queue of the workflow instance
-	Namespace workflow.Queue
+	// Queue is the queue of the workflow instance
+	Queue workflow.Queue
 
 	// WorkflowInstance is the workflow instance that this task is for
 	WorkflowInstance *core.WorkflowInstance
@@ -40,7 +40,7 @@ type ActivityTask struct {
 
 	ActivityID string
 
-	Namespace workflow.Queue
+	Queue workflow.Queue
 
 	WorkflowInstance *core.WorkflowInstance
 

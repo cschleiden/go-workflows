@@ -38,12 +38,12 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		opt(options)
 	}
 
-	workflowQueue, err := newTaskQueue[workflowData](client, options.KeyPrefix, options.Queues, "workflows")
+	workflowQueue, err := newTaskQueue[workflowData](client, options.KeyPrefix, "workflows")
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := newTaskQueue[activityData](client, options.KeyPrefix, options.Queues, "activities")
+	activityQueue, err := newTaskQueue[activityData](client, options.KeyPrefix, "activities")
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}

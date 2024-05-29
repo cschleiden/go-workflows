@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -43,12 +44,22 @@ type WorkerOptions struct {
 
 	PollingInterval time.Duration
 
-	Namespaces []workflow.Queue
+	Queues []workflow.Queue
 }
 
 func NewWorker[Task, TaskResult any](
 	b backend.Backend, tw TaskWorker[Task, TaskResult], options *WorkerOptions,
 ) *Worker[Task, TaskResult] {
+	// If no queues given, add the default queue
+	if len(options.Queues) == 0 {
+		options.Queues = append(options.Queues, workflow.QueueDefault)
+	}
+
+	// Always include system queue
+	if !slices.Contains(options.Queues, workflow.QueueSystem) {
+		options.Queues = append(options.Queues, workflow.QueueSystem)
+	}
+
 	return &Worker[Task, TaskResult]{
 		tw:             tw,
 		options:        options,
@@ -198,7 +209,7 @@ func (w *Worker[Task, TaskResult]) poll(ctx context.Context, timeout time.Durati
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	task, err := w.tw.Get(ctx, w.options.Namespaces)
+	task, err := w.tw.Get(ctx, w.options.Queues)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil

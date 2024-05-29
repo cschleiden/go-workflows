@@ -16,8 +16,6 @@ import (
 // - Remove event from future event set and delete event data
 //
 // KEYS[1] - future event set key
-// KEYS[2] - workflow task queue stream
-// KEYS[3] - workflow task queue set
 // ARGV[1] - current timestamp for zrange
 // ARGV[2] - redis key prefix
 //
@@ -29,11 +27,15 @@ var futureEventsCmd = redis.NewScript(`
 	local prefix = ARGV[2]
 	for i = 1, #events do
 		local instanceSegment = redis.call("HGET", events[i], "instance")
+		local queue = redis.call("HGET", events[i], "queue")
+
+		local setKey = prefix .. "task-set:" .. queue .. ":workflows"
+		local streamKey = prefix .. "task-stream:" .. queue .. ":workflows"
 
 		-- Try to queue workflow task. If a workflow task is already queued, ignore this event for now.
-		local added = redis.call("SADD", KEYS[3], instanceSegment)
+		local added = redis.call("SADD", setKey, instanceSegment)
 		if added == 1 then
-			redis.call("XADD", KEYS[2], "*", "id", instanceSegment, "data", "")
+			redis.call("XADD", streamKey, "*", "id", instanceSegment, "data", "")
 
 			-- Add event to pending event stream
 			local eventData = redis.call("HGET", events[i], "event")
@@ -52,13 +54,8 @@ var futureEventsCmd = redis.NewScript(`
 func scheduleFutureEvents(ctx context.Context, rb *redisBackend) error {
 	now := time.Now().UnixMilli()
 	nowStr := strconv.FormatInt(now, 10)
-
-	queueKeys := rb.workflowQueue.Keys("ns") // TODO: ns: need to schedule future events in the right queue. Pass all keys to the script?
-
 	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.futureEventsKey(),
-		queueKeys.StreamKey,
-		queueKeys.SetKey,
 	}, nowStr, rb.keys.prefix).Result(); err != nil && err != redis.Nil {
 		return fmt.Errorf("checking future events: %w", err)
 	}

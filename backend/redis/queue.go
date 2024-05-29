@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cschleiden/go-workflows/workflow"
@@ -12,11 +13,11 @@ import (
 )
 
 type taskQueue[T any] struct {
-	queues     []string
-	tasktype   string
-	keys       map[workflow.Queue]KeyInfo
-	groupName  string
-	workerName string
+	keyPrefix   string
+	tasktype    string
+	groupName   string
+	workerName  string
+	queueSetKey string
 }
 
 type TaskItem[T any] struct {
@@ -35,47 +36,35 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, queues []workflow.Queue, tasktype string) (*taskQueue[T], error) {
+func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
 	}
 
-	keys := map[workflow.Queue]KeyInfo{}
-	for _, ns := range queues {
-		keys[ns] = KeyInfo{
-			StreamKey: fmt.Sprintf("%stask-stream:%s:%s", keyPrefix, ns, tasktype),
-			SetKey:    fmt.Sprintf("%stask-set:%s:%s", keyPrefix, ns, tasktype),
-		}
-	}
-
 	tq := &taskQueue[T]{
-		tasktype:   tasktype,
-		keys:       keys,
-		groupName:  "task-workers",
-		workerName: uuid.NewString(),
+		keyPrefix:   keyPrefix,
+		tasktype:    tasktype,
+		groupName:   "task-workers",
+		workerName:  uuid.NewString(),
+		queueSetKey: fmt.Sprintf("%s%s:queues", keyPrefix, tasktype),
 	}
 
 	// Pre-load scripts
 	cmds := map[string]*redis.StringCmd{
-		"createGroupCmd": createGroupCmd.Load(context.Background(), rdb),
-		"enqueueCmd":     enqueueCmd.Load(context.Background(), rdb),
-		"completeCmd":    completeCmd.Load(context.Background(), rdb),
+		"recoverCmd":  recoverCmd.Load(context.Background(), rdb),
+		"enqueueCmd":  enqueueCmd.Load(context.Background(), rdb),
+		"completeCmd": completeCmd.Load(context.Background(), rdb),
+		"sizeCmd":     sizeCmd.Load(context.Background(), rdb),
 	}
 
 	for name, cmd := range cmds {
-		// fmt.Println(name, cmd.Val())
+		// if testing.Testing() {
+		// 	fmt.Println(name, cmd.Val())
+		// }
 
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
-		}
-	}
-
-	// Create the consumer groups
-	for _, k := range keys {
-		err := createGroupCmd.Run(context.Background(), rdb, []string{k.StreamKey}, tq.groupName).Err()
-		if err != nil {
-			return nil, fmt.Errorf("creating task queue: %w", err)
 		}
 	}
 
@@ -83,82 +72,70 @@ func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, queues []w
 }
 
 func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
-	return q.keys[queue]
+	return KeyInfo{
+		StreamKey: fmt.Sprintf("%stask-stream:%s:%s", q.keyPrefix, queue, q.tasktype),
+		SetKey:    fmt.Sprintf("%stask-set:%s:%s", q.keyPrefix, queue, q.tasktype),
+	}
 }
 
-// Return a table with the stream length for each key given
-// KEYS = stream keys
+// Return a table with the queue name as key and the number of tasks in the queue as value
+// KEYS[1] = stream set key
 var sizeCmd = redis.NewScript(`
 	local res = {}
-	for i = 1, #KEYS do
-		local len = redis.call("XLEN", key[i])
-		res[i] = len
+	local r = redis.call("SMEMBERS", KEYS[1])
+	local idx = 1
+	for i = 1, #r, 1 do
+		local queue = r[i]
+		local length = redis.call("SCARD", queue)
+		table.insert(res, queue)
+		table.insert(res, length)
 	end
+
 	return res
 `)
 
 func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient) (map[workflow.Queue]int64, error) {
-	queues := []workflow.Queue{}
-	keys := []string{}
-
-	for queue, ns := range q.keys {
-		keys = append(keys, ns.StreamKey)
-		queues = append(queues, queue)
-	}
-
-	length, err := sizeCmd.Run(ctx, rdb, keys).Int64Slice()
+	sizeData, err := sizeCmd.Run(ctx, rdb, []string{q.queueSetKey}).Slice()
 	if err != nil {
 		return nil, fmt.Errorf("getting queue size: %w", err)
 	}
 
 	res := map[workflow.Queue]int64{}
 
-	for i, queue := range queues {
-		res[queue] = length[i]
+	for i := 0; i < len(sizeData); i += 2 {
+		queueName := sizeData[i].(string)
+
+		// Parse queue name from key
+		queueName = strings.Split(queueName, ":")[2] // queue name is the third part of the key (0-indexed)
+
+		queue := workflow.Queue(queueName)
+		size := sizeData[i+1].(int64)
+		res[queue] = size
 	}
 
 	return res, nil
 }
 
-// KEYS[1] = set
-// KEYS[2] = stream
-// ARGV[1] = caller provided id of the task
-// ARGV[2] = additional data to store with the task
+// KEYS[1] = queues set
+// KEYS[2] = set
+// KEYS[3] = stream
+// ARGV[1] = consumer group
+// ARGV[2] = caller provided id of the task
+// ARGV[3] = additional data to store with the task
 var enqueueCmd = redis.NewScript(
 	// Prevent duplicates by checking a set first
-	`local added = redis.call("SADD", KEYS[1], ARGV[1])
+	`local added = redis.call("SADD", KEYS[2], ARGV[2])
 	if added == 1 then
-		redis.call("XADD", KEYS[2], "*", "id", ARGV[1], "data", ARGV[2])
+		local streamExists = redis.call("SISMEMBER", KEYS[1], KEYS[2])
+		if streamExists == 0 then
+			redis.call("XGROUP", "CREATE", KEYS[3], ARGV[1], "0", "MKSTREAM")
+			redis.call("SADD", KEYS[1], KEYS[2])
+		end
+
+		redis.call("XADD", KEYS[3], "*", "id", ARGV[2], "data", ARGV[3])
 	end
 
 	return true
-`)
-
-var createGroupCmd = redis.NewScript(`
-    local streamKey = KEYS[1]
-    local groupName = ARGV[1]
-    local exists = false
-    local res = redis.pcall('XINFO', 'GROUPS', streamKey)
-
-    if res and type(res) == 'table' then
-        for _, groupInfo in ipairs(res) do
-            if type(groupInfo) == 'table' then
-                for i = 1, #groupInfo, 2 do
-                    if groupInfo[i] == 'name' and groupInfo[i+1] == groupName then
-                        exists = true
-                        break
-                    end
-                end
-            end
-            if exists then break end
-        end
-    end
-
-    if not exists then
-        redis.call('XGROUP', 'CREATE', streamKey, groupName, '$', 'MKSTREAM')
-    end
-
-    return true
 `)
 
 func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, id string, data *T) error {
@@ -167,13 +144,15 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, queue wor
 		return err
 	}
 
-	enqueueCmd.Run(ctx, p, []string{q.keys[queue].SetKey, q.keys[queue].StreamKey}, id, string(ds))
+	keys := q.Keys(queue)
+
+	enqueueCmd.Run(ctx, p, []string{q.queueSetKey, keys.SetKey, keys.StreamKey}, q.groupName, id, string(ds))
 
 	return nil
 }
 
 func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, queues []workflow.Queue, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
-	// Try to recover abandoned messages
+	// Try to recover abandoned tasks
 	task, err := q.recover(ctx, rdb, queues, lockTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("checking for abandoned tasks: %w", err)
@@ -186,8 +165,9 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, q
 	// Check for new tasks
 	streamKeys := []string{}
 	streamIds := []string{}
-	for _, ns := range queues {
-		streamKeys = append(streamKeys, q.keys[ns].StreamKey)
+	for _, queue := range queues {
+		keys := q.Keys(queue)
+		streamKeys = append(streamKeys, keys.StreamKey)
 		streamIds = append(streamIds, ">")
 	}
 
@@ -215,7 +195,7 @@ func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, queue work
 	// Claiming a message resets the idle timer. Don't use the `JUSTID` variant, we
 	// want to increase the retry counter.
 	_, err := p.XClaim(ctx, &redis.XClaimArgs{
-		Stream:   q.keys[queue].StreamKey,
+		Stream:   q.Keys(queue).StreamKey,
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		Messages: []string{taskID},
@@ -251,8 +231,8 @@ var completeCmd = redis.NewScript(
 
 func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, taskID string) (*redis.Cmd, error) {
 	cmd := completeCmd.Run(ctx, p, []string{
-		q.keys[queue].SetKey,
-		q.keys[queue].StreamKey,
+		q.Keys(queue).SetKey,
+		q.Keys(queue).StreamKey,
 	}, taskID, q.groupName)
 	if err := cmd.Err(); err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("completing task: %w", err)
@@ -262,7 +242,7 @@ func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, queue wo
 }
 
 func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, taskID string) (*TaskItem[T], error) {
-	msg, err := p.XRange(ctx, q.keys[queue].StreamKey, taskID, taskID).Result()
+	msg, err := p.XRange(ctx, q.Keys(queue).StreamKey, taskID, taskID).Result()
 	if err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("finding task: %w", err)
 	}
@@ -270,25 +250,64 @@ func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, queue workfl
 	return msgToTaskItem[T](&msg[0])
 }
 
-func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, queues []workflow.Queue, idleTimeout time.Duration) (*TaskItem[T], error) {
-	for _, ns := range queues {
-		// Ignore the start argument, we are deleting tasks as they are completed, so we'll always
-		// start this scan from the beginning.
-		msgs, _, err := rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
-			Stream:   q.keys[ns].StreamKey,
-			Group:    q.groupName,
-			Consumer: q.workerName,
-			MinIdle:  idleTimeout,
-			Count:    1,   // Get at most one abandoned task
-			Start:    "0", // Start at the beginning of the pending items
-		}).Result()
+// KEYS[1] = queues set key
+// KEYS[2] = stream key
+// KEYS[3] = set key
+// ARGV[1] = group name
+// ARGV[2] = consumer/worker name
+// ARGV[3] = min-idle
+// ARGV[4] = start
+// ARGV[5] = queue name
+var recoverCmd = redis.NewScript(`
+	local streamExists = redis.call("SISMEMBER", KEYS[1], KEYS[3])
+	if streamExists == 0 then
+		redis.call("XGROUP", "CREATE", KEYS[2], ARGV[1], "0", 'MKSTREAM')
+		redis.call("SADD", KEYS[1], KEYS[3])
+	end
 
+	return redis.call("XAUTOCLAIM", KEYS[2], ARGV[1], ARGV[2], ARGV[3], ARGV[4], "COUNT", 1)
+`)
+
+func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, queues []workflow.Queue, idleTimeout time.Duration) (*TaskItem[T], error) {
+	for _, queue := range queues {
+		keys := q.Keys(queue)
+
+		r, err := recoverCmd.Run(
+			ctx, rdb,
+			[]string{q.queueSetKey, keys.StreamKey, keys.SetKey},
+			q.groupName,
+			q.workerName,
+			idleTimeout.Milliseconds(),
+			"0",
+			string(queue),
+		).Slice()
 		if err != nil {
-			return nil, fmt.Errorf("recovering tasks: %w", err)
+			if err == redis.Nil {
+				continue
+			}
+
+			return nil, fmt.Errorf("recovering abandoned task: %w", err)
 		}
 
-		if len(msgs) > 0 {
-			return msgToTaskItem[T](&msgs[0])
+		if len(r) > 1 {
+			msgs := r[1].([]interface{})
+			if len(msgs) > 0 {
+				msgData := msgs[0].([]interface{})
+
+				id := msgData[0].(string)
+				rawValues := msgData[1].([]interface{})
+				values := make(map[string]interface{})
+				for i := 0; i < len(rawValues); i += 2 {
+					key := rawValues[i].(string)
+					value := rawValues[i+1].(string)
+					values[key] = value
+				}
+
+				return msgToTaskItem[T](&redis.XMessage{
+					ID:     id,
+					Values: values,
+				})
+			}
 		}
 	}
 

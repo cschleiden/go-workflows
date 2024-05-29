@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -31,9 +30,9 @@ var ErrWorkflowCanceled = errors.New("workflow canceled")
 var ErrWorkflowTerminated = errors.New("workflow terminated")
 
 type WorkflowInstanceOptions struct {
-	// Namespace is the queue the workflow instance will be created in. Must be a valid queue
+	// Queue is the queue the workflow instance will be created in. Must be a valid queue
 	// for the given backend. If not set, will default to the default queue
-	Namespace workflow.Queue
+	Queue workflow.Queue
 
 	InstanceID string
 }
@@ -75,10 +74,6 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, errors.New("InstanceID must be set")
 	}
 
-	if !slices.Contains(c.backend.Options().Queues, options.Namespace) {
-		return nil, fmt.Errorf("queue %s is not valid", options.Namespace)
-	}
-
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 	metadata := &workflow.Metadata{}
 
@@ -104,7 +99,7 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 			Inputs:   inputs,
 		})
 
-	if err := c.backend.CreateWorkflowInstance(ctx, options.Namespace, wfi, startedEvent); err != nil {
+	if err := c.backend.CreateWorkflowInstance(ctx, options.Queue, wfi, startedEvent); err != nil {
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 

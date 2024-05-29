@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -114,10 +113,6 @@ func (mb *mysqlBackend) Migrate() error {
 	}
 
 	return nil
-}
-
-func (b *mysqlBackend) Logger() *slog.Logger {
-	return b.options.Logger
 }
 
 func (b *mysqlBackend) Tracer() trace.Tracer {
@@ -593,7 +588,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	// Schedule activities
 	for _, e := range activityEvents {
-		if err := scheduleActivity(ctx, tx, instance, e); err != nil {
+		if err := scheduleActivity(ctx, tx, task.Queue, instance, e); err != nil { // TODO: Take activity queue from options
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}
@@ -621,7 +616,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 			// Create new instance
-			if err := createInstance(ctx, tx, task.Namespace, m.WorkflowInstance, a.Metadata); err != nil {
+			if err := createInstance(ctx, tx, task.Queue, m.WorkflowInstance, a.Metadata); err != nil {
 				if err == backend.ErrInstanceAlreadyExists {
 					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
 						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
@@ -695,26 +690,35 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 	defer tx.Rollback()
 
 	// Lock next activity
+	queuePlaceholders := strings.Repeat(",?", len(queues)-1)
+
 	now := time.Now()
+
+	args := make([]interface{}, 0, len(queues)+1)
+	args = append(args, now)
+	for _, q := range queues {
+		args = append(args, q)
+	}
+
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT a.id, a.activity_id, a.instance_id, a.execution_id,
+		fmt.Sprintf(`SELECT a.id, a.activity_id, a.instance_id, a.execution_id, a.queue,
 			a.event_type, a.timestamp, a.schedule_event_id, at.data, a.visible_at
 			FROM activities a
 			JOIN attributes at ON at.event_id = a.activity_id AND at.instance_id = a.instance_id AND at.execution_id = a.execution_id
-			WHERE a.locked_until IS NULL OR a.locked_until < ?
+			WHERE a.locked_until IS NULL OR a.locked_until < ? AND a.queue IN (?%s)
 			LIMIT 1
-			FOR UPDATE SKIP LOCKED`,
-		now,
+			FOR UPDATE SKIP LOCKED`, queuePlaceholders),
+		args,
 	)
 
 	var id int64
-	var instanceID, executionID string
+	var instanceID, executionID, queue string
 	var attributes []byte
 	event := &history.Event{}
 
 	if err := res.Scan(
-		&id, &event.ID, &instanceID, &executionID, &event.Type,
+		&id, &event.ID, &instanceID, &executionID, &queue, &event.Type,
 		&event.Timestamp, &event.ScheduleEventID, &attributes, &event.VisibleAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -741,7 +745,9 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 	}
 
 	t := &backend.ActivityTask{
-		ID:               event.ID,
+		ID: event.ID,
+		// ActivityID: , // TODO: CS: Do we need this here?
+		Queue:            workflow.Queue(queue),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,
 	}
@@ -766,11 +772,12 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, task *backend.A
 	// Remove activity
 	if res, err := tx.ExecContext(
 		ctx,
-		`DELETE FROM activities WHERE activity_id = ? AND instance_id = ? AND execution_id = ? AND worker = ?`,
+		`DELETE FROM activities WHERE activity_id = ? AND instance_id = ? AND execution_id = ? AND worker = ? AND queue = ?`,
 		task.ActivityID,
 		task.WorkflowInstance.InstanceID,
 		task.WorkflowInstance.ExecutionID,
 		b.workerName,
+		task.Queue,
 	); err != nil {
 		return fmt.Errorf("completing activity: %w", err)
 	} else {
@@ -826,16 +833,17 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, task *backend.Act
 	return nil
 }
 
-func scheduleActivity(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance, event *history.Event) error {
+func scheduleActivity(ctx context.Context, tx *sql.Tx, queue workflow.Queue, instance *core.WorkflowInstance, event *history.Event) error {
 	// Attributes are already persisted via the history, we do not need to add them again.
 
 	_, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
-			(activity_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			(activity_id, instance_id, execution_id, queue, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID,
 		instance.InstanceID,
 		instance.ExecutionID,
+		queue,
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,

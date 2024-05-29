@@ -17,7 +17,6 @@ func Test_TaskQueue(t *testing.T) {
 		t.Skip()
 	}
 
-	defaultNamespaces := []workflow.Queue{workflow.NamespaceDefault, workflow.NamespaceSystem}
 	taskType := "taskType"
 
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
@@ -37,7 +36,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Create queue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "", defaultNamespaces, taskType)
+				q, err := newTaskQueue[any](client, "", taskType)
 				require.NoError(t, err)
 				require.NotNil(t, q)
 			},
@@ -45,52 +44,70 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", defaultNamespaces, taskType)
+				q, err := newTaskQueue[any](client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
 			},
 		},
 		{
-			name: "Guarantee uniqueness",
+			name: "Size",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", defaultNamespaces, taskType)
+				q, err := newTaskQueue[any](client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
+				})
+				require.NoError(t, err)
+
+				s1, err := q.Size(ctx, client)
+				require.NoError(t, err)
+				require.Equal(t, map[workflow.Queue]int64{workflow.QueueDefault: 1}, s1)
+			},
+		},
+		{
+			name: "Guarantee uniqueness",
+			f: func(t *testing.T) {
+				q, err := newTaskQueue[any](client, "prefix", taskType)
+				require.NoError(t, err)
+
+				ctx := context.Background()
+
+				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					_, err := q.Complete(ctx, p, workflow.NamespaceDefault, task.TaskID)
+					_, err := q.Complete(ctx, p, workflow.QueueDefault, task.TaskID)
 					return err
 				})
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 			},
@@ -105,18 +122,18 @@ func Test_TaskQueue(t *testing.T) {
 
 				ctx := context.Background()
 
-				q, err := newTaskQueue[foo](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q, err := newTaskQueue[foo](client, "prefix", taskType)
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", &foo{
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", &foo{
 						Count: 1,
 						Name:  "bar",
 					})
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -127,20 +144,20 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue different worker",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q, _ := newTaskQueue[any](client, "prefix", taskType)
 
 				ctx := context.Background()
 
 				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q2, _ := newTaskQueue[any](client, "prefix", taskType)
 				require.NoError(t, err)
 
 				// Dequeue using second worker
-				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -149,23 +166,23 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Complete removes task",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
-				q2, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q, _ := newTaskQueue[any](client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](client, "prefix", taskType)
 
 				ctx := context.Background()
 
 				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
 				// Complete task
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					_, err := q2.Complete(ctx, p, workflow.NamespaceDefault, task.TaskID)
+					_, err := q2.Complete(ctx, p, workflow.QueueDefault, task.TaskID)
 					return err
 				})
 				require.NoError(t, err)
@@ -173,7 +190,7 @@ func Test_TaskQueue(t *testing.T) {
 				time.Sleep(time.Millisecond * 10)
 
 				// Try to recover using second worker
-				task2, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task2, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, task2)
 			},
@@ -181,19 +198,24 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Recover task",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				type taskData struct {
+					Count int `json:"count"`
+				}
+				q, _ := newTaskQueue[taskData](client, "prefix", taskType)
 
 				ctx := context.Background()
 
 				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", &taskData{
+						Count: 42,
+					})
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q2, _ := newTaskQueue[taskData](client, "prefix", taskType)
 				require.NoError(t, err)
 
-				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -201,7 +223,7 @@ func Test_TaskQueue(t *testing.T) {
 				time.Sleep(time.Millisecond * 10)
 
 				// Assume q2 crashed, recover from other worker
-				recoveredTask, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, time.Millisecond*1, blockTimeout)
+				recoveredTask, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, time.Millisecond*1, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, task, recoveredTask)
@@ -210,20 +232,20 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Extending task prevents recovering",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q, _ := newTaskQueue[any](client, "prefix", taskType)
 
 				ctx := context.Background()
 
 				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
 				// Create second worker (with different name)
-				q2, _ := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault}, taskType)
+				q2, _ := newTaskQueue[any](client, "prefix", taskType)
 				require.NoError(t, err)
 
-				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, "t1", task.ID)
@@ -231,12 +253,12 @@ func Test_TaskQueue(t *testing.T) {
 				time.Sleep(time.Millisecond * 5)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q2.Extend(ctx, p, workflow.NamespaceDefault, task.TaskID)
+					return q2.Extend(ctx, p, workflow.QueueDefault, task.TaskID)
 				})
 				require.NoError(t, err)
 
 				// Use large lock timeout
-				recoveredTask, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, time.Second*2, blockTimeout)
+				recoveredTask, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, time.Second*2, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, recoveredTask)
 			},
@@ -244,21 +266,21 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Will only dequeue from given queue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", []workflow.Queue{workflow.NamespaceDefault, workflow.NamespaceSystem}, taskType)
+				q, err := newTaskQueue[any](client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
-					return q.Enqueue(ctx, p, workflow.NamespaceDefault, "t1", nil)
+					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceSystem}, lockTimeout, blockTimeout)
+				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueSystem}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, task)
 
-				task, err = q.Dequeue(ctx, client, []workflow.Queue{workflow.NamespaceDefault}, lockTimeout, blockTimeout)
+				task, err = q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 			},
