@@ -5,7 +5,7 @@ import (
 )
 
 type options struct {
-	backend.Options
+	*backend.Options
 
 	// ApplyMigrations automatically applies database migrations on startup.
 	ApplyMigrations bool
@@ -24,7 +24,7 @@ func WithApplyMigrations(applyMigrations bool) option {
 func WithBackendOptions(opts ...backend.BackendOption) option {
 	return func(o *options) {
 		for _, opt := range opts {
-			opt(&o.Options)
+			opt(o.Options)
 		}
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/metrics"
@@ -129,15 +128,11 @@ func (b *mysqlBackend) Metrics() metrics.Client {
 	return b.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
 }
 
-func (b *mysqlBackend) Converter() converter.Converter {
-	return b.options.Converter
+func (b *mysqlBackend) Options() *backend.Options {
+	return b.options.Options
 }
 
-func (b *mysqlBackend) ContextPropagators() []workflow.ContextPropagator {
-	return b.options.ContextPropagators
-}
-
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
+func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -147,7 +142,7 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
+	if err := createInstance(ctx, tx, queue, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
 		return err
 	}
 
@@ -305,7 +300,7 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 	return state, nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata) error {
+func createInstance(ctx context.Context, tx *sql.Tx, queue workflow.Queue, wfi *workflow.Instance, metadata *workflow.Metadata) error {
 	// Check for existing instance
 	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE instance_id = ? AND state = ? LIMIT 1", wfi.InstanceID, core.WorkflowInstanceStateActive).
 		Scan(new(int)); err != sql.ErrNoRows {
@@ -370,7 +365,7 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 }
 
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
-func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
+func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -532,7 +527,6 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, namespaces []string)
 func (b *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *backend.WorkflowTask,
-	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []*history.WorkflowEvent,
@@ -544,6 +538,8 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		return err
 	}
 	defer tx.Rollback()
+
+	instance := task.WorkflowInstance
 
 	// Unlock instance, but keep it sticky to the current worker
 	var completedAt *time.Time
@@ -625,7 +621,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 			// Create new instance
-			if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata); err != nil {
+			if err := createInstance(ctx, tx, task.Namespace, m.WorkflowInstance, a.Metadata); err != nil {
 				if err == backend.ErrInstanceAlreadyExists {
 					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
 						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
@@ -659,7 +655,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	return nil
 }
 
-func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error {
+func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, task *backend.WorkflowTask) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -671,8 +667,8 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
 		until,
-		instance.InstanceID,
-		instance.ExecutionID,
+		task.WorkflowInstance.InstanceID,
+		task.WorkflowInstance.ExecutionID,
 		b.workerName,
 	)
 	if err != nil {
@@ -689,7 +685,7 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, taskID string, in
 }
 
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
-func (b *mysqlBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
+func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -758,7 +754,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, namespaces []string)
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
-func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workflow.Instance, id string, event *history.Event) error {
+func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -771,9 +767,9 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workf
 	if res, err := tx.ExecContext(
 		ctx,
 		`DELETE FROM activities WHERE activity_id = ? AND instance_id = ? AND execution_id = ? AND worker = ?`,
-		id,
-		instance.InstanceID,
-		instance.ExecutionID,
+		task.ActivityID,
+		task.WorkflowInstance.InstanceID,
+		task.WorkflowInstance.ExecutionID,
 		b.workerName,
 	); err != nil {
 		return fmt.Errorf("completing activity: %w", err)
@@ -789,7 +785,7 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workf
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertPendingEvents(ctx, tx, instance, []*history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, task.WorkflowInstance, []*history.Event{result}); err != nil {
 		return fmt.Errorf("inserting new events for completed activity: %w", err)
 	}
 
@@ -800,7 +796,7 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, instance *workf
 	return nil
 }
 
-func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, task *backend.ActivityTask) error {
 	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -812,7 +808,7 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, activityID string
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE activity_id = ? AND worker = ?`,
 		until,
-		activityID,
+		task.ActivityID,
 		b.workerName,
 	)
 	if err != nil {

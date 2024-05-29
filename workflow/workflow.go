@@ -6,6 +6,9 @@ import (
 )
 
 type (
+	// Queue represents a queue for workflow instances and activities.
+	Queue = core.Queue
+
 	// Instance represents a workflow instance.
 	Instance = core.WorkflowInstance
 
@@ -15,4 +18,9 @@ type (
 	Workflow = interface{}
 
 	Activity = interface{}
+)
+
+const (
+	NamespaceDefault = core.QueueDefault
+	NamespaceSystem  = core.QueueSystem
 )

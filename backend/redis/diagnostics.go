@@ -24,7 +24,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		}
 
 		if len(scores) == 0 {
-			rb.Logger().Error("could not find instance %v",
+			rb.Options().Logger.Error("could not find instance %v",
 				log.NamespaceKey+".redis.afterInstanceID", afterInstanceID,
 				log.NamespaceKey+".redis.afterExecutionID", afterExecutionID,
 			)

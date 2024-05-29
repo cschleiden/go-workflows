@@ -53,7 +53,7 @@ func scheduleFutureEvents(ctx context.Context, rb *redisBackend) error {
 	now := time.Now().UnixMilli()
 	nowStr := strconv.FormatInt(now, 10)
 
-	queueKeys := rb.workflowQueue.Keys()
+	queueKeys := rb.workflowQueue.Keys("ns") // TODO: ns: need to schedule future events in the right queue. Pass all keys to the script?
 
 	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.futureEventsKey(),

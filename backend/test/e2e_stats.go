@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
@@ -38,16 +39,16 @@ var e2eStatsTests = []backendTest{
 			s, err := b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(0), s.PendingWorkflowTasks)
-			require.Equal(t, int64(0), s.PendingActivities)
+			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingWorkflowTasks)
+			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
 
 			wfi := runWorkflow(t, ctx, c, wf)
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(1), s.PendingWorkflowTasks)
-			require.Equal(t, int64(0), s.PendingActivities)
+			require.Equal(t, int64(1), s.PendingTasksInQueue[core.QueueDefault].PendingWorkflowTasks)
+			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
 
 			// Start worker
 			require.NoError(t, w.Start(ctx))
@@ -57,13 +58,13 @@ var e2eStatsTests = []backendTest{
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
-			require.Equal(t, int64(0), s.PendingWorkflowTasks)
+			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingWorkflowTasks)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(1), s.PendingActivities)
+			require.Equal(t, int64(1), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
 
 			// Let the activity finish
 			activityBlocked <- true
@@ -78,7 +79,7 @@ var e2eStatsTests = []backendTest{
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(0), s.PendingActivities)
+			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
 		},
 	},
 }

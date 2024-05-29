@@ -45,12 +45,10 @@ func Test_Client_CreateWorkflowInstance_NameGiven(t *testing.T) {
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
-	b.On("Converter").Return(converter.DefaultConverter)
-	b.On("Logger").Return(slog.Default())
+	b.On("Options").Return(backend.ApplyOptions(backend.WithConverter(converter.DefaultConverter), backend.WithLogger(slog.Default())))
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
 	b.On("Metrics").Return(metrics.NewNoopMetricsClient())
-	b.On("ContextPropagators").Return(nil)
-	b.On("CreateWorkflowInstance", mock.Anything, mock.Anything, mock.MatchedBy(func(event *history.Event) bool {
+	b.On("CreateWorkflowInstance", mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(event *history.Event) bool {
 		if event.Type != history.EventType_WorkflowExecutionStarted {
 			return false
 		}
@@ -68,8 +66,8 @@ func Test_Client_CreateWorkflowInstance_NameGiven(t *testing.T) {
 	result, err := c.CreateWorkflowInstance(ctx, WorkflowInstanceOptions{
 		InstanceID: "id",
 	}, "workflowName", "foo")
-	require.NotZero(t, result)
 	require.NoError(t, err)
+	require.NotZero(t, result)
 	b.AssertExpectations(t)
 }
 
@@ -116,7 +114,7 @@ func Test_Client_GetWorkflowResultSuccess(t *testing.T) {
 			Error:  nil,
 		}),
 	}, nil)
-	b.On("Converter").Return(converter.DefaultConverter)
+	b.On("Options").Return(backend.ApplyOptions(backend.WithConverter(converter.DefaultConverter), backend.WithLogger(slog.Default())))
 
 	c := &Client{
 		backend: b,
@@ -135,9 +133,8 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 	ctx := context.Background()
 
 	b := &backend.MockBackend{}
+	b.On("Options").Return(backend.ApplyOptions(backend.WithConverter(converter.DefaultConverter), backend.WithLogger(slog.Default())))
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
-	b.On("Logger").Return(slog.Default())
-	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", mock.Anything, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test"
@@ -164,9 +161,8 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 	input, _ := converter.DefaultConverter.To(arg)
 
 	b := &backend.MockBackend{}
+	b.On("Options").Return(backend.ApplyOptions(backend.WithConverter(converter.DefaultConverter), backend.WithLogger(slog.Default())))
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
-	b.On("Logger").Return(slog.Default())
-	b.On("Converter").Return(converter.DefaultConverter)
 	b.On("SignalWorkflow", mock.Anything, instanceID, mock.MatchedBy(func(event *history.Event) bool {
 		return event.Type == history.EventType_SignalReceived &&
 			event.Attributes.(*history.SignalReceivedAttributes).Name == "test" &&

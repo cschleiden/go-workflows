@@ -34,15 +34,19 @@ func NewMonoprocessBackend(b backend.Backend) *monoprocessBackend {
 		Backend:        b,
 		workflowSignal: make(chan struct{}, 1),
 		activitySignal: make(chan struct{}, 1),
-		logger:         b.Logger(),
+		logger:         b.Options().Logger,
 	}
 	return mb
 }
 
-func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
+func (b *monoprocessBackend) Options() *backend.Options {
+	return b.Backend.Options()
+}
+
+func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	// loop until either we find a task or the context is cancelled
 	for {
-		if w, err := b.Backend.GetWorkflowTask(ctx, namespaces); w != nil || err != nil {
+		if w, err := b.Backend.GetWorkflowTask(ctx, queues); w != nil || err != nil {
 			return w, err
 		}
 		b.logger.DebugContext(ctx, "worker waiting for workflow task signal")
@@ -55,10 +59,10 @@ func (b *monoprocessBackend) GetWorkflowTask(ctx context.Context, namespaces []s
 	}
 }
 
-func (b *monoprocessBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
+func (b *monoprocessBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
 	// loop until either we find a task or the context is cancelled
 	for {
-		if a, err := b.Backend.GetActivityTask(ctx, namespaces); a != nil || err != nil {
+		if a, err := b.Backend.GetActivityTask(ctx, queues); a != nil || err != nil {
 			return a, err
 		}
 		b.logger.DebugContext(ctx, "worker waiting for activity task signal")
@@ -71,8 +75,8 @@ func (b *monoprocessBackend) GetActivityTask(ctx context.Context, namespaces []s
 	}
 }
 
-func (b *monoprocessBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	if err := b.Backend.CreateWorkflowInstance(ctx, instance, event); err != nil {
+func (b *monoprocessBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
+	if err := b.Backend.CreateWorkflowInstance(ctx, queue, instance, event); err != nil {
 		return err
 	}
 	b.notifyWorkflowWorker(ctx)
@@ -82,12 +86,11 @@ func (b *monoprocessBackend) CreateWorkflowInstance(ctx context.Context, instanc
 func (b *monoprocessBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *backend.WorkflowTask,
-	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []*history.WorkflowEvent,
 ) error {
-	if err := b.Backend.CompleteWorkflowTask(ctx, task, instance, state, executedEvents, activityEvents, timerEvents, workflowEvents); err != nil {
+	if err := b.Backend.CompleteWorkflowTask(ctx, task, state, executedEvents, activityEvents, timerEvents, workflowEvents); err != nil {
 		return err
 	}
 
@@ -114,8 +117,8 @@ func (b *monoprocessBackend) CompleteWorkflowTask(
 	return nil
 }
 
-func (b *monoprocessBackend) CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event *history.Event) error {
-	if err := b.Backend.CompleteActivityTask(ctx, instance, activityID, event); err != nil {
+func (b *monoprocessBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
+	if err := b.Backend.CompleteActivityTask(ctx, task, result); err != nil {
 		return err
 	}
 	b.notifyWorkflowWorker(ctx)

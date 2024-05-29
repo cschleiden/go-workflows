@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
 type taskQueue[T any] struct {
-	namespaces []string
+	queues     []string
 	tasktype   string
-	keys       map[string]KeyInfo
+	keys       map[workflow.Queue]KeyInfo
 	groupName  string
 	workerName string
 }
@@ -34,14 +35,14 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, namespaces []string, tasktype string) (*taskQueue[T], error) {
+func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, queues []workflow.Queue, tasktype string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
 	}
 
-	keys := map[string]KeyInfo{}
-	for _, ns := range namespaces {
+	keys := map[workflow.Queue]KeyInfo{}
+	for _, ns := range queues {
 		keys[ns] = KeyInfo{
 			StreamKey: fmt.Sprintf("%stask-stream:%s:%s", keyPrefix, ns, tasktype),
 			SetKey:    fmt.Sprintf("%stask-set:%s:%s", keyPrefix, ns, tasktype),
@@ -81,12 +82,42 @@ func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, namespaces
 	return tq, nil
 }
 
-func (q *taskQueue[T]) Keys(namespace string) KeyInfo {
-	return q.keys[namespace]
+func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
+	return q.keys[queue]
 }
 
-func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient, namespace string) (int64, error) {
-	return rdb.XLen(ctx, q.keys[namespace].StreamKey).Result()
+// Return a table with the stream length for each key given
+// KEYS = stream keys
+var sizeCmd = redis.NewScript(`
+	local res = {}
+	for i = 1, #KEYS do
+		local len = redis.call("XLEN", key[i])
+		res[i] = len
+	end
+	return res
+`)
+
+func (q *taskQueue[T]) Size(ctx context.Context, rdb redis.UniversalClient) (map[workflow.Queue]int64, error) {
+	queues := []workflow.Queue{}
+	keys := []string{}
+
+	for queue, ns := range q.keys {
+		keys = append(keys, ns.StreamKey)
+		queues = append(queues, queue)
+	}
+
+	length, err := sizeCmd.Run(ctx, rdb, keys).Int64Slice()
+	if err != nil {
+		return nil, fmt.Errorf("getting queue size: %w", err)
+	}
+
+	res := map[workflow.Queue]int64{}
+
+	for i, queue := range queues {
+		res[queue] = length[i]
+	}
+
+	return res, nil
 }
 
 // KEYS[1] = set
@@ -130,20 +161,20 @@ var createGroupCmd = redis.NewScript(`
     return true
 `)
 
-func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, namespace string, id string, data *T) error {
+func (q *taskQueue[T]) Enqueue(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, id string, data *T) error {
 	ds, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
-	enqueueCmd.Run(ctx, p, []string{q.keys[namespace].SetKey, q.keys[namespace].StreamKey}, id, string(ds))
+	enqueueCmd.Run(ctx, p, []string{q.keys[queue].SetKey, q.keys[queue].StreamKey}, id, string(ds))
 
 	return nil
 }
 
-func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, namespaces []string, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
+func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, queues []workflow.Queue, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
 	// Try to recover abandoned messages
-	task, err := q.recover(ctx, rdb, namespaces, lockTimeout)
+	task, err := q.recover(ctx, rdb, queues, lockTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("checking for abandoned tasks: %w", err)
 	}
@@ -155,12 +186,12 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, n
 	// Check for new tasks
 	streamKeys := []string{}
 	streamIds := []string{}
-	for _, ns := range namespaces {
+	for _, ns := range queues {
 		streamKeys = append(streamKeys, q.keys[ns].StreamKey)
 		streamIds = append(streamIds, ">")
 	}
 
-	// Try to dequeue from all given namespaces
+	// Try to dequeue from all given queues
 	ids, err := rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 		Streams:  append(streamKeys, streamIds...),
 		Group:    q.groupName,
@@ -180,11 +211,11 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, n
 	return msgToTaskItem[T](&msg)
 }
 
-func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, namespace string, taskID string) error {
+func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, taskID string) error {
 	// Claiming a message resets the idle timer. Don't use the `JUSTID` variant, we
 	// want to increase the retry counter.
 	_, err := p.XClaim(ctx, &redis.XClaimArgs{
-		Stream:   q.keys[namespace].StreamKey,
+		Stream:   q.keys[queue].StreamKey,
 		Group:    q.groupName,
 		Consumer: q.workerName,
 		Messages: []string{taskID},
@@ -218,10 +249,10 @@ var completeCmd = redis.NewScript(
 	return redis.call("XDEL", KEYS[2], ARGV[1])
 `)
 
-func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, namespace string, taskID string) (*redis.Cmd, error) {
+func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, taskID string) (*redis.Cmd, error) {
 	cmd := completeCmd.Run(ctx, p, []string{
-		q.keys[namespace].SetKey,
-		q.keys[namespace].StreamKey,
+		q.keys[queue].SetKey,
+		q.keys[queue].StreamKey,
 	}, taskID, q.groupName)
 	if err := cmd.Err(); err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("completing task: %w", err)
@@ -230,8 +261,8 @@ func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, namespac
 	return cmd, nil
 }
 
-func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, namespace string, taskID string) (*TaskItem[T], error) {
-	msg, err := p.XRange(ctx, q.keys[namespace].StreamKey, taskID, taskID).Result()
+func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, taskID string) (*TaskItem[T], error) {
+	msg, err := p.XRange(ctx, q.keys[queue].StreamKey, taskID, taskID).Result()
 	if err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("finding task: %w", err)
 	}
@@ -239,8 +270,8 @@ func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, namespace st
 	return msgToTaskItem[T](&msg[0])
 }
 
-func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, namespaces []string, idleTimeout time.Duration) (*TaskItem[T], error) {
-	for _, ns := range namespaces {
+func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, queues []workflow.Queue, idleTimeout time.Duration) (*TaskItem[T], error) {
+	for _, ns := range queues {
 		// Ignore the start argument, we are deleting tasks as they are completed, so we'll always
 		// start this scan from the beginning.
 		msgs, _, err := rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{

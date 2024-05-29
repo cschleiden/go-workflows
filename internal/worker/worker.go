@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 type TaskWorker[Task, Result any] interface {
 	Start(context.Context) error
-	Get(context.Context, []string) (*Task, error)
+	Get(context.Context, []workflow.Queue) (*Task, error)
 	Extend(context.Context, *Task) error
 	Execute(context.Context, *Task) (*Result, error)
 	Complete(context.Context, *Result, *Task) error
@@ -42,7 +43,7 @@ type WorkerOptions struct {
 
 	PollingInterval time.Duration
 
-	Namespaces []string
+	Namespaces []workflow.Queue
 }
 
 func NewWorker[Task, TaskResult any](
@@ -52,7 +53,7 @@ func NewWorker[Task, TaskResult any](
 		tw:             tw,
 		options:        options,
 		taskQueue:      make(chan *Task),
-		logger:         b.Logger(),
+		logger:         b.Options().Logger,
 		dispatcherDone: make(chan struct{}, 1),
 	}
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type RedisOptions struct {
-	backend.Options
+	*backend.Options
 
 	BlockTimeout time.Duration
 
@@ -53,7 +53,7 @@ func WithAutoExpirationContinueAsNew(expireContinuedAsNewRunsAfter time.Duration
 func WithBackendOptions(opts ...backend.BackendOption) RedisBackendOption {
 	return func(o *RedisOptions) {
 		for _, opt := range opts {
-			opt(&o.Options)
+			opt(o.Options)
 		}
 	}
 }
