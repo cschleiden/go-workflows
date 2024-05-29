@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -30,6 +31,10 @@ var ErrWorkflowCanceled = errors.New("workflow canceled")
 var ErrWorkflowTerminated = errors.New("workflow terminated")
 
 type WorkflowInstanceOptions struct {
+	// Namespace is the queue the workflow instance will be created in. Must be a valid queue
+	// for the given backend. If not set, will default to the default queue
+	Namespace workflow.Queue
+
 	InstanceID string
 }
 
@@ -61,9 +66,17 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		}
 	}
 
-	inputs, err := a.ArgsToInputs(c.backend.Converter(), args...)
+	inputs, err := a.ArgsToInputs(c.backend.Options().Converter, args...)
 	if err != nil {
 		return nil, fmt.Errorf("converting arguments: %w", err)
+	}
+
+	if options.InstanceID == "" {
+		return nil, errors.New("InstanceID must be set")
+	}
+
+	if !slices.Contains(c.backend.Options().Queues, options.Namespace) {
+		return nil, fmt.Errorf("queue %s is not valid", options.Namespace)
 	}
 
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
@@ -76,7 +89,7 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	))
 	defer span.End()
 
-	for _, propagator := range c.backend.ContextPropagators() {
+	for _, propagator := range c.backend.Options().ContextPropagators {
 		if err := propagator.Inject(ctx, metadata); err != nil {
 			return nil, fmt.Errorf("injecting context to propagate: %w", err)
 		}
@@ -91,11 +104,11 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 			Inputs:   inputs,
 		})
 
-	if err := c.backend.CreateWorkflowInstance(ctx, wfi, startedEvent); err != nil {
+	if err := c.backend.CreateWorkflowInstance(ctx, options.Namespace, wfi, startedEvent); err != nil {
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 
-	c.backend.Logger().Debug(
+	c.backend.Options().Logger.Debug(
 		"Created workflow instance",
 		log.InstanceIDKey, wfi.InstanceID,
 		log.ExecutionIDKey, wfi.ExecutionID,
@@ -126,7 +139,7 @@ func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name str
 	))
 	defer span.End()
 
-	input, err := c.backend.Converter().To(arg)
+	input, err := c.backend.Options().Converter.To(arg)
 	if err != nil {
 		return fmt.Errorf("converting arguments: %w", err)
 	}
@@ -146,7 +159,7 @@ func (c *Client) SignalWorkflow(ctx context.Context, instanceID string, name str
 		return err
 	}
 
-	c.backend.Logger().Debug("Signaled workflow instance", log.InstanceIDKey, instanceID)
+	c.backend.Options().Logger.Debug("Signaled workflow instance", log.InstanceIDKey, instanceID)
 
 	return nil
 }
@@ -225,7 +238,7 @@ func GetWorkflowResult[T any](ctx context.Context, c *Client, instance *workflow
 			}
 
 			var r T
-			if err := b.Converter().From(a.Result, &r); err != nil {
+			if err := b.Options().Converter.From(a.Result, &r); err != nil {
 				return *new(T), fmt.Errorf("converting result: %w", err)
 			}
 
@@ -235,7 +248,7 @@ func GetWorkflowResult[T any](ctx context.Context, c *Client, instance *workflow
 			a := event.Attributes.(*history.ExecutionContinuedAsNewAttributes)
 
 			var r T
-			if err := b.Converter().From(a.Result, &r); err != nil {
+			if err := b.Options().Converter.From(a.Result, &r); err != nil {
 				return *new(T), fmt.Errorf("converting result: %w", err)
 			}
 

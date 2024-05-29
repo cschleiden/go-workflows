@@ -14,10 +14,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	keyInfo := rb.workflowQueue.Keys()
-
+func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
 	instanceState, err := json.Marshal(&instanceState{
+		Queue:     queue,
 		Instance:  instance,
 		State:     core.WorkflowInstanceStateActive,
 		Metadata:  event.Attributes.(*history.ExecutionStartedAttributes).Metadata,
@@ -42,6 +41,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		return fmt.Errorf("marshaling event payload: %w", err)
 	}
 
+	keyInfo := rb.workflowQueue.Keys(queue)
 	_, err = createWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.instanceKey(instance),
 		rb.keys.activeInstanceExecutionKey(instance.InstanceID),
@@ -124,14 +124,14 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	// Read the instance to check if it exists
-	_, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
 	if err != nil {
 		return err
 	}
 
 	// Cancel instance
 	if cmds, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		return rb.addWorkflowInstanceEventP(ctx, p, instance, event)
+		return rb.addWorkflowInstanceEventP(ctx, p, instanceState.Queue, instance, event)
 	}); err != nil {
 		fmt.Println(cmds)
 		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
@@ -155,6 +155,8 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
+	Queue workflow.Queue `json:"queue,omitempty"`
+
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`
 

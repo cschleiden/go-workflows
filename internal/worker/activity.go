@@ -15,6 +15,7 @@ import (
 	im "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/registry"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func NewActivityWorker(
@@ -23,13 +24,13 @@ func NewActivityWorker(
 	clock clock.Clock,
 	options WorkerOptions,
 ) *Worker[backend.ActivityTask, history.Event] {
-	ae := activity.NewExecutor(b.Logger(), b.Tracer(), b.Converter(), b.ContextPropagators(), registry)
+	ae := activity.NewExecutor(b.Options().Logger, b.Tracer(), b.Options().Converter, b.Options().ContextPropagators, registry)
 
 	tw := &ActivityTaskWorker{
 		backend:              b,
 		activityTaskExecutor: ae,
 		clock:                clock,
-		logger:               b.Logger(),
+		logger:               b.Options().Logger,
 	}
 
 	return NewWorker[backend.ActivityTask, history.Event](b, tw, &options)
@@ -42,9 +43,9 @@ type ActivityTaskWorker struct {
 	logger               *slog.Logger
 }
 
-func (atw *ActivityTaskWorker) Complete(ctx context.Context, event *history.Event, task *backend.ActivityTask) error {
-	if err := atw.backend.CompleteActivityTask(ctx, task.WorkflowInstance, task.ID, event); err != nil {
-		atw.backend.Logger().Error("completing activity task", "error", err)
+func (atw *ActivityTaskWorker) Complete(ctx context.Context, result *history.Event, task *backend.ActivityTask) error {
+	if err := atw.backend.CompleteActivityTask(ctx, task, result); err != nil {
+		atw.backend.Options().Logger.Error("completing activity task", "error", err)
 	}
 
 	return nil
@@ -73,11 +74,11 @@ func (atw *ActivityTaskWorker) Execute(ctx context.Context, task *backend.Activi
 }
 
 func (atw *ActivityTaskWorker) Extend(ctx context.Context, task *backend.ActivityTask) error {
-	return atw.backend.ExtendActivityTask(ctx, task.ID)
+	return atw.backend.ExtendActivityTask(ctx, task)
 }
 
-func (atw *ActivityTaskWorker) Get(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
-	return atw.backend.GetActivityTask(ctx, namespaces)
+func (atw *ActivityTaskWorker) Get(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
+	return atw.backend.GetActivityTask(ctx, queues)
 }
 
 func (atw *ActivityTaskWorker) resultToEvent(scheduleEventID int64, result payload.Payload, err error) *history.Event {

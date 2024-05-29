@@ -5,11 +5,11 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
-	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
-func (rb *redisBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
-	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.rdb, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
+func (rb *redisBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
+	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.rdb, queues, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -21,14 +21,15 @@ func (rb *redisBackend) GetActivityTask(ctx context.Context, namespaces []string
 	return &backend.ActivityTask{
 		WorkflowInstance: activityTask.Data.Instance,
 		ID:               activityTask.TaskID, // Use the queue generated ID here
+		ActivityID:       activityTask.Data.ID,
 		Event:            activityTask.Data.Event,
 	}, nil
 }
 
-func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+func (rb *redisBackend) ExtendActivityTask(ctx context.Context, task *backend.ActivityTask) error {
 	p := rb.rdb.Pipeline()
 
-	if err := rb.activityQueue.Extend(ctx, p, activityID); err != nil {
+	if err := rb.activityQueue.Extend(ctx, p, task.Namespace, task.ID); err != nil {
 		return err
 	}
 
@@ -36,15 +37,15 @@ func (rb *redisBackend) ExtendActivityTask(ctx context.Context, activityID strin
 	return err
 }
 
-func (rb *redisBackend) CompleteActivityTask(ctx context.Context, instance *core.WorkflowInstance, activityID string, event *history.Event) error {
+func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
 	p := rb.rdb.TxPipeline()
 
-	if err := rb.addWorkflowInstanceEventP(ctx, p, instance, event); err != nil {
+	if err := rb.addWorkflowInstanceEventP(ctx, p, task.Namespace, task.WorkflowInstance, result); err != nil {
 		return err
 	}
 
 	// Unlock activity
-	if _, err := rb.activityQueue.Complete(ctx, p, activityID); err != nil {
+	if _, err := rb.activityQueue.Complete(ctx, p, task.Namespace, task.ID); err != nil {
 		return err
 	}
 

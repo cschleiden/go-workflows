@@ -16,6 +16,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	im "github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/registry"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/cschleiden/go-workflows/workflow/executor"
 	"github.com/cschleiden/go-workflows/workflow/executor/cache"
 )
@@ -41,7 +42,7 @@ func NewWorkflowWorker(
 		backend:  b,
 		registry: registry,
 		cache:    options.WorkflowExecutorCache,
-		logger:   b.Logger(),
+		logger:   b.Options().Logger,
 	}
 
 	return NewWorker[backend.WorkflowTask, executor.ExecutionResult](b, tw, &options.WorkerOptions)
@@ -91,7 +92,7 @@ func (wtw *WorkflowTaskWorker) Complete(ctx context.Context, result *executor.Ex
 	wtw.backend.Metrics().Counter(metrickeys.ActivityTaskScheduled, metrics.Tags{}, int64(len(result.ActivityEvents)))
 
 	if err := wtw.backend.CompleteWorkflowTask(
-		ctx, t, t.WorkflowInstance, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
+		ctx, t, state, result.Executed, result.ActivityEvents, result.TimerEvents, result.WorkflowEvents); err != nil {
 		logger.ErrorContext(ctx, "could not complete workflow task", "error", err)
 		return fmt.Errorf("completing workflow task: %w", err)
 	}
@@ -138,11 +139,11 @@ func (wtw *WorkflowTaskWorker) Execute(ctx context.Context, t *backend.WorkflowT
 }
 
 func (wtw *WorkflowTaskWorker) Extend(ctx context.Context, t *backend.WorkflowTask) error {
-	return wtw.backend.ExtendWorkflowTask(ctx, t.ID, t.WorkflowInstance)
+	return wtw.backend.ExtendWorkflowTask(ctx, t)
 }
 
-func (wtw *WorkflowTaskWorker) Get(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
-	t, err := wtw.backend.GetWorkflowTask(ctx, namespaces)
+func (wtw *WorkflowTaskWorker) Get(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
+	t, err := wtw.backend.GetWorkflowTask(ctx, queues)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
@@ -169,8 +170,8 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 			),
 			wtw.backend.Tracer(),
 			wtw.registry,
-			wtw.backend.Converter(),
-			wtw.backend.ContextPropagators(),
+			wtw.backend.Options().Converter,
+			wtw.backend.Options().ContextPropagators,
 			wtw.backend,
 			t.WorkflowInstance,
 			t.Metadata,

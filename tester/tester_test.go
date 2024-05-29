@@ -213,7 +213,7 @@ func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
 	return "finished without errors!", nil
 }
 
-func workflowSum(ctx workflow.Context, valA, valB int) (int, error) {
+func workflowSum(_ workflow.Context, valA, valB int) (int, error) {
 	return valA + valB, nil
 }
 

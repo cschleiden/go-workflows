@@ -3,6 +3,7 @@ package workflow
 import (
 	"fmt"
 
+	"github.com/cschleiden/go-workflows/core"
 	a "github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
@@ -16,6 +17,8 @@ import (
 )
 
 type ActivityOptions struct {
+	Queue core.Queue
+
 	// RetryOptions defines how to retry the activity in case of failure.
 	RetryOptions RetryOptions
 }

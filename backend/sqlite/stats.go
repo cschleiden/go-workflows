@@ -36,9 +36,14 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 
 	s.ActiveWorkflowInstances = activeInstances
 
+	s.PendingTasksInQueue = map[core.Queue]*backend.QueueStats{}
+	for _, q := range b.options.Queues {
+		s.PendingTasksInQueue[q] = &backend.QueueStats{}
+	}
+
 	// Get workflow instances ready to be picked up
 	now := time.Now()
-	row = tx.QueryRowContext(
+	workflowRows, err := tx.QueryContext(
 		ctx,
 		`SELECT COUNT(*) FROM instances i
 			WHERE
@@ -49,36 +54,42 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 						FROM pending_events
 						WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 				)
-			LIMIT 1`,
+			GROUP BY i.queue`,
 		now,                              // locked_until
 		core.WorkflowInstanceStateActive, // state
 		now,                              // pending_event.visible_at
 	)
-	if err := row.Err(); err != nil {
+	if err != nil {
 		return nil, fmt.Errorf("failed to query active instances: %w", err)
 	}
 
-	var pendingInstances int64
-	if err := row.Scan(&pendingInstances); err != nil {
-		return nil, fmt.Errorf("failed to scan active instances: %w", err)
+	for workflowRows.Next() {
+		var queue string
+		var pendingInstances int64
+		if err := workflowRows.Scan(&queue, &pendingInstances); err != nil {
+			return nil, fmt.Errorf("failed to scan active instances: %w", err)
+		}
+
+		s.PendingTasksInQueue[core.Queue(queue)].PendingWorkflowTasks = pendingInstances
 	}
 
-	s.PendingWorkflowTasks = pendingInstances
-
 	// Get pending activities
-	row = tx.QueryRowContext(
+	activityRows, err := tx.QueryContext(
 		ctx,
-		"SELECT COUNT(*) FROM activities")
-	if err := row.Err(); err != nil {
+		"SELECT COUNT(*) FROM activities GRUOP BY queue")
+	if err != nil {
 		return nil, fmt.Errorf("failed to query active activities: %w", err)
 	}
 
-	var pendingActivities int64
-	if err := row.Scan(&pendingActivities); err != nil {
-		return nil, fmt.Errorf("failed to scan active activities: %w", err)
-	}
+	for activityRows.Next() {
+		var queue string
+		var pendingActivities int64
+		if err := activityRows.Scan(&queue, &pendingActivities); err != nil {
+			return nil, fmt.Errorf("failed to scan active activities: %w", err)
+		}
 
-	s.PendingActivities = pendingActivities
+		s.PendingTasksInQueue[core.Queue(queue)].PendingActivities = pendingActivities
+	}
 
 	return s, nil
 }

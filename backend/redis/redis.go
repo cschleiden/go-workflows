@@ -5,11 +5,9 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
@@ -40,12 +38,12 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		opt(options)
 	}
 
-	workflowQueue, err := newTaskQueue[any](client, options.KeyPrefix, "workflows")
+	workflowQueue, err := newTaskQueue[workflowData](client, options.KeyPrefix, options.Queues, "workflows")
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := newTaskQueue[activityData](client, options.KeyPrefix, "activities")
+	activityQueue, err := newTaskQueue[activityData](client, options.KeyPrefix, options.Queues, "activities")
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
@@ -105,18 +103,18 @@ type redisBackend struct {
 
 	keys *keys
 
-	workflowQueue *taskQueue[any]
+	queues []workflow.Queue
+
+	workflowQueue *taskQueue[workflowData]
 	activityQueue *taskQueue[activityData]
 }
+
+type workflowData struct{}
 
 type activityData struct {
 	Instance *core.WorkflowInstance `json:"instance,omitempty"`
 	ID       string                 `json:"id,omitempty"`
 	Event    *history.Event         `json:"event,omitempty"`
-}
-
-func (rb *redisBackend) Logger() *slog.Logger {
-	return rb.options.Logger
 }
 
 func (rb *redisBackend) Metrics() metrics.Client {
@@ -127,12 +125,8 @@ func (rb *redisBackend) Tracer() trace.Tracer {
 	return rb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func (rb *redisBackend) Converter() converter.Converter {
-	return rb.options.Converter
-}
-
-func (rb *redisBackend) ContextPropagators() []workflow.ContextPropagator {
-	return rb.options.ContextPropagators
+func (b *redisBackend) Options() *backend.Options {
+	return b.options.Options
 }
 
 func (rb *redisBackend) Close() error {

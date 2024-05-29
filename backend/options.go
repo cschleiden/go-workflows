@@ -39,7 +39,7 @@ type Options struct {
 	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
 
-	Namespaces []string
+	Queues []workflow.Queue
 }
 
 var DefaultOptions Options = Options{
@@ -93,13 +93,13 @@ func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
 	}
 }
 
-func WithNamespace(namespace string) BackendOption {
+func WithNamespace(queue workflow.Queue) BackendOption {
 	return func(o *Options) {
-		o.Namespaces = append(o.Namespaces, namespace)
+		o.Queues = append(o.Queues, queue)
 	}
 }
 
-func ApplyOptions(opts ...BackendOption) Options {
+func ApplyOptions(opts ...BackendOption) *Options {
 	options := DefaultOptions
 
 	for _, opt := range opts {
@@ -110,13 +110,15 @@ func ApplyOptions(opts ...BackendOption) Options {
 		options.Logger = slog.Default()
 	}
 
-	if !slices.Contains(options.Namespaces, NamespaceSystem) {
-		options.Namespaces = append(options.Namespaces, NamespaceSystem)
+	// If no queues given, add the default queue
+	if len(options.Queues) == 0 {
+		options.Queues = append(options.Queues, workflow.NamespaceDefault)
 	}
 
-	if len(options.Namespaces) == 0 {
-		options.Namespaces = append(options.Namespaces, NamespaceDefault)
+	// Always include system queue
+	if !slices.Contains(options.Queues, workflow.NamespaceSystem) {
+		options.Queues = append(options.Queues, workflow.NamespaceSystem)
 	}
 
-	return options
+	return &options
 }

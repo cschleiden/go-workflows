@@ -8,12 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/metrics"
@@ -142,10 +140,6 @@ func (sb *sqliteBackend) Migrate() error {
 	return nil
 }
 
-func (sb *sqliteBackend) Logger() *slog.Logger {
-	return sb.options.Logger
-}
-
 func (sb *sqliteBackend) Metrics() metrics.Client {
 	return sb.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "sqlite"})
 }
@@ -154,15 +148,11 @@ func (sb *sqliteBackend) Tracer() trace.Tracer {
 	return sb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func (sb *sqliteBackend) Converter() converter.Converter {
-	return sb.options.Converter
+func (sb *sqliteBackend) Options() *backend.Options {
+	return sb.options.Options
 }
 
-func (sb *sqliteBackend) ContextPropagators() []workflow.ContextPropagator {
-	return sb.options.ContextPropagators
-}
-
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction: %w", err)
@@ -353,7 +343,7 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, namespaces []string) (*backend.WorkflowTask, error) {
+func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -456,7 +446,6 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, namespaces []strin
 func (sb *sqliteBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *backend.WorkflowTask,
-	instance *workflow.Instance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []*history.WorkflowEvent,
@@ -466,6 +455,8 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		return err
 	}
 	defer tx.Rollback()
+
+	instance := task.WorkflowInstance
 
 	var completedAt *time.Time
 	if state == core.WorkflowInstanceStateContinuedAsNew || state == core.WorkflowInstanceStateFinished {
@@ -573,7 +564,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *workflow.Instance) error {
+func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, task *backend.WorkflowTask) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -585,8 +576,8 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE id = ? AND execution_id = ? AND worker = ?`,
 		until,
-		instance.InstanceID,
-		instance.ExecutionID,
+		task.WorkflowInstance.InstanceID,
+		task.WorkflowInstance.ExecutionID,
 		sb.workerName,
 	)
 	if err != nil {
@@ -602,7 +593,7 @@ func (sb *sqliteBackend) ExtendWorkflowTask(ctx context.Context, taskID string, 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) GetActivityTask(ctx context.Context, namespaces []string) (*backend.ActivityTask, error) {
+func (sb *sqliteBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -623,9 +614,6 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context, namespaces []strin
 		sb.workerName,
 		now,
 	)
-	if err != nil {
-		return nil, err
-	}
 
 	var instanceID, executionID string
 	event := &history.Event{}
@@ -684,7 +672,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context, namespaces []strin
 	return t, nil
 }
 
-func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *workflow.Instance, id string, event *history.Event) error {
+func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -695,9 +683,9 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	if res, err := tx.ExecContext(
 		ctx,
 		`DELETE FROM activities WHERE instance_id = ? AND execution_id = ? AND id = ? AND worker = ?`,
-		instance.InstanceID,
-		instance.ExecutionID,
-		id,
+		task.WorkflowInstance.InstanceID,
+		task.WorkflowInstance.ExecutionID,
+		task.ActivityID,
 		sb.workerName,
 	); err != nil {
 		return fmt.Errorf("unlocking instance: %w", err)
@@ -708,14 +696,14 @@ func (sb *sqliteBackend) CompleteActivityTask(ctx context.Context, instance *wor
 	}
 
 	// Insert new event generated during this workflow execution
-	if err := insertPendingEvents(ctx, tx, instance, []*history.Event{event}); err != nil {
+	if err := insertPendingEvents(ctx, tx, task.WorkflowInstance, []*history.Event{result}); err != nil {
 		return fmt.Errorf("inserting new events for completed activity: %w", err)
 	}
 
 	return tx.Commit()
 }
 
-func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID string) error {
+func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, task *backend.ActivityTask) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -727,7 +715,7 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, activityID stri
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE id = ? AND worker = ?`,
 		until,
-		activityID,
+		task.ActivityID,
 		sb.workerName,
 	)
 	if err != nil {

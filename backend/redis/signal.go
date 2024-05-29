@@ -31,7 +31,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 
 	ctx, err = (&tracing.TracingContextPropagator{}).Extract(ctx, instanceState.Metadata)
 	if err != nil {
-		rb.Logger().Error("extracting tracing context", log.ErrorKey, err)
+		rb.Options().Logger.Error("extracting tracing context", log.ErrorKey, err)
 	}
 
 	a := event.Attributes.(*history.SignalReceivedAttributes)
@@ -42,7 +42,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 	defer span.End()
 
 	if _, err = rb.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if err := rb.addWorkflowInstanceEventP(ctx, p, instanceState.Instance, event); err != nil {
+		if err := rb.addWorkflowInstanceEventP(ctx, p, instanceState.Queue, instanceState.Instance, event); err != nil {
 			return fmt.Errorf("adding event to stream: %w", err)
 		}
 
