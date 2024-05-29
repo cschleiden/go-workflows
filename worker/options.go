@@ -50,9 +50,9 @@ type Options struct {
 	// will be used.
 	WorkflowExecutorCache executor.Cache
 
-	WorkflowNamespaces []workflow.Queue
+	WorkflowQueues []workflow.Queue
 
-	ActivityNamespaces []workflow.Queue
+	ActivityQueues []workflow.Queue
 }
 
 var DefaultOptions = Options{

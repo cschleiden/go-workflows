@@ -21,6 +21,6 @@ type (
 )
 
 const (
-	NamespaceDefault = core.QueueDefault
-	NamespaceSystem  = core.QueueSystem
+	QueueDefault = core.QueueDefault
+	QueueSystem  = core.QueueSystem
 )

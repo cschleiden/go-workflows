@@ -155,7 +155,7 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
-	Queue workflow.Queue `json:"queue,omitempty"`
+	Queue workflow.Queue `json:"queue"`
 
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`

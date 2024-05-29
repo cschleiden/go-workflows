@@ -26,6 +26,7 @@ local instancesByCreation = getKey()
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
 
+local prefix = getArgv()
 local instanceSegment = getArgv()
 
 local storePayload = function(eventId, payload)
@@ -113,17 +114,20 @@ for i = 1, timersToSchedule do
     local futureEventKey = getKey()
 
     redis.call("ZADD", futureEventZSetKey, timestamp, futureEventKey)
-	redis.call("HSET", futureEventKey, "instance", instanceSegment, "id", eventId, "event", eventData)
+	redis.call("HSET", futureEventKey, "instance", instanceSegment, "id", eventId, "event", eventData, "queue", instance["queue"])
 	storePayload(eventId, payloadData)
 end
 
 -- Schedule activities
 local activities = tonumber(getArgv())
-local activitySetKey = getKey()
-local activityStreamKey = getKey()
+
 for i = 1, activities do
+    local activityQueue = getArgv()
     local activityId = getArgv()
     local activityData = getArgv()
+
+    local activitySetKey = prefix .. "task-set:" .. activityQueue .. ":activities"
+    local activityStreamKey = prefix .. "task-stream:" .. activityQueue .. ":activities"
 
     local added = redis.call("SADD", activitySetKey, activityId)
 	if added == 1 then

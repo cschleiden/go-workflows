@@ -30,7 +30,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				err := b.CreateWorkflowInstance(
 					ctx,
-					workflow.NamespaceDefault,
+					workflow.QueueDefault,
 					core.NewWorkflowInstance(instanceID, uuid.NewString()),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
@@ -45,7 +45,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				executionID2 := uuid.NewString()
 
 				err := b.CreateWorkflowInstance(ctx,
-					workflow.NamespaceDefault,
+					workflow.QueueDefault,
 					core.NewWorkflowInstance(instanceID, executionID1),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
@@ -53,7 +53,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				err = b.CreateWorkflowInstance(
 					ctx,
-					workflow.NamespaceDefault,
+					workflow.QueueDefault,
 					core.NewWorkflowInstance(instanceID, executionID2),
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
@@ -72,7 +72,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				err := b.CreateWorkflowInstance(
 					ctx,
-					workflow.NamespaceDefault,
+					workflow.QueueDefault,
 					wfi,
 					history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{
 						Metadata: metadata,
@@ -80,7 +80,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -95,7 +95,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				wfi := core.NewWorkflowInstance(instanceID, uuid.NewString())
 
 				err := b.CreateWorkflowInstance(
-					ctx, workflow.NamespaceDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					ctx, workflow.QueueDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.NoError(t, err)
 
@@ -123,7 +123,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				time.Sleep(1 * time.Millisecond)
 
-				task, _ := b.GetWorkflowTask(ctx, nil)
+				task, _ := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.Nil(t, task)
 			},
 		},
@@ -132,11 +132,11 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(
-					ctx, workflow.NamespaceDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					ctx, workflow.QueueDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 
 				require.NoError(t, err)
 				require.NotNil(t, task)
@@ -148,12 +148,12 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 				err := b.CreateWorkflowInstance(
-					ctx, workflow.NamespaceDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+					ctx, workflow.QueueDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
 				)
 				require.Nil(t, err)
 
 				// Get and lock only task
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -161,7 +161,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
 				defer cancel()
 
-				task, err = b.GetWorkflowTask(ctx, nil)
+				task, err = b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.Nil(t, task)
 				require.True(t, err == nil || errors.Is(err, context.DeadlineExceeded))
 			},
@@ -170,10 +170,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 			name: "CompleteWorkflowTask_ReturnsErrorIfNotLocked",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-				err := b.CreateWorkflowInstance(ctx, workflow.NamespaceDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
+				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 				require.NoError(t, err)
 
-				tk, err := b.GetWorkflowTask(ctx, nil)
+				tk, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 				require.NotNil(t, tk)
 
@@ -193,10 +193,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				activityScheduledEvent := history.NewPendingEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
 
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-				err := b.CreateWorkflowInstance(ctx, workflow.NamespaceDefault, wfi, startedEvent)
+				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, wfi, startedEvent)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 
 				taskStartedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
@@ -243,10 +243,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				})
 
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-				err := b.CreateWorkflowInstance(ctx, workflow.NamespaceDefault, wfi, startedEvent)
+				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, wfi, startedEvent)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 
 				events := []*history.Event{
@@ -282,11 +282,11 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				startWorkflow(t, ctx, b, subInstance1)
 
 				// Create parent instance
-				err := b.CreateWorkflowInstance(ctx, workflow.NamespaceDefault, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
+				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 				require.NoError(t, err)
 
 				// Simulate context and sub-workflow cancellation
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 				err = b.CompleteWorkflowTask(ctx, task, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []*history.WorkflowEvent{
 					{
@@ -298,7 +298,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				})
 				require.NoError(t, err)
 
-				task, err = b.GetWorkflowTask(ctx, nil)
+				task, err = b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, subInstance1, task.WorkflowInstance)
@@ -333,7 +333,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := c.CancelWorkflowInstance(ctx, instance)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, nil)
+				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 				require.NoError(t, err)
 
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
@@ -345,7 +345,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
 				defer cancel()
 
-				task, _ := b.GetActivityTask(ctx, []workflow.Queue{workflow.NamespaceDefault})
+				task, _ := b.GetActivityTask(ctx, []workflow.Queue{workflow.QueueDefault})
 				require.Nil(t, task)
 			},
 		},
@@ -369,11 +369,11 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, instance *core.WorkflowInstance) {
 	err := b.CreateWorkflowInstance(
-		ctx, workflow.NamespaceDefault, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
+		ctx, workflow.QueueDefault, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 	require.NoError(t, err)
 
 	// Get task to clear initial event
-	task, err := b.GetWorkflowTask(ctx, nil)
+	task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
 	require.NoError(t, err)
 
 	err = b.CompleteWorkflowTask(

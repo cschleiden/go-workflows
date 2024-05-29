@@ -86,7 +86,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Q
 
 func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, task *backend.WorkflowTask) error {
 	_, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		return rb.workflowQueue.Extend(ctx, p, task.Namespace, task.ID)
+		return rb.workflowQueue.Extend(ctx, p, task.Queue, task.ID)
 	})
 
 	return err
@@ -104,7 +104,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	instance := task.WorkflowInstance
 
-	queueKeys := rb.workflowQueue.Keys(task.Namespace)
+	queueKeys := rb.workflowQueue.Keys(task.Queue)
 	keys = append(keys,
 		rb.keys.instanceKey(instance),
 		rb.keys.historyKey(instance),
@@ -116,7 +116,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
 	)
-	args = append(args, instanceSegment(instance))
+	args = append(args, rb.keys.prefix, instanceSegment(instance))
 
 	// Add executed events to the history
 	args = append(args, len(executedEvents))
@@ -186,8 +186,6 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	// Schedule activities
 	args = append(args, len(activityEvents))
-	activityQueueKeys := rb.activityQueue.Keys(task.Namespace)
-	keys = append(keys, activityQueueKeys.SetKey, activityQueueKeys.StreamKey)
 	for _, activityEvent := range activityEvents {
 		activityData, err := json.Marshal(&activityData{
 			Instance: instance,
@@ -197,7 +195,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		if err != nil {
 			return fmt.Errorf("marshaling activity data: %w", err)
 		}
-		args = append(args, activityEvent.ID, activityData)
+
+		activityQueue := task.Queue // TODO: support sending activities to custom queues
+		args = append(args, activityQueue, activityEvent.ID, activityData)
 	}
 
 	// Send new workflow events to the respective streams
@@ -216,7 +216,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		if createNewInstance {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 			isb, err := json.Marshal(&instanceState{
-				Queue:     task.Namespace,
+				Queue:     task.Queue,
 				Instance:  &targetInstance,
 				State:     core.WorkflowInstanceStateActive,
 				Metadata:  a.Metadata,
