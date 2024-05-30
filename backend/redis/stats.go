@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func (rb *redisBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
@@ -27,20 +26,15 @@ func (rb *redisBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		return nil, fmt.Errorf("getting active workflows: %w", err)
 	}
 
+	s.PendingWorkflowTasks = pendingWorkflows
+
 	// get pending activities
 	pendingActivities, err := rb.activityQueue.Size(ctx, rb.rdb)
 	if err != nil {
 		return nil, fmt.Errorf("getting active activities: %w", err)
 	}
 
-	s.PendingTasksInQueue = map[workflow.Queue]*backend.QueueStats{}
-
-	for _, queue := range rb.queues {
-		s.PendingTasksInQueue[queue] = &backend.QueueStats{
-			PendingWorkflowTasks: pendingWorkflows[queue],
-			PendingActivities:    pendingActivities[queue],
-		}
-	}
+	s.PendingActivityTasks = pendingActivities
 
 	return s, nil
 }

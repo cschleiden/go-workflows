@@ -16,7 +16,7 @@ import (
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
 	instanceState, err := json.Marshal(&instanceState{
-		Queue:     queue,
+		Queue:     string(queue),
 		Instance:  instance,
 		State:     core.WorkflowInstanceStateActive,
 		Metadata:  event.Attributes.(*history.ExecutionStartedAttributes).Metadata,
@@ -51,6 +51,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, queue workfl
 		rb.keys.instancesByCreation(),
 		keyInfo.SetKey,
 		keyInfo.StreamKey,
+		rb.workflowQueue.queueSetKey,
 	},
 		instanceSegment(instance),
 		string(instanceState),
@@ -131,7 +132,7 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 
 	// Cancel instance
 	if cmds, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		return rb.addWorkflowInstanceEventP(ctx, p, instanceState.Queue, instance, event)
+		return rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instance, event)
 	}); err != nil {
 		fmt.Println(cmds)
 		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
@@ -155,7 +156,7 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
-	Queue workflow.Queue `json:"queue"`
+	Queue string `json:"queue"`
 
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`

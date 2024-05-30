@@ -25,6 +25,7 @@ local instancesByCreation = getKey()
 
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
+local workflowQueuesSetKey = getKey()
 
 local prefix = getArgv()
 local instanceSegment = getArgv()
@@ -128,6 +129,7 @@ for i = 1, activities do
 
     local activitySetKey = prefix .. "task-set:" .. activityQueue .. ":activities"
     local activityStreamKey = prefix .. "task-stream:" .. activityQueue .. ":activities"
+    redis.call("SADD", prefix .. "activities:queues", activitySetKey)
 
     local added = redis.call("SADD", activitySetKey, activityId)
 	if added == 1 then
@@ -196,6 +198,7 @@ for i = 1, otherWorkflowInstances do
     -- If events were delivered, try to queue a workflow task
     if eventsToDeliver > 0 and not skipEvents then
         -- Enqueue workflow task
+        redis.call("SADD", workflowQueuesSetKey, workflowSetKey)
         local added = redis.call("SADD", workflowSetKey, targetInstanceSegment)
         if added == 1 then
             redis.call("XADD", workflowStreamKey, "*", "id", targetInstanceSegment, "data", "")

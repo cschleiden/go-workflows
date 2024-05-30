@@ -115,6 +115,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		rb.keys.instancesByCreation(),
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
+		rb.workflowQueue.queueSetKey,
 	)
 	args = append(args, rb.keys.prefix, instanceSegment(instance))
 
@@ -196,7 +197,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			return fmt.Errorf("marshaling activity data: %w", err)
 		}
 
-		activityQueue := task.Queue // TODO: support sending activities to custom queues
+		activityQueue := string(task.Queue) // TODO: support sending activities to custom queues
 		args = append(args, activityQueue, activityEvent.ID, activityData)
 	}
 
@@ -216,7 +217,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		if createNewInstance {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 			isb, err := json.Marshal(&instanceState{
-				Queue:     task.Queue,
+				Queue:     string(task.Queue),
 				Instance:  &targetInstance,
 				State:     core.WorkflowInstanceStateActive,
 				Metadata:  a.Metadata,
