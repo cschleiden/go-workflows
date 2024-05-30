@@ -8,6 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -42,7 +43,7 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 	defer span.End()
 
 	if _, err = rb.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if err := rb.addWorkflowInstanceEventP(ctx, p, instanceState.Queue, instanceState.Instance, event); err != nil {
+		if err := rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instanceState.Instance, event); err != nil {
 			return fmt.Errorf("adding event to stream: %w", err)
 		}
 

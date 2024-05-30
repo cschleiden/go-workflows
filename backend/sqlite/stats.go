@@ -36,11 +36,6 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 
 	s.ActiveWorkflowInstances = activeInstances
 
-	s.PendingTasksInQueue = map[core.Queue]*backend.QueueStats{}
-	for _, q := range b.options.Queues {
-		s.PendingTasksInQueue[q] = &backend.QueueStats{}
-	}
-
 	// Get workflow instances ready to be picked up
 	now := time.Now()
 	workflowRows, err := tx.QueryContext(
@@ -70,7 +65,7 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 			return nil, fmt.Errorf("failed to scan active instances: %w", err)
 		}
 
-		s.PendingTasksInQueue[core.Queue(queue)].PendingWorkflowTasks = pendingInstances
+		s.PendingWorkflowTasks[core.Queue(queue)] = pendingInstances
 	}
 
 	// Get pending activities
@@ -88,7 +83,7 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 			return nil, fmt.Errorf("failed to scan active activities: %w", err)
 		}
 
-		s.PendingTasksInQueue[core.Queue(queue)].PendingActivities = pendingActivities
+		s.PendingActivityTasks[core.Queue(queue)] = pendingActivities
 	}
 
 	return s, nil

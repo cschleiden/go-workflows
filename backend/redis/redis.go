@@ -19,12 +19,14 @@ import (
 
 var _ backend.Backend = (*redisBackend)(nil)
 
-//go:embed scripts/*.lua
+//go:embed scripts
 var luaScripts embed.FS
 
 var (
 	createWorkflowInstanceCmd *redis.Script
 	completeWorkflowTaskCmd   *redis.Script
+	futureEventsCmd           *redis.Script
+	expireWorkflowInstanceCmd *redis.Script
 )
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
@@ -61,9 +63,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
 	ctx := context.Background()
 	cmds := map[string]*redis.StringCmd{
-		"futureEventsCmd":   futureEventsCmd.Load(ctx, rb.rdb),
 		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
-		"expireInstanceCmd": expireCmd.Load(ctx, rb.rdb),
 		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
@@ -75,26 +75,35 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	}
 
 	// Load all Lua scripts
-
 	cmdMapping := map[string]**redis.Script{
 		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
 		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
+		"schedule_future_events.lua":   &futureEventsCmd,
+		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
 	}
 
+	if err := loadScripts(ctx, rb.rdb, cmdMapping); err != nil {
+		return nil, fmt.Errorf("loading Lua scripts: %w", err)
+	}
+
+	return rb, nil
+}
+
+func loadScripts(ctx context.Context, rdb redis.UniversalClient, cmdMapping map[string]**redis.Script) error {
 	for scriptFile, cmd := range cmdMapping {
 		scriptContent, err := fs.ReadFile(luaScripts, "scripts/"+scriptFile)
 		if err != nil {
-			return nil, fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
+			return fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
 		}
 
 		*cmd = redis.NewScript(string(scriptContent))
 
-		if c := (*cmd).Load(ctx, rb.rdb); c.Err() != nil {
-			return nil, fmt.Errorf("loading Lua script %s: %w", scriptFile, c.Err())
+		if c := (*cmd).Load(ctx, rdb); c.Err() != nil {
+			return fmt.Errorf("loading Lua script %s: %w", scriptFile, c.Err())
 		}
 	}
 
-	return rb, nil
+	return nil
 }
 
 type redisBackend struct {

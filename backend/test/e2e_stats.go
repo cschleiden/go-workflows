@@ -39,16 +39,15 @@ var e2eStatsTests = []backendTest{
 			s, err := b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingWorkflowTasks)
-			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
+			require.NotContains(t, s.PendingWorkflowTasks, core.QueueDefault)
 
 			wfi := runWorkflow(t, ctx, c, wf)
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(1), s.PendingTasksInQueue[core.QueueDefault].PendingWorkflowTasks)
-			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
+			require.Equal(t, int64(1), s.PendingWorkflowTasks[core.QueueDefault])
+			require.Equal(t, int64(0), s.PendingActivityTasks[core.QueueDefault])
 
 			// Start worker
 			require.NoError(t, w.Start(ctx))
@@ -58,13 +57,13 @@ var e2eStatsTests = []backendTest{
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
-			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingWorkflowTasks)
+			require.Equal(t, int64(0), s.PendingWorkflowTasks[core.QueueDefault])
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(1), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
+			require.Equal(t, int64(1), s.PendingActivityTasks[core.QueueDefault])
 
 			// Let the activity finish
 			activityBlocked <- true
@@ -79,7 +78,7 @@ var e2eStatsTests = []backendTest{
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(0), s.PendingTasksInQueue[core.QueueDefault].PendingActivities)
+			require.Equal(t, int64(0), s.PendingActivityTasks[core.QueueDefault])
 		},
 	},
 }

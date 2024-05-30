@@ -38,8 +38,6 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 
 	s.ActiveWorkflowInstances = activeInstances
 
-	s.PendingTasksInQueue = map[core.Queue]*backend.QueueStats{}
-
 	// Get workflow instances ready to be picked up
 	now := time.Now()
 	workflowRows, err := tx.QueryContext(
@@ -69,11 +67,7 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 			return nil, fmt.Errorf("failed to scan active instances: %w", err)
 		}
 
-		if _, ok := s.PendingTasksInQueue[workflow.Queue(queue)]; !ok {
-			s.PendingTasksInQueue[workflow.Queue(queue)] = &backend.QueueStats{}
-		}
-
-		s.PendingTasksInQueue[workflow.Queue(queue)].PendingWorkflowTasks = pendingInstances
+		s.PendingWorkflowTasks[workflow.Queue(queue)] = pendingInstances
 	}
 
 	// Get pending activities
@@ -91,11 +85,7 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 			return nil, fmt.Errorf("failed to scan active activities: %w", err)
 		}
 
-		if _, ok := s.PendingTasksInQueue[workflow.Queue(queue)]; !ok {
-			s.PendingTasksInQueue[workflow.Queue(queue)] = &backend.QueueStats{}
-		}
-
-		s.PendingTasksInQueue[workflow.Queue(queue)].PendingActivities = pendingActivities
+		s.PendingActivityTasks[workflow.Queue(queue)] = pendingActivities
 	}
 
 	return s, nil
