@@ -40,10 +40,10 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	now := time.Now()
 	workflowRows, err := tx.QueryContext(
 		ctx,
-		`SELECT COUNT(*) FROM instances i
+		`SELECT i.queue, COUNT(*) FROM instances i
 			WHERE
-				(locked_until IS NULL OR locked_until < ?)
-				AND state = ? AND i.completed_at IS NULL
+				(i.locked_until IS NULL OR i.locked_until < ?)
+				AND i.state = ? AND i.completed_at IS NULL
 				AND EXISTS (
 					SELECT 1
 						FROM pending_events
@@ -58,6 +58,8 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		return nil, fmt.Errorf("failed to query active instances: %w", err)
 	}
 
+	s.PendingWorkflowTasks = make(map[core.Queue]int64)
+
 	for workflowRows.Next() {
 		var queue string
 		var pendingInstances int64
@@ -71,10 +73,12 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	// Get pending activities
 	activityRows, err := tx.QueryContext(
 		ctx,
-		"SELECT COUNT(*) FROM activities GRUOP BY queue")
+		"SELECT queue, COUNT(*) FROM activities GROUP BY queue")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active activities: %w", err)
 	}
+
+	s.PendingActivityTasks = make(map[core.Queue]int64)
 
 	for activityRows.Next() {
 		var queue string

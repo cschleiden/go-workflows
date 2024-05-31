@@ -60,6 +60,8 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		return nil, fmt.Errorf("failed to query active instances: %w", err)
 	}
 
+	s.PendingWorkflowTasks = make(map[core.Queue]int64)
+
 	for workflowRows.Next() {
 		var queue string
 		var pendingInstances int64
@@ -77,6 +79,8 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active activities: %w", err)
 	}
+
+	s.PendingActivityTasks = make(map[core.Queue]int64)
 
 	for activityRows.Next() {
 		var queue string

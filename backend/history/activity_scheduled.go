@@ -3,6 +3,7 @@ package history
 import (
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 type ActivityScheduledAttributes struct {
@@ -13,4 +14,6 @@ type ActivityScheduledAttributes struct {
 	Inputs []payload.Payload `json:"inputs,omitempty"`
 
 	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
+
+	Queue *core.Queue `json:"queue,omitempty"`
 }

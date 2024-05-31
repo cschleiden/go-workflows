@@ -513,8 +513,15 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	}
 
 	// Schedule activities
-	for _, event := range activityEvents {
-		if err := scheduleActivity(ctx, tx, instance, event); err != nil {
+	for _, e := range activityEvents {
+		a := e.Attributes.(*history.ActivityScheduledAttributes)
+		queue := a.Queue
+		if queue == nil {
+			// Default to workflow queue
+			queue = &task.Queue
+		}
+
+		if err := scheduleActivity(ctx, tx, *queue, instance, e); err != nil {
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}
@@ -669,6 +676,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context, queues []workflow.
 
 	t := &backend.ActivityTask{
 		ID:               event.ID,
+		ActivityID:       event.ID,
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,
 	}
