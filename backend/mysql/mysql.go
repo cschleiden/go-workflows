@@ -359,6 +359,14 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 	return tx.Commit()
 }
 
+func (b *mysqlBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
+	return nil
+}
+
+func (b *mysqlBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
+	return nil
+}
+
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
 func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{

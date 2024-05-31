@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -51,7 +52,11 @@ func (atw *ActivityTaskWorker) Complete(ctx context.Context, result *history.Eve
 	return nil
 }
 
-func (atw *ActivityTaskWorker) Start(ctx context.Context) error {
+func (atw *ActivityTaskWorker) Start(ctx context.Context, queues []workflow.Queue) error {
+	if err := atw.backend.PrepareActivityQueues(ctx, queues); err != nil {
+		return fmt.Errorf("preparing activity queues: %w", err)
+	}
+
 	return nil
 }
 

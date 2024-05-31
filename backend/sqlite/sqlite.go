@@ -343,6 +343,14 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	return tx.Commit()
 }
 
+func (sb *sqliteBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
+	return nil
+}
+
+func (sb *sqliteBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
+	return nil
+}
+
 func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {

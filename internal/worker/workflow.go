@@ -55,9 +55,13 @@ type WorkflowTaskWorker struct {
 	logger   *slog.Logger
 }
 
-func (wtw *WorkflowTaskWorker) Start(ctx context.Context) error {
+func (wtw *WorkflowTaskWorker) Start(ctx context.Context, queues []workflow.Queue) error {
 	if wtw.cache != nil {
 		go wtw.cache.StartEviction(ctx)
+	}
+
+	if err := wtw.backend.PrepareWorkflowQueues(ctx, queues); err != nil {
+		return fmt.Errorf("preparing workflow queues: %w", err)
 	}
 
 	return nil

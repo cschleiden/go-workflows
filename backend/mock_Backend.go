@@ -278,6 +278,34 @@ func (_m *MockBackend) Options() *Options {
 	return r0
 }
 
+// PrepareActivityQueues provides a mock function with given fields: ctx, queues
+func (_m *MockBackend) PrepareActivityQueues(ctx context.Context, queues []core.Queue) error {
+	ret := _m.Called(ctx, queues)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []core.Queue) error); ok {
+		r0 = rf(ctx, queues)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// PrepareWorkflowQueues provides a mock function with given fields: ctx, queues
+func (_m *MockBackend) PrepareWorkflowQueues(ctx context.Context, queues []core.Queue) error {
+	ret := _m.Called(ctx, queues)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []core.Queue) error); ok {
+		r0 = rf(ctx, queues)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // RemoveWorkflowInstance provides a mock function with given fields: ctx, instance
 func (_m *MockBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
 	ret := _m.Called(ctx, instance)
