@@ -160,7 +160,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, queue workf
 	defer tx.Rollback()
 
 	// Create workflow instance
-	if err := createInstance(ctx, tx, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
+	if err := createInstance(ctx, tx, queue, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
 		return err
 	}
 
@@ -175,7 +175,7 @@ func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, queue workf
 	return nil
 }
 
-func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, metadata *workflow.Metadata) error {
+func createInstance(ctx context.Context, tx *sql.Tx, queue workflow.Queue, wfi *workflow.Instance, metadata *workflow.Metadata) error {
 	// Check for existing instance
 	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE id = ? AND state = ? LIMIT 1", wfi.InstanceID, core.WorkflowInstanceStateActive).
 		Scan(new(int)); err != sql.ErrNoRows {
@@ -197,7 +197,8 @@ func createInstance(ctx context.Context, tx *sql.Tx, wfi *workflow.Instance, met
 
 	_, err = tx.ExecContext(
 		ctx,
-		"INSERT INTO `instances` (id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO `instances` (queue, id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		string(queue),
 		wfi.InstanceID,
 		wfi.ExecutionID,
 		parentInstanceID,
@@ -377,7 +378,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
 						)
 					LIMIT 1
-			) RETURNING id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`,
+			) RETURNING queue, id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`,
 		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
 		now,                              // locked_until
@@ -387,12 +388,12 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 		now,                              // pending_event.visible_at
 	)
 
-	var instanceID, executionID string
+	var queue, instanceID, executionID string
 	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	var metadataJson sql.NullString
 	var stickyUntil *time.Time
-	if err := row.Scan(&instanceID, &executionID, &parentInstanceID, &parentExecutionID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
+	if err := row.Scan(&queue, &instanceID, &executionID, &parentInstanceID, &parentExecutionID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -416,6 +417,7 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 
 	t := &backend.WorkflowTask{
 		ID:                    wfi.InstanceID,
+		Queue:                 workflow.Queue(queue),
 		WorkflowInstance:      wfi,
 		WorkflowInstanceState: core.WorkflowInstanceStateActive,
 		Metadata:              metadata,
@@ -549,7 +551,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 			// Create new instance
-			if err := createInstance(ctx, tx, m.WorkflowInstance, a.Metadata); err != nil {
+			if err := createInstance(ctx, tx, task.Queue, m.WorkflowInstance, a.Metadata); err != nil {
 				if err == backend.ErrInstanceAlreadyExists {
 					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
 						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
