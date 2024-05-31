@@ -378,11 +378,24 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 	}
 	defer tx.Rollback()
 
-	// Lock next workflow task by finding an unlocked instance with new events to process.
 	now := time.Now()
+	args := []any{
+		core.WorkflowInstanceStateActive, // state
+		now,                              // event.visible_at
+		now,                              // locked_until
+		now,                              // sticky_until
+		b.workerName,                     // worker
+	}
+
+	queuePlaceholders := strings.Repeat(",?", len(queues)-1)
+	for _, q := range queues {
+		args = append(args, string(q))
+	}
+
+	// Lock next workflow task by finding an unlocked instance with new events to process.
 	row := tx.QueryRowContext(
 		ctx,
-		`SELECT i.id, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_execution_id, i.parent_schedule_event_id, i.metadata, i.sticky_until
+		fmt.Sprintf(`SELECT i.id, i.queue, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_execution_id, i.parent_schedule_event_id, i.metadata, i.sticky_until
 			FROM instances i
 			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
 			WHERE
@@ -390,22 +403,19 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 				AND (pe.visible_at IS NULL OR pe.visible_at <= ?)
 				AND (i.locked_until IS NULL OR i.locked_until < ?)
 				AND (i.sticky_until IS NULL OR i.sticky_until < ? OR i.worker = ?)
+				AND (i.queue in (?%s))
 			LIMIT 1
-			FOR UPDATE OF i SKIP LOCKED`,
-		core.WorkflowInstanceStateActive, // state
-		now,                              // event.visible_at
-		now,                              // locked_until
-		now,                              // sticky_until
-		b.workerName,                     // worker
+			FOR UPDATE OF i SKIP LOCKED`, queuePlaceholders),
+		args...,
 	)
 
 	var id int
-	var instanceID, executionID string
+	var queue, instanceID, executionID string
 	var parentInstanceID, parentExecutionID *string
 	var parentEventID *int64
 	var metadataJson sql.NullString
 	var stickyUntil *time.Time
-	if err := row.Scan(&id, &instanceID, &executionID, &parentInstanceID, &parentExecutionID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
+	if err := row.Scan(&id, &queue, &instanceID, &executionID, &parentInstanceID, &parentExecutionID, &parentEventID, &metadataJson, &stickyUntil); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -453,6 +463,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 		WorkflowInstanceState: core.WorkflowInstanceStateActive,
 		Metadata:              metadata,
 		NewEvents:             []*history.Event{},
+		Queue:                 workflow.Queue(queue),
 	}
 
 	// Get new events
