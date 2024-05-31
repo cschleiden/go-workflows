@@ -8,6 +8,10 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
+func (rb *redisBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
+	return rb.activityQueue.Prepare(ctx, rb.rdb, queues)
+}
+
 func (rb *redisBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
 	activityTask, err := rb.activityQueue.Dequeue(ctx, rb.rdb, queues, rb.options.ActivityLockTimeout, rb.options.BlockTimeout)
 	if err != nil {

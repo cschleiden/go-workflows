@@ -40,12 +40,14 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		opt(options)
 	}
 
-	workflowQueue, err := newTaskQueue[workflowData](client, options.KeyPrefix, "workflows")
+	ctx := context.Background()
+
+	workflowQueue, err := newTaskQueue[workflowData](ctx, client, options.KeyPrefix, "workflows")
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := newTaskQueue[activityData](client, options.KeyPrefix, "activities")
+	activityQueue, err := newTaskQueue[activityData](ctx, client, options.KeyPrefix, "activities")
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
@@ -61,7 +63,6 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 
 	// Preload scripts here. Usually redis-go attempts to execute them first, and if redis doesn't know
 	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
-	ctx := context.Background()
 	cmds := map[string]*redis.StringCmd{
 		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
 		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),

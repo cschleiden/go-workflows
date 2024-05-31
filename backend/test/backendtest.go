@@ -80,7 +80,9 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+				task, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -118,12 +120,14 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 		{
 			name: "GetWorkflowTask_ReturnsNilWhenTimeout",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
 				ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
 				defer cancel()
 
 				time.Sleep(1 * time.Millisecond)
-
-				task, _ := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				task, _ := b.GetWorkflowTask(ctx, queues)
 				require.Nil(t, task)
 			},
 		},
@@ -136,7 +140,9 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+				task, err := b.GetWorkflowTask(ctx, queues)
 
 				require.NoError(t, err)
 				require.NotNil(t, task)
@@ -152,8 +158,11 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				)
 				require.Nil(t, err)
 
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
 				// Get and lock only task
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				task, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 
@@ -173,7 +182,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 				require.NoError(t, err)
 
-				tk, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
+				tk, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 				require.NotNil(t, tk)
 
@@ -196,7 +208,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, wfi, startedEvent)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
+				task, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 
 				taskStartedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
@@ -246,7 +261,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, wfi, startedEvent)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
+				task, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 
 				events := []*history.Event{
@@ -285,8 +303,11 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := b.CreateWorkflowInstance(ctx, workflow.QueueDefault, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 				require.NoError(t, err)
 
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
 				// Simulate context and sub-workflow cancellation
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				task, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 				err = b.CompleteWorkflowTask(ctx, task, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []*history.WorkflowEvent{
 					{
@@ -298,7 +319,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				})
 				require.NoError(t, err)
 
-				task, err = b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				task, err = b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, subInstance1, task.WorkflowInstance)
@@ -333,7 +354,8 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				err := c.CancelWorkflowInstance(ctx, instance)
 				require.NoError(t, err)
 
-				task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+				queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+				task, err := b.GetWorkflowTask(ctx, queues)
 				require.NoError(t, err)
 
 				require.Equal(t, history.EventType_WorkflowExecutionCanceled, task.NewEvents[len(task.NewEvents)-1].Type)
@@ -372,9 +394,13 @@ func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, instanc
 		ctx, workflow.QueueDefault, instance, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}))
 	require.NoError(t, err)
 
+	queues := []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem}
+	require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
 	// Get task to clear initial event
-	task, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault, workflow.QueueSystem})
+	task, err := b.GetWorkflowTask(ctx, queues)
 	require.NoError(t, err)
+	require.NotNil(t, task)
 
 	err = b.CompleteWorkflowTask(
 		ctx, task, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []*history.WorkflowEvent{})

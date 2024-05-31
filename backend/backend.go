@@ -40,6 +40,12 @@ type Backend interface {
 	// If the given instance does not exist, it will return an error
 	SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error
 
+	// PrepareWorkflowQueues prepares workflow queues for later consumption using this backend instane
+	PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error
+
+	// PrepareActivityQueues prepares activity queues for later consumption using this backend instance
+	PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error
+
 	// GetWorkflowTask returns a pending workflow task or nil if there are no pending workflow executions
 	GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*WorkflowTask, error)
 
@@ -58,11 +64,11 @@ type Backend interface {
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
 	GetActivityTask(ctx context.Context, queues []workflow.Queue) (*ActivityTask, error)
 
-	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
-	CompleteActivityTask(ctx context.Context, task *ActivityTask, result *history.Event) error
-
 	// ExtendActivityTask extends the lock of an activity task
 	ExtendActivityTask(ctx context.Context, task *ActivityTask) error
+
+	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
+	CompleteActivityTask(ctx context.Context, task *ActivityTask, result *history.Event) error
 
 	// GetStats returns stats about the backend
 	GetStats(ctx context.Context) (*Stats, error)

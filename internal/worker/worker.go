@@ -14,7 +14,7 @@ import (
 )
 
 type TaskWorker[Task, Result any] interface {
-	Start(context.Context) error
+	Start(context.Context, []workflow.Queue) error
 	Get(context.Context, []workflow.Queue) (*Task, error)
 	Extend(context.Context, *Task) error
 	Execute(context.Context, *Task) (*Result, error)
@@ -70,7 +70,7 @@ func NewWorker[Task, TaskResult any](
 }
 
 func (w *Worker[Task, TaskResult]) Start(ctx context.Context) error {
-	if err := w.tw.Start(ctx); err != nil {
+	if err := w.tw.Start(ctx, w.options.Queues); err != nil {
 		return fmt.Errorf("starting task worker: %w", err)
 	}
 

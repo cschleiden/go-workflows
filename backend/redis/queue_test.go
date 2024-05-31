@@ -12,7 +12,7 @@ import (
 )
 
 func Test_TaskQueue(t *testing.T) {
-	// These cases rely on redis being running on localhost:6379. Skip this test if `-short` is set.
+	// These tests rely on redis being running on localhost:6379. Skip this test if `-short` is set.
 	if testing.Short() {
 		t.Skip()
 	}
@@ -36,7 +36,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Create queue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "", taskType)
+				q, err := newTaskQueue[any](context.Background(), client, "", taskType)
 				require.NoError(t, err)
 				require.NotNil(t, q)
 			},
@@ -44,7 +44,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", taskType)
+				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -63,7 +63,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Size",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", taskType)
+				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -81,7 +81,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Guarantee uniqueness",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", taskType)
+				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()
@@ -122,7 +122,7 @@ func Test_TaskQueue(t *testing.T) {
 
 				ctx := context.Background()
 
-				q, err := newTaskQueue[foo](client, "prefix", taskType)
+				q, err := newTaskQueue[foo](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
@@ -144,7 +144,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Simple enqueue/dequeue different worker",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", taskType)
+				q, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 
 				ctx := context.Background()
 
@@ -153,7 +153,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[any](client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				// Dequeue using second worker
@@ -166,8 +166,8 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Complete removes task",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", taskType)
-				q2, _ := newTaskQueue[any](client, "prefix", taskType)
+				q, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 
 				ctx := context.Background()
 
@@ -201,7 +201,7 @@ func Test_TaskQueue(t *testing.T) {
 				type taskData struct {
 					Count int `json:"count"`
 				}
-				q, _ := newTaskQueue[taskData](client, "prefix", taskType)
+				q, _ := newTaskQueue[taskData](context.Background(), client, "prefix", taskType)
 
 				ctx := context.Background()
 
@@ -212,7 +212,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[taskData](client, "prefix", taskType)
+				q2, _ := newTaskQueue[taskData](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
@@ -232,7 +232,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Extending task prevents recovering",
 			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](client, "prefix", taskType)
+				q, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 
 				ctx := context.Background()
 
@@ -242,7 +242,7 @@ func Test_TaskQueue(t *testing.T) {
 				require.NoError(t, err)
 
 				// Create second worker (with different name)
-				q2, _ := newTaskQueue[any](client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
@@ -266,7 +266,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Will only dequeue from given queue",
 			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](client, "prefix", taskType)
+				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 				require.NoError(t, err)
 
 				ctx := context.Background()

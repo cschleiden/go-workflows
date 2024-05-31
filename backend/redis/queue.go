@@ -21,6 +21,7 @@ type taskQueue[T any] struct {
 }
 
 var (
+	prepareCmd  *redis.Script
 	enqueueCmd  *redis.Script
 	completeCmd *redis.Script
 	recoverCmd  *redis.Script
@@ -43,7 +44,7 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
+func newTaskQueue[T any](ctx context.Context, rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
@@ -59,17 +60,32 @@ func newTaskQueue[T any](rdb redis.UniversalClient, keyPrefix string, tasktype s
 
 	// Load all Lua scripts
 	cmdMapping := map[string]**redis.Script{
+		"queue/prepare.lua":  &prepareCmd,
 		"queue/enqueue.lua":  &enqueueCmd,
 		"queue/recover.lua":  &recoverCmd,
 		"queue/complete.lua": &completeCmd,
 		"queue/size.lua":     &sizeCmd,
 	}
 
-	if err := loadScripts(context.Background(), rdb, cmdMapping); err != nil {
+	if err := loadScripts(ctx, rdb, cmdMapping); err != nil {
 		return nil, fmt.Errorf("loading Lua scripts: %w", err)
 	}
 
 	return tq, nil
+}
+
+func (q *taskQueue[T]) Prepare(ctx context.Context, rdb redis.UniversalClient, queues []workflow.Queue) error {
+	keys := []string{}
+	for _, queue := range queues {
+		keys = append(keys, q.Keys(queue).StreamKey)
+	}
+
+	_, err := prepareCmd.Run(ctx, rdb, keys, q.groupName).Result()
+	if err != nil && err != redis.Nil {
+		return fmt.Errorf("preparing queues: %w", err)
+	}
+
+	return nil
 }
 
 func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
