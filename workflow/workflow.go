@@ -22,5 +22,4 @@ type (
 
 const (
 	QueueDefault = core.QueueDefault
-	QueueSystem  = core.QueueSystem
 )

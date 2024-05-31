@@ -317,7 +317,8 @@ func createInstance(ctx context.Context, tx *sql.Tx, queue workflow.Queue, wfi *
 
 	_, err = tx.ExecContext(
 		ctx,
-		"INSERT INTO `instances` (instance_id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO `instances` (queue, instance_id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		string(queue),
 		wfi.InstanceID,
 		wfi.ExecutionID,
 		parentInstanceID,
@@ -598,12 +599,12 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	for _, e := range activityEvents {
 		a := e.Attributes.(*history.ActivityScheduledAttributes)
 		queue := a.Queue
-		if queue == nil {
+		if queue == "" {
 			// Default to workflow queue
-			queue = &task.Queue
+			queue = task.Queue
 		}
 
-		if err := scheduleActivity(ctx, tx, *queue, instance, e); err != nil {
+		if err := scheduleActivity(ctx, tx, queue, instance, e); err != nil {
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}

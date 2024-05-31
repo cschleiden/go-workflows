@@ -12,6 +12,7 @@ func assertExecuteNoEvent(t *testing.T, c Command, expectedState CommandState) {
 	r := c.Execute(clock.New())
 
 	require.Nil(t, r)
+	require.Equal(t, expectedState, c.State())
 }
 
 func assertExecuteWithEvent(t *testing.T, c Command, expectedState CommandState, expectedEventType history.EventType) *CommandResult {

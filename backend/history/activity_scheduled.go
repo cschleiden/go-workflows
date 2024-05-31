@@ -15,5 +15,5 @@ type ActivityScheduledAttributes struct {
 
 	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
 
-	Queue *core.Queue `json:"queue,omitempty"`
+	Queue core.Queue `json:"queue,omitempty"`
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
@@ -56,8 +57,8 @@ func NewWorker[Task, TaskResult any](
 	}
 
 	// Always include system queue
-	if !slices.Contains(options.Queues, workflow.QueueSystem) {
-		options.Queues = append(options.Queues, workflow.QueueSystem)
+	if !slices.Contains(options.Queues, core.QueueSystem) {
+		options.Queues = append(options.Queues, core.QueueSystem)
 	}
 
 	return &Worker[Task, TaskResult]{

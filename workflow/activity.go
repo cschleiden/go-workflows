@@ -19,7 +19,7 @@ import (
 type ActivityOptions struct {
 	// Queue defines the activity queue this activity will be delivered to. By default, this inherits
 	// the queue from the workflow instance.
-	Queue *core.Queue
+	Queue core.Queue
 
 	// RetryOptions defines how to retry the activity in case of failure.
 	RetryOptions RetryOptions
