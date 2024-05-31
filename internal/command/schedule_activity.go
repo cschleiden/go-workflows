@@ -15,12 +15,12 @@ type ScheduleActivityCommand struct {
 	Inputs   []payload.Payload
 	Attempt  int
 	Metadata *metadata.WorkflowMetadata
-	Queue    *core.Queue
+	Queue    core.Queue
 }
 
 var _ Command = (*ScheduleActivityCommand)(nil)
 
-func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, attempt int, metadata *metadata.WorkflowMetadata, queue *core.Queue) *ScheduleActivityCommand {
+func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, attempt int, metadata *metadata.WorkflowMetadata, queue core.Queue) *ScheduleActivityCommand {
 	return &ScheduleActivityCommand{
 		command: command{
 			id:    id,

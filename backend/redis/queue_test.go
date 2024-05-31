@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -276,7 +277,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				task, err := q.Dequeue(ctx, client, []workflow.Queue{workflow.QueueSystem}, lockTimeout, blockTimeout)
+				task, err := q.Dequeue(ctx, client, []workflow.Queue{core.QueueSystem}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, task)
 

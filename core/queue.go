@@ -20,7 +20,7 @@ func (q *Queue) Scan(value interface{}) error {
 }
 
 const (
-	QueueDefault = Queue("")
+	QueueDefault = Queue("default")
 	QueueSystem  = Queue("_system_")
 )
 

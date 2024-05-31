@@ -203,12 +203,12 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 		a := activityEvent.Attributes.(*history.ActivityScheduledAttributes)
 		queue := a.Queue
-		if queue == nil {
+		if queue == "" {
 			// Default to workflow queue
-			queue = &task.Queue
+			queue = task.Queue
 		}
 
-		activityQueue := string(*queue)
+		activityQueue := string(queue)
 		args = append(args, activityQueue, activityEvent.ID, activityData)
 	}
 

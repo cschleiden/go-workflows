@@ -516,12 +516,12 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 	for _, e := range activityEvents {
 		a := e.Attributes.(*history.ActivityScheduledAttributes)
 		queue := a.Queue
-		if queue == nil {
+		if queue == "" {
 			// Default to workflow queue
-			queue = &task.Queue
+			queue = task.Queue
 		}
 
-		if err := scheduleActivity(ctx, tx, *queue, instance, e); err != nil {
+		if err := scheduleActivity(ctx, tx, queue, instance, e); err != nil {
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}
