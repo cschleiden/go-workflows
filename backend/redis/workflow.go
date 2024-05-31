@@ -201,7 +201,14 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			return fmt.Errorf("marshaling activity data: %w", err)
 		}
 
-		activityQueue := string(task.Queue) // TODO: support sending activities to custom queues
+		a := activityEvent.Attributes.(*history.ActivityScheduledAttributes)
+		queue := a.Queue
+		if queue == nil {
+			// Default to workflow queue
+			queue = &task.Queue
+		}
+
+		activityQueue := string(*queue)
 		args = append(args, activityQueue, activityEvent.ID, activityData)
 	}
 

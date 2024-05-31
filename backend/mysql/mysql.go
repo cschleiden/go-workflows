@@ -596,7 +596,14 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	// Schedule activities
 	for _, e := range activityEvents {
-		if err := scheduleActivity(ctx, tx, task.Queue, instance, e); err != nil { // TODO: Take activity queue from options
+		a := e.Attributes.(*history.ActivityScheduledAttributes)
+		queue := a.Queue
+		if queue == nil {
+			// Default to workflow queue
+			queue = &task.Queue
+		}
+
+		if err := scheduleActivity(ctx, tx, *queue, instance, e); err != nil {
 			return fmt.Errorf("scheduling activity: %w", err)
 		}
 	}
@@ -705,7 +712,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 	args := make([]interface{}, 0, len(queues)+1)
 	args = append(args, now)
 	for _, q := range queues {
-		args = append(args, q)
+		args = append(args, string(q))
 	}
 
 	res := tx.QueryRowContext(
@@ -717,7 +724,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 			WHERE a.locked_until IS NULL OR a.locked_until < ? AND a.queue IN (?%s)
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED`, queuePlaceholders),
-		args,
+		args...,
 	)
 
 	var id int64
@@ -753,8 +760,8 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 	}
 
 	t := &backend.ActivityTask{
-		ID: event.ID,
-		// ActivityID: , // TODO: CS: Do we need this here?
+		ID:               event.ID,
+		ActivityID:       event.ID,
 		Queue:            workflow.Queue(queue),
 		WorkflowInstance: core.NewWorkflowInstance(instanceID, executionID),
 		Event:            event,
@@ -843,7 +850,6 @@ func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, task *backend.Act
 
 func scheduleActivity(ctx context.Context, tx *sql.Tx, queue workflow.Queue, instance *core.WorkflowInstance, event *history.Event) error {
 	// Attributes are already persisted via the history, we do not need to add them again.
-
 	_, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO activities
@@ -851,7 +857,7 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, queue workflow.Queue, ins
 		event.ID,
 		instance.InstanceID,
 		instance.ExecutionID,
-		queue,
+		string(queue),
 		event.Type,
 		event.Timestamp,
 		event.ScheduleEventID,

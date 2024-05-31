@@ -38,6 +38,7 @@ type WorkflowTask struct {
 type ActivityTask struct {
 	ID string
 
+	// ActivityID is the ID of the activity event
 	ActivityID string
 
 	Queue workflow.Queue
