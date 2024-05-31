@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/internal/workflowtracer"
@@ -22,5 +23,6 @@ func SignalWorkflow[T any](ctx Context, instanceID string, name string, arg T) F
 		RetryOptions: RetryOptions{
 			MaxAttempts: 1,
 		},
+		Queue: core.QueueSystem,
 	}, a.DeliverWorkflowSignal, instanceID, name, arg)
 }
