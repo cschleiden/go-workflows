@@ -74,6 +74,10 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		return nil, errors.New("InstanceID must be set")
 	}
 
+	if options.Queue == "" {
+		options.Queue = workflow.QueueDefault
+	}
+
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 	metadata := &workflow.Metadata{}
 

@@ -42,15 +42,13 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	now := time.Now()
 	workflowRows, err := tx.QueryContext(
 		ctx,
-		`SELECT COUNT(*)
+		`SELECT i.queue, COUNT(*)
 			FROM instances i
 			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
 			WHERE
-				state = ? AND i.completed_at IS NULL
+				i.state = ? AND i.completed_at IS NULL
 				AND (pe.visible_at IS NULL OR pe.visible_at <= ?)
 				AND (i.locked_until IS NULL OR i.locked_until < ?)
-			LIMIT 1
-			FOR UPDATE OF i SKIP LOCKED
 			GROUP BY i.queue`,
 		core.WorkflowInstanceStateActive,
 		now, // event.visible_at
@@ -75,7 +73,7 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	// Get pending activities
 	activityRows, err := tx.QueryContext(
 		ctx,
-		"SELECT COUNT(*) FROM activities GROUP BY queue")
+		"SELECT queue, COUNT(*) FROM activities GROUP BY queue")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active activities: %w", err)
 	}
