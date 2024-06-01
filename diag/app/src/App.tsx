@@ -6,7 +6,6 @@ import Layout from "./Layout";
 
 function App() {
   return (
-    <div>
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
@@ -14,7 +13,6 @@ function App() {
         <Route path=":instanceId/:executionId" element={<Instance />} />
       </Route>
     </Routes>
-    </div>
   );
 }
 
