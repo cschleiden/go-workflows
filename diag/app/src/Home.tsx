@@ -6,7 +6,6 @@ import useFetch from "react-fetch-hook";
 import { LinkContainer } from "react-router-bootstrap";
 import { WorkflowInstance, WorkflowInstanceState } from "./Components";
 import { WorkflowInstanceRef } from "./client";
-import { stringify } from "querystring";
 
 function useQuery() {
   const { search } = useLocation();
@@ -21,13 +20,13 @@ function Home() {
   const afterId = query.get("after");
   const page = +(query.get("page") || 1);
 
-  let { isLoading, data } = useFetch<WorkflowInstanceRef[]>(
+  const { isLoading, data } = useFetch<WorkflowInstanceRef[]>(
     document.location.pathname +
     `api/?count=${count}` +
     (afterId ? `&after=${afterId}` : "")
   );
 
-  const [filterValue, setFilterValue] = useState("")
+  const [instanceIdFilterValue, setInstanceIdFilterValue] = useState("")
 
   return (
     <div className="App">
@@ -45,10 +44,10 @@ function Home() {
                 <th>
                   Instance ID<br />
                   <input type="text" defaultValue=""
-                    value={filterValue}
+                    value={instanceIdFilterValue}
                     onChange={
                       (e) => {
-                        setFilterValue(e.target.value)
+                        setInstanceIdFilterValue(e.target.value)
                       }
                     }
                   ></input>
@@ -60,35 +59,40 @@ function Home() {
               </tr>
             </thead>
             <tbody>
-              {(data || []).filter(e => e.instance.instance_id.includes(filterValue)).map((i) => (
-                <tr key={i.instance.instance_id}>
-                  <td>
-                    <Link
-                      to={`/${i.instance.instance_id}/${i.instance.execution_id}`}
-                    >
-                      <WorkflowInstance instance={i.instance} />
-                    </Link>
-                  </td>
-                  <td>
-                    {i.instance.parent && (
+              {(data || []).
+                filter(e => (
+                  e.instance.instance_id.
+                    includes(instanceIdFilterValue)
+                )).
+                map((i) => (
+                  <tr key={i.instance.instance_id}>
+                    <td>
                       <Link
-                        to={`/${i.instance.parent.instance_id}/${i.instance.parent.execution_id}`}
+                        to={`/${i.instance.instance_id}/${i.instance.execution_id}`}
                       >
-                        <WorkflowInstance instance={i.instance.parent} />
+                        <WorkflowInstance instance={i.instance} />
                       </Link>
-                    )}
-                  </td>
-                  <td>
-                    <code>{i.created_at}</code>
-                  </td>
-                  <td>
-                    <code>{i.completed_at}</code>
-                  </td>
-                  <td style={{ textAlign: "center" }}>
-                    <WorkflowInstanceState state={i.state} />
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      {i.instance.parent && (
+                        <Link
+                          to={`/${i.instance.parent.instance_id}/${i.instance.parent.execution_id}`}
+                        >
+                          <WorkflowInstance instance={i.instance.parent} />
+                        </Link>
+                      )}
+                    </td>
+                    <td>
+                      <code>{i.created_at}</code>
+                    </td>
+                    <td>
+                      <code>{i.completed_at}</code>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <WorkflowInstanceState state={i.state} />
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </Table>
 
