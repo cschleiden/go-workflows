@@ -76,13 +76,13 @@ func (_m *MockBackend) CompleteWorkflowTask(ctx context.Context, task *WorkflowT
 	return r0
 }
 
-// CreateWorkflowInstance provides a mock function with given fields: ctx, queue, instance, event
-func (_m *MockBackend) CreateWorkflowInstance(ctx context.Context, queue core.Queue, instance *core.WorkflowInstance, event *history.Event) error {
-	ret := _m.Called(ctx, queue, instance, event)
+// CreateWorkflowInstance provides a mock function with given fields: ctx, instance, event
+func (_m *MockBackend) CreateWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
+	ret := _m.Called(ctx, instance, event)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, core.Queue, *core.WorkflowInstance, *history.Event) error); ok {
-		r0 = rf(ctx, queue, instance, event)
+	if rf, ok := ret.Get(0).(func(context.Context, *core.WorkflowInstance, *history.Event) error); ok {
+		r0 = rf(ctx, instance, event)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -75,8 +75,8 @@ func (b *monoprocessBackend) GetActivityTask(ctx context.Context, queues []workf
 	}
 }
 
-func (b *monoprocessBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
-	if err := b.Backend.CreateWorkflowInstance(ctx, queue, instance, event); err != nil {
+func (b *monoprocessBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
+	if err := b.Backend.CreateWorkflowInstance(ctx, instance, event); err != nil {
 		return err
 	}
 	b.notifyWorkflowWorker(ctx)

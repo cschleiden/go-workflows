@@ -15,6 +15,9 @@ import (
 var e2eStatsTests = []backendTest{
 	{
 		name: "Stats_ActiveInstance",
+		customWorkerOptions: func(options *worker.Options) {
+			options.ActivityQueues = []workflow.Queue{core.QueueDefault, "custom"}
+		},
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			activityRunning := make(chan bool, 1)
 			activityBlocked := make(chan bool, 1)
@@ -25,8 +28,18 @@ var e2eStatsTests = []backendTest{
 
 				return nil
 			}
+			a2 := func(ctx context.Context) error {
+				activityRunning <- true
+				<-activityBlocked
+
+				return nil
+			}
 			wf := func(ctx workflow.Context) (bool, error) {
 				workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+
+				workflow.ExecuteActivity[any](ctx, workflow.ActivityOptions{
+					Queue: "custom",
+				}, a2).Get(ctx)
 
 				workflow.NewSignalChannel[any](ctx, "test-signal").Receive(ctx)
 
@@ -35,6 +48,7 @@ var e2eStatsTests = []backendTest{
 
 			require.NoError(t, w.RegisterWorkflow(wf))
 			require.NoError(t, w.RegisterActivity(a))
+			require.NoError(t, w.RegisterActivity(a2))
 
 			s, err := b.GetStats(ctx)
 			require.NoError(t, err)
@@ -58,12 +72,20 @@ var e2eStatsTests = []backendTest{
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), s.PendingWorkflowTasks[core.QueueDefault])
+			require.Equal(t, int64(1), s.PendingActivityTasks[core.QueueDefault])
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
+
+			// Let the activity finish
+			activityBlocked <- true
+
+			// Wait until the activity is running
+			<-activityRunning
 
 			s, err = b.GetStats(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), s.ActiveWorkflowInstances)
-			require.Equal(t, int64(1), s.PendingActivityTasks[core.QueueDefault])
+			require.Equal(t, int64(0), s.PendingWorkflowTasks[core.QueueDefault])
+			require.Equal(t, int64(1), s.PendingActivityTasks["custom"])
 
 			// Let the activity finish
 			activityBlocked <- true
