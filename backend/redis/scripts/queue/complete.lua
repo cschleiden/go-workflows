@@ -12,8 +12,10 @@ end
 
 local id = task[1][2][2]
 redis.call("SREM", KEYS[1], id)
-redis.call("XACK", KEYS[2], ARGV[2], ARGV[1])
+redis.call("XACK", KEYS[2], "NOMKSTREAM", ARGV[2], ARGV[1])
 
 -- Delete the task here. Overall we'll keep the stream at a small size, so fragmentation
 -- is not an issue for us.
-return redis.call("XDEL", KEYS[2], ARGV[1])
+redis.call("XDEL", KEYS[2], ARGV[1])
+
+return true
