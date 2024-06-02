@@ -362,30 +362,44 @@ func (sb *sqliteBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 	// Lock next workflow task by finding an unlocked instance with new events to process
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
 	now := time.Now()
-	row := tx.QueryRowContext(
-		ctx,
-		`UPDATE instances
-			SET locked_until = ?, worker = ?
-			WHERE rowid = (
-				SELECT rowid FROM instances i
-					WHERE
-						(locked_until IS NULL OR locked_until < ?)
-						AND (sticky_until IS NULL OR sticky_until < ? OR worker = ?)
-						AND state = ? AND i.completed_at IS NULL
-						AND EXISTS (
-							SELECT 1
-								FROM pending_events
-								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
-						)
-					LIMIT 1
-			) RETURNING queue, id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`,
+
+	args := []any{
 		now.Add(sb.options.WorkflowLockTimeout), // new locked_until
 		sb.workerName,
 		now,                              // locked_until
 		now,                              // sticky_until
 		sb.workerName,                    // worker
 		core.WorkflowInstanceStateActive, // state
-		now,                              // pending_event.visible_at
+	}
+
+	for _, q := range queues {
+		args = append(args, string(q))
+	}
+
+	args = append(args,
+		now, // pending_event.visible_at
+	)
+
+	row := tx.QueryRowContext(
+		ctx,
+		fmt.Sprintf(`UPDATE instances
+			SET locked_until = ?, worker = ?
+			WHERE rowid = (
+				SELECT rowid FROM instances i
+					WHERE
+						(i.locked_until IS NULL OR i.locked_until < ?)
+						AND (i.sticky_until IS NULL OR i.sticky_until < ? OR i.worker = ?)
+						AND i.state = ?
+						AND i.completed_at IS NULL
+						AND i.queue IN (?%s)
+						AND EXISTS (
+							SELECT 1
+								FROM pending_events
+								WHERE instance_id = i.id AND execution_id = i.execution_id AND (visible_at IS NULL OR visible_at <= ?)
+						)
+					LIMIT 1
+			) RETURNING queue, id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, metadata, sticky_until`, strings.Repeat(",?", len(queues)-1)),
+		args...,
 	)
 
 	var queue, instanceID, executionID string

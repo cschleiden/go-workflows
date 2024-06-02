@@ -123,6 +123,7 @@ type workflowData struct{}
 
 type activityData struct {
 	Instance *core.WorkflowInstance `json:"instance,omitempty"`
+	Queue    string                 `json:"queue,omitempty"`
 	ID       string                 `json:"id,omitempty"`
 	Event    *history.Event         `json:"event,omitempty"`
 }
