@@ -43,9 +43,14 @@ func (rb *redisBackend) ExtendActivityTask(ctx context.Context, task *backend.Ac
 }
 
 func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
+	instanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(task.WorkflowInstance))
+	if err != nil {
+		return err
+	}
+
 	p := rb.rdb.TxPipeline()
 
-	if err := rb.addWorkflowInstanceEventP(ctx, p, task.Queue, task.WorkflowInstance, result); err != nil {
+	if err := rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), task.WorkflowInstance, result); err != nil {
 		return err
 	}
 
@@ -54,6 +59,6 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.
 		return err
 	}
 
-	_, err := p.Exec(ctx)
+	_, err = p.Exec(ctx)
 	return err
 }

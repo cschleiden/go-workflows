@@ -400,7 +400,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 		{
 			name: "GetActivityTask_ReturnsTaskFromQueues",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
-				wfiDefault := runWorkflowWithActivity(t, ctx, b, workflow.QueueDefault)
+				wfiDefault := runWorkflowWithActivity(t, ctx, b, workflow.QueueDefault, workflow.QueueDefault)
 
 				require.NoError(t, b.PrepareActivityQueues(ctx, []workflow.Queue{workflow.QueueDefault, "custom"}))
 
@@ -414,12 +414,35 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				require.Nil(t, task)
 
 				customQueue := workflow.Queue("custom")
-				wfiCustom := runWorkflowWithActivity(t, ctx, b, customQueue)
+				wfiCustom := runWorkflowWithActivity(t, ctx, b, core.QueueDefault, customQueue)
 
 				task, err = b.GetActivityTask(ctx, []workflow.Queue{customQueue})
 				require.NoError(t, err)
 				require.NotNil(t, task)
 				require.Equal(t, wfiCustom.InstanceID, task.WorkflowInstance.InstanceID)
+			},
+		},
+		{
+			name: "CompleteActivityTask_DeliversResultBackToWorkflowQueue",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				activityQueue := workflow.Queue("custom")
+				wfiDefault := runWorkflowWithActivity(t, ctx, b, workflow.QueueDefault, activityQueue)
+
+				require.NoError(t, b.PrepareActivityQueues(ctx, []workflow.Queue{workflow.QueueDefault, activityQueue}))
+
+				task, err := b.GetActivityTask(ctx, []workflow.Queue{activityQueue})
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, wfiDefault.InstanceID, task.WorkflowInstance.InstanceID)
+
+				require.NoError(t,
+					b.CompleteActivityTask(ctx, task, history.NewHistoryEvent(1, time.Now(), history.EventType_ActivityCompleted, &history.ActivityCompletedAttributes{})),
+				)
+
+				wfTask, err := b.GetWorkflowTask(ctx, []workflow.Queue{workflow.QueueDefault})
+				require.NoError(t, err)
+				require.NotNil(t, wfTask)
+				require.Equal(t, history.EventType_ActivityCompleted, wfTask.NewEvents[len(wfTask.NewEvents)-1].Type)
 			},
 		},
 	}
@@ -458,9 +481,11 @@ func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, instanc
 	require.NoError(t, err)
 }
 
-func runWorkflowWithActivity(t *testing.T, ctx context.Context, b backend.Backend, queue workflow.Queue) *workflow.Instance {
+func runWorkflowWithActivity(t *testing.T, ctx context.Context, b backend.Backend, queue workflow.Queue, activityQueue workflow.Queue) *workflow.Instance {
 	startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
-	activityScheduledEvent := history.NewPendingEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
+	activityScheduledEvent := history.NewPendingEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{
+		Queue: activityQueue,
+	}, history.ScheduleEventID(1))
 
 	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
 	err := b.CreateWorkflowInstance(ctx, queue, wfi, startedEvent)
