@@ -277,6 +277,8 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
+				require.NoError(t, q.Prepare(ctx, client, []workflow.Queue{core.QueueSystem, workflow.QueueDefault}))
+
 				task, err := q.Dequeue(ctx, client, []workflow.Queue{core.QueueSystem}, lockTimeout, blockTimeout)
 				require.NoError(t, err)
 				require.Nil(t, task)

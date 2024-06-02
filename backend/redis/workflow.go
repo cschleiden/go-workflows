@@ -79,6 +79,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Q
 
 	return &backend.WorkflowTask{
 		ID:                    instanceTask.TaskID,
+		Queue:                 core.Queue(instanceState.Queue),
 		WorkflowInstance:      instanceState.Instance,
 		WorkflowInstanceState: instanceState.State,
 		Metadata:              instanceState.Metadata,
@@ -192,20 +193,21 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// Schedule activities
 	args = append(args, len(activityEvents))
 	for _, activityEvent := range activityEvents {
-		activityData, err := json.Marshal(&activityData{
-			Instance: instance,
-			ID:       activityEvent.ID,
-			Event:    activityEvent,
-		})
-		if err != nil {
-			return fmt.Errorf("marshaling activity data: %w", err)
-		}
-
 		a := activityEvent.Attributes.(*history.ActivityScheduledAttributes)
 		queue := a.Queue
 		if queue == "" {
 			// Default to workflow queue
 			queue = task.Queue
+		}
+
+		activityData, err := json.Marshal(&activityData{
+			Instance: instance,
+			ID:       activityEvent.ID,
+			Event:    activityEvent,
+			Queue:    string(queue),
+		})
+		if err != nil {
+			return fmt.Errorf("marshaling activity data: %w", err)
 		}
 
 		activityQueue := string(queue)

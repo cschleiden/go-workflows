@@ -150,6 +150,32 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 			},
 		},
 		{
+			name: "GetWorkflowTask_ReturnsTaskFromGivenQueue",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+				err := b.CreateWorkflowInstance(
+					ctx, "customQueue", wfi, history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{}),
+				)
+				require.NoError(t, err)
+
+				queues := []workflow.Queue{workflow.QueueDefault, core.QueueSystem}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
+				task, err := b.GetWorkflowTask(ctx, queues)
+				require.NoError(t, err)
+				require.Nil(t, task)
+
+				customQueues := []workflow.Queue{"customQueue"}
+				require.NoError(t, b.PrepareWorkflowQueues(ctx, customQueues))
+
+				task, err = b.GetWorkflowTask(ctx, customQueues)
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, wfi.InstanceID, task.WorkflowInstance.InstanceID)
+				require.Equal(t, workflow.Queue("customQueue"), task.Queue)
+			},
+		},
+		{
 			name: "GetWorkflowTask_LocksTask",
 			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
 				wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
@@ -371,6 +397,31 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				require.Nil(t, task)
 			},
 		},
+		{
+			name: "GetActivityTask_ReturnsTaskFromQueues",
+			f: func(t *testing.T, ctx context.Context, b backend.Backend) {
+				wfiDefault := runWorkflowWithActivity(t, ctx, b, workflow.QueueDefault)
+
+				require.NoError(t, b.PrepareActivityQueues(ctx, []workflow.Queue{workflow.QueueDefault, "custom"}))
+
+				task, err := b.GetActivityTask(ctx, []workflow.Queue{workflow.QueueDefault})
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, wfiDefault.InstanceID, task.WorkflowInstance.InstanceID)
+
+				task, err = b.GetActivityTask(ctx, []workflow.Queue{workflow.QueueDefault})
+				require.NoError(t, err)
+				require.Nil(t, task)
+
+				customQueue := workflow.Queue("custom")
+				wfiCustom := runWorkflowWithActivity(t, ctx, b, customQueue)
+
+				task, err = b.GetActivityTask(ctx, []workflow.Queue{customQueue})
+				require.NoError(t, err)
+				require.NotNil(t, task)
+				require.Equal(t, wfiCustom.InstanceID, task.WorkflowInstance.InstanceID)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -405,4 +456,43 @@ func startWorkflow(t *testing.T, ctx context.Context, b backend.Backend, instanc
 	err = b.CompleteWorkflowTask(
 		ctx, task, core.WorkflowInstanceStateActive, task.NewEvents, []*history.Event{}, []*history.Event{}, []*history.WorkflowEvent{})
 	require.NoError(t, err)
+}
+
+func runWorkflowWithActivity(t *testing.T, ctx context.Context, b backend.Backend, queue workflow.Queue) *workflow.Instance {
+	startedEvent := history.NewHistoryEvent(1, time.Now(), history.EventType_WorkflowExecutionStarted, &history.ExecutionStartedAttributes{})
+	activityScheduledEvent := history.NewPendingEvent(time.Now(), history.EventType_ActivityScheduled, &history.ActivityScheduledAttributes{}, history.ScheduleEventID(1))
+
+	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+	err := b.CreateWorkflowInstance(ctx, queue, wfi, startedEvent)
+	require.NoError(t, err)
+
+	queues := []workflow.Queue{queue}
+	require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
+
+	task, err := b.GetWorkflowTask(ctx, queues)
+	require.NoError(t, err)
+
+	taskStartedEvent := history.NewPendingEvent(time.Now(), history.EventType_WorkflowTaskStarted, &history.WorkflowTaskStartedAttributes{})
+	events := []*history.Event{
+		taskStartedEvent,
+		startedEvent,
+		activityScheduledEvent,
+	}
+
+	sequenceID := int64(1)
+	for i := range events {
+		sequenceID++
+		events[i].SequenceID = sequenceID
+	}
+
+	activityEvents := []*history.Event{
+		activityScheduledEvent,
+	}
+
+	workflowEvents := []*history.WorkflowEvent{}
+
+	err = b.CompleteWorkflowTask(ctx, task, core.WorkflowInstanceStateActive, events, activityEvents, []*history.Event{}, workflowEvents)
+	require.NoError(t, err)
+
+	return wfi
 }
