@@ -48,7 +48,7 @@ func Test_Client_CreateWorkflowInstance_NameGiven(t *testing.T) {
 	b.On("Options").Return(backend.ApplyOptions(backend.WithConverter(converter.DefaultConverter), backend.WithLogger(slog.Default())))
 	b.On("Tracer").Return(trace.NewNoopTracerProvider().Tracer("test"))
 	b.On("Metrics").Return(metrics.NewNoopMetricsClient())
-	b.On("CreateWorkflowInstance", mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(event *history.Event) bool {
+	b.On("CreateWorkflowInstance", mock.Anything, mock.Anything, mock.MatchedBy(func(event *history.Event) bool {
 		if event.Type != history.EventType_WorkflowExecutionStarted {
 			return false
 		}
