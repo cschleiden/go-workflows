@@ -229,8 +229,14 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 		if createNewInstance {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+
+			queue := a.Queue
+			if queue == "" {
+				queue = task.Queue
+			}
+
 			isb, err := json.Marshal(&instanceState{
-				Queue:     string(task.Queue),
+				Queue:     string(queue),
 				Instance:  &targetInstance,
 				State:     core.WorkflowInstanceStateActive,
 				Metadata:  a.Metadata,
@@ -257,6 +263,17 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 
 			args = append(args, pfe.ID, eventData, payloadEventData)
+
+			queueKeys := rb.workflowQueue.Keys(queue)
+			keys = append(keys, queueKeys.SetKey, queueKeys.StreamKey)
+		} else {
+			targetInstanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(&targetInstance))
+			if err != nil {
+				return fmt.Errorf("reading target instance: %w", err)
+			}
+
+			queueKeys := rb.workflowQueue.Keys(core.Queue(targetInstanceState.Queue))
+			keys = append(keys, queueKeys.SetKey, queueKeys.StreamKey)
 		}
 
 		keys = append(keys, rb.keys.pendingEventsKey(&targetInstance), rb.keys.payloadKey(&targetInstance))

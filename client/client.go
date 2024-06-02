@@ -98,12 +98,13 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		c.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
+			Queue:    options.Queue,
 			Metadata: metadata,
 			Name:     workflowName,
 			Inputs:   inputs,
 		})
 
-	if err := c.backend.CreateWorkflowInstance(ctx, options.Queue, wfi, startedEvent); err != nil {
+	if err := c.backend.CreateWorkflowInstance(ctx, wfi, startedEvent); err != nil {
 		return nil, fmt.Errorf("creating workflow instance: %w", err)
 	}
 

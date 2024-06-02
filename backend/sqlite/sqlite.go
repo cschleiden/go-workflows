@@ -152,15 +152,17 @@ func (sb *sqliteBackend) Options() *backend.Options {
 	return sb.options.Options
 }
 
-func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
+func (sb *sqliteBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("starting transaction: %w", err)
 	}
 	defer tx.Rollback()
 
+	a := event.Attributes.(*history.ExecutionStartedAttributes)
+
 	// Create workflow instance
-	if err := createInstance(ctx, tx, queue, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
+	if err := createInstance(ctx, tx, a.Queue, instance, a.Metadata); err != nil {
 		return err
 	}
 
@@ -564,8 +566,14 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 		m := events[0]
 		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+
+			queue := a.Queue
+			if queue == "" {
+				queue = task.Queue
+			}
+
 			// Create new instance
-			if err := createInstance(ctx, tx, task.Queue, m.WorkflowInstance, a.Metadata); err != nil {
+			if err := createInstance(ctx, tx, queue, m.WorkflowInstance, a.Metadata); err != nil {
 				if err == backend.ErrInstanceAlreadyExists {
 					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
 						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{

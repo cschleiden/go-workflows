@@ -127,7 +127,7 @@ func (b *mysqlBackend) Options() *backend.Options {
 	return b.options.Options
 }
 
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
+func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -136,8 +136,10 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, queue workflo
 	}
 	defer tx.Rollback()
 
+	a := event.Attributes.(*history.ExecutionStartedAttributes)
+
 	// Create workflow instance
-	if err := createInstance(ctx, tx, queue, instance, event.Attributes.(*history.ExecutionStartedAttributes).Metadata); err != nil {
+	if err := createInstance(ctx, tx, a.Queue, instance, a.Metadata); err != nil {
 		return err
 	}
 
@@ -642,8 +644,14 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		m := events[0]
 		if m.HistoryEvent.Type == history.EventType_WorkflowExecutionStarted {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+
+			queue := a.Queue
+			if queue == "" {
+				queue = task.Queue
+			}
+
 			// Create new instance
-			if err := createInstance(ctx, tx, task.Queue, m.WorkflowInstance, a.Metadata); err != nil {
+			if err := createInstance(ctx, tx, queue, m.WorkflowInstance, a.Metadata); err != nil {
 				if err == backend.ErrInstanceAlreadyExists {
 					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
 						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{

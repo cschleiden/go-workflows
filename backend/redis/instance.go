@@ -14,12 +14,14 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, queue workflow.Queue, instance *workflow.Instance, event *history.Event) error {
+func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
+	a := event.Attributes.(*history.ExecutionStartedAttributes)
+
 	instanceState, err := json.Marshal(&instanceState{
-		Queue:     string(queue),
+		Queue:     string(a.Queue),
 		Instance:  instance,
 		State:     core.WorkflowInstanceStateActive,
-		Metadata:  event.Attributes.(*history.ExecutionStartedAttributes).Metadata,
+		Metadata:  a.Metadata,
 		CreatedAt: time.Now(),
 	})
 	if err != nil {
@@ -41,7 +43,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, queue workfl
 		return fmt.Errorf("marshaling event payload: %w", err)
 	}
 
-	keyInfo := rb.workflowQueue.Keys(queue)
+	keyInfo := rb.workflowQueue.Keys(a.Queue)
 	_, err = createWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.instanceKey(instance),
 		rb.keys.activeInstanceExecutionKey(instance.InstanceID),
