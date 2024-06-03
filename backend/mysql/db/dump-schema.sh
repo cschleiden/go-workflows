@@ -16,7 +16,7 @@ fi
 docker exec go-workflows-db-1 mysql -uroot -proot -e "CREATE DATABASE $DB_NAME"
 
 # Run all migrations
-migrate -database "mysql://root:root@tcp(127.0.0.1:3306)/$DB_NAME" -source file://./migrations up
+/Users/cschleiden/go/bin/migrate -database "mysql://root:root@tcp(127.0.0.1:3306)/$DB_NAME" -source file://./migrations up
 
 # Dump schema
 docker exec go-workflows-db-1 mysqldump -uroot -proot $DB_NAME | sed -e 's/^\/\*![0-9]\{5\}.*\/;$//g' > ./schema.sql
