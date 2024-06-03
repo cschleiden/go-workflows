@@ -234,7 +234,7 @@ func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, q
 
 	if len(r) > 1 {
 		msgs := r[1].([]interface{})
-		if len(msgs) > 0 {
+		if len(msgs) > 0 && msgs[0] != nil {
 			msgData := msgs[0].([]interface{})
 
 			id := msgData[0].(string)

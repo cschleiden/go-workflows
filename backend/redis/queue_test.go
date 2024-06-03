@@ -32,25 +32,14 @@ func Test_TaskQueue(t *testing.T) {
 
 	tests := []struct {
 		name string
-		f    func(t *testing.T)
+		f    func(t *testing.T, q *taskQueue[any])
 	}{
 		{
-			name: "Create queue",
-			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](context.Background(), client, "", taskType)
-				require.NoError(t, err)
-				require.NotNil(t, q)
-			},
-		},
-		{
 			name: "Simple enqueue/dequeue",
-			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
-				require.NoError(t, err)
-
+			f: func(t *testing.T, q *taskQueue[any]) {
 				ctx := context.Background()
 
-				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
 					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
@@ -63,13 +52,10 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Size",
-			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
-				require.NoError(t, err)
-
+			f: func(t *testing.T, q *taskQueue[any]) {
 				ctx := context.Background()
 
-				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
 					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
@@ -81,13 +67,10 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Guarantee uniqueness",
-			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
-				require.NoError(t, err)
-
+			f: func(t *testing.T, q *taskQueue[any]) {
 				ctx := context.Background()
 
-				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
 					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
@@ -115,7 +98,7 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Store custom data",
-			f: func(t *testing.T) {
+			f: func(t *testing.T, _ *taskQueue[any]) {
 				type foo struct {
 					Count int
 					Name  string
@@ -144,9 +127,7 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Simple enqueue/dequeue different worker",
-			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
-
+			f: func(t *testing.T, q *taskQueue[any]) {
 				ctx := context.Background()
 
 				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
@@ -166,8 +147,7 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Complete removes task",
-			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
+			f: func(t *testing.T, q *taskQueue[any]) {
 				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
 
 				ctx := context.Background()
@@ -198,7 +178,7 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Recover task",
-			f: func(t *testing.T) {
+			f: func(t *testing.T, _ *taskQueue[any]) {
 				type taskData struct {
 					Count int `json:"count"`
 				}
@@ -232,9 +212,7 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Extending task prevents recovering",
-			f: func(t *testing.T) {
-				q, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
-
+			f: func(t *testing.T, q *taskQueue[any]) {
 				ctx := context.Background()
 
 				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
@@ -266,13 +244,10 @@ func Test_TaskQueue(t *testing.T) {
 		},
 		{
 			name: "Will only dequeue from given queue",
-			f: func(t *testing.T) {
-				q, err := newTaskQueue[any](context.Background(), client, "prefix", taskType)
-				require.NoError(t, err)
-
+			f: func(t *testing.T, q *taskQueue[any]) {
 				ctx := context.Background()
 
-				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
+				_, err := client.Pipelined(ctx, func(p redis.Pipeliner) error {
 					return q.Enqueue(ctx, p, workflow.QueueDefault, "t1", nil)
 				})
 				require.NoError(t, err)
@@ -304,7 +279,14 @@ func Test_TaskQueue(t *testing.T) {
 				panic("Keys should've been empty" + strings.Join(r, ", "))
 			}
 
-			tt.f(t)
+			ctx := context.Background()
+
+			q, err := newTaskQueue[any](ctx, client, "prefix", taskType)
+			require.NoError(t, err)
+
+			q.Prepare(ctx, client, []workflow.Queue{workflow.QueueDefault})
+
+			tt.f(t, q)
 		})
 	}
 }
