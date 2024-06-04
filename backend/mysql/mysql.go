@@ -741,7 +741,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 			a.event_type, a.timestamp, a.schedule_event_id, at.data, a.visible_at
 			FROM activities a
 			JOIN attributes at ON at.event_id = a.activity_id AND at.instance_id = a.instance_id AND at.execution_id = a.execution_id
-			WHERE a.locked_until IS NULL OR a.locked_until < ? AND a.queue IN (?%s)
+			WHERE (a.locked_until IS NULL OR a.locked_until < ?) AND a.queue IN (?%s)
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED`, queuePlaceholders),
 		args...,

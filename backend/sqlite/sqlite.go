@@ -658,7 +658,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context, queues []workflow.
 		fmt.Sprintf(`UPDATE activities
 			SET locked_until = ?, worker = ?
 			WHERE rowid = (
-				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? AND queue IN (?%s) LIMIT 1
+				SELECT rowid FROM activities WHERE (locked_until IS NULL OR locked_until < ?) AND queue IN (?%s) LIMIT 1
 			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at`, strings.Repeat(",?", len(queues)-1)),
 		args...,
 	)
