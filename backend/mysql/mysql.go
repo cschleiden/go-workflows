@@ -399,7 +399,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 		ctx,
 		fmt.Sprintf(`SELECT i.id, i.queue, i.instance_id, i.execution_id, i.parent_instance_id, i.parent_execution_id, i.parent_schedule_event_id, i.metadata, i.sticky_until
 			FROM instances i
-			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id
+			INNER JOIN pending_events pe ON i.instance_id = pe.instance_id AND i.execution_id = pe.execution_id
 			WHERE
 				state = ? AND i.completed_at IS NULL
 				AND (pe.visible_at IS NULL OR pe.visible_at <= ?)
