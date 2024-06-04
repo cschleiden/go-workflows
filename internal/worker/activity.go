@@ -34,7 +34,7 @@ func NewActivityWorker(
 		logger:               b.Options().Logger,
 	}
 
-	return NewWorker[backend.ActivityTask, history.Event](b, tw, &options)
+	return NewWorker(b, tw, &options)
 }
 
 type ActivityTaskWorker struct {
