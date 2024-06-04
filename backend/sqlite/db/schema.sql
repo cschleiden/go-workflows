@@ -53,7 +53,6 @@ CREATE TABLE `activities` (
   `worker` TEXT NULL
 , `queue` NVARCHAR(128) DEFAULT '');
 CREATE INDEX `idx_activities_id_worker` ON `activities` (`id`, `worker`);
-CREATE INDEX `idx_activities_locked_until` ON `activities` (`locked_until`);
 CREATE TABLE `attributes` (
   `id` TEXT NOT NULL,
   `instance_id` TEXT NOT NULL,
@@ -63,3 +62,4 @@ CREATE TABLE `attributes` (
 );
 CREATE INDEX `idx_instances_locked_until_completed_at_queue` ON `instances` (`completed_at`, `locked_until`, `sticky_until`, `worker`, `queue`);
 CREATE INDEX `idx_activities_instance_id_execution_id_worker_queue` ON `activities` (`instance_id`, `execution_id`, `worker`, `queue`);
+CREATE INDEX `idx_activities_locked_until_queue` ON `activities` (`locked_until`, `queue`);
