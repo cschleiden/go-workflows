@@ -642,16 +642,25 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context, queues []workflow.
 	// Lock next activity
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
 	now := time.Now()
-	row := tx.QueryRowContext(
-		ctx,
-		`UPDATE activities
-			SET locked_until = ?, worker = ?
-			WHERE rowid = (
-				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? LIMIT 1
-			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at`,
+
+	args := []interface{}{
 		now.Add(sb.options.ActivityLockTimeout),
 		sb.workerName,
 		now,
+	}
+
+	for _, q := range queues {
+		args = append(args, string(q))
+	}
+
+	row := tx.QueryRowContext(
+		ctx,
+		fmt.Sprintf(`UPDATE activities
+			SET locked_until = ?, worker = ?
+			WHERE rowid = (
+				SELECT rowid FROM activities WHERE locked_until IS NULL OR locked_until < ? AND queue IN (%s) LIMIT 1
+			) RETURNING id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at`, strings.Repeat("?,", len(queues)-1)),
+		args...,
 	)
 
 	var instanceID, executionID string
