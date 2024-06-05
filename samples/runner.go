@@ -2,6 +2,7 @@ package samples
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"log"
 	"net/http"
@@ -27,7 +28,20 @@ func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {
 		return sqlite.NewSqliteBackend(name+".sqlite", sqlite.WithBackendOptions(opt...))
 
 	case "mysql":
-		return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, mysql.WithBackendOptions(opt...))
+		{
+			// Create a new MySQL database
+			db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/")
+			if err != nil {
+				panic(err)
+			}
+
+			_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + name)
+			if err != nil {
+				panic(err)
+			}
+
+			return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, mysql.WithBackendOptions(opt...))
+		}
 
 	case "redis":
 		rclient := redisv9.NewUniversalClient(&redisv9.UniversalOptions{

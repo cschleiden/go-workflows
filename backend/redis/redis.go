@@ -5,11 +5,9 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
@@ -21,12 +19,14 @@ import (
 
 var _ backend.Backend = (*redisBackend)(nil)
 
-//go:embed scripts/*.lua
+//go:embed scripts
 var luaScripts embed.FS
 
 var (
 	createWorkflowInstanceCmd *redis.Script
 	completeWorkflowTaskCmd   *redis.Script
+	futureEventsCmd           *redis.Script
+	expireWorkflowInstanceCmd *redis.Script
 )
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
@@ -40,12 +40,14 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		opt(options)
 	}
 
-	workflowQueue, err := newTaskQueue[any](client, options.KeyPrefix, "workflows")
+	ctx := context.Background()
+
+	workflowQueue, err := newTaskQueue[workflowData](ctx, client, options.KeyPrefix, "workflows")
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := newTaskQueue[activityData](client, options.KeyPrefix, "activities")
+	activityQueue, err := newTaskQueue[activityData](ctx, client, options.KeyPrefix, "activities")
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
@@ -61,11 +63,8 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 
 	// Preload scripts here. Usually redis-go attempts to execute them first, and if redis doesn't know
 	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
-	ctx := context.Background()
 	cmds := map[string]*redis.StringCmd{
-		"futureEventsCmd":   futureEventsCmd.Load(ctx, rb.rdb),
 		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
-		"expireInstanceCmd": expireCmd.Load(ctx, rb.rdb),
 		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
@@ -77,26 +76,35 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	}
 
 	// Load all Lua scripts
-
 	cmdMapping := map[string]**redis.Script{
 		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
 		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
+		"schedule_future_events.lua":   &futureEventsCmd,
+		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
 	}
 
+	if err := loadScripts(ctx, rb.rdb, cmdMapping); err != nil {
+		return nil, fmt.Errorf("loading Lua scripts: %w", err)
+	}
+
+	return rb, nil
+}
+
+func loadScripts(ctx context.Context, rdb redis.UniversalClient, cmdMapping map[string]**redis.Script) error {
 	for scriptFile, cmd := range cmdMapping {
 		scriptContent, err := fs.ReadFile(luaScripts, "scripts/"+scriptFile)
 		if err != nil {
-			return nil, fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
+			return fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
 		}
 
 		*cmd = redis.NewScript(string(scriptContent))
 
-		if c := (*cmd).Load(ctx, rb.rdb); c.Err() != nil {
-			return nil, fmt.Errorf("loading Lua script %s: %w", scriptFile, c.Err())
+		if c := (*cmd).Load(ctx, rdb); c.Err() != nil {
+			return fmt.Errorf("loading Lua script %s: %w", scriptFile, c.Err())
 		}
 	}
 
-	return rb, nil
+	return nil
 }
 
 type redisBackend struct {
@@ -105,18 +113,19 @@ type redisBackend struct {
 
 	keys *keys
 
-	workflowQueue *taskQueue[any]
+	queues []workflow.Queue
+
+	workflowQueue *taskQueue[workflowData]
 	activityQueue *taskQueue[activityData]
 }
 
+type workflowData struct{}
+
 type activityData struct {
 	Instance *core.WorkflowInstance `json:"instance,omitempty"`
+	Queue    string                 `json:"queue,omitempty"`
 	ID       string                 `json:"id,omitempty"`
 	Event    *history.Event         `json:"event,omitempty"`
-}
-
-func (rb *redisBackend) Logger() *slog.Logger {
-	return rb.options.Logger
 }
 
 func (rb *redisBackend) Metrics() metrics.Client {
@@ -127,12 +136,8 @@ func (rb *redisBackend) Tracer() trace.Tracer {
 	return rb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func (rb *redisBackend) Converter() converter.Converter {
-	return rb.options.Converter
-}
-
-func (rb *redisBackend) ContextPropagators() []workflow.ContextPropagator {
-	return rb.options.ContextPropagators
+func (b *redisBackend) Options() *backend.Options {
+	return b.options.Options
 }
 
 func (rb *redisBackend) Close() error {

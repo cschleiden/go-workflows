@@ -5,6 +5,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"
+	"github.com/cschleiden/go-workflows/core"
 )
 
 type ScheduleActivityCommand struct {
@@ -14,11 +15,12 @@ type ScheduleActivityCommand struct {
 	Inputs   []payload.Payload
 	Attempt  int
 	Metadata *metadata.WorkflowMetadata
+	Queue    core.Queue
 }
 
 var _ Command = (*ScheduleActivityCommand)(nil)
 
-func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, attempt int, metadata *metadata.WorkflowMetadata) *ScheduleActivityCommand {
+func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload, attempt int, metadata *metadata.WorkflowMetadata, queue core.Queue) *ScheduleActivityCommand {
 	return &ScheduleActivityCommand{
 		command: command{
 			id:    id,
@@ -29,6 +31,7 @@ func NewScheduleActivityCommand(id int64, name string, inputs []payload.Payload,
 		Attempt:  attempt,
 		Inputs:   inputs,
 		Metadata: metadata,
+		Queue:    queue,
 	}
 }
 
@@ -45,6 +48,7 @@ func (c *ScheduleActivityCommand) Execute(clock clock.Clock) *CommandResult {
 				Inputs:   c.Inputs,
 				Attempt:  c.Attempt,
 				Metadata: c.Metadata,
+				Queue:    c.Queue,
 			},
 			history.ScheduleEventID(c.id))
 

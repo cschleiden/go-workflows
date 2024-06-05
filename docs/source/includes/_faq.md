@@ -75,6 +75,8 @@ and only if a workflow instance was created with a version of `>= 2` will `Activ
 
 This kind of check is understandable for simple changes, but it becomes hard and a source of bugs for more complicated workflows. Therefore for now versioning is not supported and the guidance is to rely on **side-by-side** deployments. See also Azure's [Durable Functions](https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-versioning) documentation for the same topic.
 
+In addition to side-by-side deployments, you can use [Queues](#queues) to route workflows to different workers based on their version.
+
 ## How to safely upgrade?
 
 All backend implementations have limited support for migrations which by default are automatically executed when a backend is started. This generally assumes only a single running worker. If you use multiple workers, you need to synchronize migration execution yourself.

@@ -23,6 +23,7 @@ local instancesByCreation = getKey()
 
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
+local workflowQueuesSet = getKey()
 
 local instanceSegment = getArgv()
 
@@ -55,6 +56,7 @@ local creationTimestamp = tonumber(getArgv())
 redis.call("ZADD", instancesByCreation, creationTimestamp, instanceSegment)
 
 -- queue workflow task
+redis.call("SADD", workflowQueuesSet, workflowSetKey) -- track queue
 local added = redis.call("SADD", workflowSetKey, instanceSegment)
 if added == 1 then
     redis.call("XADD", workflowStreamKey, "*", "id", instanceSegment, "data", "")

@@ -15,6 +15,7 @@ type WorkflowInstanceRef struct {
 	CreatedAt   time.Time                  `json:"created_at,omitempty"`
 	CompletedAt *time.Time                 `json:"completed_at,omitempty"`
 	State       core.WorkflowInstanceState `json:"state"`
+	Queue       string                     `json:"queue"`
 }
 
 type Event struct {

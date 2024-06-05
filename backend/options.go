@@ -37,10 +37,6 @@ type Options struct {
 	// ActivityLockTimeout determines how long an activity task can be locked for. If the activity task is not completed
 	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
-
-	WorkflowNamespace string
-
-	ActivityNamespace string
 }
 
 var DefaultOptions Options = Options{
@@ -94,7 +90,7 @@ func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
 	}
 }
 
-func ApplyOptions(opts ...BackendOption) Options {
+func ApplyOptions(opts ...BackendOption) *Options {
 	options := DefaultOptions
 
 	for _, opt := range opts {
@@ -105,5 +101,5 @@ func ApplyOptions(opts ...BackendOption) Options {
 		options.Logger = slog.Default()
 	}
 
-	return options
+	return &options
 }

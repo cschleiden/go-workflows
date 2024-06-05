@@ -36,6 +36,10 @@ Shows how to handle errors in workflows and activities.
 
 Demonstrates sub-workflow and activity retries.
 
+## Queues
+
+Shows how to queue workflows and activities to different queues and how to create workers that only listen for specific queues or specific tasks (workflows or activities).
+
 ## Scale
 
 Simple sample with a split worker and "starter" process.

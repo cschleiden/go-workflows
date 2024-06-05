@@ -112,6 +112,9 @@ function Instance() {
         <dd className="col-sm-8">
           {!instance.completed_at ? <i>pending</i> : instance.completed_at}
         </dd>
+
+        <dt className="col-sm-4">Queue</dt>
+        <dd className="col-sm-8">{instance.queue}</dd>
       </dl>
 
       <Card>

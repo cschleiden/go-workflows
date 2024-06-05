@@ -3,9 +3,7 @@ package backend
 import (
 	"context"
 	"errors"
-	"log/slog"
 
-	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
@@ -42,11 +40,17 @@ type Backend interface {
 	// If the given instance does not exist, it will return an error
 	SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error
 
+	// PrepareWorkflowQueues prepares workflow queues for later consumption using this backend instane
+	PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error
+
+	// PrepareActivityQueues prepares activity queues for later consumption using this backend instance
+	PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error
+
 	// GetWorkflowTask returns a pending workflow task or nil if there are no pending workflow executions
-	GetWorkflowTask(ctx context.Context) (*WorkflowTask, error)
+	GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*WorkflowTask, error)
 
 	// ExtendWorkflowTask extends the lock of a workflow task
-	ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error
+	ExtendWorkflowTask(ctx context.Context, task *WorkflowTask) error
 
 	// CompleteWorkflowTask checkpoints a workflow task retrieved using GetWorkflowTask
 	//
@@ -54,23 +58,20 @@ type Backend interface {
 	// which will be added to the workflow instance history. workflowEvents are new events for the
 	// completed or other workflow instances.
 	CompleteWorkflowTask(
-		ctx context.Context, task *WorkflowTask, instance *workflow.Instance, state core.WorkflowInstanceState,
+		ctx context.Context, task *WorkflowTask, state core.WorkflowInstanceState,
 		executedEvents, activityEvents, timerEvents []*history.Event, workflowEvents []*history.WorkflowEvent) error
 
 	// GetActivityTask returns a pending activity task or nil if there are no pending activities
-	GetActivityTask(ctx context.Context) (*ActivityTask, error)
-
-	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
-	CompleteActivityTask(ctx context.Context, instance *workflow.Instance, activityID string, event *history.Event) error
+	GetActivityTask(ctx context.Context, queues []workflow.Queue) (*ActivityTask, error)
 
 	// ExtendActivityTask extends the lock of an activity task
-	ExtendActivityTask(ctx context.Context, activityID string) error
+	ExtendActivityTask(ctx context.Context, task *ActivityTask) error
+
+	// CompleteActivityTask completes an activity task retrieved using GetActivityTask
+	CompleteActivityTask(ctx context.Context, task *ActivityTask, result *history.Event) error
 
 	// GetStats returns stats about the backend
 	GetStats(ctx context.Context) (*Stats, error)
-
-	// Logger returns the configured logger for the backend
-	Logger() *slog.Logger
 
 	// Tracer returns the configured trace provider for the backend
 	Tracer() trace.Tracer
@@ -78,11 +79,8 @@ type Backend interface {
 	// Metrics returns the configured metrics client for the backend
 	Metrics() metrics.Client
 
-	// Converter returns the configured converter for the backend
-	Converter() converter.Converter
-
-	// ContextPropagators returns the configured context propagators for the backend
-	ContextPropagators() []workflow.ContextPropagator
+	// Options returns the configured options for the backend
+	Options() *Options
 
 	// Close closes any underlying resources
 	Close() error

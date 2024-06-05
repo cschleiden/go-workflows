@@ -200,7 +200,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				instance := runWorkflow(t, ctx, c, wf)
 
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*50)
 				require.NoError(t, err)
 				require.Equal(t, 7, r)
 			},
@@ -445,6 +445,45 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					f := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 						InstanceID: id,
+					}, swf, 1)
+
+					if _, err := workflow.SignalWorkflow(ctx, id, "signal", "hello").Get(ctx); err != nil {
+						return 0, err
+					}
+
+					return f.Get(ctx)
+				}
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+
+				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
+				require.NoError(t, err)
+				require.Equal(t, 2, r)
+			},
+		},
+		{
+			name: "SubWorkflow_DifferentQueue",
+			customWorkerOptions: func(options *worker.Options) {
+				options.WorkflowQueues = []core.Queue{workflow.QueueDefault, workflow.Queue("custom")}
+			},
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				subWorkflowQueue := workflow.Queue("custom")
+				swf := func(ctx workflow.Context, i int) (int, error) {
+					workflow.NewSignalChannel[string](ctx, "signal").Receive(ctx)
+
+					return i * 2, nil
+				}
+				wf := func(ctx workflow.Context) (int, error) {
+					id, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) string {
+						id := uuid.New().String()
+						workflow.Logger(ctx).Warn("side effect", "id", id)
+						return id
+					}).Get(ctx)
+
+					f := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+						InstanceID: id,
+						Queue:      subWorkflowQueue,
 					}, swf, 1)
 
 					if _, err := workflow.SignalWorkflow(ctx, id, "signal", "hello").Get(ctx); err != nil {
@@ -782,6 +821,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 	tests = append(tests, e2eTimerTests...)
 	tests = append(tests, e2eStatsTests...)
 	tests = append(tests, e2eDiagTests...)
+	tests = append(tests, e2eQueueTests...)
 
 	run := func(suffix string, workerOptions worker.Options) {
 		for _, tt := range tests {

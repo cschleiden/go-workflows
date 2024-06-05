@@ -155,6 +155,52 @@ func Workflow2(ctx workflow.Context, msg string) (string, error) {
 
 If you need to run any activities or make calls using `workflow.Context` you need to create a new context with `workflow.NewDisconnectedContext`, since the original context is canceled at this point.
 
+## Workers
+
+```go
+defaultWorker := worker.New(mb, &worker.Options{})
+
+workflowWorker := worker.NewWorkflowWorker(b, &worker.WorkflowWorkerOptions{})
+
+activityWorker := worker.NewActivityWorker(b, &worker.ActivityWorkerOptions{})
+```
+
+There are three different types of workers:
+
+- the default worker is a combined worker that listens to both workflow and activity queues
+- a workflow worker that only listens to workflow queues
+- an activity worker that only listens to activity queues
+
+```go
+defaultWorker.RegisterWorkflow(Workflow1)
+defaultWorker.RegisterActivity(Activity1)
+
+ctx, cancel := context.WithCancel(context.Background())
+defaultWorker.Start(ctx)
+
+cancel()
+defaultWorker.WaitForCompletion()
+```
+
+All workers have the same simple interface. You can register workflows and activities, start the worker, and when shutting down wait for all pending tasks to be finished.
+
+## Queues
+
+Workers can pull workflow and activity tasks from different queues. By default workers listen to two queues:
+
+- `default`
+- `_system_` for system workflows and activities
+
+For now, every worker will _always_ pull from `_system_`, but you can configure other queues you want to listen to. All worker options `struct`s take a `Queues` option.
+
+When starting workflows, creating sub-workflow instances, or scheduling activities you can pass a queue you want the task to be scheduled on.
+
+The default behavior if no explicit queue is given:
+
+- **Starting a workflow**: the default queue is `default`.
+- **Creating a sub-workflow instance**: the default behavior is to inherit the queue from the parent workflow instance.
+- **Scheduling an activity**: the default behavior is to inherit the queue from the parent workflow instance.
+
 ## Executing activities
 
 ```go
@@ -167,6 +213,23 @@ log.Println(r1)
 ```
 
 From a workflow, call `workflow.ExecuteActivity` to execute an activity. The call returns a `Future[T]` you can await to get the result or any error it might return.
+
+<div style="clear: both"></div>
+
+### Executing activities on a specific queue
+
+```go
+r1, err := workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
+	Queue: "my-queue",
+}, Activity1, 35, 12, nil, "test").Get(ctx)
+if err != nil {
+	panic("error getting activity 1 result")
+}
+
+log.Println(r1)
+```
+
+<div style="clear: both"></div>
 
 ### Canceling activities
 
@@ -274,6 +337,22 @@ func SubWorkflow(ctx workflow.Context, msg string) (int, error) {
 ```
 
 Call `workflow.CreateSubWorkflowInstance` to start a sub-workflow. The returned `Future` will resolve once the sub-workflow has finished.
+
+<div style="clear: both"></div>
+
+### Executing sub-workflows on a specific queue
+
+```go
+result, err := workflow.CreateSubWorkflowInstance[int]
+	ctx, workflow.SubWorkflowInstanceOptions{
+		Queue: "my-queue",
+	}, SubWorkflow, "some input").Get(ctx)
+if err != nil {
+	return errors.Wrap(err, "could not get sub workflow result")
+}
+```
+
+<div style="clear: both"></div>
 
 ### Canceling sub-workflows
 

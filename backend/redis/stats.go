@@ -34,7 +34,7 @@ func (rb *redisBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		return nil, fmt.Errorf("getting active activities: %w", err)
 	}
 
-	s.PendingActivities = pendingActivities
+	s.PendingActivityTasks = pendingActivities
 
 	return s, nil
 }

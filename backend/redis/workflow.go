@@ -13,18 +13,23 @@ import (
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
+	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowTask, error) {
+func (rb *redisBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
+	return rb.workflowQueue.Prepare(ctx, rb.rdb, queues)
+}
+
+func (rb *redisBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	if err := scheduleFutureEvents(ctx, rb); err != nil {
 		return nil, fmt.Errorf("scheduling future events: %w", err)
 	}
 
 	// Try to get a workflow task, this locks the instance when it dequeues one
-	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.rdb, rb.options.WorkflowLockTimeout, rb.options.BlockTimeout)
+	instanceTask, err := rb.workflowQueue.Dequeue(ctx, rb.rdb, queues, rb.options.WorkflowLockTimeout, rb.options.BlockTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +79,7 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 
 	return &backend.WorkflowTask{
 		ID:                    instanceTask.TaskID,
+		Queue:                 core.Queue(instanceState.Queue),
 		WorkflowInstance:      instanceState.Instance,
 		WorkflowInstanceState: instanceState.State,
 		Metadata:              instanceState.Metadata,
@@ -83,9 +89,9 @@ func (rb *redisBackend) GetWorkflowTask(ctx context.Context) (*backend.WorkflowT
 	}, nil
 }
 
-func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, taskID string, instance *core.WorkflowInstance) error {
+func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, task *backend.WorkflowTask) error {
 	_, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		return rb.workflowQueue.Extend(ctx, p, taskID)
+		return rb.workflowQueue.Extend(ctx, p, task.Queue, task.ID)
 	})
 
 	return err
@@ -94,7 +100,6 @@ func (rb *redisBackend) ExtendWorkflowTask(ctx context.Context, taskID string, i
 func (rb *redisBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *backend.WorkflowTask,
-	instance *core.WorkflowInstance,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []*history.WorkflowEvent,
@@ -102,7 +107,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	keys := make([]string, 0)
 	args := make([]interface{}, 0)
 
-	queueKeys := rb.workflowQueue.Keys()
+	instance := task.WorkflowInstance
+
+	queueKeys := rb.workflowQueue.Keys(task.Queue)
 	keys = append(keys,
 		rb.keys.instanceKey(instance),
 		rb.keys.historyKey(instance),
@@ -113,8 +120,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		rb.keys.instancesByCreation(),
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
+		rb.workflowQueue.queueSetKey,
 	)
-	args = append(args, instanceSegment(instance))
+	args = append(args, rb.keys.prefix, instanceSegment(instance))
 
 	// Add executed events to the history
 	args = append(args, len(executedEvents))
@@ -184,18 +192,26 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	// Schedule activities
 	args = append(args, len(activityEvents))
-	activityQueueKeys := rb.activityQueue.Keys()
-	keys = append(keys, activityQueueKeys.SetKey, activityQueueKeys.StreamKey)
 	for _, activityEvent := range activityEvents {
+		a := activityEvent.Attributes.(*history.ActivityScheduledAttributes)
+		queue := a.Queue
+		if queue == "" {
+			// Default to workflow queue
+			queue = task.Queue
+		}
+
 		activityData, err := json.Marshal(&activityData{
 			Instance: instance,
 			ID:       activityEvent.ID,
 			Event:    activityEvent,
+			Queue:    string(queue),
 		})
 		if err != nil {
 			return fmt.Errorf("marshaling activity data: %w", err)
 		}
-		args = append(args, activityEvent.ID, activityData)
+
+		activityQueue := string(queue)
+		args = append(args, activityQueue, activityEvent.ID, activityData)
 	}
 
 	// Send new workflow events to the respective streams
@@ -213,7 +229,14 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 		if createNewInstance {
 			a := m.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
+
+			queue := a.Queue
+			if queue == "" {
+				queue = task.Queue
+			}
+
 			isb, err := json.Marshal(&instanceState{
+				Queue:     string(queue),
 				Instance:  &targetInstance,
 				State:     core.WorkflowInstanceStateActive,
 				Metadata:  a.Metadata,
@@ -240,6 +263,17 @@ func (rb *redisBackend) CompleteWorkflowTask(
 			}
 
 			args = append(args, pfe.ID, eventData, payloadEventData)
+
+			queueKeys := rb.workflowQueue.Keys(queue)
+			keys = append(keys, queueKeys.SetKey, queueKeys.StreamKey)
+		} else {
+			targetInstanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(&targetInstance))
+			if err != nil {
+				return fmt.Errorf("reading target instance: %w", err)
+			}
+
+			queueKeys := rb.workflowQueue.Keys(core.Queue(targetInstanceState.Queue))
+			keys = append(keys, queueKeys.SetKey, queueKeys.StreamKey)
 		}
 
 		keys = append(keys, rb.keys.pendingEventsKey(&targetInstance), rb.keys.payloadKey(&targetInstance))
@@ -269,7 +303,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		// Trace workflow completion
 		ctx, err = (&tracing.TracingContextPropagator{}).Extract(ctx, task.Metadata)
 		if err != nil {
-			rb.Logger().Error("extracting tracing context", log.ErrorKey, err)
+			rb.options.Logger.Error("extracting tracing context", log.ErrorKey, err)
 		}
 
 		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
@@ -307,7 +341,7 @@ func marshalEvent(event *history.Event) (string, string, error) {
 	return eventData, string(payloadEventData), nil
 }
 
-func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, event *history.Event) error {
+func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, instance *core.WorkflowInstance, event *history.Event) error {
 	// Add event to pending events for instance
 	if err := rb.addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
 		return err
@@ -318,7 +352,7 @@ func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.P
 	}
 
 	// Queue workflow task
-	if err := rb.workflowQueue.Enqueue(ctx, p, instanceSegment(instance), nil); err != nil {
+	if err := rb.workflowQueue.Enqueue(ctx, p, queue, instanceSegment(instance), nil); err != nil {
 		return fmt.Errorf("queueing workflow: %w", err)
 	}
 

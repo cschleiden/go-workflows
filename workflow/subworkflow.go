@@ -19,6 +19,9 @@ import (
 type SubWorkflowOptions struct {
 	InstanceID string
 
+	// Queue to use for the sub-workflow, if not set, the queue of the calling workflow will be used.
+	Queue Queue
+
 	RetryOptions RetryOptions
 }
 
@@ -95,7 +98,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 		return f
 	}
 
-	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.InstanceID, workflowName, inputs, metadata)
+	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.Queue, options.InstanceID, workflowName, inputs, metadata)
 
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, fmt.Sprintf("subworkflow:%s", workflowName), f))

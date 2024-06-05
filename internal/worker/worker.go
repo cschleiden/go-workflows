@@ -5,15 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 type TaskWorker[Task, Result any] interface {
-	Start(context.Context) error
-	Get(context.Context) (*Task, error)
+	Start(context.Context, []workflow.Queue) error
+	Get(context.Context, []workflow.Queue) (*Task, error)
 	Extend(context.Context, *Task) error
 	Execute(context.Context, *Task) (*Result, error)
 	Complete(context.Context, *Result, *Task) error
@@ -41,22 +44,34 @@ type WorkerOptions struct {
 	HeartbeatInterval time.Duration
 
 	PollingInterval time.Duration
+
+	Queues []workflow.Queue
 }
 
 func NewWorker[Task, TaskResult any](
 	b backend.Backend, tw TaskWorker[Task, TaskResult], options *WorkerOptions,
 ) *Worker[Task, TaskResult] {
+	// If no queues given, add the default queue
+	if len(options.Queues) == 0 {
+		options.Queues = append(options.Queues, workflow.QueueDefault)
+	}
+
+	// Always include system queue
+	if !slices.Contains(options.Queues, core.QueueSystem) {
+		options.Queues = append(options.Queues, core.QueueSystem)
+	}
+
 	return &Worker[Task, TaskResult]{
 		tw:             tw,
 		options:        options,
 		taskQueue:      make(chan *Task),
-		logger:         b.Logger(),
+		logger:         b.Options().Logger,
 		dispatcherDone: make(chan struct{}, 1),
 	}
 }
 
 func (w *Worker[Task, TaskResult]) Start(ctx context.Context) error {
-	if err := w.tw.Start(ctx); err != nil {
+	if err := w.tw.Start(ctx, w.options.Queues); err != nil {
 		return fmt.Errorf("starting task worker: %w", err)
 	}
 
@@ -195,7 +210,7 @@ func (w *Worker[Task, TaskResult]) poll(ctx context.Context, timeout time.Durati
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	task, err := w.tw.Get(ctx)
+	task, err := w.tw.Get(ctx, w.options.Queues)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil

@@ -24,7 +24,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		}
 
 		if len(scores) == 0 {
-			rb.Logger().Error("could not find instance %v",
+			rb.Options().Logger.Error("could not find instance %v",
 				log.NamespaceKey+".redis.afterInstanceID", afterInstanceID,
 				log.NamespaceKey+".redis.afterExecutionID", afterExecutionID,
 			)
@@ -78,6 +78,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			CreatedAt:   state.CreatedAt,
 			CompletedAt: state.CompletedAt,
 			State:       state.State,
+			Queue:       state.Queue,
 		})
 	}
 
@@ -104,5 +105,6 @@ func mapWorkflowInstance(instance *instanceState) *diag.WorkflowInstanceRef {
 		CreatedAt:   instance.CreatedAt,
 		CompletedAt: instance.CompletedAt,
 		State:       instance.State,
+		Queue:       instance.Queue,
 	}
 }

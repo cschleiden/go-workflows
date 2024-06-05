@@ -57,7 +57,7 @@ func TestScheduleTimerCommand_StateTransitions(t *testing.T) {
 			c.HandleCancel()
 			require.Equal(t, CommandState_Canceled, c.State())
 
-			assertExecuteNoEvent(t, c, CommandState_Done)
+			assertExecuteNoEvent(t, c, CommandState_Canceled)
 		}},
 		{"Done_after_commit", func(t *testing.T, c *ScheduleTimerCommand, clock clock.Clock) {
 			c.Commit()

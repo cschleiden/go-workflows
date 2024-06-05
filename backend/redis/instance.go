@@ -15,12 +15,13 @@ import (
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	keyInfo := rb.workflowQueue.Keys()
+	a := event.Attributes.(*history.ExecutionStartedAttributes)
 
 	instanceState, err := json.Marshal(&instanceState{
+		Queue:     string(a.Queue),
 		Instance:  instance,
 		State:     core.WorkflowInstanceStateActive,
-		Metadata:  event.Attributes.(*history.ExecutionStartedAttributes).Metadata,
+		Metadata:  a.Metadata,
 		CreatedAt: time.Now(),
 	})
 	if err != nil {
@@ -42,6 +43,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		return fmt.Errorf("marshaling event payload: %w", err)
 	}
 
+	keyInfo := rb.workflowQueue.Keys(a.Queue)
 	_, err = createWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.instanceKey(instance),
 		rb.keys.activeInstanceExecutionKey(instance.InstanceID),
@@ -51,6 +53,7 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		rb.keys.instancesByCreation(),
 		keyInfo.SetKey,
 		keyInfo.StreamKey,
+		rb.workflowQueue.queueSetKey,
 	},
 		instanceSegment(instance),
 		string(instanceState),
@@ -124,14 +127,14 @@ func (rb *redisBackend) GetWorkflowInstanceState(ctx context.Context, instance *
 
 func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, event *history.Event) error {
 	// Read the instance to check if it exists
-	_, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
+	instanceState, err := readInstance(ctx, rb.rdb, rb.keys.instanceKey(instance))
 	if err != nil {
 		return err
 	}
 
 	// Cancel instance
 	if cmds, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		return rb.addWorkflowInstanceEventP(ctx, p, instance, event)
+		return rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instance, event)
 	}); err != nil {
 		fmt.Println(cmds)
 		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
@@ -155,6 +158,8 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 }
 
 type instanceState struct {
+	Queue string `json:"queue"`
+
 	Instance *core.WorkflowInstance     `json:"instance,omitempty"`
 	State    core.WorkflowInstanceState `json:"state,omitempty"`
 

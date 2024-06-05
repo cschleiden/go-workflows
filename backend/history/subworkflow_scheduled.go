@@ -7,6 +7,8 @@ import (
 )
 
 type SubWorkflowScheduledAttributes struct {
+	SubWorkflowQueue core.Queue `json:"sub_workflow_queue,omitempty"`
+
 	SubWorkflowInstance *core.WorkflowInstance `json:"sub_workflow_instance,omitempty"`
 
 	Name string `json:"name,omitempty"`

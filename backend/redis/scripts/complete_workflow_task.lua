@@ -25,7 +25,9 @@ local instancesByCreation = getKey()
 
 local workflowSetKey = getKey()
 local workflowStreamKey = getKey()
+local workflowQueuesSetKey = getKey()
 
+local prefix = getArgv()
 local instanceSegment = getArgv()
 
 local storePayload = function(eventId, payload)
@@ -113,17 +115,21 @@ for i = 1, timersToSchedule do
     local futureEventKey = getKey()
 
     redis.call("ZADD", futureEventZSetKey, timestamp, futureEventKey)
-	redis.call("HSET", futureEventKey, "instance", instanceSegment, "id", eventId, "event", eventData)
+	redis.call("HSET", futureEventKey, "instance", instanceSegment, "id", eventId, "event", eventData, "queue", instance["queue"])
 	storePayload(eventId, payloadData)
 end
 
 -- Schedule activities
 local activities = tonumber(getArgv())
-local activitySetKey = getKey()
-local activityStreamKey = getKey()
+
 for i = 1, activities do
+    local activityQueue = getArgv()
     local activityId = getArgv()
     local activityData = getArgv()
+
+    local activitySetKey = prefix .. "task-set:" .. activityQueue .. ":activities"
+    local activityStreamKey = prefix .. "task-stream:" .. activityQueue .. ":activities"
+    redis.call("SADD", prefix .. "activities:queues", activitySetKey)
 
     local added = redis.call("SADD", activitySetKey, activityId)
 	if added == 1 then
@@ -157,7 +163,9 @@ for i = 1, otherWorkflowInstances do
         if instanceExists == 1 then
             redis.call("XADD", pendingEventsKey, "*", "event", conflictEventData)
             storePayload(conflictEventId, conflictEventPayloadData)
-            redis.call("ECHO", "Conflict detected, event " .. conflictEventId .. " was not delivered to instance " .. targetInstanceSegment .. ".")
+            redis.call("ECHO",
+                "Conflict detected, event " ..
+                conflictEventId .. " was not delivered to instance " .. targetInstanceSegment .. ".")
 
             skipEvents = true
         else
@@ -173,8 +181,11 @@ for i = 1, otherWorkflowInstances do
         end
     end
 
+    local instanceQueueSetKey = getKey()
+    local instanceQueueStreamKey = getKey()
     local instancePendingEventsKey = getKey()
     local instancePayloadHashKey = getKey()
+
     for j = 1, eventsToDeliver do
         local eventId = getArgv()
         local eventData = getArgv()
@@ -190,11 +201,12 @@ for i = 1, otherWorkflowInstances do
     end
 
     -- If events were delivered, try to queue a workflow task
-    if eventsToDeliver > 0 and not skipEvents then
+    if not skipEvents then
         -- Enqueue workflow task
-        local added = redis.call("SADD", workflowSetKey, targetInstanceSegment)
+        redis.call("SADD", workflowQueuesSetKey, instanceQueueSetKey)
+        local added = redis.call("SADD", instanceQueueSetKey, targetInstanceSegment)
         if added == 1 then
-            redis.call("XADD", workflowStreamKey, "*", "id", targetInstanceSegment, "data", "")
+            redis.call("XADD", instanceQueueStreamKey, "*", "id", targetInstanceSegment, "data", "")
         end
     end
 end
