@@ -8,6 +8,7 @@ import (
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,6 +49,39 @@ var e2eDiagTests = []backendTest{
 			refs, err := diagBackend.GetWorkflowInstances(ctx, afterInstanceID, afterExecutionID, 10)
 			require.NoError(t, err)
 			require.Len(t, refs, 0)
+		},
+	},
+	{
+		name: "Diag_GetWorkflowInstance_ReturnsQueue",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			diagBackend, ok := b.(diag.Backend)
+			if !ok {
+				t.Skip("Backend does not implement diag.Backend")
+			}
+
+			wf := func(ctx workflow.Context) (bool, error) {
+				return true, nil
+			}
+
+			register(t, ctx, w, []interface{}{wf}, nil)
+
+			wfi := runWorkflow(t, ctx, c, wf)
+
+			wfi2, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+				InstanceID: uuid.NewString(),
+				Queue:      "custom-queue",
+			}, wf)
+			require.NoError(t, err)
+
+			wfState, err := diagBackend.GetWorkflowInstance(ctx, wfi)
+			require.NoError(t, err)
+			require.NotNil(t, wfState)
+			require.Equal(t, string(workflow.QueueDefault), wfState.Queue)
+
+			wfState2, err := diagBackend.GetWorkflowInstance(ctx, wfi2)
+			require.NoError(t, err)
+			require.NotNil(t, wfState2)
+			require.Equal(t, "custom-queue", wfState2.Queue)
 		},
 	},
 }

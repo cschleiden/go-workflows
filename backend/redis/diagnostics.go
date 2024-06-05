@@ -78,6 +78,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			CreatedAt:   state.CreatedAt,
 			CompletedAt: state.CompletedAt,
 			State:       state.State,
+			Queue:       state.Queue,
 		})
 	}
 
@@ -104,5 +105,6 @@ func mapWorkflowInstance(instance *instanceState) *diag.WorkflowInstanceRef {
 		CreatedAt:   instance.CreatedAt,
 		CompletedAt: instance.CompletedAt,
 		State:       instance.State,
+		Queue:       instance.Queue,
 	}
 }
