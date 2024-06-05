@@ -11,6 +11,7 @@ export interface WorkflowInstanceRef {
   completed_at?: string;
 
   state: number;
+  queue: string;
 }
 
 export type WorkflowInstanceInfo = WorkflowInstanceRef & {

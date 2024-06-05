@@ -32,7 +32,29 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 	}
 	logger.Info("R2 result", "r2", r2)
 
+	// Queue sub workflow to separate queue
+	workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
+		Queue: CustomWorkflowQueue,
+	}, SubWorkflow).Get(ctx)
+
 	return r1 + r2, nil
+}
+
+func SubWorkflow(ctx workflow.Context) error {
+	logger := workflow.Logger(ctx)
+	logger.Info("Entering SubWorkflow")
+	defer logger.Info("Leaving SubWorkflow")
+
+	// Queue activity to separate queue
+	r2, err := workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{
+		Queue: CustomActivityQueue,
+	}, Activity2).Get(ctx)
+	if err != nil {
+		panic("error getting activity 2 result")
+	}
+	logger.Info("R2 result", "r2", r2)
+
+	return nil
 }
 
 func Activity1(ctx context.Context, a, b int) (int, error) {

@@ -4,10 +4,14 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -15,17 +19,35 @@ import (
 	"github.com/google/uuid"
 )
 
-var CustomActivityQueue = workflow.Queue("custom-activity-queue")
+var (
+	CustomActivityQueue = workflow.Queue("custom-activity-queue")
+	CustomWorkflowQueue = workflow.Queue("custom-workflow-queue")
+)
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	b := samples.GetBackend("queues", backend.WithLogger(slog.Default()))
 
+	db, ok := b.(diag.Backend)
+	if !ok {
+		panic("backend does not implement diag.Backend")
+	}
+
+	// Start diagnostic server under /diag
+	m := http.NewServeMux()
+	m.Handle("/diag/", http.StripPrefix("/diag", diag.NewServeMux(db)))
+	go func() {
+		if err := http.ListenAndServe(":3000", m); err != nil {
+			panic(err)
+		}
+	}()
+
 	// Run worker
 	w := RunDefaultWorker(ctx, b)
 
 	w.RegisterWorkflow(Workflow1)
+	w.RegisterWorkflow(SubWorkflow)
 	w.RegisterActivity(Activity1)
 
 	// This worker won't actually execute Activity2, but it still needs to be aware of its signature
@@ -42,6 +64,17 @@ func main() {
 
 	activityWorker.Start(ctx)
 
+	workflowWorker := worker.NewWorkflowWorker(b, &worker.WorkflowWorkerOptions{
+		WorkflowPollers:          1,
+		MaxParallelWorkflowTasks: 1,
+		WorkflowQueues:           []workflow.Queue{CustomWorkflowQueue},
+	})
+
+	workflowWorker.RegisterWorkflow(SubWorkflow)
+	workflowWorker.RegisterActivity(Activity2)
+
+	workflowWorker.Start(ctx)
+
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")
 	}
@@ -50,6 +83,10 @@ func main() {
 	c := client.New(b)
 
 	runWorkflow(ctx, c)
+
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+	<-sigint
 
 	cancel()
 

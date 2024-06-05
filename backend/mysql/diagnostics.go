@@ -23,7 +23,7 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	if afterInstanceID != "" {
 		rows, err = tx.QueryContext(
 			ctx,
-			`SELECT i.instance_id, i.execution_id, i.created_at, i.completed_at, i.queue
+			`SELECT i.instance_id, i.execution_id, i.parent_instance_id, i.parent_execution_id, i.parent_schedule_event_id, i.created_at, i.completed_at, i.queue
 			FROM instances i
 			INNER JOIN (SELECT instance_id, created_at FROM instances WHERE instance_id = ? AND execution_id = ?) ii
 				ON i.created_at < ii.created_at OR (i.created_at = ii.created_at AND i.instance_id < ii.instance_id)
@@ -36,7 +36,7 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 	} else {
 		rows, err = tx.QueryContext(
 			ctx,
-			`SELECT i.instance_id, i.execution_id, i.created_at, i.completed_at, i.queue
+			`SELECT i.instance_id, i.execution_id, i.parent_instance_id, i.parent_execution_id, i.parent_schedule_event_id, i.created_at, i.completed_at, i.queue
 			FROM instances i
 			ORDER BY i.created_at DESC, i.instance_id DESC
 			LIMIT ?`,
@@ -53,9 +53,11 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 
 	for rows.Next() {
 		var id, executionID, queue string
+		var parentID, parentExecutionID *string
+		var parentScheduleEventID *int64
 		var createdAt time.Time
 		var completedAt *time.Time
-		err = rows.Scan(&id, &executionID, &createdAt, &completedAt, &queue)
+		err = rows.Scan(&id, &executionID, &parentID, &parentExecutionID, &parentScheduleEventID, &createdAt, &completedAt, &queue)
 		if err != nil {
 			return nil, err
 		}
@@ -65,8 +67,16 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			state = core.WorkflowInstanceStateFinished
 		}
 
+		var instance *core.WorkflowInstance
+		if parentID != nil {
+			parentInstance := core.NewWorkflowInstance(*parentID, *parentExecutionID)
+			instance = core.NewSubWorkflowInstance(id, executionID, parentInstance, *parentScheduleEventID)
+		} else {
+			instance = core.NewWorkflowInstance(id, executionID)
+		}
+
 		instances = append(instances, &diag.WorkflowInstanceRef{
-			Instance:    core.NewWorkflowInstance(id, executionID),
+			Instance:    instance,
 			CreatedAt:   createdAt,
 			CompletedAt: completedAt,
 			State:       state,
@@ -86,15 +96,17 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instance *core.
 
 	res := tx.QueryRowContext(
 		ctx,
-		`SELECT instance_id, execution_id, created_at, completed_at, queue
+		`SELECT instance_id, execution_id, parent_instance_id, parent_execution_id, parent_schedule_event_id, created_at, completed_at, queue
 			FROM instances
 			WHERE instance_id = ? AND execution_id = ?`, instance.InstanceID, instance.ExecutionID)
 
 	var id, executionID, queue string
+	var parentID, parentExecutionID *string
+	var parentScheduleEventID *int64
 	var createdAt time.Time
 	var completedAt *time.Time
 
-	err = res.Scan(&id, &executionID, &createdAt, &completedAt, &queue)
+	err = res.Scan(&id, &executionID, &parentID, &parentExecutionID, &parentScheduleEventID, &createdAt, &completedAt, &queue)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -106,6 +118,13 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instance *core.
 	var state core.WorkflowInstanceState
 	if completedAt != nil {
 		state = core.WorkflowInstanceStateFinished
+	}
+
+	if parentID != nil {
+		parentInstance := core.NewWorkflowInstance(*parentID, *parentExecutionID)
+		instance = core.NewSubWorkflowInstance(id, executionID, parentInstance, *parentScheduleEventID)
+	} else {
+		instance = core.NewWorkflowInstance(id, executionID)
 	}
 
 	return &diag.WorkflowInstanceRef{
