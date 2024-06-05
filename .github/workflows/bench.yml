@@ -68,21 +68,21 @@ jobs:
       - name: Run MySQL benchmarks
         if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipmysql')
         run: |
-          echo "## MySQL run" > benchmark.md
+          echo "## MySQL run" >> benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
           cat bench-mysql.md >> benchmark.md
 
       - name: Run SQLite benchmarks
         if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipsqlite')
         run: |
-          echo "## SQLite run" > benchmark-sqlite.md
+          echo "## SQLite run" >> benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
           cat bench-sqlite.md >> benchmark.md
 
       - name: Run Redis benchmarks
         if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipredis')
         run: |
-          echo "## Redis run" > benchmark.md
+          echo "## Redis run" >> benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -runs 2 -backend redis' -n 'redis-pr' './bench-pr -runs 2 -backend redis'
           cat bench-redis.md >> benchmark.md
 
@@ -127,6 +127,9 @@ jobs:
           echo "## Very Large Redis payload run (5MB)" >> benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-redis-vl.md -n 'redis-main' './bench-main -resultsize 5000000 -runs 2 -backend redis -timeout 240s' -n 'redis-pr' './bench-pr -resultsize 5000000 -runs 2 -backend redis -timeout 240s'
           cat bench-redis-vl.md >> benchmark.md
+
+      - run: |
+          cat ./benchmark.md
 
       - name: Write a new comment
         uses: peter-evans/create-or-update-comment@v2
