@@ -320,6 +320,27 @@ func (_m *MockBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 	return r0
 }
 
+// RemoveWorkflowInstances provides a mock function with given fields: ctx, options
+func (_m *MockBackend) RemoveWorkflowInstances(ctx context.Context, options ...RemovalOption) error {
+	_va := make([]interface{}, len(options))
+	for _i := range options {
+		_va[_i] = options[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, ...RemovalOption) error); ok {
+		r0 = rf(ctx, options...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SignalWorkflow provides a mock function with given fields: ctx, instanceID, event
 func (_m *MockBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
 	ret := _m.Called(ctx, instanceID, event)

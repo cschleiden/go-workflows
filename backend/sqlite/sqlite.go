@@ -255,6 +255,72 @@ func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 	return tx.Commit()
 }
 
+func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+	ro := &backend.RemovalOptions{}
+	for _, opt := range options {
+		opt(ro)
+	}
+
+	rows, err := sb.db.QueryContext(ctx, `SELECT id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
+	if err != nil {
+		return err
+	}
+
+	instanceIDs := []string{}
+	executionIDs := []string{}
+	for rows.Next() {
+		var id, executionID string
+		if err := rows.Scan(&id, &executionID); err != nil {
+			return err
+		}
+
+		instanceIDs = append(instanceIDs, id)
+		executionIDs = append(executionIDs, executionID)
+	}
+
+	batchSize := 100
+	for i := 0; i < len(instanceIDs); i += batchSize {
+		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
+		executionIDs := executionIDs[i:min(i+batchSize, len(executionIDs))]
+
+		tx, err := sb.db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		defer tx.Rollback()
+
+		placeholders := strings.Repeat(",?", len(instanceIDs)-1)
+		whereCondition := fmt.Sprintf("id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
+		args := make([]interface{}, 0, len(instanceIDs)*2)
+		for i := range instanceIDs {
+			args = append(args, instanceIDs[i])
+		}
+		for i := range executionIDs {
+			args = append(args, executionIDs[i])
+		}
+
+		// Delete from instances, history and attributes tables
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", whereCondition), args...); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", whereCondition), args...); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", whereCondition), args...); err != nil {
+			return err
+		}
+
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {

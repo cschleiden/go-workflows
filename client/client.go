@@ -266,6 +266,8 @@ func GetWorkflowResult[T any](ctx context.Context, c *Client, instance *workflow
 }
 
 // RemoveWorkflowInstance removes the given workflow instance from the backend.
+//
+// Instance needs to be in a completed state.
 func (c *Client) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
 	ctx, span := c.backend.Tracer().Start(ctx, "RemoveWorkflowInstance", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, instance.InstanceID),
@@ -273,4 +275,12 @@ func (c *Client) RemoveWorkflowInstance(ctx context.Context, instance *core.Work
 	defer span.End()
 
 	return c.backend.RemoveWorkflowInstance(ctx, instance)
+}
+
+// RemoveWorkflowInstances removes completed workflow instances from the backend.
+func (c *Client) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+	ctx, span := c.backend.Tracer().Start(ctx, "RemoveWorkflowInstances")
+	defer span.End()
+
+	return c.backend.RemoveWorkflowInstances(ctx, options...)
 }
