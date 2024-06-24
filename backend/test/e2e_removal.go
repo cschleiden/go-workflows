@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -33,6 +34,11 @@ var e2eRemovalTests = []backendTest{
 			require.NoError(t, err)
 
 			err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(now))
+			if errors.As(err, &backend.ErrNotSupported{}) {
+				t.Skip()
+				return
+			}
+
 			require.NoError(t, err)
 
 			_, err = c.GetWorkflowInstanceState(ctx, workflowA)

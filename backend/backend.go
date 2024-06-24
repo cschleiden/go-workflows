@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
@@ -14,6 +15,14 @@ import (
 var ErrInstanceNotFound = errors.New("workflow instance not found")
 var ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
 var ErrInstanceNotFinished = errors.New("workflow instance is not finished")
+
+type ErrNotSupported struct {
+	Message string
+}
+
+func (e ErrNotSupported) Error() string {
+	return fmt.Sprintf("not supported: %s", e.Message)
+}
 
 const TracerName = "go-workflow"
 

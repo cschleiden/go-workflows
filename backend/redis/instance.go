@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -159,7 +158,9 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 }
 
 func (rb *redisBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
-	return errors.New("not supported, use auto expiration")
+	return backend.ErrNotSupported{
+		Message: "not supported, use auto-expiration",
+	}
 }
 
 type instanceState struct {
