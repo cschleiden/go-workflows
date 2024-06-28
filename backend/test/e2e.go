@@ -822,6 +822,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 	tests = append(tests, e2eStatsTests...)
 	tests = append(tests, e2eDiagTests...)
 	tests = append(tests, e2eQueueTests...)
+	tests = append(tests, e2eRemovalTests...)
 
 	run := func(suffix string, workerOptions worker.Options) {
 		for _, tt := range tests {

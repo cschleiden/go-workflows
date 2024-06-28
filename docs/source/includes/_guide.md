@@ -604,6 +604,17 @@ if err != nil {
 
 `RemoveWorkflowInstance` on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.
 
+<div style="clear: both"></div>
+
+```go
+err = c.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now().Add(-time.Hour * 24))
+if err != nil {
+	// ...
+}
+```
+
+`RemoveWorkflowInstances` on a client instance will remove all finished workflow instances that match the given condition(s). Currently only `RemoveFinishedBefore` is supported.
+
 ### Automatically expiring finished workflow instances
 
 ```go

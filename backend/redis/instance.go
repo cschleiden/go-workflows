@@ -157,6 +157,12 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 	return rb.deleteInstance(ctx, instance)
 }
 
+func (rb *redisBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+	return backend.ErrNotSupported{
+		Message: "not supported, use auto-expiration",
+	}
+}
+
 type instanceState struct {
 	Queue string `json:"queue"`
 
