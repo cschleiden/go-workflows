@@ -16,9 +16,13 @@ const expirationWorkflowInstanceID = "expiration"
 //
 // The workflow will run every `delay` and remove all workflow instances finished before Now() - `delay`.
 func (c *Client) StartAutoExpiration(ctx context.Context, delay time.Duration) error {
+	if !c.backend.FeatureSupported(backend.Feature_Expiration) {
+		return &backend.ErrNotSupported{}
+	}
+
 	_, err := c.CreateWorkflowInstance(ctx, WorkflowInstanceOptions{
 		InstanceID: expirationWorkflowInstanceID,
-	}, workflows.ExpireWorkflowInstance, delay)
+	}, workflows.ExpireWorkflowInstances, delay)
 	if err != nil {
 		if errors.Is(err, backend.ErrInstanceAlreadyExists) {
 			err = c.SignalWorkflow(ctx, expirationWorkflowInstanceID, workflows.UpdateExpirationSignal, delay)

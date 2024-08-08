@@ -100,6 +100,10 @@ type sqliteBackend struct {
 
 var _ backend.Backend = (*sqliteBackend)(nil)
 
+func (sb *sqliteBackend) FeatureSupported(feature backend.Feature) bool {
+	return true
+}
+
 func (sb *sqliteBackend) Close() error {
 	if sb.memConn != nil {
 		if err := sb.memConn.Close(); err != nil {

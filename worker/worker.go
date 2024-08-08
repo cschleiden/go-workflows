@@ -66,7 +66,7 @@ func newWorker(backend backend.Backend, registry *registry.Registry, workers []w
 		panic(fmt.Errorf("registering internal activities: %w", err))
 	}
 
-	if err := registry.RegisterWorkflow(workflows.ExpireWorkflowInstance); err != nil {
+	if err := registry.RegisterWorkflow(workflows.ExpireWorkflowInstances); err != nil {
 		panic(fmt.Errorf("registering internal workflow: %w", err))
 	}
 

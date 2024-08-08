@@ -96,4 +96,7 @@ type Backend interface {
 
 	// Close closes any underlying resources
 	Close() error
+
+	// FeatureSupported returns true if the given feature is supported by the backend
+	FeatureSupported(feature Feature) bool
 }

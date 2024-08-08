@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -17,7 +18,7 @@ const (
 	UpdateExpirationSignal = "update-expiration"
 )
 
-func ExpireWorkflowInstance(ctx workflow.Context, delay time.Duration) error {
+func ExpireWorkflowInstances(ctx workflow.Context, delay time.Duration) error {
 	logger := workflow.Logger(ctx)
 
 	updates := workflow.NewSignalChannel[time.Duration](ctx, UpdateExpirationSignal)
@@ -55,6 +56,13 @@ func ExpireWorkflowInstance(ctx workflow.Context, delay time.Duration) error {
 				},
 			}, a.RemoveWorkflowInstances, before).Get(ctx)
 		if err != nil {
+			if errors.As(err, &backend.ErrNotSupported{}) {
+				logger.Warn("removing workflow instances not supported")
+
+				// Stop execution
+				return nil
+			}
+
 			logger.Error("removing workflow instances", slog.Any("error", err))
 		}
 	}

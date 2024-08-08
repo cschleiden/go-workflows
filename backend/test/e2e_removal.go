@@ -55,6 +55,11 @@ var e2eRemovalTests = []backendTest{
 			register(t, ctx, w, []interface{}{wf}, nil)
 
 			err := c.StartAutoExpiration(ctx, time.Millisecond)
+			if errors.As(err, &backend.ErrNotSupported{}) {
+				t.Skip()
+				return
+			}
+
 			require.NoError(t, err)
 
 			workflowA := runWorkflow(t, ctx, c, wf)
@@ -84,6 +89,11 @@ var e2eRemovalTests = []backendTest{
 			register(t, ctx, w, []interface{}{wf}, nil)
 
 			err := c.StartAutoExpiration(ctx, time.Hour)
+			if errors.As(err, &backend.ErrNotSupported{}) {
+				t.Skip()
+				return
+			}
+
 			require.NoError(t, err)
 
 			workflowA := runWorkflow(t, ctx, c, wf)

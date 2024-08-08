@@ -75,6 +75,10 @@ type mysqlBackend struct {
 	options    *options
 }
 
+func (mb *mysqlBackend) FeatureSupported(feature backend.Feature) bool {
+	return true
+}
+
 func (mb *mysqlBackend) Close() error {
 	return mb.db.Close()
 }

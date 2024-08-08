@@ -118,6 +118,20 @@ func (_m *MockBackend) ExtendWorkflowTask(ctx context.Context, task *WorkflowTas
 	return r0
 }
 
+// FeatureSupported provides a mock function with given fields: feature
+func (_m *MockBackend) FeatureSupported(feature Feature) bool {
+	ret := _m.Called(feature)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(Feature) bool); ok {
+		r0 = rf(feature)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // GetActivityTask provides a mock function with given fields: ctx, queues
 func (_m *MockBackend) GetActivityTask(ctx context.Context, queues []core.Queue) (*ActivityTask, error) {
 	ret := _m.Called(ctx, queues)
