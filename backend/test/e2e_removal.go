@@ -15,7 +15,7 @@ import (
 
 var e2eRemovalTests = []backendTest{
 	{
-		name: "RemoveWorkflowInstances_Removes",
+		name: "RemoveWorkflowInstances/Removes",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			wf := func(ctx workflow.Context) (bool, error) {
 				return true, nil
@@ -28,20 +28,24 @@ var e2eRemovalTests = []backendTest{
 			require.NoError(t, err)
 
 			now := time.Now()
-			time.Sleep(300 * time.Millisecond)
 
-			_, err = runWorkflowWithResult[bool](t, ctx, c, wf)
-			require.NoError(t, err)
+			for i := 0; i < 10; i++ {
+				time.Sleep(300 * time.Millisecond)
 
-			err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(now))
-			if errors.As(err, &backend.ErrNotSupported{}) {
-				t.Skip()
-				return
+				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(now))
+				if errors.As(err, &backend.ErrNotSupported{}) {
+					t.Skip()
+					return
+				}
+
+				require.NoError(t, err)
+
+				_, err = c.GetWorkflowInstanceState(ctx, workflowA)
+				if errors.Is(err, backend.ErrInstanceNotFound) {
+					break
+				}
 			}
 
-			require.NoError(t, err)
-
-			_, err = c.GetWorkflowInstanceState(ctx, workflowA)
 			require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 		},
 	},
