@@ -143,3 +143,12 @@ func (b *redisBackend) Options() *backend.Options {
 func (rb *redisBackend) Close() error {
 	return rb.rdb.Close()
 }
+
+func (rb *redisBackend) FeatureSupported(feature backend.Feature) bool {
+	switch feature {
+	case backend.Feature_Expiration:
+		return false
+	}
+
+	return true
+}

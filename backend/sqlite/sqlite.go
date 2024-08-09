@@ -100,6 +100,10 @@ type sqliteBackend struct {
 
 var _ backend.Backend = (*sqliteBackend)(nil)
 
+func (sb *sqliteBackend) FeatureSupported(feature backend.Feature) bool {
+	return true
+}
+
 func (sb *sqliteBackend) Close() error {
 	if sb.memConn != nil {
 		if err := sb.memConn.Close(); err != nil {
@@ -256,9 +260,9 @@ func (sb *sqliteBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 }
 
 func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
-	ro := &backend.RemovalOptions{}
+	ro := backend.DefaultRemovalOptions
 	for _, opt := range options {
-		opt(ro)
+		opt(&ro)
 	}
 
 	rows, err := sb.db.QueryContext(ctx, `SELECT id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
@@ -278,7 +282,7 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 		executionIDs = append(executionIDs, executionID)
 	}
 
-	batchSize := 100
+	batchSize := ro.BatchSize
 	for i := 0; i < len(instanceIDs); i += batchSize {
 		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
 		executionIDs := executionIDs[i:min(i+batchSize, len(executionIDs))]

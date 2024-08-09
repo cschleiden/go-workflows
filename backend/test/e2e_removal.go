@@ -15,7 +15,7 @@ import (
 
 var e2eRemovalTests = []backendTest{
 	{
-		name: "RemoveWorkflowInstances_Removes",
+		name: "RemoveWorkflowInstances/Removes",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			wf := func(ctx workflow.Context) (bool, error) {
 				return true, nil
@@ -28,12 +28,37 @@ var e2eRemovalTests = []backendTest{
 			require.NoError(t, err)
 
 			now := time.Now()
-			time.Sleep(300 * time.Millisecond)
 
-			_, err = runWorkflowWithResult[bool](t, ctx, c, wf)
-			require.NoError(t, err)
+			for i := 0; i < 10; i++ {
+				time.Sleep(300 * time.Millisecond)
 
-			err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(now))
+				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(now))
+				if errors.As(err, &backend.ErrNotSupported{}) {
+					t.Skip()
+					return
+				}
+
+				require.NoError(t, err)
+
+				_, err = c.GetWorkflowInstanceState(ctx, workflowA)
+				if errors.Is(err, backend.ErrInstanceNotFound) {
+					break
+				}
+			}
+
+			require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+		},
+	},
+	{
+		name: "AutoExpiration/StartsWorkflowAndRemoves",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			wf := func(ctx workflow.Context) (bool, error) {
+				return true, nil
+			}
+
+			register(t, ctx, w, []interface{}{wf}, nil)
+
+			err := c.StartAutoExpiration(ctx, time.Millisecond)
 			if errors.As(err, &backend.ErrNotSupported{}) {
 				t.Skip()
 				return
@@ -41,7 +66,62 @@ var e2eRemovalTests = []backendTest{
 
 			require.NoError(t, err)
 
+			workflowA := runWorkflow(t, ctx, c, wf)
+			_, err = client.GetWorkflowResult[bool](ctx, c, workflowA, time.Second*10)
+			require.NoError(t, err)
+
+			for i := 0; i < 10; i++ {
+				time.Sleep(100 * time.Millisecond)
+				_, err = c.GetWorkflowInstanceState(ctx, workflowA)
+				if err != backend.ErrInstanceNotFound {
+					continue
+				} else {
+					break
+				}
+			}
+
+			require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+		},
+	},
+	{
+		name: "AutoExpiration/UpdateDelay",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			wf := func(ctx workflow.Context) (bool, error) {
+				return true, nil
+			}
+
+			register(t, ctx, w, []interface{}{wf}, nil)
+
+			err := c.StartAutoExpiration(ctx, time.Hour)
+			if errors.As(err, &backend.ErrNotSupported{}) {
+				t.Skip()
+				return
+			}
+
+			require.NoError(t, err)
+
+			workflowA := runWorkflow(t, ctx, c, wf)
+			_, err = client.GetWorkflowResult[bool](ctx, c, workflowA, time.Second*10)
+			require.NoError(t, err)
+
+			time.Sleep(1000 * time.Millisecond)
 			_, err = c.GetWorkflowInstanceState(ctx, workflowA)
+			require.NotErrorIs(t, err, backend.ErrInstanceNotFound)
+
+			// update delay
+			err = c.StartAutoExpiration(ctx, time.Millisecond)
+			require.NoError(t, err)
+
+			for i := 0; i < 10; i++ {
+				time.Sleep(100 * time.Millisecond)
+				_, err = c.GetWorkflowInstanceState(ctx, workflowA)
+				if err != backend.ErrInstanceNotFound {
+					continue
+				} else {
+					break
+				}
+			}
+
 			require.ErrorIs(t, err, backend.ErrInstanceNotFound)
 		},
 	},
