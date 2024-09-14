@@ -14,7 +14,7 @@ import (
 
 var e2eStatsTests = []backendTest{
 	{
-		name: "Stats_ActiveInstance",
+		name: "Stats/ActiveInstance",
 		customWorkerOptions: func(options *worker.Options) {
 			options.ActivityQueues = []workflow.Queue{core.QueueDefault, "custom"}
 		},

@@ -223,7 +223,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_Simple",
+			name: "SubWorkflow/Simple",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					return i * 2, nil
@@ -246,7 +246,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_DuplicateActiveInstanceID",
+			name: "SubWorkflow/DuplicateActiveInstanceID",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					workflow.NewSignalChannel[any](ctx, "signal").Receive(ctx)
@@ -285,7 +285,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_DuplicateInactiveInstanceID",
+			name: "SubWorkflow/DuplicateInactiveInstanceID",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					return i * 2, nil
@@ -319,7 +319,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_PropagateCancellation",
+			name: "SubWorkflow/PropagateCancellation",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				canceled := int32(0)
 
@@ -383,7 +383,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_CancelBeforeStarting",
+			name: "SubWorkflow/CancelBeforeStarting",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swInstanceID := "subworkflow"
 
@@ -429,7 +429,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_Signal",
+			name: "SubWorkflow/Signal",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					workflow.NewSignalChannel[string](ctx, "signal").Receive(ctx)
@@ -463,7 +463,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_DifferentQueue",
+			name: "SubWorkflow/DifferentQueue",
 			customWorkerOptions: func(options *worker.Options) {
 				options.WorkflowQueues = []core.Queue{workflow.QueueDefault, workflow.Queue("custom")}
 			},
@@ -502,7 +502,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 			},
 		},
 		{
-			name: "SubWorkflow_Signal_BeforeStarting",
+			name: "SubWorkflow/Signal_BeforeStarting",
 			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 				wf := func(ctx workflow.Context) (int, error) {
 					id, _ := workflow.SideEffect(ctx, func(ctx workflow.Context) string {
@@ -523,157 +523,6 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
 				require.ErrorContains(t, err, backend.ErrInstanceNotFound.Error())
-			},
-		},
-		{
-			name: "Timer_CancelWorkflowInstance",
-			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-				a := func(ctx context.Context) error {
-					return nil
-				}
-				wf := func(ctx workflow.Context) error {
-					_, err := workflow.ScheduleTimer(ctx, time.Second*10).Get(ctx)
-					if err != nil && err != workflow.Canceled {
-						return err
-					}
-
-					return nil
-				}
-				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
-
-				instance := runWorkflow(t, ctx, c, wf)
-
-				// Allow some time for the timer to get scheduled
-				time.Sleep(time.Millisecond * 200)
-
-				require.NoError(t, c.CancelWorkflowInstance(ctx, instance))
-
-				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
-				require.NoError(t, err)
-			},
-		},
-		{
-			name: "Timer_CancelBeforeStarting",
-			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-				a := func(ctx context.Context) error {
-					return nil
-				}
-				wf := func(ctx workflow.Context) error {
-					tctx, cancel := workflow.WithCancel(ctx)
-
-					f := workflow.ScheduleTimer(tctx, time.Second*10)
-
-					// Cancel before it can be started
-					cancel()
-
-					// Force the checkpoint before continuing the execution
-					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
-
-					_, err := f.Get(ctx)
-					if err != nil && err != workflow.Canceled {
-						return err
-					}
-
-					return nil
-				}
-				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
-
-				instance := runWorkflow(t, ctx, c, wf)
-				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
-				require.NoError(t, err)
-
-				events, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
-				require.NoError(t, err)
-				for _, e := range events {
-					if e.Type == history.EventType_TimerScheduled {
-						require.FailNow(t, "timer should not be scheduled")
-					}
-				}
-
-				futureEvents, err := b.GetFutureEvents(ctx)
-				require.NoError(t, err)
-				require.Len(t, futureEvents, 0, "no future events should be scheduled")
-			},
-		},
-		{
-			name: "Timer_CancelTwice",
-			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-				a := func(ctx context.Context) error {
-					return nil
-				}
-				wf := func(ctx workflow.Context) error {
-					tctx, cancel := workflow.WithCancel(ctx)
-					f := workflow.ScheduleTimer(tctx, time.Second*10)
-
-					// Force the checkpoint before continuing the execution
-					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
-
-					// Cancel timer
-					cancel()
-
-					// Force another checkpoint
-					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
-
-					cancel()
-
-					// Force another checkpoint
-					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
-
-					if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
-						return err
-					}
-
-					return nil
-				}
-				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
-
-				instance := runWorkflow(t, ctx, c, wf)
-				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
-				require.NoError(t, err)
-
-				historyContains(ctx, t, b, instance, history.EventType_TimerScheduled, history.EventType_TimerCanceled)
-
-				futureEvents, err := b.GetFutureEvents(ctx)
-				require.NoError(t, err)
-				require.Len(t, futureEvents, 0, "no future events should be scheduled")
-			},
-		},
-		{
-			name: "Timer_CancelBeforeFiringRemovesFutureEvent",
-			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-				a := func(ctx context.Context) error {
-					return nil
-				}
-				wf := func(ctx workflow.Context) error {
-					tctx, cancel := workflow.WithCancel(ctx)
-					f := workflow.ScheduleTimer(tctx, time.Second*10)
-
-					// Force the checkpoint before continuing the execution
-					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
-
-					// Cancel timer
-					cancel()
-
-					// Force another checkpoint
-					workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
-
-					if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
-						return err
-					}
-
-					return nil
-				}
-				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
-
-				instance := runWorkflow(t, ctx, c, wf)
-				_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
-				require.NoError(t, err)
-
-				historyContains(ctx, t, b, instance, history.EventType_TimerScheduled, history.EventType_TimerCanceled)
-
-				futureEvents, err := b.GetFutureEvents(ctx)
-				require.NoError(t, err)
-				require.Len(t, futureEvents, 0, "no future events should be scheduled")
 			},
 		},
 		{
@@ -762,57 +611,6 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				r, err := client.GetWorkflowResult[string](ctx, c, instance, time.Second*5)
 				require.NoError(t, err)
 				require.Equal(t, "hello-23", r)
-			},
-		},
-		{
-			name: "ContinueAsNew",
-			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-				wf := func(ctx workflow.Context, run int) (int, error) {
-					run = run + 1
-					if run < 3 {
-						return run, workflow.ContinueAsNew(ctx, run)
-					}
-
-					return run, nil
-				}
-				register(t, ctx, w, []interface{}{wf}, nil)
-
-				instance := runWorkflow(t, ctx, c, wf, 0)
-
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
-				require.NoError(t, err)
-				require.Equal(t, 1, r)
-
-				state, err := b.GetWorkflowInstanceState(ctx, instance)
-				require.NoError(t, err)
-				require.Equal(t, core.WorkflowInstanceStateContinuedAsNew, state)
-			},
-		},
-		{
-			name: "ContinueAsNew_Subworkflow",
-			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
-				swf := func(ctx workflow.Context, run int) (int, error) {
-					l := workflow.Logger(ctx)
-
-					run = run + 1
-					if run < 3 {
-						l.Debug("continue as new", "run", run)
-						return run, workflow.ContinueAsNew(ctx, run)
-					}
-
-					return run, nil
-				}
-
-				wf := func(ctx workflow.Context, run int) (int, error) {
-					return workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, run).Get(ctx)
-				}
-				register(t, ctx, w, []interface{}{wf, swf}, nil)
-
-				instance := runWorkflow(t, ctx, c, wf, 0)
-
-				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*20)
-				require.NoError(t, err)
-				require.Equal(t, 3, r)
 			},
 		},
 	}

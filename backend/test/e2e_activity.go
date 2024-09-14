@@ -23,7 +23,7 @@ func (e *CustomError) Error() string {
 
 var e2eActivityTests = []backendTest{
 	{
-		name: "Activity_Panic",
+		name: "Activity/Panic",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			a := func(context.Context) error {
 				panic("activity panic")
@@ -48,7 +48,7 @@ var e2eActivityTests = []backendTest{
 		},
 	},
 	{
-		name: "Activity_CustomError",
+		name: "Activity/CustomError",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			a := func(context.Context) error {
 				return &CustomError{msg: "custom error"}
@@ -77,7 +77,7 @@ var e2eActivityTests = []backendTest{
 		},
 	},
 	{
-		name: "Activity_ReceiveAttempt",
+		name: "Activity/ReceiveAttempt",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			var maxAttempt int
 
@@ -110,7 +110,7 @@ var e2eActivityTests = []backendTest{
 		},
 	},
 	{
-		name: "Activity_ExtendTask",
+		name: "Activity/ExtendTask",
 		customWorkerOptions: func(w *worker.Options) {
 			w.ActivityHeartbeatInterval = 1 * time.Millisecond
 		},
