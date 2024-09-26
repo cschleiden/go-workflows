@@ -323,6 +323,12 @@ func (rb *redisBackend) CompleteWorkflowTask(
 				return fmt.Errorf("setting workflow instance expiration: %w", err)
 			}
 		}
+
+		if rb.options.RemoveContinuedAsNewInstances && state == core.WorkflowInstanceStateContinuedAsNew {
+			if err := rb.RemoveWorkflowInstance(ctx, instance); err != nil {
+				return fmt.Errorf("removing workflow instance: %w", err)
+			}
+		}
 	}
 
 	return nil

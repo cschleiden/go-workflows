@@ -166,6 +166,14 @@ func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 	}
 	defer tx.Rollback()
 
+	if err := b.removeWorkflowInstance(ctx, instance, tx); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (b *mysqlBackend) removeWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, tx *sql.Tx) error {
 	row := tx.QueryRowContext(ctx, "SELECT state FROM `instances` WHERE instance_id = ? AND execution_id = ? LIMIT 1", instance.InstanceID, instance.ExecutionID)
 	var state core.WorkflowInstanceState
 	if err := row.Scan(&state); err != nil {
@@ -191,7 +199,7 @@ func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 		return err
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
@@ -749,6 +757,12 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		}
 		if err := insertPendingEvents(ctx, tx, &targetInstance, historyEvents); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
+		}
+	}
+
+	if b.options.RemoveContinuedAsNewInstances && state == core.WorkflowInstanceStateContinuedAsNew {
+		if err := b.removeWorkflowInstance(ctx, instance, tx); err != nil {
+			return fmt.Errorf("removing old instance: %w", err)
 		}
 	}
 
