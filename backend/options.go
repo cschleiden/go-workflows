@@ -37,6 +37,11 @@ type Options struct {
 	// ActivityLockTimeout determines how long an activity task can be locked for. If the activity task is not completed
 	// by that timeframe, it's considered abandoned and another worker might pick it up
 	ActivityLockTimeout time.Duration
+
+	// RemoveContinuedAsNewInstances determines whether instances that were completed using ContinueAsNew should be
+	// removed immediately, including their history. If set to false, the instance will be removed after the configured
+	// retention period or never.
+	RemoveContinuedAsNewInstances bool
 }
 
 var DefaultOptions Options = Options{
@@ -50,6 +55,8 @@ var DefaultOptions Options = Options{
 	Converter:      converter.DefaultConverter,
 
 	ContextPropagators: []workflow.ContextPropagator{&tracing.TracingContextPropagator{}},
+
+	RemoveContinuedAsNewInstances: false,
 }
 
 type BackendOption func(*Options)
@@ -87,6 +94,12 @@ func WithConverter(converter converter.Converter) BackendOption {
 func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
 	return func(o *Options) {
 		o.ContextPropagators = append(o.ContextPropagators, prop)
+	}
+}
+
+func WithRemoveContinuedAsNewInstances() BackendOption {
+	return func(o *Options) {
+		o.RemoveContinuedAsNewInstances = true
 	}
 }
 

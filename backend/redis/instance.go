@@ -149,8 +149,7 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 		return err
 	}
 
-	// Check state
-	if i.State != core.WorkflowInstanceStateFinished {
+	if i.State != core.WorkflowInstanceStateFinished && i.State != core.WorkflowInstanceStateContinuedAsNew {
 		return backend.ErrInstanceNotFinished
 	}
 

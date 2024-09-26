@@ -44,7 +44,7 @@ func (c *ContinueAsNewCommand) Execute(clock clock.Clock) *CommandResult {
 		var continuedInstance *core.WorkflowInstance
 		if c.Instance.SubWorkflow() {
 			// If the current workflow execution was a sub-workflow, ensure the new workflow execution is also a sub-workflow.
-			// This will guarantee that finished event for the new execution will be delivered to the right parent instance
+			// This will guarantee that the finished event for the new execution will be delivered to the right parent instance
 			continuedInstance = core.NewSubWorkflowInstance(
 				c.Instance.InstanceID, continuedExecutionID, c.Instance.Parent, c.Instance.ParentEventID)
 		} else {
