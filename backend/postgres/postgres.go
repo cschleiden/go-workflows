@@ -25,7 +25,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -51,7 +51,7 @@ func NewPostgresBackend(host string, port int, user, password, database string, 
 
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=require", host, port, user, password, database)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -90,7 +90,7 @@ func (mb *postgresBackend) Close() error {
 // Migrate applies any pending database migrations.
 func (mb *postgresBackend) Migrate() error {
 	schemaDsn := mb.dsn
-	db, err := sql.Open("postgres", schemaDsn)
+	db, err := sql.Open("pgx", schemaDsn)
 	if err != nil {
 		return fmt.Errorf("opening schema database: %w", err)
 	}
