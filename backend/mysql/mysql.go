@@ -75,6 +75,10 @@ type mysqlBackend struct {
 	options    *options
 }
 
+func (mb *mysqlBackend) FeatureSupported(feature backend.Feature) bool {
+	return true
+}
+
 func (mb *mysqlBackend) Close() error {
 	return mb.db.Close()
 }
@@ -162,6 +166,14 @@ func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 	}
 	defer tx.Rollback()
 
+	if err := b.removeWorkflowInstance(ctx, instance, tx); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (b *mysqlBackend) removeWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, tx *sql.Tx) error {
 	row := tx.QueryRowContext(ctx, "SELECT state FROM `instances` WHERE instance_id = ? AND execution_id = ? LIMIT 1", instance.InstanceID, instance.ExecutionID)
 	var state core.WorkflowInstanceState
 	if err := row.Scan(&state); err != nil {
@@ -187,13 +199,13 @@ func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 		return err
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
-	ro := &backend.RemovalOptions{}
+	ro := backend.DefaultRemovalOptions
 	for _, opt := range options {
-		opt(ro)
+		opt(&ro)
 	}
 
 	rows, err := b.db.QueryContext(ctx, `SELECT instance_id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
@@ -213,7 +225,7 @@ func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...b
 		executionIDs = append(executionIDs, executionID)
 	}
 
-	batchSize := 100
+	batchSize := ro.BatchSize
 	for i := 0; i < len(instanceIDs); i += batchSize {
 		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
 		executionIDs := executionIDs[i:min(i+batchSize, len(executionIDs))]
@@ -365,7 +377,11 @@ func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *w
 
 func createInstance(ctx context.Context, tx *sql.Tx, queue workflow.Queue, wfi *workflow.Instance, metadata *workflow.Metadata) error {
 	// Check for existing instance
-	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM `instances` WHERE instance_id = ? AND state = ? LIMIT 1", wfi.InstanceID, core.WorkflowInstanceStateActive).
+	if err := tx.QueryRowContext(
+		ctx,
+		"SELECT 1 FROM `instances` WHERE instance_id = ? AND state = ? LIMIT 1",
+		wfi.InstanceID,
+		core.WorkflowInstanceStateActive).
 		Scan(new(int)); err != sql.ErrNoRows {
 		return backend.ErrInstanceAlreadyExists
 	}
@@ -741,6 +757,12 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		}
 		if err := insertPendingEvents(ctx, tx, &targetInstance, historyEvents); err != nil {
 			return fmt.Errorf("inserting messages: %w", err)
+		}
+	}
+
+	if b.options.RemoveContinuedAsNewInstances && state == core.WorkflowInstanceStateContinuedAsNew {
+		if err := b.removeWorkflowInstance(ctx, instance, tx); err != nil {
+			return fmt.Errorf("removing old instance: %w", err)
 		}
 	}
 

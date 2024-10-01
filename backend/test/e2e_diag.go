@@ -14,7 +14,7 @@ import (
 
 var e2eDiagTests = []backendTest{
 	{
-		name: "Diag_Paging",
+		name: "Diag/Paging",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			diagBackend, ok := b.(diag.Backend)
 			if !ok {
@@ -52,7 +52,7 @@ var e2eDiagTests = []backendTest{
 		},
 	},
 	{
-		name: "Diag_GetWorkflowInstance_ReturnsQueue",
+		name: "Diag/GetWorkflowInstance_ReturnsQueue",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			diagBackend, ok := b.(diag.Backend)
 			if !ok {

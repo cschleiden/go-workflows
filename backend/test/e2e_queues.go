@@ -15,7 +15,7 @@ import (
 
 var e2eQueueTests = []backendTest{
 	{
-		name: "Queues_OnlyPullsWorkflowsFromGivenQueues",
+		name: "Queues/OnlyPullsWorkflowsFromGivenQueues",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			wf := func(ctx workflow.Context) (bool, error) {
 				return true, nil
