@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS attributes (
+DROP TABLE IF EXISTS attributes;
+
+CREATE TABLE attributes (
   id BIGSERIAL NOT NULL PRIMARY KEY,
   event_id UUID NOT NULL,
   instance_id UUID NOT NULL,
