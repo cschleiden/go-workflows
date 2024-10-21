@@ -9,8 +9,6 @@ type (
 	WaitGroup = sync.WaitGroup
 )
 
-var Canceled = sync.Canceled
-
 // NewWaitGroup creates a new WaitGroup instance.
 func NewWaitGroup() WaitGroup {
 	return sync.NewWaitGroup()
