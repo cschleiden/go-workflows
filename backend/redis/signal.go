@@ -7,7 +7,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/internal/log"
-	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/internal/propagators"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
@@ -30,7 +30,8 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 		return err
 	}
 
-	ctx, err = (&tracing.TracingContextPropagator{}).Extract(ctx, instanceState.Metadata)
+	// TODO: Can we do this in the client?
+	ctx, err = (&propagators.TracingContextPropagator{}).Extract(ctx, instanceState.Metadata)
 	if err != nil {
 		rb.Options().Logger.Error("extracting tracing context", log.ErrorKey, err)
 	}

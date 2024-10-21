@@ -11,7 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/log"
-	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/internal/propagators"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
@@ -301,7 +301,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 
 	if state == core.WorkflowInstanceStateFinished || state == core.WorkflowInstanceStateContinuedAsNew {
 		// Trace workflow completion
-		ctx, err = (&tracing.TracingContextPropagator{}).Extract(ctx, task.Metadata)
+		ctx, err = (&propagators.TracingContextPropagator{}).Extract(ctx, task.Metadata)
 		if err != nil {
 			rb.options.Logger.Error("extracting tracing context", log.ErrorKey, err)
 		}
