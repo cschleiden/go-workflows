@@ -21,9 +21,9 @@ import (
 	"github.com/cschleiden/go-workflows/internal/continueasnew"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
@@ -61,7 +61,6 @@ type executor struct {
 	historyProvider   WorkflowHistoryProvider
 	workflow          *workflow
 	workflowName      string
-	workflowTracer    *workflowtracer.WorkflowTracer
 	workflowState     *workflowstate.WfState
 	workflowCtx       sync.Context
 	workflowCtxCancel sync.CancelFunc
@@ -70,7 +69,9 @@ type executor struct {
 	logger            *slog.Logger
 	tracer            trace.Tracer
 	lastSequenceID    int64
-	parentSpan        trace.Span
+
+	parentSpan   trace.Span
+	workflowSpan trace.Span
 }
 
 func NewExecutor(
@@ -84,17 +85,16 @@ func NewExecutor(
 	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
 ) (WorkflowExecutor, error) {
-	s := workflowstate.NewWorkflowState(instance, logger, clock)
-
-	wfTracer := workflowtracer.New(tracer)
+	s := workflowstate.NewWorkflowState(instance, logger, tracer, clock)
 
 	wfCtx := sync.Background()
 	wfCtx = contextvalue.WithConverter(wfCtx, cv)
-	wfCtx = workflowtracer.WithWorkflowTracer(wfCtx, wfTracer)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
 	wfCtx = sync.WithValue(wfCtx, contextvalue.PropagatorsCtxKey, propagators)
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
+	// As part of this, the default tracing propagator will run, and set the parent span
+	// in the context, which will be picked up by our workflow span later.
 	for _, propagator := range propagators {
 		var err error
 		wfCtx, err = propagator.ExtractToWorkflow(wfCtx, metadata)
@@ -108,13 +108,9 @@ func NewExecutor(
 		slog.String(log.ExecutionIDKey, instance.ExecutionID),
 	)
 
-	// Get span from the workflow context, set by the default context propagator
-	parentSpan := workflowtracer.SpanFromContext(wfCtx)
-
 	return &executor{
 		registry:          registry,
 		historyProvider:   historyProvider,
-		workflowTracer:    wfTracer,
 		workflowState:     s,
 		workflowCtx:       wfCtx,
 		workflowCtxCancel: cancel,
@@ -122,7 +118,6 @@ func NewExecutor(
 		clock:             clock,
 		logger:            logger,
 		tracer:            tracer,
-		parentSpan:        parentSpan,
 	}, nil
 }
 
@@ -131,7 +126,7 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		log.TaskIDKey, t.ID,
 	)
 
-	logger.Debug("Executing workflow task", log.TaskLastSequenceIDKey, t.LastSequenceID)
+	logger.Debug("Executing workflow task", slog.Int64(log.TaskLastSequenceIDKey, t.LastSequenceID))
 
 	if t.WorkflowInstanceState == core.WorkflowInstanceStateFinished {
 		// This could happen if signals are delivered after the workflow is finished
@@ -150,36 +145,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		}, nil
 	}
 
-	skipNewEvents := false
-
-	if t.LastSequenceID > e.lastSequenceID {
-		logger.Debug("Task has newer history than current state, fetching and replaying history",
-			log.TaskSequenceIDKey, t.LastSequenceID,
-			log.LocalSequenceIDKey, e.lastSequenceID)
-
-		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
-		if err != nil {
-			return nil, fmt.Errorf("getting workflow history: %w", err)
-		}
-
-		if err := e.replayHistory(h); err != nil {
-			logger.Error("Error while replaying history", "error", err)
-
-			// Fail workflow with an error. Skip executing new events, but still go through the commands
-			e.workflowCompleted(nil, err)
-			skipNewEvents = true
-
-			// With an error occurred during replay, we need to ensure new events don't get duplicate sequence ids
-			e.lastSequenceID = t.LastSequenceID
-		} else if t.LastSequenceID != e.lastSequenceID {
-			logger.Error("After replaying history, task still has newer history than current state",
-				log.TaskSequenceIDKey, t.LastSequenceID,
-				log.LocalSequenceIDKey, e.lastSequenceID)
-
-			return nil, errors.New("even after fetching history and replaying history executor state does not match task")
-		}
-	} else if t.LastSequenceID < e.lastSequenceID {
-		return nil, fmt.Errorf("task has older history than current state, cannot execute")
+	skipNewEvents, err := e.catchupOnHistory(ctx, t, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	// Always add a WorkflowTaskStarted event before executing new tasks
@@ -249,6 +217,43 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 	}, nil
 }
 
+func (e *executor) catchupOnHistory(ctx context.Context, t *backend.WorkflowTask, logger *slog.Logger) (bool, error) {
+	if t.LastSequenceID < e.lastSequenceID {
+		return false, fmt.Errorf("task has older history than current state, cannot execute")
+	}
+
+	if t.LastSequenceID > e.lastSequenceID {
+		logger.Debug("Task has newer history than current state, fetching and replaying history",
+			log.TaskSequenceIDKey, t.LastSequenceID,
+			log.LocalSequenceIDKey, e.lastSequenceID)
+
+		h, err := e.historyProvider.GetWorkflowInstanceHistory(ctx, t.WorkflowInstance, &e.lastSequenceID)
+		if err != nil {
+			return false, fmt.Errorf("getting workflow history: %w", err)
+		}
+
+		if err := e.replayHistory(h); err != nil {
+			logger.Error("Error while replaying history", "error", err)
+
+			// Fail workflow with an error. Skip executing new events, but still go through the commands
+			e.workflowCompleted(nil, err)
+
+			// With an error occurred during replay, we need to ensure new events don't get duplicate sequence ids
+			e.lastSequenceID = t.LastSequenceID
+
+			return true, nil
+		} else if t.LastSequenceID != e.lastSequenceID {
+			logger.Error("After replaying history, task still has newer history than current state",
+				log.TaskSequenceIDKey, t.LastSequenceID,
+				log.LocalSequenceIDKey, e.lastSequenceID)
+
+			return false, errors.New("even after fetching history and replaying history executor state does not match task")
+		}
+	}
+
+	return false, nil
+}
+
 func (e *executor) replayHistory(h []*history.Event) error {
 	e.workflowState.SetReplaying(true)
 	for _, event := range h {
@@ -278,6 +283,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 
 	if e.workflow.Completed() {
 		if e.workflowState.HasPendingFutures() {
+			// This should not happen, provide debug information to the developer
 			var pending []string
 			pf := e.workflowState.PendingFutureNames()
 			for id, name := range pf {
@@ -332,7 +338,7 @@ func (e *executor) executeEvent(event *history.Event) error {
 
 	switch event.Type {
 	case history.EventType_WorkflowExecutionStarted:
-		err = e.handleWorkflowExecutionStarted(event.Attributes.(*history.ExecutionStartedAttributes))
+		err = e.handleWorkflowExecutionStarted(event, event.Attributes.(*history.ExecutionStartedAttributes))
 
 	case history.EventType_WorkflowExecutionFinished:
 	// Ignore
@@ -376,6 +382,9 @@ func (e *executor) executeEvent(event *history.Event) error {
 	case history.EventType_SubWorkflowCompleted:
 		err = e.handleSubWorkflowCompleted(event, event.Attributes.(*history.SubWorkflowCompletedAttributes))
 
+	case history.EventType_TraceStarted:
+		err = e.handleTraceStarted(event, event.Attributes.(*history.TraceStartedAttributes))
+
 	default:
 		return fmt.Errorf("unknown event type: %v", event.Type)
 	}
@@ -383,7 +392,7 @@ func (e *executor) executeEvent(event *history.Event) error {
 	return err
 }
 
-func (e *executor) handleWorkflowExecutionStarted(a *history.ExecutionStartedAttributes) error {
+func (e *executor) handleWorkflowExecutionStarted(event *history.Event, a *history.ExecutionStartedAttributes) error {
 	e.workflowName = a.Name
 
 	wfFn, err := e.registry.GetWorkflow(a.Name)
@@ -391,8 +400,22 @@ func (e *executor) handleWorkflowExecutionStarted(a *history.ExecutionStartedAtt
 		return fmt.Errorf("workflow %s not found", a.Name)
 	}
 
-	e.workflow = newWorkflow(reflect.ValueOf(wfFn))
+	// Set the parent span here, so we can associate the workflow span with its parent
+	parentSpan := tracing.SpanFromContext(e.workflowCtx)
+	ctx := trace.ContextWithSpan(context.Background(), parentSpan)
 
+	span := tracing.SpanWithStartTime(
+		ctx,
+		e.tracer,
+		tracing.WorkflowSpanName(e.workflowName),
+		a.WorkflowSpanID,
+		event.Timestamp)
+
+	// Set in context for workflow execution
+	e.workflowCtx = tracing.ContextWithSpan(e.workflowCtx, span)
+	e.workflowSpan = span
+
+	e.workflow = newWorkflow(reflect.ValueOf(wfFn))
 	return e.workflow.Execute(e.workflowCtx, a.Inputs)
 }
 
@@ -676,7 +699,34 @@ func (e *executor) handleSideEffectResult(event *history.Event, a *history.SideE
 	}
 
 	if err := f.Set(a.Result, nil); err != nil {
-		return fmt.Errorf("setting side effect result result: %w", err)
+		return fmt.Errorf("setting side effect result: %w", err)
+	}
+
+	e.workflowState.RemoveFuture(event.ScheduleEventID)
+
+	return e.workflow.Continue()
+}
+
+func (e *executor) handleTraceStarted(event *history.Event, a *history.TraceStartedAttributes) error {
+	c := e.workflowState.CommandByScheduleEventID(event.ScheduleEventID)
+	if c == nil {
+		return fmt.Errorf("previous workflow execution started a trace")
+	}
+
+	stc, ok := c.(*command.StartTraceCommand)
+	if !ok {
+		return fmt.Errorf("previous workflow execution started a trace, not: %v", c.Type())
+	}
+
+	stc.Done()
+
+	f, ok := e.workflowState.FutureByScheduleEventID(event.ScheduleEventID)
+	if !ok {
+		return errors.New("no pending future found for start trace event")
+	}
+
+	if err := f.Set(a.SpanID, nil); err != nil {
+		return fmt.Errorf("setting start trace spanID: %w", err)
 	}
 
 	e.workflowState.RemoveFuture(event.ScheduleEventID)
@@ -689,6 +739,13 @@ func (e *executor) workflowCompleted(result payload.Payload, wfErr error) {
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr))
 	e.workflowState.AddCommand(cmd)
+
+	if e.workflowSpan != nil {
+		// End span that was created when starting the workflow
+		e.workflowSpan.End()
+	} else {
+		// TODO: this should not happen? We should always have a workflow span?
+	}
 }
 
 func (e *executor) workflowRestarted(result payload.Payload, continueAsNew *continueasnew.Error) {

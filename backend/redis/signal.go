@@ -6,12 +6,8 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
-	"github.com/cschleiden/go-workflows/internal/log"
-	"github.com/cschleiden/go-workflows/internal/propagators"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
@@ -29,19 +25,6 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 	if err != nil {
 		return err
 	}
-
-	// TODO: Can we do this in the client?
-	ctx, err = (&propagators.TracingContextPropagator{}).Extract(ctx, instanceState.Metadata)
-	if err != nil {
-		rb.Options().Logger.Error("extracting tracing context", log.ErrorKey, err)
-	}
-
-	a := event.Attributes.(*history.SignalReceivedAttributes)
-	ctx, span := rb.Tracer().Start(ctx, fmt.Sprintf("SignalWorkflow: %s", a.Name), trace.WithAttributes(
-		attribute.String(log.InstanceIDKey, instanceID),
-		attribute.String(log.SignalNameKey, event.Attributes.(*history.SignalReceivedAttributes).Name),
-	))
-	defer span.End()
 
 	if _, err = rb.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
 		if err := rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instanceState.Instance, event); err != nil {

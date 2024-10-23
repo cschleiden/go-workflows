@@ -10,10 +10,12 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	// "github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/internal/workflowstate"
 )
 
 type SubWorkflowOptions struct {
@@ -81,14 +83,20 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
 
-	ctx, span := workflowtracer.Tracer(ctx).Start(ctx,
+	ctx, span := Tracer(ctx).Start(ctx,
 		fmt.Sprintf("CreateSubworkflowInstance: %s", workflowName),
 		trace.WithAttributes(
 			attribute.String(log.WorkflowNameKey, workflowName),
 			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
 			attribute.Int(log.AttemptKey, attempt),
 		))
-	defer span.End()
+
+	tf := sync.NewFuture[TResult]()
+	Go(ctx, func(ctx Context) {
+		r, err := f.Get(ctx)
+		span.End()
+		tf.Set(r, err)
+	})
 
 	// Capture context
 	propagators := propagators(ctx)
@@ -98,7 +106,18 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 		return f
 	}
 
-	cmd := command.NewScheduleSubWorkflowCommand(scheduleEventID, wfState.Instance(), options.Queue, options.InstanceID, workflowName, inputs, metadata)
+	workflowSpanID := tracing.GetNewSpanIDWF(ctx)
+
+	cmd := command.NewScheduleSubWorkflowCommand(
+		scheduleEventID,
+		wfState.Instance(),
+		options.Queue,
+		options.InstanceID,
+		workflowName,
+		inputs,
+		metadata,
+		workflowSpanID,
+	)
 
 	wfState.AddCommand(cmd)
 	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(cv, fmt.Sprintf("subworkflow:%s", workflowName), f))
@@ -127,5 +146,5 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 		})
 	}
 
-	return f
+	return tf
 }

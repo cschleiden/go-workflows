@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/args"
@@ -45,7 +46,9 @@ func (w *workflow) Execute(ctx sync.Context, inputs []payload.Payload) error {
 		// Handle panics in workflows
 		defer func() {
 			if r := recover(); r != nil {
-				w.err = workflowerrors.NewPanicError(fmt.Sprintf("panic in workflow: %v", r))
+				stack := string(debug.Stack())
+
+				w.err = workflowerrors.NewPanicError(fmt.Sprintf("panic in workflow: %v\n%v", r, stack))
 			}
 		}()
 

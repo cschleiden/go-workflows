@@ -10,9 +10,8 @@ import (
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func Test_executeActivity_ResultMismatch(t *testing.T) {
@@ -24,9 +23,9 @@ func Test_executeActivity_ResultMismatch(t *testing.T) {
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
+		workflowstate.NewWorkflowState(
+			core.NewWorkflowInstance("a", ""), slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New()),
 	)
-	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
 	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := executeActivity[string](ctx, DefaultActivityOptions, 1, a)
@@ -48,9 +47,9 @@ func Test_executeActivity_ParamMismatch(t *testing.T) {
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
+		workflowstate.NewWorkflowState(
+			core.NewWorkflowInstance("a", ""), slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New()),
 	)
-	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
 	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := executeActivity[int](ctx, DefaultActivityOptions, 1, a)

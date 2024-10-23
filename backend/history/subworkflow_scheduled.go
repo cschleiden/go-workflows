@@ -16,4 +16,6 @@ type SubWorkflowScheduledAttributes struct {
 	Inputs []payload.Payload `json:"inputs,omitempty"`
 
 	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
+
+	WorkflowSpanID [8]byte `json:"workflow_span_id,omitempty"`
 }

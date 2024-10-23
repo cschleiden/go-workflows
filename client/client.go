@@ -16,6 +16,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
@@ -81,27 +82,32 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 	wfi := core.NewWorkflowInstance(options.InstanceID, uuid.NewString())
 	metadata := &workflow.Metadata{}
 
-	// Start new span for the workflow instance
-	ctx, span := c.backend.Tracer().Start(ctx, fmt.Sprintf("CreateWorkflowInstance: %s", workflowName), trace.WithAttributes(
+	// Span for creating the workflow instance
+	ctx, span := c.backend.Tracer().Start(ctx, "CreateWorkflowInstance", trace.WithAttributes(
 		attribute.String(log.InstanceIDKey, wfi.InstanceID),
+		attribute.String(log.ExecutionIDKey, wfi.ExecutionID),
 		attribute.String(log.WorkflowNameKey, workflowName),
 	))
 	defer span.End()
 
+	// Inject state from any propagators
 	for _, propagator := range c.backend.Options().ContextPropagators {
 		if err := propagator.Inject(ctx, metadata); err != nil {
 			return nil, fmt.Errorf("injecting context to propagate: %w", err)
 		}
 	}
 
+	workflowSpanID := tracing.GetNewSpanID(c.backend.Tracer())
+
 	startedEvent := history.NewPendingEvent(
 		c.clock.Now(),
 		history.EventType_WorkflowExecutionStarted,
 		&history.ExecutionStartedAttributes{
-			Queue:    options.Queue,
-			Metadata: metadata,
-			Name:     workflowName,
-			Inputs:   inputs,
+			Queue:          options.Queue,
+			Metadata:       metadata,
+			Name:           workflowName,
+			Inputs:         inputs,
+			WorkflowSpanID: workflowSpanID,
 		})
 
 	if err := c.backend.CreateWorkflowInstance(ctx, wfi, startedEvent); err != nil {

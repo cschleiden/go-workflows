@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type key int
@@ -63,12 +64,13 @@ type WfState struct {
 	signalChannels map[string]*signalChannel
 
 	logger *slog.Logger
+	tracer trace.Tracer
 
 	clock clock.Clock
 	time  time.Time
 }
 
-func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, clock clock.Clock) *WfState {
+func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, tracer trace.Tracer, clock clock.Clock) *WfState {
 	state := &WfState{
 		instance:        instance,
 		commands:        []command.Command{},
@@ -77,6 +79,8 @@ func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, cloc
 
 		pendingSignals: map[string][]payload.Payload{},
 		signalChannels: make(map[string]*signalChannel),
+
+		tracer: tracer,
 
 		clock: clock,
 	}
@@ -168,4 +172,8 @@ func (wf *WfState) Instance() *core.WorkflowInstance {
 
 func (wf *WfState) Logger() *slog.Logger {
 	return wf.logger
+}
+
+func (wf *WfState) Tracer() trace.Tracer {
+	return wf.tracer
 }

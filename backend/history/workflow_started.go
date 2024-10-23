@@ -14,4 +14,6 @@ type ExecutionStartedAttributes struct {
 	Metadata *metadata.WorkflowMetadata `json:"metadata,omitempty"`
 
 	Inputs []payload.Payload `json:"inputs,omitempty"`
+
+	WorkflowSpanID [8]byte `json:"workflowSpanID,omitempty"`
 }

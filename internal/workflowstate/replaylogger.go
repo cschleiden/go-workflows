@@ -6,8 +6,8 @@ import (
 )
 
 type replayHandler struct {
-	state   *WfState
-	handler slog.Handler
+	replayer Replayer
+	handler  slog.Handler
 }
 
 // Enabled implements slog.Handler.
@@ -17,7 +17,7 @@ func (rh *replayHandler) Enabled(ctx context.Context, level slog.Level) bool {
 
 // Handle implements slog.Handler.
 func (rh *replayHandler) Handle(ctx context.Context, r slog.Record) error {
-	if rh.state.Replaying() {
+	if rh.replayer.Replaying() {
 		return nil
 	}
 
@@ -26,23 +26,27 @@ func (rh *replayHandler) Handle(ctx context.Context, r slog.Record) error {
 
 func (rh *replayHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &replayHandler{
-		state:   rh.state,
-		handler: rh.handler.WithAttrs(attrs),
+		replayer: rh.replayer,
+		handler:  rh.handler.WithAttrs(attrs),
 	}
 }
 
 // WithGroup implements slog.Handler.
 func (rh *replayHandler) WithGroup(name string) slog.Handler {
 	return &replayHandler{
-		state:   rh.state,
-		handler: rh.handler.WithGroup(name),
+		replayer: rh.replayer,
+		handler:  rh.handler.WithGroup(name),
 	}
 }
 
 var _ slog.Handler = (*replayHandler)(nil)
 
-func NewReplayLogger(state *WfState, logger *slog.Logger) *slog.Logger {
+type Replayer interface {
+	Replaying() bool
+}
+
+func NewReplayLogger(replayer Replayer, logger *slog.Logger) *slog.Logger {
 	h := logger.Handler()
 
-	return slog.New(&replayHandler{state, h})
+	return slog.New(&replayHandler{replayer, h})
 }

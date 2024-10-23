@@ -10,9 +10,8 @@ import (
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func Test_createSubWorkflowInstance_NameAsString(t *testing.T) {
@@ -20,9 +19,9 @@ func Test_createSubWorkflowInstance_NameAsString(t *testing.T) {
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
+		workflowstate.NewWorkflowState(
+			core.NewWorkflowInstance("a", ""), slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New()),
 	)
-	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
 	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		createSubWorkflowInstance[int](ctx, DefaultSubWorkflowOptions, 1, "workflowName", "foo")
@@ -43,9 +42,9 @@ func Test_createSubWorkflowInstance_ParamMismatch(t *testing.T) {
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
+		workflowstate.NewWorkflowState(
+			core.NewWorkflowInstance("a", ""), slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New()),
 	)
-	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
 	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := createSubWorkflowInstance[int](ctx, DefaultSubWorkflowOptions, 1, wf, "foo")
@@ -68,9 +67,8 @@ func Test_createSubWorkflowInstance_ReturnMismatch(t *testing.T) {
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(
 		ctx,
-		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New()),
+		workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New()),
 	)
-	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
 	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := createSubWorkflowInstance[string](ctx, DefaultSubWorkflowOptions, 1, wf)

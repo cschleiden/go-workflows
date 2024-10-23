@@ -7,7 +7,10 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/samples"
+	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/cschleiden/go-workflows/workflow/executor"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -57,7 +60,10 @@ func main() {
 
 	otel.SetTracerProvider(tp)
 
-	b := samples.GetBackend("tracing", backend.WithTracerProvider(tp), backend.WithStickyTimeout(0))
+	b := samples.GetBackend("tracing",
+		backend.WithTracerProvider(tp),
+		backend.WithStickyTimeout(0),
+	)
 
 	// Run worker
 	w := RunWorker(ctx, b)
@@ -99,8 +105,35 @@ func runWorkflow(ctx context.Context, c *client.Client) {
 	log.Println("Workflow finished. Result:", result)
 }
 
+// Ensure we aren't caching for this sample
+type noopWorkflowExecutorCache struct {
+}
+
+var _ executor.Cache = (*noopWorkflowExecutorCache)(nil)
+
+// Get implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Get(ctx context.Context, instance *core.WorkflowInstance) (executor.WorkflowExecutor, bool, error) {
+	return nil, false, nil
+}
+
+// Evict implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Evict(ctx context.Context, instance *core.WorkflowInstance) error {
+	return nil
+}
+
+// StartEviction implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) StartEviction(ctx context.Context) {
+}
+
+// Store implements workflow.ExecutorCache
+func (*noopWorkflowExecutorCache) Store(ctx context.Context, instance *workflow.Instance, workflow executor.WorkflowExecutor) error {
+	return nil
+}
+
 func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
-	w := worker.New(mb, nil)
+	opt := worker.DefaultOptions
+	opt.WorkflowExecutorCache = &noopWorkflowExecutorCache{}
+	w := worker.New(mb, &opt)
 
 	w.RegisterWorkflow(Workflow1)
 	w.RegisterWorkflow(Subworkflow)

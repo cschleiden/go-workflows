@@ -3,7 +3,7 @@ package propagators
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -37,7 +37,7 @@ func (*TracingContextPropagator) Extract(ctx context.Context, metadata *workflow
 }
 
 func (*TracingContextPropagator) InjectFromWorkflow(ctx workflow.Context, metadata *workflow.Metadata) error {
-	span := workflowtracer.SpanFromContext(ctx)
+	span := tracing.SpanFromContext(ctx)
 	sctx := trace.ContextWithSpan(context.Background(), span)
 
 	injectSpan(sctx, metadata)
@@ -49,5 +49,5 @@ func (*TracingContextPropagator) ExtractToWorkflow(ctx workflow.Context, metadat
 	sctx := extractSpan(context.Background(), metadata)
 	span := trace.SpanFromContext(sctx)
 
-	return workflowtracer.ContextWithSpan(ctx, span), nil
+	return tracing.ContextWithSpan(ctx, span), nil
 }

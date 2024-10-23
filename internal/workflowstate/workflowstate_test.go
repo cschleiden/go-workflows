@@ -10,12 +10,13 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func Test_PendingFutures(t *testing.T) {
 	i := core.NewWorkflowInstance(uuid.NewString(), "")
 
-	wfState := NewWorkflowState(i, slog.Default(), clock.New())
+	wfState := NewWorkflowState(i, slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New())
 
 	require.False(t, wfState.HasPendingFutures())
 

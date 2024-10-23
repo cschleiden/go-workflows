@@ -15,8 +15,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func (rb *redisBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
@@ -305,12 +303,6 @@ func (rb *redisBackend) CompleteWorkflowTask(
 		if err != nil {
 			rb.options.Logger.Error("extracting tracing context", log.ErrorKey, err)
 		}
-
-		_, span := rb.Tracer().Start(ctx, "WorkflowComplete",
-			trace.WithAttributes(
-				attribute.String(log.NamespaceKey+log.InstanceIDKey, task.WorkflowInstance.InstanceID),
-			))
-		span.End()
 
 		// Auto expiration
 		expiration := rb.options.AutoExpiration

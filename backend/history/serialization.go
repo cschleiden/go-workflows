@@ -59,6 +59,9 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 	case EventType_SideEffectResult:
 		attr = &SideEffectResultAttributes{}
 
+	case EventType_TraceStarted:
+		attr = &TraceStartedAttributes{}
+
 	case EventType_TimerScheduled:
 		attr = &TimerScheduledAttributes{}
 	case EventType_TimerFired:
