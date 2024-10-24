@@ -6,11 +6,8 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
-	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // ScheduleTimer schedules a timer to fire after the given delay.
@@ -48,19 +45,6 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[any] {
 		},
 	}
 
-	ctx, span := Tracer(ctx).Start(ctx, "ScheduleTimer",
-		trace.WithAttributes(
-			attribute.Int64(log.DurationKey, int64(delay/time.Millisecond)),
-			attribute.String(log.NowKey, Now(ctx).String()),
-			attribute.String(log.AtKey, at.String()),
-		))
-	tf := sync.NewFuture[any]()
-	Go(ctx, func(ctx Context) {
-		r, err := f.Get(ctx)
-		span.End()
-		tf.Set(r, err)
-	})
-
 	// Check if the context is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {
 		// Register a callback for when it's canceled. The only operation on the `Done` channel
@@ -72,5 +56,5 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[any] {
 		})
 	}
 
-	return tf
+	return f
 }

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend"
@@ -26,6 +27,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -528,6 +530,18 @@ func (e *executor) handleTimerFired(event *history.Event, a *history.TimerFiredA
 	if !ok {
 		// Timer already canceled ignore
 		return nil
+	}
+
+	if !e.workflowState.Replaying() {
+		// Trace timer
+		parentSpan := tracing.SpanFromContext(e.workflowCtx)
+		ctx := trace.ContextWithSpan(context.Background(), parentSpan)
+		_, span := e.tracer.Start(ctx, "Timer", trace.WithAttributes(
+			attribute.Int64(log.DurationKey, int64(a.At.Sub(a.ScheduledAt)/time.Millisecond)),
+			attribute.String(log.NowKey, a.ScheduledAt.String()),
+			attribute.String(log.AtKey, a.At.String()),
+		), trace.WithTimestamp(a.ScheduledAt))
+		span.End()
 	}
 
 	if err := f.Set(nil, nil); err != nil {

@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"log"
 
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
@@ -21,8 +20,6 @@ func (s *wfSpan) End() {
 	if !s.state.Replaying() {
 		// Only end the trace when we are not replaying
 		s.span.End()
-	} else {
-		log.Println("Not ending span as we are replaying")
 	}
 }
 

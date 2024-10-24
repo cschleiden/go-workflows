@@ -90,13 +90,7 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
 			attribute.Int(log.AttemptKey, attempt),
 		))
-
-	tf := sync.NewFuture[TResult]()
-	Go(ctx, func(ctx Context) {
-		r, err := f.Get(ctx)
-		span.End()
-		tf.Set(r, err)
-	})
+	defer span.End()
 
 	// Capture context
 	propagators := propagators(ctx)
@@ -146,5 +140,5 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 		})
 	}
 
-	return tf
+	return f
 }

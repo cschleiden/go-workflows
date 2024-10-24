@@ -33,10 +33,12 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 	case CommandState_Pending:
 		c.state = CommandState_Committed
 
+		now := clock.Now()
+
 		return &CommandResult{
 			Events: []*history.Event{
 				history.NewPendingEvent(
-					clock.Now(),
+					now,
 					history.EventType_TimerScheduled,
 					&history.TimerScheduledAttributes{
 						At: c.at,
@@ -50,7 +52,8 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 					clock.Now(),
 					history.EventType_TimerFired,
 					&history.TimerFiredAttributes{
-						At: c.at,
+						ScheduledAt: now,
+						At:          c.at,
 					},
 					history.ScheduleEventID(c.id),
 					history.VisibleAt(c.at),

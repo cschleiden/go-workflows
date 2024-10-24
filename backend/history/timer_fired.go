@@ -3,5 +3,6 @@ package history
 import "time"
 
 type TimerFiredAttributes struct {
-	At time.Time `json:"at,omitempty"`
+	ScheduledAt time.Time `json:"scheduled_at,omitempty"`
+	At          time.Time `json:"at,omitempty"`
 }

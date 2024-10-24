@@ -59,6 +59,43 @@ var e2eTracingTests = []backendTest{
 		},
 	},
 	{
+		name: "Tracing/TimersHaveSpans",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			exporter := setupTracing(b)
+
+			wf := func(ctx workflow.Context) error {
+				workflow.ScheduleTimer(ctx, time.Millisecond*20).Get(ctx)
+
+				return nil
+			}
+			register(t, ctx, w, []interface{}{wf}, nil)
+
+			instance := runWorkflow(t, ctx, c, wf)
+			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
+			require.NoError(t, err)
+
+			spans := exporter.GetSpans().Snapshots()
+
+			workflow1Span := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "Workflow: 1")
+			})
+			require.NotNil(t, workflow1Span)
+
+			timerSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "Timer")
+			})
+			require.NotNil(t, workflow1Span)
+			require.InEpsilon(t, time.Duration(20*time.Millisecond),
+				timerSpan.EndTime().Sub(timerSpan.StartTime())/time.Millisecond,
+				float64(5*time.Millisecond))
+
+			require.Equal(t,
+				workflow1Span.SpanContext().SpanID().String(),
+				timerSpan.Parent().SpanID().String(),
+			)
+		},
+	},
+	{
 		name: "Tracing/SubWorkflowsHaveSpansWithCorrectParent",
 		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
 			exporter := setupTracing(b)
@@ -96,13 +133,18 @@ var e2eTracingTests = []backendTest{
 			})
 			require.NotNil(t, workflow1Span)
 
+			createSWFSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "CreateSubworkflowInstance: swf")
+			})
+			require.NotNil(t, createSWFSpan)
+
 			workflow2Span := findSpan(spans, func(span trace.ReadOnlySpan) bool {
 				return strings.Contains(span.Name(), "Workflow: swf")
 			})
 			require.NotNil(t, workflow1Span)
 
 			require.Equal(t,
-				workflow1Span.SpanContext().SpanID().String(),
+				createSWFSpan.SpanContext().SpanID().String(),
 				workflow2Span.Parent().SpanID().String(),
 			)
 		},
