@@ -5,17 +5,20 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend/history"
+	"github.com/cschleiden/go-workflows/backend/metadata"
 )
 
 type ScheduleTimerCommand struct {
 	cancelableCommand
 
-	at time.Time
+	at           time.Time
+	name         string
+	spanMetadata metadata.WorkflowMetadata
 }
 
 var _ CancelableCommand = (*ScheduleTimerCommand)(nil)
 
-func NewScheduleTimerCommand(id int64, at time.Time) *ScheduleTimerCommand {
+func NewScheduleTimerCommand(id int64, at time.Time, name string, carrier metadata.WorkflowMetadata) *ScheduleTimerCommand {
 	return &ScheduleTimerCommand{
 		cancelableCommand: cancelableCommand{
 			command: command{
@@ -24,7 +27,9 @@ func NewScheduleTimerCommand(id int64, at time.Time) *ScheduleTimerCommand {
 				state: CommandState_Pending,
 			},
 		},
-		at: at,
+		at:           at,
+		name:         name,
+		spanMetadata: carrier,
 	}
 }
 
@@ -41,7 +46,8 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 					now,
 					history.EventType_TimerScheduled,
 					&history.TimerScheduledAttributes{
-						At: c.at,
+						At:   c.at,
+						Name: c.name,
 					},
 					history.ScheduleEventID(c.id),
 				),
@@ -52,8 +58,10 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 					clock.Now(),
 					history.EventType_TimerFired,
 					&history.TimerFiredAttributes{
-						ScheduledAt: now,
-						At:          c.at,
+						ScheduledAt:  now,
+						At:           c.at,
+						Name:         c.name,
+						SpanMetadata: c.spanMetadata,
 					},
 					history.ScheduleEventID(c.id),
 					history.VisibleAt(c.at),

@@ -22,10 +22,10 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 	defer logger.Debug("Leaving Workflow1")
 
 	tracer := workflow.Tracer(ctx)
-	ctx, span := tracer.Start(ctx, "Workflow1")
+	ctx, span := tracer.Start(ctx, "Workflow1 custom span")
 	defer span.End()
 
-	_, customSpan := tracer.Start(ctx, "Workflow1 span", trace.WithAttributes(
+	_, customSpan := tracer.Start(ctx, "Workflow1 custom inner span", trace.WithAttributes(
 		// Add additional
 		attribute.String("msg", "hello world"),
 	))

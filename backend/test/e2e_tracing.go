@@ -66,6 +66,8 @@ var e2eTracingTests = []backendTest{
 			wf := func(ctx workflow.Context) error {
 				workflow.ScheduleTimer(ctx, time.Millisecond*20).Get(ctx)
 
+				workflow.Sleep(ctx, time.Millisecond*10)
+
 				return nil
 			}
 			register(t, ctx, w, []interface{}{wf}, nil)
@@ -88,10 +90,61 @@ var e2eTracingTests = []backendTest{
 			require.InEpsilon(t, time.Duration(20*time.Millisecond),
 				timerSpan.EndTime().Sub(timerSpan.StartTime())/time.Millisecond,
 				float64(5*time.Millisecond))
+			require.Equal(t, "Timer", timerSpan.Name())
+
+			sleepSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "Timer: Sleep")
+			})
+			require.NotNil(t, sleepSpan)
 
 			require.Equal(t,
 				workflow1Span.SpanContext().SpanID().String(),
 				timerSpan.Parent().SpanID().String(),
+			)
+		},
+	},
+	{
+		name: "Tracing/TimersWithinCustomSpans",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			exporter := setupTracing(b)
+
+			wf := func(ctx workflow.Context) error {
+				ctx, span := workflow.Tracer(ctx).Start(ctx, "custom-span")
+				defer span.End()
+
+				workflow.Sleep(ctx, time.Millisecond*10)
+
+				return nil
+			}
+			register(t, ctx, w, []interface{}{wf}, nil)
+
+			instance := runWorkflow(t, ctx, c, wf)
+			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
+			require.NoError(t, err)
+
+			spans := exporter.GetSpans().Snapshots()
+
+			workflow1Span := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "Workflow: 1")
+			})
+			require.NotNil(t, workflow1Span)
+
+			customSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "custom-span")
+			})
+			require.NotNil(t, workflow1Span)
+			require.Equal(t,
+				workflow1Span.SpanContext().SpanID().String(),
+				customSpan.Parent().SpanID().String(),
+			)
+
+			sleepSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+				return strings.Contains(span.Name(), "Timer: Sleep")
+			})
+			require.NotNil(t, sleepSpan)
+			require.Equal(t,
+				customSpan.SpanContext().SpanID().String(),
+				sleepSpan.Parent().SpanID().String(),
 			)
 		},
 	},
@@ -133,19 +186,14 @@ var e2eTracingTests = []backendTest{
 			})
 			require.NotNil(t, workflow1Span)
 
-			createSWFSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
-				return strings.Contains(span.Name(), "CreateSubworkflowInstance: swf")
-			})
-			require.NotNil(t, createSWFSpan)
-
-			workflow2Span := findSpan(spans, func(span trace.ReadOnlySpan) bool {
+			swfSpan := findSpan(spans, func(span trace.ReadOnlySpan) bool {
 				return strings.Contains(span.Name(), "Workflow: swf")
 			})
 			require.NotNil(t, workflow1Span)
 
 			require.Equal(t,
-				createSWFSpan.SpanContext().SpanID().String(),
-				workflow2Span.Parent().SpanID().String(),
+				workflow1Span.SpanContext().SpanID().String(),
+				swfSpan.Parent().SpanID().String(),
 			)
 		},
 	},

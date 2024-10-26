@@ -8,11 +8,8 @@ import (
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	// "github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
@@ -82,15 +79,6 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 
 	wfState := workflowstate.WorkflowState(ctx)
 	scheduleEventID := wfState.GetNextScheduleEventID()
-
-	ctx, span := Tracer(ctx).Start(ctx,
-		fmt.Sprintf("CreateSubworkflowInstance: %s", workflowName),
-		trace.WithAttributes(
-			attribute.String(log.WorkflowNameKey, workflowName),
-			attribute.Int64(log.ScheduleEventIDKey, scheduleEventID),
-			attribute.Int(log.AttemptKey, attempt),
-		))
-	defer span.End()
 
 	// Capture context
 	propagators := propagators(ctx)
