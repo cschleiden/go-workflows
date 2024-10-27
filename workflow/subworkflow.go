@@ -88,7 +88,8 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 		return f
 	}
 
-	workflowSpanID := tracing.GetNewSpanIDWF(ctx)
+	tracer := workflowstate.WorkflowState(ctx).Tracer()
+	workflowSpanID := tracing.GetNewSpanID(tracer)
 
 	cmd := command.NewScheduleSubWorkflowCommand(
 		scheduleEventID,

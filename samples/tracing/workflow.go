@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/cschleiden/go-workflows/activity"
@@ -46,9 +47,9 @@ func Workflow1(ctx workflow.Context, msg string, times int, inputs Inputs) (int,
 	workflow.NewSignalChannel[string](ctx, "test-signal").Receive(ctx)
 	span.End()
 
-	r1, _ := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1, 35, 12).Get(ctx)
+	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, RetriedActivity, 35, 12).Get(ctx)
 
-	return r1, nil
+	return r1, err
 }
 
 func Subworkflow(ctx workflow.Context) error {
@@ -71,6 +72,17 @@ func Activity1(ctx context.Context, a, b int) (int, error) {
 	defer span.End()
 
 	time.Sleep(300 * time.Millisecond)
+
+	return a + b, nil
+}
+
+func RetriedActivity(ctx context.Context, a, b int) (int, error) {
+	logger := activity.Logger(ctx)
+
+	if activity.Attempt(ctx) < 1 {
+		logger.Info("Simulating failure")
+		return 0, errors.New("simulated failure")
+	}
 
 	return a + b, nil
 }

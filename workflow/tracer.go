@@ -64,9 +64,8 @@ func (wt *WorkflowTracer) Start(ctx Context, name string, opts ...trace.SpanStar
 	} else {
 		ctx, span = start(ctx, name, opts...)
 
-		// Declare as [8]byte to conver to payload
+		// Declare as [8]byte to convert to payload
 		var spanID [8]byte = span.span.SpanContext().SpanID()
-
 		payload, err := cv.To(spanID)
 		if err != nil {
 			future.Set([8]byte{}, err)

@@ -139,6 +139,7 @@ func RunWorker(ctx context.Context, mb backend.Backend) *worker.Worker {
 	w.RegisterWorkflow(Subworkflow)
 
 	w.RegisterActivity(Activity1)
+	w.RegisterActivity(RetriedActivity)
 
 	if err := w.Start(ctx); err != nil {
 		panic("could not start worker")

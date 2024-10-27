@@ -5,7 +5,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/cschleiden/go-workflows/backend/history"
-	"github.com/cschleiden/go-workflows/backend/metadata"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 )
 
 type ScheduleTimerCommand struct {
@@ -13,12 +13,12 @@ type ScheduleTimerCommand struct {
 
 	at           time.Time
 	name         string
-	spanMetadata metadata.WorkflowMetadata
+	traceContext tracing.Context
 }
 
 var _ CancelableCommand = (*ScheduleTimerCommand)(nil)
 
-func NewScheduleTimerCommand(id int64, at time.Time, name string, carrier metadata.WorkflowMetadata) *ScheduleTimerCommand {
+func NewScheduleTimerCommand(id int64, at time.Time, name string, traceContext tracing.Context) *ScheduleTimerCommand {
 	return &ScheduleTimerCommand{
 		cancelableCommand: cancelableCommand{
 			command: command{
@@ -29,7 +29,7 @@ func NewScheduleTimerCommand(id int64, at time.Time, name string, carrier metada
 		},
 		at:           at,
 		name:         name,
-		spanMetadata: carrier,
+		traceContext: traceContext,
 	}
 }
 
@@ -61,7 +61,7 @@ func (c *ScheduleTimerCommand) Execute(clock clock.Clock) *CommandResult {
 						ScheduledAt:  now,
 						At:           c.at,
 						Name:         c.name,
-						SpanMetadata: c.spanMetadata,
+						TraceContext: c.traceContext,
 					},
 					history.ScheduleEventID(c.id),
 					history.VisibleAt(c.at),

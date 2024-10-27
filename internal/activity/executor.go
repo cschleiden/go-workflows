@@ -13,6 +13,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/log"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
@@ -47,21 +48,6 @@ func NewExecutor(
 func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTask) (payload.Payload, error) {
 	a := task.Event.Attributes.(*history.ActivityScheduledAttributes)
 
-	activity, err := e.r.GetActivity(a.Name)
-	if err != nil {
-		return nil, workflowerrors.NewPermanentError(fmt.Errorf("activity not found: %w", err))
-	}
-
-	activityFn := reflect.ValueOf(activity)
-	if activityFn.Type().Kind() != reflect.Func {
-		return nil, workflowerrors.NewPermanentError(errors.New("activity not a function"))
-	}
-
-	args, addContext, err := args.InputsToArgs(e.converter, activityFn, a.Inputs)
-	if err != nil {
-		return nil, workflowerrors.NewPermanentError(fmt.Errorf("converting activity inputs: %w", err))
-	}
-
 	// Add activity state to context
 	as := NewActivityState(
 		task.Event.ID,
@@ -71,6 +57,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 	activityCtx := WithActivityState(ctx, as)
 
 	for _, propagator := range e.propagators {
+		var err error
 		activityCtx, err = propagator.Extract(activityCtx, a.Metadata)
 		if err != nil {
 			return nil, workflowerrors.NewPermanentError(fmt.Errorf("extracting context from propagator: %w", err))
@@ -83,6 +70,22 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 		attribute.String(log.ActivityIDKey, task.ID),
 		attribute.Int(log.AttemptKey, a.Attempt),
 	))
+
+	activity, err := e.r.GetActivity(a.Name)
+	if err != nil {
+		return nil, workflowerrors.NewPermanentError(tracing.WithSpanError(span, fmt.Errorf("activity not found: %w", err)))
+	}
+
+	activityFn := reflect.ValueOf(activity)
+	if activityFn.Type().Kind() != reflect.Func {
+		return nil, workflowerrors.NewPermanentError(tracing.WithSpanError(span, errors.New("activity not a function")))
+	}
+
+	args, addContext, err := args.InputsToArgs(e.converter, activityFn, a.Inputs)
+	if err != nil {
+		return nil, workflowerrors.NewPermanentError(tracing.WithSpanError(span, fmt.Errorf("converting activity inputs: %w", err)))
+	}
+
 	defer span.End()
 
 	// Execute activity
@@ -97,7 +100,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 		// Recover any panic encountered during activity execution
 		defer func() {
 			if r := recover(); r != nil {
-				err = workflowerrors.NewPanicError(fmt.Sprintf("panic: %v", r))
+				err := workflowerrors.NewPanicError(fmt.Sprintf("panic: %v", r))
 				rv = []reflect.Value{reflect.ValueOf(err)}
 			}
 
@@ -110,7 +113,8 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 	<-done
 
 	if len(rv) < 1 || len(rv) > 2 {
-		return nil, workflowerrors.NewPermanentError(errors.New("activity has to return either (error) or (<result>, error)"))
+		return nil, workflowerrors.NewPermanentError(
+			tracing.WithSpanError(span, errors.New("activity has to return either (error) or (<result>, error)")))
 	}
 
 	var result payload.Payload
@@ -120,7 +124,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 		var err error
 		result, err = e.converter.To(rv[0].Interface())
 		if err != nil {
-			return nil, workflowerrors.NewPermanentError(fmt.Errorf("converting activity result: %w", err))
+			return nil, workflowerrors.NewPermanentError(tracing.WithSpanError(span, fmt.Errorf("converting activity result: %w", err)))
 		}
 	}
 
@@ -133,8 +137,9 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 
 	err, ok := errResult.Interface().(error)
 	if !ok {
-		return nil, workflowerrors.NewPermanentError(fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult))
+		return nil, workflowerrors.NewPermanentError(
+			tracing.WithSpanError(span, fmt.Errorf("activity error result does not satisfy error interface (%T): %v", errResult, errResult)))
 	}
 
-	return result, workflowerrors.FromError(err)
+	return result, workflowerrors.FromError(tracing.WithSpanError(span, err))
 }

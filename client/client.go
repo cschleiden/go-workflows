@@ -87,7 +87,7 @@ func (c *Client) CreateWorkflowInstance(ctx context.Context, options WorkflowIns
 		attribute.String(log.InstanceIDKey, wfi.InstanceID),
 		attribute.String(log.ExecutionIDKey, wfi.ExecutionID),
 		attribute.String(log.WorkflowNameKey, workflowName),
-	))
+	), trace.WithSpanKind(trace.SpanKindProducer))
 	defer span.End()
 
 	// Inject state from any propagators

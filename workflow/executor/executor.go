@@ -28,7 +28,6 @@ import (
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -285,6 +284,8 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	}
 
 	if e.workflow.Completed() {
+		defer e.workflowSpan.End()
+
 		if e.workflowState.HasPendingFutures() {
 			// This should not happen, provide debug information to the developer
 			var pending []string
@@ -298,7 +299,8 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 				panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
 			}
 
-			return newEvents, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending)
+			return newEvents, tracing.WithSpanError(
+				e.workflowSpan, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending))
 		}
 
 		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
@@ -534,15 +536,15 @@ func (e *executor) handleTimerFired(event *history.Event, a *history.TimerFiredA
 	}
 
 	if !e.workflowState.Replaying() {
-		// Trace timer
+		// Trace timer fired
 		spanName := "Timer"
 		if a.Name != "" {
 			spanName = spanName + ": " + a.Name
 		}
 
 		sctx := context.Background()
-		if a.SpanMetadata != nil {
-			sctx = propagation.TraceContext{}.Extract(sctx, a.SpanMetadata)
+		if a.TraceContext != nil {
+			sctx = tracing.SpanContextFromContext(sctx, a.TraceContext)
 		}
 		_, span := e.tracer.Start(sctx, spanName, trace.WithAttributes(
 			attribute.Int64(log.DurationKey, int64(a.At.Sub(a.ScheduledAt)/time.Millisecond)),
@@ -761,20 +763,18 @@ func (e *executor) workflowCompleted(result payload.Payload, wfErr error) {
 
 	cmd := command.NewCompleteWorkflowCommand(eventId, e.workflowState.Instance(), result, workflowerrors.FromError(wfErr))
 	e.workflowState.AddCommand(cmd)
-
-	if e.workflowSpan != nil {
-		// End span that was created when starting the workflow
-		e.workflowSpan.End()
-	} else {
-		// TODO: this should not happen? We should always have a workflow span?
-	}
 }
 
 func (e *executor) workflowRestarted(result payload.Payload, continueAsNew *continueasnew.Error) {
 	eventId := e.workflowState.GetNextScheduleEventID()
 
-	cmd := command.NewContinueAsNewCommand(eventId, e.workflowState.Instance(), result, e.workflowName, continueAsNew.Metadata, continueAsNew.Inputs)
+	cmd := command.NewContinueAsNewCommand(
+		eventId, e.workflowState.Instance(), result, e.workflowName, continueAsNew.Metadata, continueAsNew.Inputs)
 	e.workflowState.AddCommand(cmd)
+
+	e.workflowSpan.SetAttributes(
+		attribute.String(log.ContinuedExecutionIDKey, cmd.ContinuedExecutionID),
+	)
 }
 
 func (e *executor) nextSequenceID() int64 {

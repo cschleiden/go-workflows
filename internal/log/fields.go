@@ -10,6 +10,8 @@ const (
 	InstanceIDKey   = NamespaceKey + ".instance.id"
 	ExecutionIDKey  = NamespaceKey + ".execution.id"
 
+	ContinuedExecutionIDKey = NamespaceKey + ".continued_execution.id"
+
 	WorkflowNameKey = NamespaceKey + ".workflow.name"
 
 	SignalNameKey = NamespaceKey + ".signal.name"

@@ -6,15 +6,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cschleiden/go-workflows/internal/sync"
-	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func SpanWithStartTime(ctx context.Context, tracer trace.Tracer, name string, spanID trace.SpanID, startTime time.Time) trace.Span {
+func SpanWithStartTime(
+	ctx context.Context, tracer trace.Tracer, name string, spanID trace.SpanID, startTime time.Time, opts ...trace.SpanStartOption) trace.Span {
+
+	opts = append(opts, trace.WithTimestamp(startTime), trace.WithSpanKind(trace.SpanKindConsumer))
 	_, span := tracer.Start(ctx,
 		name,
-		trace.WithTimestamp(startTime),
+		opts...,
 	)
 
 	SetSpanID(span, spanID)
@@ -31,11 +32,6 @@ func GetNewSpanID(tracer trace.Tracer) trace.SpanID {
 	span.End()
 
 	return span.SpanContext().SpanID()
-}
-
-func GetNewSpanIDWF(ctx sync.Context) trace.SpanID {
-	tracer := workflowstate.WorkflowState(ctx).Tracer()
-	return GetNewSpanID(tracer)
 }
 
 func SetSpanID(span trace.Span, sid trace.SpanID) {
