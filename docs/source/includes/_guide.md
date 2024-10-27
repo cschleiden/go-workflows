@@ -248,6 +248,12 @@ You can schedule timers to fire at any point in the future by calling `workflow.
     All timers must have either fired or been canceled before a workflow can complete. If the workflow function exits with pending timer futures an error will be returned.
 </aside>
 
+```go
+t := workflow.ScheduleTimer(ctx, 2*time.Second, workflow.WithTimerName("my-timer"))
+```
+
+You can optionally name timers for tracing and debugging purposes.
+
 ### Canceling timers
 
 ```go
