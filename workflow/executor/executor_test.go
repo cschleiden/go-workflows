@@ -598,6 +598,9 @@ func Test_Executor(t *testing.T) {
 					// Schedule but not wait for timer
 					wf.ScheduleTimer(ctx, time.Second*2)
 
+					// Schedule but not wait for named timer
+					wf.ScheduleTimer(ctx, time.Second*2, wf.WithTimerName("delay"))
+
 					return nil
 				}
 
@@ -606,7 +609,7 @@ func Test_Executor(t *testing.T) {
 
 				task := startWorkflowTask("instanceID", workflow)
 
-				require.PanicsWithValue(t, "workflow completed, but there are still pending futures: [1-subworkflow:1 2-timer:2s]", func() {
+				require.PanicsWithValue(t, "workflow completed, but there are still pending futures: [1-subworkflow:1 2-timer:2s 3-timer-delay:2s]", func() {
 					e.ExecuteTask(context.Background(), task)
 				})
 			},

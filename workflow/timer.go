@@ -61,7 +61,15 @@ func ScheduleTimer(ctx Context, delay time.Duration, opts ...timerOption) Future
 
 	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at, timerConfig.Name, traceContext)
 	wfState.AddCommand(timerCmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(contextvalue.Converter(ctx), fmt.Sprintf("timer:%s:%v", timerConfig.Name, delay), f))
+
+	timerSuffix := ""
+	if timerConfig.Name != "" {
+		timerSuffix = "-" + timerConfig.Name
+	}
+
+	wfState.TrackFuture(
+		scheduleEventID,
+		workflowstate.AsDecodingSettable(contextvalue.Converter(ctx), fmt.Sprintf("timer%s:%v", timerSuffix, delay), f))
 
 	cancelReceiver := &sync.Receiver[struct{}]{
 		Receive: func(v struct{}, ok bool) {
