@@ -666,10 +666,6 @@ For logging in activities, you can get a logger using `activity.Logger`. The ret
 
 The library supports tracing via [OpenTelemetry](https://opentelemetry.io/). When you pass a `TracerProvider` when creating a backend instance, workflow execution will be traced. You can also add additional spans for both activities and workflows.
 
-<aside class="notice">
-	The support is considered experimental right now, if you decide to use it, please leave feedback.
-</aside>
-
 ### Activities
 
 ```go
