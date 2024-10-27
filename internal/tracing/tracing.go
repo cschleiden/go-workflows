@@ -2,52 +2,68 @@ package tracing
 
 import (
 	"context"
+	"reflect"
+	"time"
+	"unsafe"
 
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"github.com/cschleiden/go-workflows/workflow"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
-var propagator propagation.TextMapPropagator = propagation.NewCompositeTextMapPropagator(
-	propagation.TraceContext{},
-	propagation.Baggage{},
-)
+func SpanWithStartTime(
+	ctx context.Context, tracer trace.Tracer, name string, spanID trace.SpanID, startTime time.Time, opts ...trace.SpanStartOption) trace.Span {
 
-func injectSpan(ctx context.Context, metadata *workflow.Metadata) {
-	propagator.Inject(ctx, metadata)
+	opts = append(opts, trace.WithTimestamp(startTime), trace.WithSpanKind(trace.SpanKindConsumer))
+	_, span := tracer.Start(ctx,
+		name,
+		opts...,
+	)
+
+	SetSpanID(span, spanID)
+
+	return span
 }
 
-func extractSpan(ctx context.Context, metadata *workflow.Metadata) context.Context {
-	return propagator.Extract(ctx, metadata)
+func GetNewSpanID(tracer trace.Tracer) trace.SpanID {
+	// Create workflow span. We pass the name here, but in the end we only use the span ID.
+	// The tracer doesn't expose the span ID generator that's being used, so we use this
+	// ugly workaround here.
+	_, span := tracer.Start(context.Background(), "canceled-span", trace.WithSpanKind(trace.SpanKindInternal))
+	cancelSpan(span) // We don't actually want to send this span
+	span.End()
+
+	return span.SpanContext().SpanID()
 }
 
-type TracingContextPropagator struct {
+func SetSpanID(span trace.Span, sid trace.SpanID) {
+	sc := span.SpanContext()
+	sc = sc.WithSpanID(sid)
+	setSpanContext(span, sc)
 }
 
-var _ workflow.ContextPropagator = &TracingContextPropagator{}
-
-func (*TracingContextPropagator) Inject(ctx context.Context, metadata *workflow.Metadata) error {
-	injectSpan(ctx, metadata)
-	return nil
+func cancelSpan(span trace.Span) {
+	sc := span.SpanContext()
+	if sc.IsSampled() {
+		sc = sc.WithTraceFlags(trace.TraceFlags(0)) // Remove the sampled flag
+		setSpanContext(span, sc)
+	}
 }
 
-func (*TracingContextPropagator) Extract(ctx context.Context, metadata *workflow.Metadata) (context.Context, error) {
-	return extractSpan(ctx, metadata), nil
+func setSpanContext(span trace.Span, sc trace.SpanContext) {
+	spanP := reflect.ValueOf(span)
+	spanV := reflect.Indirect(spanP)
+	field := spanV.FieldByName("spanContext")
+
+	// noop or nonrecording spans store their spanContext in `sc`, but we ignore
+	// those for our purposes here.
+	if !field.IsValid() || field.IsZero() {
+		return
+	}
+
+	setUnexportedField(field, sc)
 }
 
-func (*TracingContextPropagator) InjectFromWorkflow(ctx workflow.Context, metadata *workflow.Metadata) error {
-	span := workflowtracer.SpanFromContext(ctx)
-	sctx := trace.ContextWithSpan(context.Background(), span)
-
-	injectSpan(sctx, metadata)
-
-	return nil
-}
-
-func (*TracingContextPropagator) ExtractToWorkflow(ctx workflow.Context, metadata *workflow.Metadata) (workflow.Context, error) {
-	sctx := extractSpan(context.Background(), metadata)
-	span := trace.SpanFromContext(sctx)
-
-	return workflowtracer.ContextWithSpan(ctx, span), nil
+func setUnexportedField(field reflect.Value, value interface{}) {
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
+		Elem().
+		Set(reflect.ValueOf(value))
 }

@@ -27,12 +27,10 @@ var e2eRemovalTests = []backendTest{
 			_, err := client.GetWorkflowResult[bool](ctx, c, workflowA, time.Second*10)
 			require.NoError(t, err)
 
-			now := time.Now()
-
 			for i := 0; i < 10; i++ {
 				time.Sleep(300 * time.Millisecond)
 
-				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(now))
+				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
 				if errors.As(err, &backend.ErrNotSupported{}) {
 					t.Skip()
 					return

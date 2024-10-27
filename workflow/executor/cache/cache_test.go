@@ -18,7 +18,7 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/cschleiden/go-workflows/workflow/executor"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func Test_Cache_StoreAndGet(t *testing.T) {
@@ -29,14 +29,14 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 
 	i := core.NewWorkflowInstance("instanceID", "executionID")
 	e, err := executor.NewExecutor(
-		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
+		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
 		[]workflow.ContextPropagator{}, &testHistoryProvider{}, i, &metadata.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
 
 	i2 := core.NewWorkflowInstance("instanceID2", "executionID2")
 	e2, err := executor.NewExecutor(
-		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
+		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
 		[]workflow.ContextPropagator{}, &testHistoryProvider{}, i, &metadata.WorkflowMetadata{}, clock.New(),
 	)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func Test_Cache_AutoEviction(t *testing.T) {
 	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := executor.NewExecutor(
-		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
+		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r,
 		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
 		&metadata.WorkflowMetadata{}, clock.New(),
 	)
@@ -99,7 +99,7 @@ func Test_Cache_Evict(t *testing.T) {
 	r := registry.New()
 	require.NoError(t, r.RegisterWorkflow(workflowWithActivity))
 	e, err := executor.NewExecutor(
-		slog.Default(), trace.NewNoopTracerProvider().Tracer(backend.TracerName), r,
+		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r,
 		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
 		&metadata.WorkflowMetadata{}, clock.New(),
 	)

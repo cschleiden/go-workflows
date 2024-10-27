@@ -31,6 +31,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type testHistoryProvider struct {
@@ -203,7 +204,7 @@ func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...Workflow
 		o(options)
 	}
 
-	tracer := trace.NewNoopTracerProvider().Tracer("workflow-tester")
+	tracer := noop.NewTracerProvider().Tracer("workflow-tester")
 
 	wt := &workflowTester[TResult]{
 		options: options,

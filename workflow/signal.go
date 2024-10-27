@@ -2,9 +2,11 @@ package workflow
 
 import (
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/signals"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // NewSignalChannel returns a new signal channel.
@@ -15,7 +17,11 @@ func NewSignalChannel[T any](ctx Context, name string) Channel[T] {
 
 // SignalWorkflow sends a signal to another running workflow instance.
 func SignalWorkflow[T any](ctx Context, instanceID string, name string, arg T) Future[any] {
-	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "SignalWorkflow")
+	ctx, span := Tracer(ctx).Start(ctx, "SignalWorkflow",
+		trace.WithAttributes(
+			attribute.String(log.SignalNameKey, name),
+		),
+	)
 	defer span.End()
 
 	var a *signals.Activities

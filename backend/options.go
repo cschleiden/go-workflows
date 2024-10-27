@@ -7,9 +7,10 @@ import (
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	mi "github.com/cschleiden/go-workflows/internal/metrics"
-	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/internal/propagators"
 	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type Options struct {
@@ -51,10 +52,10 @@ var DefaultOptions Options = Options{
 
 	Logger:         slog.Default(),
 	Metrics:        mi.NewNoopMetricsClient(),
-	TracerProvider: trace.NewNoopTracerProvider(),
+	TracerProvider: noop.NewTracerProvider(),
 	Converter:      converter.DefaultConverter,
 
-	ContextPropagators: []workflow.ContextPropagator{&tracing.TracingContextPropagator{}},
+	ContextPropagators: []workflow.ContextPropagator{&propagators.TracingContextPropagator{}},
 
 	RemoveContinuedAsNewInstances: false,
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/cschleiden/go-workflows/registry"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestExecutor_ExecuteActivity(t *testing.T) {
@@ -114,7 +114,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				logger:    slog.Default(),
 				r:         r,
 				converter: converter.DefaultConverter,
-				tracer:    trace.NewNoopTracerProvider().Tracer(""),
+				tracer:    noop.NewTracerProvider().Tracer(""),
 			}
 			got, err := e.ExecuteActivity(context.Background(), &backend.ActivityTask{
 				ID:               uuid.NewString(),

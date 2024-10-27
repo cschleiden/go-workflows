@@ -11,18 +11,17 @@ import (
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func Test_Timer_Cancellation(t *testing.T) {
-	state := workflowstate.NewWorkflowState(core.NewWorkflowInstance("a", ""), slog.Default(), clock.New())
+	state := workflowstate.NewWorkflowState(
+		core.NewWorkflowInstance("a", ""), slog.Default(), noop.NewTracerProvider().Tracer("test"), clock.New())
 
 	ctx, cancel := WithCancel(sync.Background())
 	ctx = contextvalue.WithConverter(ctx, converter.DefaultConverter)
 	ctx = workflowstate.WithWorkflowState(ctx, state)
-	ctx = workflowtracer.WithWorkflowTracer(ctx, workflowtracer.New(trace.NewNoopTracerProvider().Tracer("test")))
 
 	c := sync.NewCoroutine(ctx, func(ctx Context) error {
 		f := ScheduleTimer(ctx, time.Second*1)

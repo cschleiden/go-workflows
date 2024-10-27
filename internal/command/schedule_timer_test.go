@@ -89,7 +89,7 @@ func TestScheduleTimerCommand_StateTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clock := clock.NewMock()
-			cmd := NewScheduleTimerCommand(1, clock.Now().Add(time.Second))
+			cmd := NewScheduleTimerCommand(1, clock.Now().Add(time.Second), "", nil)
 
 			tt.f(t, cmd, clock)
 		})

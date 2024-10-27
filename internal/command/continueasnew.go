@@ -17,6 +17,8 @@ type ContinueAsNewCommand struct {
 	Metadata *metadata.WorkflowMetadata
 	Inputs   []payload.Payload
 	Result   payload.Payload
+
+	ContinuedExecutionID string
 }
 
 var _ Command = (*ContinueAsNewCommand)(nil)
@@ -28,27 +30,26 @@ func NewContinueAsNewCommand(id int64, instance *core.WorkflowInstance, result p
 			name:  "ContinueAsNew",
 			state: CommandState_Pending,
 		},
-		Instance: instance,
-		Name:     name,
-		Metadata: metadata,
-		Inputs:   inputs,
-		Result:   result,
+		Instance:             instance,
+		Name:                 name,
+		Metadata:             metadata,
+		Inputs:               inputs,
+		Result:               result,
+		ContinuedExecutionID: uuid.NewString(),
 	}
 }
 
 func (c *ContinueAsNewCommand) Execute(clock clock.Clock) *CommandResult {
 	switch c.state {
 	case CommandState_Pending:
-		continuedExecutionID := uuid.NewString()
-
 		var continuedInstance *core.WorkflowInstance
 		if c.Instance.SubWorkflow() {
 			// If the current workflow execution was a sub-workflow, ensure the new workflow execution is also a sub-workflow.
 			// This will guarantee that the finished event for the new execution will be delivered to the right parent instance
 			continuedInstance = core.NewSubWorkflowInstance(
-				c.Instance.InstanceID, continuedExecutionID, c.Instance.Parent, c.Instance.ParentEventID)
+				c.Instance.InstanceID, c.ContinuedExecutionID, c.Instance.Parent, c.Instance.ParentEventID)
 		} else {
-			continuedInstance = core.NewWorkflowInstance(c.Instance.InstanceID, continuedExecutionID)
+			continuedInstance = core.NewWorkflowInstance(c.Instance.InstanceID, c.ContinuedExecutionID)
 		}
 
 		c.state = CommandState_Committed
@@ -61,7 +62,7 @@ func (c *ContinueAsNewCommand) Execute(clock clock.Clock) *CommandResult {
 					history.EventType_WorkflowExecutionContinuedAsNew,
 					&history.ExecutionContinuedAsNewAttributes{
 						Result:               c.Result,
-						ContinuedExecutionID: continuedExecutionID,
+						ContinuedExecutionID: c.ContinuedExecutionID,
 					},
 				),
 			},

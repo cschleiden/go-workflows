@@ -55,6 +55,9 @@ const (
 
 	// Recorded result of a side-efect
 	EventType_SideEffectResult
+
+	// Distributed tracing span has been started
+	EventType_TraceStarted
 )
 
 func (et EventType) String() string {
@@ -101,6 +104,9 @@ func (et EventType) String() string {
 
 	case EventType_SideEffectResult:
 		return "SideEffectResult"
+
+	case EventType_TraceStarted:
+		return "TraceStarted"
 
 	default:
 		return "Unknown"

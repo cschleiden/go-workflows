@@ -23,7 +23,7 @@ import (
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/goleak"
 )
 
@@ -37,7 +37,7 @@ func (t *testHistoryProvider) GetWorkflowInstanceHistory(ctx context.Context, in
 
 func newExecutor(r *registry.Registry, i *core.WorkflowInstance, historyProvider WorkflowHistoryProvider) (*executor, error) {
 	logger := slog.Default()
-	tracer := trace.NewNoopTracerProvider().Tracer("test")
+	tracer := noop.NewTracerProvider().Tracer("test")
 
 	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []wf.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New())
 
@@ -598,6 +598,9 @@ func Test_Executor(t *testing.T) {
 					// Schedule but not wait for timer
 					wf.ScheduleTimer(ctx, time.Second*2)
 
+					// Schedule but not wait for named timer
+					wf.ScheduleTimer(ctx, time.Second*2, wf.WithTimerName("delay"))
+
 					return nil
 				}
 
@@ -606,7 +609,7 @@ func Test_Executor(t *testing.T) {
 
 				task := startWorkflowTask("instanceID", workflow)
 
-				require.PanicsWithValue(t, "workflow completed, but there are still pending futures: [1-subworkflow:1 2-timer:2s]", func() {
+				require.PanicsWithValue(t, "workflow completed, but there are still pending futures: [1-subworkflow:1 2-timer:2s 3-timer-delay:2s]", func() {
 					e.ExecuteTask(context.Background(), task)
 				})
 			},

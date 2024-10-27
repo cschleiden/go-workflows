@@ -6,16 +6,44 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
-	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
+	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"github.com/cschleiden/go-workflows/internal/workflowtracer"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
+type timerConfig struct {
+	Name string
+}
+
+type withNameOption struct {
+	Name string
+}
+
+// applySpanEnd implements TimerOption.
+func (w withNameOption) apply(tc timerConfig) timerConfig {
+	tc.Name = w.Name
+	return tc
+}
+
+var _ timerOption = withNameOption{}
+
+type timerOption interface {
+	apply(timerConfig) timerConfig
+}
+
+func WithTimerName(name string) timerOption {
+	return withNameOption{
+		Name: name,
+	}
+}
+
 // ScheduleTimer schedules a timer to fire after the given delay.
-func ScheduleTimer(ctx Context, delay time.Duration) Future[any] {
+func ScheduleTimer(ctx Context, delay time.Duration, opts ...timerOption) Future[any] {
+	var timerConfig timerConfig
+	for _, opt := range opts {
+		timerConfig = opt.apply(timerConfig)
+	}
+
 	f := sync.NewFuture[any]()
 
 	// If the context is already canceled, return immediately.
@@ -25,13 +53,23 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[any] {
 	}
 
 	wfState := workflowstate.WorkflowState(ctx)
-
 	scheduleEventID := wfState.GetNextScheduleEventID()
+
 	at := Now(ctx).Add(delay)
 
-	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at)
+	traceContext := tracing.ContextFromWfCtx(ctx)
+
+	timerCmd := command.NewScheduleTimerCommand(scheduleEventID, at, timerConfig.Name, traceContext)
 	wfState.AddCommand(timerCmd)
-	wfState.TrackFuture(scheduleEventID, workflowstate.AsDecodingSettable(contextvalue.Converter(ctx), fmt.Sprintf("timer:%v", delay), f))
+
+	timerSuffix := ""
+	if timerConfig.Name != "" {
+		timerSuffix = "-" + timerConfig.Name
+	}
+
+	wfState.TrackFuture(
+		scheduleEventID,
+		workflowstate.AsDecodingSettable(contextvalue.Converter(ctx), fmt.Sprintf("timer%s:%v", timerSuffix, delay), f))
 
 	cancelReceiver := &sync.Receiver[struct{}]{
 		Receive: func(v struct{}, ok bool) {
@@ -48,14 +86,6 @@ func ScheduleTimer(ctx Context, delay time.Duration) Future[any] {
 			}
 		},
 	}
-
-	ctx, span := workflowtracer.Tracer(ctx).Start(ctx, "ScheduleTimer",
-		trace.WithAttributes(
-			attribute.Int64(log.DurationKey, int64(delay/time.Millisecond)),
-			attribute.String(log.NowKey, Now(ctx).String()),
-			attribute.String(log.AtKey, at.String()),
-		))
-	defer span.End()
 
 	// Check if the context is cancelable
 	if c, cancelable := ctx.Done().(sync.CancelChannel); cancelable {

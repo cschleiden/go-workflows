@@ -133,10 +133,10 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 	}
 
 	// Cancel instance
-	if cmds, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
+	if _, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
 		return rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instance, event)
 	}); err != nil {
-		fmt.Println(cmds)
+		// fmt.Println(cmds)
 		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
 	}
 

@@ -4,6 +4,8 @@ import "github.com/cschleiden/go-workflows/internal/sync"
 
 type CancelFunc = sync.CancelFunc
 
+var Canceled = sync.Canceled
+
 // WithCancel returns a copy of parent with a new Done channel. The returned
 // context's Done channel is closed when the returned cancel function is called
 // or when the parent context's Done channel is closed, whichever happens first.

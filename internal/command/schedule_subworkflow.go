@@ -12,9 +12,10 @@ import (
 type ScheduleSubWorkflowCommand struct {
 	cancelableCommand
 
-	Queue    core.Queue
-	Instance *core.WorkflowInstance
-	Metadata *metadata.WorkflowMetadata
+	Queue          core.Queue
+	Instance       *core.WorkflowInstance
+	Metadata       *metadata.WorkflowMetadata
+	WorkflowSpanID [8]byte
 
 	Name   string
 	Inputs []payload.Payload
@@ -24,7 +25,7 @@ var _ CancelableCommand = (*ScheduleSubWorkflowCommand)(nil)
 
 func NewScheduleSubWorkflowCommand(
 	id int64, parentInstance *core.WorkflowInstance, subWorkflowQueue core.Queue, subWorkflowInstanceID,
-	name string, inputs []payload.Payload, metadata *metadata.WorkflowMetadata,
+	name string, inputs []payload.Payload, metadata *metadata.WorkflowMetadata, workflowSpanID [8]byte,
 ) *ScheduleSubWorkflowCommand {
 	if subWorkflowInstanceID == "" {
 		subWorkflowInstanceID = uuid.New().String()
@@ -39,9 +40,10 @@ func NewScheduleSubWorkflowCommand(
 			},
 		},
 
-		Queue:    subWorkflowQueue,
-		Instance: core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance, id),
-		Metadata: metadata,
+		Queue:          subWorkflowQueue,
+		Instance:       core.NewSubWorkflowInstance(subWorkflowInstanceID, uuid.NewString(), parentInstance, id),
+		Metadata:       metadata,
+		WorkflowSpanID: workflowSpanID,
 
 		Name:   name,
 		Inputs: inputs,
@@ -75,10 +77,11 @@ func (c *ScheduleSubWorkflowCommand) Execute(clock clock.Clock) *CommandResult {
 						clock.Now(),
 						history.EventType_WorkflowExecutionStarted,
 						&history.ExecutionStartedAttributes{
-							Queue:    c.Queue,
-							Name:     c.Name,
-							Inputs:   c.Inputs,
-							Metadata: c.Metadata,
+							Queue:          c.Queue,
+							Name:           c.Name,
+							Inputs:         c.Inputs,
+							Metadata:       c.Metadata,
+							WorkflowSpanID: c.WorkflowSpanID,
 						},
 					),
 				},
