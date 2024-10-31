@@ -161,6 +161,22 @@ func activityLongRunning(ctx context.Context) (int, error) {
 	return 42, nil
 }
 
+func Test_CancelWorkflow(t *testing.T) {
+	tester := NewWorkflowTester[any](func(ctx workflow.Context) error {
+		_, _ = ctx.Done().Receive(ctx)
+		return ctx.Err()
+	})
+	tester.ScheduleCallback(time.Duration(time.Second), func() {
+		tester.CancelWorkflow()
+	})
+
+	tester.Execute(context.Background())
+
+	require.True(t, tester.WorkflowFinished())
+	_, err := tester.WorkflowResult()
+	require.EqualError(t, err, "context canceled")
+}
+
 func Test_Signals(t *testing.T) {
 	tester := NewWorkflowTester[string](workflowSignal)
 	tester.ScheduleCallback(time.Duration(5*time.Second), func() {
