@@ -541,6 +541,33 @@ func (wt *workflowTester[TResult]) sendEvent(wfi *core.WorkflowInstance, event *
 	w.pendingEvents = append(w.pendingEvents, event)
 }
 
+// CancelWorkflow cancels the workflow under test.
+func (wt *workflowTester[TResult]) CancelWorkflow() {
+	_ = wt.CancelWorkflowInstance(wt.wfi)
+}
+
+// CancelWorkflowInstance cancels the given workflow instance.
+func (wt *workflowTester[TResult]) CancelWorkflowInstance(wfi *core.WorkflowInstance) error {
+	if wt.getWorkflow(wfi) == nil {
+		return backend.ErrInstanceNotFound
+	}
+
+	wt.callbacks <- func() *history.WorkflowEvent {
+		e := history.NewPendingEvent(
+			wt.clock.Now(),
+			history.EventType_WorkflowExecutionCanceled,
+			&history.ExecutionCanceledAttributes{},
+		)
+
+		return &history.WorkflowEvent{
+			WorkflowInstance: wfi,
+			HistoryEvent:     e,
+		}
+	}
+
+	return nil
+}
+
 // SignalWorkflow sends a signal to the workflow under test.
 func (wt *workflowTester[TResult]) SignalWorkflow(name string, value any) {
 	wt.SignalWorkflowInstance(wt.wfi, name, value)
