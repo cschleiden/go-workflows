@@ -269,3 +269,18 @@ func waitForSignal(ctx workflow.Context) (int, error) {
 
 	return 42, nil
 }
+
+func Test_WithInitialTime(t *testing.T) {
+	getTimeWorkflow := func(ctx workflow.Context) (time.Time, error) {
+		return workflow.Now(ctx), nil
+	}
+
+	initialTime := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
+	tester := NewWorkflowTester[time.Time](getTimeWorkflow, WithInitialTime(initialTime))
+
+	tester.Execute(context.Background())
+
+	require.True(t, tester.WorkflowFinished())
+	r, _ := tester.WorkflowResult()
+	require.Equal(t, initialTime, r)
+}
