@@ -103,6 +103,12 @@ type WorkflowTester[TResult any] interface {
 	// OnSubWorkflowByName registers a mock sub-workflow with the given name.
 	OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call
 
+	// CancelWorkflow cancels the workflow under test.
+	CancelWorkflow()
+
+	// CancelWorkflowInstance cancels the given workflow instance.
+	CancelWorkflowInstance(wfi *core.WorkflowInstance) error
+
 	// SignalWorkflow signals the workflow under test with the given signal name and value.
 	SignalWorkflow(signalName string, value interface{})
 
