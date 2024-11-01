@@ -13,6 +13,7 @@ type options struct {
 	Logger      *slog.Logger
 	Converter   converter.Converter
 	Propagators []workflow.ContextPropagator
+	InitialTime time.Time
 }
 
 type WorkflowTesterOption func(*options)
@@ -38,5 +39,11 @@ func WithContextPropagator(prop workflow.ContextPropagator) WorkflowTesterOption
 func WithTestTimeout(timeout time.Duration) WorkflowTesterOption {
 	return func(o *options) {
 		o.TestTimeout = timeout
+	}
+}
+
+func WithInitialTime(t time.Time) WorkflowTesterOption {
+	return func(o *options) {
+		o.InitialTime = t
 	}
 }

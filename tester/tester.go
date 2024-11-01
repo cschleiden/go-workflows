@@ -187,13 +187,6 @@ func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...Workflow
 		panic(fmt.Sprintf("workflow return type does not match: %s", err))
 	}
 
-	// Start with the current wall-c time
-	c := clock.NewMock()
-	c.Set(time.Now())
-
-	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
-	registry := registry.New()
-
 	options := &options{
 		TestTimeout: time.Second * 10,
 		Logger:      slog.Default(),
@@ -203,6 +196,17 @@ func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...Workflow
 	for _, o := range opts {
 		o(options)
 	}
+
+	// Start with the current wall-c time unless InitialTime is set
+	c := clock.NewMock()
+	if options.InitialTime.IsZero() {
+		c.Set(time.Now())
+	} else {
+		c.Set(options.InitialTime)
+	}
+
+	wfi := core.NewWorkflowInstance(uuid.NewString(), uuid.NewString())
+	registry := registry.New()
 
 	tracer := noop.NewTracerProvider().Tracer("workflow-tester")
 
