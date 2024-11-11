@@ -43,6 +43,9 @@ type Options struct {
 	// removed immediately, including their history. If set to false, the instance will be removed after the configured
 	// retention period or never.
 	RemoveContinuedAsNewInstances bool
+
+	// MaxHistorySize is the maximum size of a workflow history. If a workflow exceeds this size, it will be failed.
+	MaxHistorySize int64
 }
 
 var DefaultOptions Options = Options{
@@ -58,6 +61,8 @@ var DefaultOptions Options = Options{
 	ContextPropagators: []workflow.ContextPropagator{&propagators.TracingContextPropagator{}},
 
 	RemoveContinuedAsNewInstances: false,
+
+	MaxHistorySize: 10_000,
 }
 
 type BackendOption func(*Options)
@@ -101,6 +106,12 @@ func WithContextPropagator(prop workflow.ContextPropagator) BackendOption {
 func WithRemoveContinuedAsNewInstances() BackendOption {
 	return func(o *Options) {
 		o.RemoveContinuedAsNewInstances = true
+	}
+}
+
+func WithMaxHistorySize(size int64) BackendOption {
+	return func(o *Options) {
+		o.MaxHistorySize = size
 	}
 }
 

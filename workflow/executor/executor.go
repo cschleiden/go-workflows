@@ -74,6 +74,8 @@ type executor struct {
 
 	parentSpan   trace.Span
 	workflowSpan trace.Span
+
+	maxHistorySize int64
 }
 
 func NewExecutor(
@@ -86,6 +88,7 @@ func NewExecutor(
 	instance *core.WorkflowInstance,
 	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
+	maxHistorySize int64,
 ) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, tracer, clock)
 
@@ -118,6 +121,7 @@ func NewExecutor(
 		workflowCtxCancel: cancel,
 		cv:                cv,
 		clock:             clock,
+		maxHistorySize:    maxHistorySize,
 		logger:            logger,
 		tracer:            tracer,
 	}, nil
@@ -168,6 +172,11 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 			// Transition workflow to error state
 			e.workflowCompleted(nil, err)
 		}
+	}
+
+	// Enforce max history size limit
+	if e.lastSequenceID+int64(len(executedEvents)) >= e.maxHistorySize {
+		e.workflowCompleted(nil, fmt.Errorf("workflow history size exceeded %d events", e.maxHistorySize))
 	}
 
 	// Process any commands added while executing new events

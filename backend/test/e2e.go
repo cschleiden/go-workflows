@@ -613,6 +613,34 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				require.Equal(t, "hello-23", r)
 			},
 		},
+		{
+			name:    "MaxHistorySize",
+			options: []backend.BackendOption{backend.WithMaxHistorySize(2)},
+			f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+				b.Options()
+
+				a := func(ctx context.Context) (int, error) {
+					return 0, nil
+				}
+
+				wf := func(ctx workflow.Context) (int, error) {
+					for i := 0; i < 10; i++ {
+						_, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+						if err != nil {
+							return 0, err
+						}
+					}
+
+					return 42, nil
+				}
+				register(t, ctx, w, []interface{}{wf}, nil)
+
+				instance := runWorkflow(t, ctx, c, wf)
+				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
+				require.Error(t, err)
+				require.EqualError(t, err, "workflow history size exceeded 2 events")
+			},
+		},
 	}
 
 	tests = append(tests, e2eActivityTests...)
