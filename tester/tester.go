@@ -194,9 +194,10 @@ func NewWorkflowTester[TResult any](workflow workflow.Workflow, opts ...Workflow
 	}
 
 	options := &options{
-		TestTimeout: time.Second * 10,
-		Logger:      slog.Default(),
-		Converter:   converter.DefaultConverter,
+		TestTimeout:    time.Second * 10,
+		Logger:         slog.Default(),
+		Converter:      converter.DefaultConverter,
+		MaxHistorySize: 10_000,
 	}
 
 	for _, o := range opts {
@@ -357,7 +358,18 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 			tw.pendingEvents = tw.pendingEvents[:0]
 
 			// Execute task
-			e, err := executor.NewExecutor(wt.logger, wt.tracer, wt.registry, wt.converter, wt.propagators, &testHistoryProvider{tw.history}, tw.instance, tw.metadata, wt.clock)
+			e, err := executor.NewExecutor(
+				wt.logger,
+				wt.tracer,
+				wt.registry,
+				wt.converter,
+				wt.propagators,
+				&testHistoryProvider{tw.history},
+				tw.instance,
+				tw.metadata,
+				wt.clock,
+				wt.options.MaxHistorySize,
+			)
 			if err != nil {
 				panic(fmt.Errorf("could not create workflow executor: %v", err))
 			}

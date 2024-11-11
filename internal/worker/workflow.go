@@ -180,6 +180,7 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 			t.WorkflowInstance,
 			t.Metadata,
 			clock.New(),
+			wtw.backend.Options().MaxHistorySize,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating workflow task executor: %w", err)

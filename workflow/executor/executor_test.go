@@ -39,7 +39,7 @@ func newExecutor(r *registry.Registry, i *core.WorkflowInstance, historyProvider
 	logger := slog.Default()
 	tracer := noop.NewTracerProvider().Tracer("test")
 
-	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []wf.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New())
+	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []wf.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New(), 10_000)
 
 	return e.(*executor), err
 }

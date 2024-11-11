@@ -31,6 +31,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	e, err := executor.NewExecutor(
 		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
 		[]workflow.ContextPropagator{}, &testHistoryProvider{}, i, &metadata.WorkflowMetadata{}, clock.New(),
+		10_000,
 	)
 	require.NoError(t, err)
 
@@ -38,6 +39,7 @@ func Test_Cache_StoreAndGet(t *testing.T) {
 	e2, err := executor.NewExecutor(
 		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r, converter.DefaultConverter,
 		[]workflow.ContextPropagator{}, &testHistoryProvider{}, i, &metadata.WorkflowMetadata{}, clock.New(),
+		10_000,
 	)
 	require.NoError(t, err)
 
@@ -72,6 +74,7 @@ func Test_Cache_AutoEviction(t *testing.T) {
 		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r,
 		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
 		&metadata.WorkflowMetadata{}, clock.New(),
+		10_000,
 	)
 	require.NoError(t, err)
 
@@ -102,6 +105,7 @@ func Test_Cache_Evict(t *testing.T) {
 		slog.Default(), noop.NewTracerProvider().Tracer(backend.TracerName), r,
 		converter.DefaultConverter, []workflow.ContextPropagator{}, &testHistoryProvider{}, i,
 		&metadata.WorkflowMetadata{}, clock.New(),
+		10_000,
 	)
 	require.NoError(t, err)
 
