@@ -15,7 +15,7 @@ export interface WorkflowInstanceRef {
 }
 
 export type WorkflowInstanceInfo = WorkflowInstanceRef & {
-  history: HistoryEvent<any>[];
+  history?: HistoryEvent<any>[];
 };
 
 export interface HistoryEvent<TAttributes> {
