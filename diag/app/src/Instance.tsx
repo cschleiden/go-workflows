@@ -47,16 +47,16 @@ function Instance() {
     );
   }
 
-  const startedEvent = instance.history.find(
+  const startedEvent = instance.history?.find(
     (e) => e.type === "WorkflowExecutionStarted"
-  ) as HistoryEvent<ExecutionStartedAttributes>;
+  ) as HistoryEvent<ExecutionStartedAttributes> | undefined;
 
-  const workflowName = startedEvent.attributes.name;
-  const inputs = startedEvent.attributes.inputs;
+  const workflowName = startedEvent?.attributes.name;
+  const inputs = startedEvent?.attributes.inputs;
 
   let wfResult: string | undefined;
   let wfError: {} | undefined;
-  const finishedEvent = instance.history.find(
+  const finishedEvent = instance.history?.find(
     (e) =>
       e.type === "WorkflowExecutionFinished" ||
       e.type === "WorkflowExecutionContinuedAsNew"
@@ -70,7 +70,7 @@ function Instance() {
     <div>
       <div className="d-flex align-items-center">
         <h2>
-          Workflow: <code>{workflowName}</code>
+          Workflow: <code>{workflowName || <i>Pending</i>}</code>
         </h2>
       </div>
 
@@ -146,10 +146,18 @@ function Instance() {
 
       <h2 className="mt-3">History</h2>
       <Accordion alwaysOpen>
-        {instance.history.map((event, idx) => (
-          <Accordion.Item eventKey={`${idx}`} key={event.id}>
+        {instance.history?.map((event, idx) => (
+          <Accordion.Item
+            eventKey={`${idx}`}
+            key={event.id}
+            className={
+              event.schedule_event_id
+                ? `schedule-event-${event.schedule_event_id}`
+                : ""
+            }
+          >
             <Accordion.Header>
-              <h5 className="d-flex flex-grow-1 align-items-center pe-3">
+              <h5 className={"d-flex flex-grow-1 align-items-center pe-3"}>
                 <div className="text-secondary" style={{ width: "50px" }}>
                   #{event.sequence_id}
                 </div>
