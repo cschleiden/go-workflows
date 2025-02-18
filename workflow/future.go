@@ -1,6 +1,5 @@
 package workflow
 
-type Future[T any] interface {
-	// Get returns the value if set, blocks otherwise
-	Get(ctx Context) (T, error)
-}
+import "github.com/cschleiden/go-workflows/internal/sync"
+
+type Future[T any] = sync.Future[T]
