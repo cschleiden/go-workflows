@@ -31,14 +31,6 @@ type registerConfig struct {
 	Name string
 }
 
-func (r *Registry) Seal() {
-	r.sealed = true
-}
-
-func (r *Registry) Sealed() bool {
-	return r.sealed
-}
-
 func (r *Registry) RegisterWorkflow(workflow any, opts ...RegisterOption) error {
 	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 	name := cfg.Name
