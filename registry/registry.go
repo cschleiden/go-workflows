@@ -8,21 +8,22 @@ import (
 
 	"github.com/cschleiden/go-workflows/internal/args"
 	"github.com/cschleiden/go-workflows/internal/fn"
-	wf "github.com/cschleiden/go-workflows/workflow"
 )
 
 type Registry struct {
+	sealed bool
+
 	sync.Mutex
 
-	workflowMap map[string]wf.Workflow
-	activityMap map[string]interface{}
+	workflowMap map[string]any
+	activityMap map[string]any
 }
 
 // New creates a new registry instance.
 func New() *Registry {
 	return &Registry{
-		workflowMap: make(map[string]wf.Workflow),
-		activityMap: make(map[string]interface{}),
+		workflowMap: make(map[string]any),
+		activityMap: make(map[string]any),
 	}
 }
 
@@ -30,7 +31,15 @@ type registerConfig struct {
 	Name string
 }
 
-func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption) error {
+func (r *Registry) Seal() {
+	r.sealed = true
+}
+
+func (r *Registry) Sealed() bool {
+	return r.sealed
+}
+
+func (r *Registry) RegisterWorkflow(workflow any, opts ...RegisterOption) error {
 	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 	name := cfg.Name
 	if name == "" {
@@ -75,7 +84,7 @@ func (r *Registry) RegisterWorkflow(workflow wf.Workflow, opts ...RegisterOption
 	return nil
 }
 
-func (r *Registry) RegisterActivity(activity wf.Activity, opts ...RegisterOption) error {
+func (r *Registry) RegisterActivity(activity any, opts ...RegisterOption) error {
 	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
 
 	t := reflect.TypeOf(activity)
@@ -151,7 +160,7 @@ func checkActivity(actType reflect.Type) error {
 	return nil
 }
 
-func (r *Registry) GetWorkflow(name string) (wf.Workflow, error) {
+func (r *Registry) GetWorkflow(name string) (any, error) {
 	r.Lock()
 	defer r.Unlock()
 

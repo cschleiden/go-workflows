@@ -9,12 +9,13 @@ import (
 )
 
 type options struct {
-	TestTimeout    time.Duration
-	Logger         *slog.Logger
-	Converter      converter.Converter
-	Propagators    []workflow.ContextPropagator
-	InitialTime    time.Time
-	MaxHistorySize int64
+	TestTimeout      time.Duration
+	Logger           *slog.Logger
+	Converter        converter.Converter
+	Propagators      []workflow.ContextPropagator
+	InitialTime      time.Time
+	MaxHistorySize   int64
+	SingleWorkerMode bool
 }
 
 type WorkflowTesterOption func(*options)
@@ -52,5 +53,11 @@ func WithInitialTime(t time.Time) WorkflowTesterOption {
 func WithMaxHistorySize(size int64) WorkflowTesterOption {
 	return func(o *options) {
 		o.MaxHistorySize = size
+	}
+}
+
+func WithSingleWorkerMode(enabled bool) WorkflowTesterOption {
+	return func(o *options) {
+		o.SingleWorkerMode = enabled
 	}
 }

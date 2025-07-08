@@ -39,7 +39,7 @@ func newExecutor(r *registry.Registry, i *core.WorkflowInstance, historyProvider
 	logger := slog.Default()
 	tracer := noop.NewTracerProvider().Tracer("test")
 
-	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []wf.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New(), 10_000)
+	e, err := NewExecutor(logger, tracer, r, converter.DefaultConverter, []wf.ContextPropagator{}, historyProvider, i, &metadata.WorkflowMetadata{}, clock.New(), 10_000, false)
 
 	return e.(*executor), err
 }
@@ -278,10 +278,10 @@ func Test_Executor(t *testing.T) {
 
 					sync.Select(
 						ctx,
-						sync.Await[int](f1, func(ctx sync.Context, f sync.Future[int]) {
+						sync.Await(f1, func(ctx sync.Context, f sync.Future[int]) {
 							workflowWithSelectorHits++
 						}),
-						sync.Await[any](t, func(ctx sync.Context, _ sync.Future[any]) {
+						sync.Await(t, func(ctx sync.Context, _ sync.Future[any]) {
 							workflowWithSelectorHits++
 						}),
 					)

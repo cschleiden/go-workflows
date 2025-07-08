@@ -35,7 +35,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 		options = &DefaultOptions
 	}
 
-	workflowWorker := newWorkflowWorker(backend, registry, &options.WorkflowWorkerOptions)
+	workflowWorker := newWorkflowWorker(backend, registry, &options.WorkflowWorkerOptions, options.SingleWorkerMode)
 	activityWorker := newActivityWorker(backend, registry, &options.ActivityWorkerOptions)
 
 	// Register internal activities
@@ -46,7 +46,7 @@ func New(backend backend.Backend, options *Options) *Worker {
 func NewWorkflowWorker(backend backend.Backend, options *WorkflowWorkerOptions) *Worker {
 	registry := registry.New()
 
-	return newWorker(backend, registry, []worker{newWorkflowWorker(backend, registry, options)})
+	return newWorker(backend, registry, []worker{newWorkflowWorker(backend, registry, options, false)})
 }
 
 // NewActivityWorker creates a worker that only processes activities.
@@ -94,7 +94,7 @@ func newActivityWorker(backend backend.Backend, registry *registry.Registry, opt
 	return activityWorker
 }
 
-func newWorkflowWorker(backend backend.Backend, registry *registry.Registry, options *WorkflowWorkerOptions) worker {
+func newWorkflowWorker(backend backend.Backend, registry *registry.Registry, options *WorkflowWorkerOptions, singleWorkerMode bool) worker {
 	if options == nil {
 		options = &DefaultOptions.WorkflowWorkerOptions
 	}
@@ -110,6 +110,7 @@ func newWorkflowWorker(backend backend.Backend, registry *registry.Registry, opt
 		WorkflowExecutorCache:     options.WorkflowExecutorCache,
 		WorkflowExecutorCacheSize: options.WorkflowExecutorCacheSize,
 		WorkflowExecutorCacheTTL:  options.WorkflowExecutorCacheTTL,
+		SingleWorkerMode:          singleWorkerMode,
 	})
 
 	return workflowWorker

@@ -369,6 +369,7 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 				tw.metadata,
 				wt.clock,
 				wt.options.MaxHistorySize,
+				wt.options.SingleWorkerMode,
 			)
 			if err != nil {
 				panic(fmt.Errorf("could not create workflow executor: %v", err))
