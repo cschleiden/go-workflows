@@ -81,7 +81,7 @@ type executor struct {
 func NewExecutor(
 	logger *slog.Logger,
 	tracer trace.Tracer,
-	registry *registry.Registry,
+	r *registry.Registry,
 	cv converter.Converter,
 	propagators []wf.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
@@ -89,6 +89,7 @@ func NewExecutor(
 	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
 	maxHistorySize int64,
+	singleWorkerMode bool,
 ) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, tracer, clock)
 
@@ -96,6 +97,13 @@ func NewExecutor(
 	wfCtx = contextvalue.WithConverter(wfCtx, cv)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
 	wfCtx = sync.WithValue(wfCtx, contextvalue.PropagatorsCtxKey, propagators)
+	wfCtx = contextvalue.WithRegistry(wfCtx, r)
+
+	// Set single worker mode flag if requested
+	if singleWorkerMode {
+		wfCtx = contextvalue.WithSingleWorkerMode(wfCtx)
+	}
+
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	// As part of this, the default tracing propagator will run, and set the parent span
@@ -114,7 +122,7 @@ func NewExecutor(
 	)
 
 	return &executor{
-		registry:          registry,
+		registry:          r,
 		historyProvider:   historyProvider,
 		workflowState:     s,
 		workflowCtx:       wfCtx,

@@ -41,6 +41,11 @@ type WorkflowWorkerOptions struct {
 type Options struct {
 	WorkflowWorkerOptions
 	ActivityWorkerOptions
+
+	// SingleWorkerMode enables automatic registration of workflows and activities
+	// when they are used in workflows. This is useful for simple scenarios where
+	// you don't want to explicitly register each workflow and activity.
+	SingleWorkerMode bool
 }
 
 type ActivityWorkerOptions struct {
@@ -82,4 +87,7 @@ var DefaultOptions = Options{
 		MaxParallelActivityTasks:  0,
 		ActivityHeartbeatInterval: 25 * time.Second,
 	},
+
+	// By default, SingleWorkerMode is disabled
+	SingleWorkerMode: false,
 }
