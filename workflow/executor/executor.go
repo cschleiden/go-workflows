@@ -365,6 +365,9 @@ func (e *executor) executeEvent(event *history.Event) error {
 	case history.EventType_WorkflowExecutionFinished:
 	// Ignore
 
+	case history.EventType_WorkflowExecutionContinuedAsNew:
+	// Ignore
+
 	case history.EventType_WorkflowExecutionCanceled:
 		err = e.handleWorkflowCanceled()
 
