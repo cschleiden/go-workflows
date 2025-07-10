@@ -4,3 +4,7 @@ vendor
 plugin.so
 
 web/app/node_modules
+
+# Build artifacts
+orchestrator
+mainorchestrator
