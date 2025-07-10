@@ -3,7 +3,7 @@ package worker
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWorkflowOrchestrator_PollerDefaults(t *testing.T) {
@@ -72,9 +72,9 @@ func TestWorkflowOrchestrator_PollerDefaults(t *testing.T) {
 			}
 
 			// Verify the results
-			assert.Equal(t, tt.expectedWorkflowPollers, orchestratorOptions.WorkflowPollers)
-			assert.Equal(t, tt.expectedActivityPollers, orchestratorOptions.ActivityPollers)
-			assert.Equal(t, tt.expectedSingleWorkerMode, orchestratorOptions.SingleWorkerMode)
+			require.Equal(t, tt.expectedWorkflowPollers, orchestratorOptions.WorkflowPollers)
+			require.Equal(t, tt.expectedActivityPollers, orchestratorOptions.ActivityPollers)
+			require.Equal(t, tt.expectedSingleWorkerMode, orchestratorOptions.SingleWorkerMode)
 		})
 	}
 }
