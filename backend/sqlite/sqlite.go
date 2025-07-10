@@ -76,7 +76,7 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 
 	b := &sqliteBackend{
 		db:         db,
-		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
+		workerName: getWorkerName(options),
 		options:    options,
 	}
 
@@ -861,4 +861,12 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, task *backend.A
 	}
 
 	return tx.Commit()
+}
+
+// getWorkerName returns the worker name from options, or generates a UUID-based name if not set.
+func getWorkerName(options *options) string {
+	if options.Options.WorkerName != "" {
+		return options.Options.WorkerName
+	}
+	return fmt.Sprintf("worker-%v", uuid.NewString())
 }

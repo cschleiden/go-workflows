@@ -46,6 +46,9 @@ type Options struct {
 
 	// MaxHistorySize is the maximum size of a workflow history. If a workflow exceeds this size, it will be failed.
 	MaxHistorySize int64
+
+	// WorkerName allows setting a custom worker name. If not set, backends will generate a default name.
+	WorkerName string
 }
 
 var DefaultOptions Options = Options{
@@ -112,6 +115,12 @@ func WithRemoveContinuedAsNewInstances() BackendOption {
 func WithMaxHistorySize(size int64) BackendOption {
 	return func(o *Options) {
 		o.MaxHistorySize = size
+	}
+}
+
+func WithWorkerName(workerName string) BackendOption {
+	return func(o *Options) {
+		o.WorkerName = workerName
 	}
 }
 

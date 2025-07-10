@@ -106,7 +106,7 @@ func Test_TaskQueue(t *testing.T) {
 
 				ctx := context.Background()
 
-				q, err := newTaskQueue[foo](context.Background(), client, "prefix", taskType)
+				q, err := newTaskQueue[foo](context.Background(), client, "prefix", taskType, "")
 				require.NoError(t, err)
 
 				_, err = client.Pipelined(ctx, func(p redis.Pipeliner) error {
@@ -135,7 +135,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType, "")
 				require.NoError(t, err)
 
 				// Dequeue using second worker
@@ -148,7 +148,7 @@ func Test_TaskQueue(t *testing.T) {
 		{
 			name: "Complete removes task",
 			f: func(t *testing.T, q *taskQueue[any]) {
-				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType, "")
 
 				ctx := context.Background()
 
@@ -182,7 +182,7 @@ func Test_TaskQueue(t *testing.T) {
 				type taskData struct {
 					Count int `json:"count"`
 				}
-				q, _ := newTaskQueue[taskData](context.Background(), client, "prefix", taskType)
+				q, _ := newTaskQueue[taskData](context.Background(), client, "prefix", taskType, "")
 
 				ctx := context.Background()
 
@@ -193,7 +193,7 @@ func Test_TaskQueue(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				q2, _ := newTaskQueue[taskData](context.Background(), client, "prefix", taskType)
+				q2, _ := newTaskQueue[taskData](context.Background(), client, "prefix", taskType, "")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
@@ -221,7 +221,7 @@ func Test_TaskQueue(t *testing.T) {
 				require.NoError(t, err)
 
 				// Create second worker (with different name)
-				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType)
+				q2, _ := newTaskQueue[any](context.Background(), client, "prefix", taskType, "")
 				require.NoError(t, err)
 
 				task, err := q2.Dequeue(ctx, client, []workflow.Queue{workflow.QueueDefault}, lockTimeout, blockTimeout)
@@ -281,7 +281,7 @@ func Test_TaskQueue(t *testing.T) {
 
 			ctx := context.Background()
 
-			q, err := newTaskQueue[any](ctx, client, "prefix", taskType)
+			q, err := newTaskQueue[any](ctx, client, "prefix", taskType, "")
 			require.NoError(t, err)
 
 			q.Prepare(ctx, client, []workflow.Queue{workflow.QueueDefault})
