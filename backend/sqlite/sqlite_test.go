@@ -54,14 +54,14 @@ func Test_SqliteBackend_WorkerName(t *testing.T) {
 
 	t.Run("CustomWorkerName", func(t *testing.T) {
 		customWorkerName := "test-worker-123"
-		backend := NewInMemoryBackend(WithWorkerName(customWorkerName))
+		backend := NewInMemoryBackend(WithBackendOptions(backend.WithWorkerName(customWorkerName)))
 		defer backend.Close()
 
 		require.Equal(t, customWorkerName, backend.workerName)
 	})
 
 	t.Run("EmptyWorkerNameUsesDefault", func(t *testing.T) {
-		backend := NewInMemoryBackend(WithWorkerName(""))
+		backend := NewInMemoryBackend(WithBackendOptions(backend.WithWorkerName("")))
 		defer backend.Close()
 
 		// Empty worker name should fall back to UUID generation
@@ -71,7 +71,7 @@ func Test_SqliteBackend_WorkerName(t *testing.T) {
 
 	t.Run("CustomWorkerNameIsUsedInDatabase", func(t *testing.T) {
 		customWorkerName := "integration-test-worker"
-		backend := NewInMemoryBackend(WithWorkerName(customWorkerName))
+		backend := NewInMemoryBackend(WithBackendOptions(backend.WithWorkerName(customWorkerName)))
 		defer backend.Close()
 
 		// Verify the worker name is stored correctly

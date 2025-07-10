@@ -45,16 +45,25 @@ type KeyInfo struct {
 }
 
 func newTaskQueue[T any](ctx context.Context, rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
+	return newTaskQueueWithWorkerName[T](ctx, rdb, keyPrefix, tasktype, "")
+}
+
+func newTaskQueueWithWorkerName[T any](ctx context.Context, rdb redis.UniversalClient, keyPrefix string, tasktype string, workerName string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
+	}
+
+	// Use provided worker name or generate UUID if empty
+	if workerName == "" {
+		workerName = uuid.NewString()
 	}
 
 	tq := &taskQueue[T]{
 		keyPrefix:   keyPrefix,
 		tasktype:    tasktype,
 		groupName:   "task-workers",
-		workerName:  uuid.NewString(),
+		workerName:  workerName,
 		queueSetKey: fmt.Sprintf("%s%s:queues", keyPrefix, tasktype),
 	}
 

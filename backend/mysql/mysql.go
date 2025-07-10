@@ -977,8 +977,8 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, queue workflow.Queue, ins
 
 // getWorkerName returns the worker name from options, or generates a UUID-based name if not set.
 func getWorkerName(options *options) string {
-	if options.WorkerName != "" {
-		return options.WorkerName
+	if options.Options.WorkerName != "" {
+		return options.Options.WorkerName
 	}
 	return fmt.Sprintf("worker-%v", uuid.NewString())
 }

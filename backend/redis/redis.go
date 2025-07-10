@@ -42,12 +42,12 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 
 	ctx := context.Background()
 
-	workflowQueue, err := newTaskQueue[workflowData](ctx, client, options.KeyPrefix, "workflows")
+	workflowQueue, err := newTaskQueueWithWorkerName[workflowData](ctx, client, options.KeyPrefix, "workflows", options.WorkerName)
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := newTaskQueue[activityData](ctx, client, options.KeyPrefix, "activities")
+	activityQueue, err := newTaskQueueWithWorkerName[activityData](ctx, client, options.KeyPrefix, "activities", options.WorkerName)
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}

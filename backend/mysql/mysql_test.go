@@ -171,7 +171,9 @@ func Test_MysqlBackend_WorkerName(t *testing.T) {
 	t.Run("DefaultWorkerName", func(t *testing.T) {
 		// Create a backend without specifying worker name
 		// Since we can't connect to MySQL without it being available, we'll test the getWorkerName function directly
-		options := &options{}
+		options := &options{
+			Options: backend.ApplyOptions(),
+		}
 		workerName := getWorkerName(options)
 
 		// The default worker name should be in the format "worker-<uuid>"
@@ -185,7 +187,9 @@ func Test_MysqlBackend_WorkerName(t *testing.T) {
 
 	t.Run("CustomWorkerName", func(t *testing.T) {
 		customWorkerName := "test-worker-123"
-		options := &options{WorkerName: customWorkerName}
+		options := &options{
+			Options: backend.ApplyOptions(backend.WithWorkerName(customWorkerName)),
+		}
 		workerName := getWorkerName(options)
 
 		if workerName != customWorkerName {
@@ -194,7 +198,9 @@ func Test_MysqlBackend_WorkerName(t *testing.T) {
 	})
 
 	t.Run("EmptyWorkerNameUsesDefault", func(t *testing.T) {
-		options := &options{WorkerName: ""}
+		options := &options{
+			Options: backend.ApplyOptions(backend.WithWorkerName("")),
+		}
 		workerName := getWorkerName(options)
 
 		// Empty worker name should fall back to UUID generation
