@@ -55,7 +55,7 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 	b := &mysqlBackend{
 		dsn:        dsn,
 		db:         db,
-		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
+		workerName: getWorkerName(options),
 		options:    options,
 	}
 
@@ -973,4 +973,12 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, queue workflow.Queue, ins
 	)
 
 	return err
+}
+
+// getWorkerName returns the worker name from options, or generates a UUID-based name if not set.
+func getWorkerName(options *options) string {
+	if options.WorkerName != "" {
+		return options.WorkerName
+	}
+	return fmt.Sprintf("worker-%v", uuid.NewString())
 }

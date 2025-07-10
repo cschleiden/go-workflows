@@ -162,3 +162,47 @@ func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 
 	return f, nil
 }
+
+func Test_MysqlBackend_WorkerName(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	t.Run("DefaultWorkerName", func(t *testing.T) {
+		// Create a backend without specifying worker name
+		// Since we can't connect to MySQL without it being available, we'll test the getWorkerName function directly
+		options := &options{}
+		workerName := getWorkerName(options)
+
+		// The default worker name should be in the format "worker-<uuid>"
+		if !strings.Contains(workerName, "worker-") {
+			t.Errorf("Expected worker name to contain 'worker-', got: %s", workerName)
+		}
+		if len(workerName) != 43 { // "worker-" (7) + UUID (36)
+			t.Errorf("Expected worker name length to be 43, got: %d", len(workerName))
+		}
+	})
+
+	t.Run("CustomWorkerName", func(t *testing.T) {
+		customWorkerName := "test-worker-123"
+		options := &options{WorkerName: customWorkerName}
+		workerName := getWorkerName(options)
+
+		if workerName != customWorkerName {
+			t.Errorf("Expected worker name to be '%s', got: %s", customWorkerName, workerName)
+		}
+	})
+
+	t.Run("EmptyWorkerNameUsesDefault", func(t *testing.T) {
+		options := &options{WorkerName: ""}
+		workerName := getWorkerName(options)
+
+		// Empty worker name should fall back to UUID generation
+		if !strings.Contains(workerName, "worker-") {
+			t.Errorf("Expected worker name to contain 'worker-', got: %s", workerName)
+		}
+		if len(workerName) != 43 { // "worker-" (7) + UUID (36)
+			t.Errorf("Expected worker name length to be 43, got: %d", len(workerName))
+		}
+	})
+}
