@@ -30,6 +30,14 @@ func NewWorkflowOrchestrator(backend backend.Backend, options *Options) *Workflo
 	orchestratorOptions := *options
 	orchestratorOptions.SingleWorkerMode = true
 
+	// Set default pollers to 1 for orchestrator mode (unless explicitly overridden)
+	if orchestratorOptions.WorkflowPollers == DefaultOptions.WorkflowPollers {
+		orchestratorOptions.WorkflowPollers = 1
+	}
+	if orchestratorOptions.ActivityPollers == DefaultOptions.ActivityPollers {
+		orchestratorOptions.ActivityPollers = 1
+	}
+
 	// Create registry that will be shared between worker and orchestrator
 	reg := registry.New()
 
