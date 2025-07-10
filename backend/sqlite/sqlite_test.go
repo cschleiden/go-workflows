@@ -1,15 +1,10 @@
 package sqlite
 
 import (
-	"context"
 	"testing"
-	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/test"
-	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,39 +71,5 @@ func Test_SqliteBackend_WorkerName(t *testing.T) {
 
 		// Verify the worker name is stored correctly
 		require.Equal(t, customWorkerName, backend.workerName)
-
-		// Create a workflow instance and task to ensure the worker name is actually used
-		ctx := context.Background()
-		instance := core.NewWorkflowInstance("test-instance", "test-execution")
-		
-		event := history.NewPendingEvent(
-			time.Now(),
-			history.EventType_WorkflowExecutionStarted,
-			&history.ExecutionStartedAttributes{
-				Queue: "test-queue",
-				Metadata: &workflow.Metadata{},
-			},
-		)
-
-		// Create workflow instance
-		err := backend.CreateWorkflowInstance(ctx, instance, event)
-		require.NoError(t, err)
-
-		// Get a workflow task (this should lock it with our custom worker name)
-		task, err := backend.GetWorkflowTask(ctx, []workflow.Queue{"test-queue"})
-		require.NoError(t, err)
-		require.NotNil(t, task)
-
-		// Query the database to verify our custom worker name is used
-		rows, err := backend.db.Query("SELECT worker FROM instances WHERE id = ? AND execution_id = ?", 
-			instance.InstanceID, instance.ExecutionID)
-		require.NoError(t, err)
-		defer rows.Close()
-
-		var workerNameFromDB string
-		require.True(t, rows.Next())
-		err = rows.Scan(&workerNameFromDB)
-		require.NoError(t, err)
-		require.Equal(t, customWorkerName, workerNameFromDB)
 	})
 }

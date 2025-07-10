@@ -44,11 +44,7 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](ctx context.Context, rdb redis.UniversalClient, keyPrefix string, tasktype string) (*taskQueue[T], error) {
-	return newTaskQueueWithWorkerName[T](ctx, rdb, keyPrefix, tasktype, "")
-}
-
-func newTaskQueueWithWorkerName[T any](ctx context.Context, rdb redis.UniversalClient, keyPrefix string, tasktype string, workerName string) (*taskQueue[T], error) {
+func newTaskQueue[T any](ctx context.Context, rdb redis.UniversalClient, keyPrefix string, tasktype string, workerName string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
