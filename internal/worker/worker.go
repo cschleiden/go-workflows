@@ -116,7 +116,9 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 
 		task, err := w.poll(ctx, 30*time.Second)
 		if err != nil {
-			w.logger.ErrorContext(ctx, "error polling task", "error", err)
+			if !errors.Is(err, context.Canceled) {
+				w.logger.ErrorContext(ctx, "error polling task", "error", err)
+			}
 		} else if task != nil {
 			w.taskQueue <- task
 			continue // check for new tasks right away
