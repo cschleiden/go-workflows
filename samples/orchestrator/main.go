@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
@@ -17,7 +18,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	backend := samples.GetBackend("orchestrator")
+	backend := samples.GetBackend("orchestrator", backend.WithWorkerName("orchestrator-worker"))
 
 	orchestrator := worker.NewWorkflowOrchestrator(
 		backend,
@@ -57,9 +58,9 @@ func main() {
 
 // SimpleWorkflow is a basic workflow that calls an activity and returns its result
 func SimpleWorkflow(ctx workflow.Context, message string) (string, error) {
-	future := workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, ProcessMessage, message)
+	f := workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, ProcessMessage, message)
 
-	result, err := future.Get(ctx)
+	result, err := f.Get(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -72,5 +73,3 @@ func SimpleWorkflow(ctx workflow.Context, message string) (string, error) {
 func ProcessMessage(ctx context.Context, message string) (string, error) {
 	return message + " (processed by activity)", nil
 }
-
-// Note: No separate activity function needed when using InlineActivity
