@@ -13,7 +13,7 @@ const MaxStackDepth = 50
 func stack(skip int) string {
 	// get stack
 	stack := make([]uintptr, MaxStackDepth)
-	length := runtime.Callers(2+skip, stack[:])
+	length := runtime.Callers(3+skip, stack[:])
 
 	// trim
 	stack = stack[:length]
