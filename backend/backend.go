@@ -5,16 +5,19 @@ import (
 	"errors"
 	"fmt"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
-	"go.opentelemetry.io/otel/trace"
 )
 
-var ErrInstanceNotFound = errors.New("workflow instance not found")
-var ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
-var ErrInstanceNotFinished = errors.New("workflow instance is not finished")
+var (
+	ErrInstanceNotFound      = errors.New("workflow instance not found")
+	ErrInstanceAlreadyExists = errors.New("workflow instance already exists")
+	ErrInstanceNotFinished   = errors.New("workflow instance is not finished")
+)
 
 type ErrNotSupported struct {
 	Message string

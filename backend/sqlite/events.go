@@ -78,7 +78,6 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowIn
 		instance.ExecutionID,
 		now,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("getting new events: %w", err)
 	}

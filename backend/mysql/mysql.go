@@ -11,6 +11,13 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
@@ -19,13 +26,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/google/uuid"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/mysql"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 //go:embed db/migrations/*.sql
@@ -734,7 +734,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 			// Create new instance
 			if err := createInstance(ctx, tx, queue, m.WorkflowInstance, a.Metadata); err != nil {
-				if err == backend.ErrInstanceAlreadyExists {
+				if errors.Is(err, backend.ErrInstanceAlreadyExists) {
 					if err := insertPendingEvents(ctx, tx, instance, []*history.Event{
 						history.NewPendingEvent(time.Now(), history.EventType_SubWorkflowFailed, &history.SubWorkflowFailedAttributes{
 							Error: workflowerrors.FromError(backend.ErrInstanceAlreadyExists),
@@ -977,8 +977,8 @@ func scheduleActivity(ctx context.Context, tx *sql.Tx, queue workflow.Queue, ins
 
 // getWorkerName returns the worker name from options, or generates a UUID-based name if not set.
 func getWorkerName(options *options) string {
-	if options.Options.WorkerName != "" {
-		return options.Options.WorkerName
+	if options.WorkerName != "" {
+		return options.WorkerName
 	}
 	return fmt.Sprintf("worker-%v", uuid.NewString())
 }

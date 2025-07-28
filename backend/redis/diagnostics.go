@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	redis "github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/log"
-	redis "github.com/redis/go-redis/v9"
 )
 
 var _ diag.Backend = (*redisBackend)(nil)

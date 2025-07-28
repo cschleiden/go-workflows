@@ -4,27 +4,55 @@ import (
 	"go/ast"
 	"go/types"
 
+	"github.com/golangci/plugin-module-register/register"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-var checkPrivateReturnValues bool
-
-func New() *analysis.Analyzer {
-	a := &analysis.Analyzer{
-		Name:     "goworkflows",
-		Doc:      "Checks for common errors when writing workflows",
-		Run:      run,
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
-	}
-
-	a.Flags.BoolVar(&checkPrivateReturnValues, "checkprivatereturnvalues", false, "Check return values of workflows which aren't exported")
-
-	return a
+func init() {
+	register.Plugin("goworkflows", New)
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
+func New(settings any) (register.LinterPlugin, error) {
+	// The configuration type will be map[string]any or []interface, it depends on your configuration.
+	// You can use https://github.com/go-viper/mapstructure to convert map to struct.
+	s, err := register.DecodeSettings[Settings](settings)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GoWorkflowsPlugin{Settings: s}, nil
+}
+
+type GoWorkflowsPlugin struct {
+	Settings Settings
+}
+
+type Settings struct {
+	CheckPrivateReturnValues bool `json:"checkprivatereturnvalues"`
+}
+
+func (w *GoWorkflowsPlugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
+	return []*analysis.Analyzer{
+		{
+			Name:     "goworkflows",
+			Doc:      "Checks for common errors when writing workflows",
+			Run:      w.run,
+			Requires: []*analysis.Analyzer{inspect.Analyzer},
+		},
+	}, nil
+}
+
+func (w *GoWorkflowsPlugin) GetLoadMode() string {
+	// NOTE: the mode can be `register.LoadModeSyntax` or `register.LoadModeTypesInfo`.
+	// - `register.LoadModeSyntax`: if the linter doesn't use types information.
+	// - `register.LoadModeTypesInfo`: if the linter uses types information.
+
+	return register.LoadModeSyntax
+}
+
+func (w *GoWorkflowsPlugin) run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	// Expect workflows to be top level functions in a file. Therefore it should be enough to just keep track if the current
@@ -84,7 +112,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			inWorkflow = true
 
 			// Check return types
-			if n.Name.IsExported() || checkPrivateReturnValues {
+			if n.Name.IsExported() || w.Settings.CheckPrivateReturnValues {
 				if n.Type.Results == nil || len(n.Type.Results.List) == 0 {
 					pass.Reportf(n.Pos(), "workflow `%v` doesn't return anything. needs to return at least `error`", n.Name.Name)
 				} else {

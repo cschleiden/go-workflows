@@ -67,7 +67,7 @@ func Test_FutureGetNil(t *testing.T) {
 	f.Set(0, nil)
 
 	c.Execute()
-	require.Nil(t, c.Error())
+	require.NoError(t, c.Error())
 
 	require.True(t, c.Finished())
 }
@@ -85,7 +85,7 @@ func Test_FutureSetNil(t *testing.T) {
 	f.Set(0, nil)
 
 	c.Execute()
-	require.Nil(t, c.Error())
+	require.NoError(t, c.Error())
 
 	require.True(t, c.Finished())
 }
@@ -105,7 +105,7 @@ func Test_FutureGetError(t *testing.T) {
 	f.Set(0, errors.New("test"))
 
 	c.Execute()
-	require.Nil(t, c.Error())
+	require.NoError(t, c.Error())
 	require.True(t, c.Finished())
 
 	require.Equal(t, errors.New("test"), err)
