@@ -210,7 +210,6 @@ func Test_Channel_Unbuffered(t *testing.T) {
 		{
 			name: "MultipleReceivesSends",
 			fn: func(t *testing.T, c *channel[int]) {
-
 				ctx := Background()
 				s := NewScheduler()
 

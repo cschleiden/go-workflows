@@ -16,7 +16,7 @@ func Test_NewError_DoesNotWrapAgain(t *testing.T) {
 	err := FromError(errors.New("foo"))
 
 	err2 := FromError(err)
-	require.Nil(t, errors.Unwrap(err2))
+	require.NoError(t, errors.Unwrap(err2))
 }
 
 func Test_NewError_DoesWrap(t *testing.T) {
@@ -28,7 +28,7 @@ func Test_NewError_DoesWrap(t *testing.T) {
 	require.Error(t, e, input.Error())
 
 	require.False(t, e.Permanent)
-	require.Nil(t, e.Cause)
+	require.NoError(t, e.Cause)
 }
 
 func Test_NewPermanentError(t *testing.T) {
@@ -40,7 +40,7 @@ func Test_NewPermanentError(t *testing.T) {
 	require.Error(t, e, input.Error())
 
 	require.True(t, e.Permanent)
-	require.Nil(t, e.Cause)
+	require.NoError(t, e.Cause)
 }
 
 func Test_RoundTrip(t *testing.T) {

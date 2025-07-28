@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func setupTracing(b TestBackend) *tracetest.InMemoryExporter {
@@ -31,7 +32,6 @@ var e2eTracingTests = []backendTest{
 			exporter := setupTracing(b)
 
 			wf := func(ctx workflow.Context) error {
-
 				return nil
 			}
 			register(t, ctx, w, []interface{}{wf}, nil)

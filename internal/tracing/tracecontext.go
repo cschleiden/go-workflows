@@ -3,9 +3,10 @@ package tracing
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/sync"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 type Context map[string]string

@@ -12,6 +12,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -28,10 +33,6 @@ import (
 	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/cschleiden/go-workflows/workflow/executor"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/mock"
-	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type testHistoryProvider struct {
@@ -371,7 +372,7 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 				wt.options.MaxHistorySize,
 			)
 			if err != nil {
-				panic(fmt.Errorf("could not create workflow executor: %v", err))
+				panic(fmt.Errorf("could not create workflow executor: %w", err))
 			}
 
 			result, err := e.ExecuteTask(ctx, t)
@@ -714,7 +715,6 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 					),
 				)
 			}
-
 		} else {
 			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.propagators, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &backend.ActivityTask{

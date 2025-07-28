@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/require"
 )
 
 var e2eStatsTests = []backendTest{

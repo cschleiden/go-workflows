@@ -1,0 +1,7 @@
+# The golangci-lint version used to build the custom binary.
+version: v2.0.0
+name: goworkflows
+destination: .
+plugins:
+  - module: 'github.com/cschleiden/go-workflows'
+    path: ./analyzer

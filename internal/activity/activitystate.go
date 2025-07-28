@@ -25,7 +25,8 @@ func NewActivityState(activityID string, attempt int, instance *workflow.Instanc
 			log.InstanceIDKey, instance.InstanceID,
 			log.ExecutionIDKey, instance.ExecutionID,
 			log.AttemptKey, attempt,
-		)}
+		),
+	}
 }
 
 type key int

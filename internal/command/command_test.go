@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/backend/history"
 )
 
 func assertExecuteNoEvent(t *testing.T, c Command, expectedState CommandState) {

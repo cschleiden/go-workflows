@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/require"
 )
 
 type myKey int
@@ -38,8 +39,7 @@ func myValuesWf(ctx workflow.Context) *myData {
 	return ctx.Value(k).(*myData)
 }
 
-type myPropagator struct {
-}
+type myPropagator struct{}
 
 var _ workflow.ContextPropagator = &myPropagator{}
 

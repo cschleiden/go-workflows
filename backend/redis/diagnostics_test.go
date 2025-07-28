@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/diag"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Diag_GetWorkflowInstances(t *testing.T) {
@@ -28,7 +29,7 @@ func Test_Diag_GetWorkflowInstances(t *testing.T) {
 	ctx := context.Background()
 	instances, err := bd.GetWorkflowInstances(ctx, "", "", 5)
 	require.NoError(t, err)
-	require.Len(t, instances, 0)
+	require.Empty(t, instances)
 
 	c := client.New(b)
 

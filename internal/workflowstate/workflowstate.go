@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/sync"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type key int
@@ -36,7 +37,7 @@ func AsDecodingSettable[T any](cv converter.Converter, name string, f sync.Setta
 			var t T
 			if v != nil {
 				if err := cv.From(v, &t); err != nil {
-					return fmt.Errorf("failed to decode future: %v", err)
+					return fmt.Errorf("failed to decode future: %w", err)
 				}
 			}
 

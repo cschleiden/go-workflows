@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cschleiden/go-workflows/core"
 	redis "github.com/redis/go-redis/v9"
+
+	"github.com/cschleiden/go-workflows/core"
 )
 
 // KEYS[1] - instance key

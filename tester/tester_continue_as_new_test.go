@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Test_ContinueAsNew(t *testing.T) {

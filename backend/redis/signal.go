@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/redis/go-redis/v9"
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {

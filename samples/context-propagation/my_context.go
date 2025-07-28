@@ -32,8 +32,7 @@ func myValuesWf(ctx workflow.Context) *myData {
 	return ctx.Value(k).(*myData)
 }
 
-type myPropagator struct {
-}
+type myPropagator struct{}
 
 var _ workflow.ContextPropagator = &myPropagator{}
 

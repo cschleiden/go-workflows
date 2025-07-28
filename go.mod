@@ -18,7 +18,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.31.0
 	go.opentelemetry.io/otel/trace v1.31.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
 	modernc.org/sqlite v1.27.0
 )
 
@@ -63,6 +62,7 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230307190834-24139beb5833 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
 	lukechampine.com/uint128 v1.2.0 // indirect

@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Test_SubWorkflow(t *testing.T) {
@@ -104,7 +105,7 @@ func Test_SubWorkflow_Mocked_Failure(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 
 	wfR, wfE := tester.WorkflowResult()
-	require.Equal(t, "", wfR)
+	require.Empty(t, wfR)
 	require.EqualError(t, wfE, "swf error")
 
 	tester.AssertExpectations(t)
@@ -183,7 +184,7 @@ func Test_SubWorkflow_Signals(t *testing.T) {
 	})
 
 	tester.ScheduleCallback(time.Millisecond, func() {
-		require.Nil(t, tester.SignalWorkflowInstance(subWorkflowInstance, "subworkflow-signal", "42"))
+		require.NoError(t, tester.SignalWorkflowInstance(subWorkflowInstance, "subworkflow-signal", "42"))
 	})
 
 	tester.Execute(context.Background(), "hello")

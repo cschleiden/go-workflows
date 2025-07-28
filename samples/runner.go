@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"time"
 
+	redisv9 "github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/mysql"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/diag"
-	redisv9 "github.com/redis/go-redis/v9"
 )
 
 func GetBackend(name string, opt ...backend.BackendOption) backend.Backend {

@@ -16,7 +16,7 @@ func Test_FutureSelector_SelectWaits(t *testing.T) {
 			ctx,
 			Await(f.(Future[int]), func(ctx Context, f Future[int]) {
 				r, err := f.Get(ctx)
-				require.Nil(t, err)
+				require.NoError(t, err)
 				require.Equal(t, 42, r)
 			}),
 		)
@@ -50,13 +50,13 @@ func Test_FutureSelector_SelectWaitsWithSameOrder(t *testing.T) {
 				ctx,
 				Await(f.(Future[int]), func(ctx Context, f Future[int]) {
 					r, err := f.Get(ctx)
-					require.Nil(t, err)
+					require.NoError(t, err)
 					require.Equal(t, 42, r)
 					order = append(order, 42)
 				}),
 				Await(f2.(Future[int]), func(ctx Context, f Future[int]) {
 					r, err := f.Get(ctx)
-					require.Nil(t, err)
+					require.NoError(t, err)
 					require.Equal(t, 23, r)
 					order = append(order, 23)
 				}),

@@ -2,11 +2,15 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -16,8 +20,6 @@ import (
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/cschleiden/go-workflows/workflow/executor"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 type backendTest struct {
@@ -118,7 +120,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
-				require.Zero(t, output)
+				require.Empty(t, output)
 				require.ErrorContains(t, err, "workflow 1 not found")
 			},
 		},
@@ -325,12 +327,12 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 				swf := func(ctx workflow.Context, i int) (int, error) {
 					// Sleep in this sub workflow, we expect the subworkflow to be canceled, so this timer will not complete.
-					if err := workflow.Sleep(ctx, time.Second*10); err != nil && err != workflow.Canceled {
+					if err := workflow.Sleep(ctx, time.Second*10); err != nil && !errors.Is(err, workflow.Canceled) {
 						// This should not happen
 						return 0, err
 					}
 
-					if ctx.Err() != nil && ctx.Err() == workflow.Canceled {
+					if ctx.Err() != nil && errors.Is(ctx.Err(), workflow.Canceled) {
 						atomic.AddInt32(&canceled, 1)
 					}
 
@@ -354,14 +356,14 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					for _, f := range swfs {
 						sr, err := f.Get(ctx)
-						if err != nil && err != workflow.Canceled {
+						if err != nil && !errors.Is(err, workflow.Canceled) {
 							return 0, err
 						}
 
 						r = r + sr
 					}
 
-					if ctx.Err() != nil && ctx.Err() == workflow.Canceled {
+					if ctx.Err() != nil && errors.Is(ctx.Err(), workflow.Canceled) {
 						atomic.AddInt32(&canceled, 1)
 					}
 
@@ -406,7 +408,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 					workflow.Sleep(ctx, time.Millisecond*2)
 
 					r, err := f.Get(ctx)
-					if err != nil && err != workflow.Canceled {
+					if err != nil && !errors.Is(err, workflow.Canceled) {
 						return 0, err
 					}
 
@@ -701,8 +703,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 	run("_without_cache", options)
 }
 
-type noopWorkflowExecutorCache struct {
-}
+type noopWorkflowExecutorCache struct{}
 
 var _ executor.Cache = (*noopWorkflowExecutorCache)(nil)
 

@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/require"
 )
 
 var e2eRemovalTests = []backendTest{
@@ -71,7 +72,7 @@ var e2eRemovalTests = []backendTest{
 			for i := 0; i < 10; i++ {
 				time.Sleep(100 * time.Millisecond)
 				_, err = c.GetWorkflowInstanceState(ctx, workflowA)
-				if err != backend.ErrInstanceNotFound {
+				if !errors.Is(err, backend.ErrInstanceNotFound) {
 					continue
 				} else {
 					break
@@ -113,7 +114,7 @@ var e2eRemovalTests = []backendTest{
 			for i := 0; i < 10; i++ {
 				time.Sleep(100 * time.Millisecond)
 				_, err = c.GetWorkflowInstanceState(ctx, workflowA)
-				if err != backend.ErrInstanceNotFound {
+				if !errors.Is(err, backend.ErrInstanceNotFound) {
 					continue
 				} else {
 					break

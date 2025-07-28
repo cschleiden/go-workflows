@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
@@ -14,8 +17,6 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) TestBackend, teardown func(b TestBackend)) {
@@ -195,7 +196,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 						Queue: workflow.QueueDefault,
 					}),
 				)
-				require.Nil(t, err)
+				require.NoError(t, err)
 
 				queues := []workflow.Queue{workflow.QueueDefault, core.QueueSystem}
 				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
@@ -283,7 +284,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				h, err := b.GetWorkflowInstanceHistory(ctx, wfi, nil)
 				require.NoError(t, err)
-				require.Equal(t, len(events), len(h))
+				require.Len(t, h, len(events))
 				for i, event := range events {
 					require.Equal(t, event.ID, h[i].ID)
 					require.Equal(t, event.Type, h[i].Type)

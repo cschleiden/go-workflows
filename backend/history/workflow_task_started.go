@@ -1,4 +1,3 @@
 package history
 
-type WorkflowTaskStartedAttributes struct {
-}
+type WorkflowTaskStartedAttributes struct{}

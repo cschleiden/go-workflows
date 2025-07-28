@@ -3,15 +3,17 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/redis/go-redis/v9"
 )
 
 func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
@@ -63,9 +65,9 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		payloadData,
 		time.Now().UTC().UnixNano(),
 	).Result()
-
 	if err != nil {
-		if _, ok := err.(redis.Error); ok {
+		var error redis.Error
+		if errors.As(err, &error) {
 			if err.Error() == "ERR InstanceAlreadyExists" {
 				return backend.ErrInstanceAlreadyExists
 			}
@@ -194,7 +196,7 @@ func readInstanceP(ctx context.Context, p redis.Pipeliner, instanceKey string) *
 func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 	val, err := cmd.Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, backend.ErrInstanceNotFound
 		}
 
@@ -212,7 +214,7 @@ func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 func (rb *redisBackend) readActiveInstanceExecution(ctx context.Context, instanceID string) (*core.WorkflowInstance, error) {
 	val, err := rb.rdb.Get(ctx, rb.keys.activeInstanceExecutionKey(instanceID)).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, nil
 		}
 

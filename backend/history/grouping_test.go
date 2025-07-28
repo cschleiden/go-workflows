@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/core"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/core"
 )
 
 func TestGrouping_MultipleEventsSameInstance(t *testing.T) {
@@ -26,6 +27,6 @@ func TestGrouping_MultipleEventsSameInstance(t *testing.T) {
 
 	require.Len(t, r, 1)
 	require.Len(t, r[*instance], 2)
-	require.Equal(t, r[*instance][0].HistoryEvent.Type, EventType_SubWorkflowScheduled)
-	require.Equal(t, r[*instance][1].HistoryEvent.Type, EventType_SignalReceived)
+	require.Equal(t, EventType_SubWorkflowScheduled, r[*instance][0].HistoryEvent.Type)
+	require.Equal(t, EventType_SignalReceived, r[*instance][1].HistoryEvent.Type)
 }

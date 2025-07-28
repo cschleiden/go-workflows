@@ -1,8 +1,9 @@
 package tracing
 
 import (
-	"github.com/cschleiden/go-workflows/internal/sync"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 type spanContextKeyType int

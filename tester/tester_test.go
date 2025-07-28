@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Workflow(t *testing.T) {
@@ -118,7 +119,7 @@ func Test_Activity_WithoutMock(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	r, errStr := tester.WorkflowResult()
-	require.Zero(t, errStr)
+	require.NoError(t, errStr)
 	require.Equal(t, 23, r)
 	tester.AssertExpectations(t)
 }
@@ -188,7 +189,7 @@ func Test_Signals(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 
 	wfR, _ := tester.WorkflowResult()
-	require.Equal(t, wfR, "s42")
+	require.Equal(t, "s42", wfR)
 	tester.AssertExpectations(t)
 }
 
@@ -222,7 +223,7 @@ func Test_SignalSubWorkflowBeforeScheduling(t *testing.T) {
 
 func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
 	_, err := workflow.SignalWorkflow(ctx, "subworkflow", "test", "").Get(ctx)
-	if err != backend.ErrInstanceNotFound {
+	if !errors.Is(err, backend.ErrInstanceNotFound) {
 		return "", err
 	}
 
@@ -241,7 +242,7 @@ func Test_SignalSubWorkflow(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	wfR, wfErr := tester.WorkflowResult()
-	require.Empty(t, wfErr)
+	require.NoError(t, wfErr)
 	require.Equal(t, 42, wfR)
 }
 

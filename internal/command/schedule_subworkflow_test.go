@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
@@ -19,7 +20,7 @@ func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
 	}{
 		{"Execute schedules subworkflow", func(t *testing.T, c *ScheduleSubWorkflowCommand, clock clock.Clock) {
 			r := assertExecuteWithEvent(t, c, CommandState_Committed, history.EventType_SubWorkflowScheduled)
-			require.Equal(t, r.WorkflowEvents[0].HistoryEvent.Type, history.EventType_WorkflowExecutionStarted)
+			require.Equal(t, history.EventType_WorkflowExecutionStarted, r.WorkflowEvents[0].HistoryEvent.Type)
 		}},
 		{"Cancel after schedule yields cancel event", func(t *testing.T, c *ScheduleSubWorkflowCommand, clock clock.Clock) {
 			assertExecuteWithEvent(t, c, CommandState_Committed, history.EventType_SubWorkflowScheduled)
@@ -28,7 +29,7 @@ func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
 			require.Equal(t, CommandState_CancelPending, c.State())
 
 			r := assertExecuteWithEvent(t, c, CommandState_Canceled, history.EventType_SubWorkflowCancellationRequested)
-			require.Equal(t, r.WorkflowEvents[0].HistoryEvent.Type, history.EventType_WorkflowExecutionCanceled)
+			require.Equal(t, history.EventType_WorkflowExecutionCanceled, r.WorkflowEvents[0].HistoryEvent.Type)
 		}},
 		{"Cancel after commit yields cancel event", func(t *testing.T, c *ScheduleSubWorkflowCommand, clock clock.Clock) {
 			c.Commit()

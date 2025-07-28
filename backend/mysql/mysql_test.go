@@ -7,14 +7,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/test"
-	"github.com/google/uuid"
 )
 
-const testUser = "root"
-const testPassword = "root"
+const (
+	testUser     = "root"
+	testPassword = "root"
+)
 
 // Creating and dropping databases is terribly inefficient, but easiest for complete test isolation. For
 // the future consider nested transactions, or manually TRUNCATE-ing the tables in-between tests.
@@ -32,7 +35,7 @@ func Test_MysqlBackend(t *testing.T) {
 			panic(err)
 		}
 
-		dbName = "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		dbName = "test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
 			panic(fmt.Errorf("creating database: %w", err))
 		}
@@ -77,7 +80,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 			panic(err)
 		}
 
-		dbName = "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		dbName = "test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
 			panic(fmt.Errorf("creating database: %w", err))
 		}

@@ -36,7 +36,7 @@ func (we *Error) Error() string {
 }
 
 func (we *Error) Unwrap() error {
-	if we == nil || we.Cause == (*Error)(nil) {
+	if we == nil || errors.Is(we.Cause, (*Error)(nil)) {
 		return nil
 	}
 
@@ -56,7 +56,8 @@ func FromError(err error) *Error {
 	}
 
 	// If this is already a workflow error, just return it, do not wrap again
-	if e, ok := err.(*Error); ok {
+	e := &Error{}
+	if errors.As(err, &e) {
 		return e
 	}
 
@@ -103,7 +104,8 @@ func NewPermanentError(err error) *Error {
 
 // CanRetry returns true if the given error is retryable
 func CanRetry(err error) bool {
-	if e, ok := err.(*Error); ok {
+	e := &Error{}
+	if errors.As(err, &e) {
 		return !e.Permanent
 	}
 

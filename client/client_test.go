@@ -8,16 +8,17 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrics"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func Test_Client_CreateWorkflowInstance_ParamMismatch(t *testing.T) {
@@ -147,7 +148,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 
 	err := c.SignalWorkflow(ctx, instanceID, "test", "signal")
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	b.AssertExpectations(t)
 }
 
@@ -176,6 +177,6 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 
 	err := c.SignalWorkflow(ctx, instanceID, "test", arg)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	b.AssertExpectations(t)
 }

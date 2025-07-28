@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/stretchr/testify/require"
 )
 
 func TestScheduleActivityCommand_StateTransitions(t *testing.T) {

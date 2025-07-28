@@ -3,9 +3,10 @@ package sqlite
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_SqliteBackend(t *testing.T) {

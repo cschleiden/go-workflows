@@ -8,14 +8,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/samples"
 	scale "github.com/cschleiden/go-workflows/samples/scale"
-	"github.com/google/uuid"
 )
 
-var tostart = flag.Int("count", 100, "Number of workflow instances to start")
-var count int32
+var (
+	tostart = flag.Int("count", 100, "Number of workflow instances to start")
+	count   int32
+)
 
 func main() {
 	ctx := context.Background()

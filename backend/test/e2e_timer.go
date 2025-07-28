@@ -2,14 +2,16 @@ package test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/require"
 )
 
 var e2eTimerTests = []backendTest{
@@ -21,7 +23,7 @@ var e2eTimerTests = []backendTest{
 			}
 			wf := func(ctx workflow.Context) error {
 				_, err := workflow.ScheduleTimer(ctx, time.Second*10).Get(ctx)
-				if err != nil && err != workflow.Canceled {
+				if err != nil && !errors.Is(err, workflow.Canceled) {
 					return err
 				}
 
@@ -58,7 +60,7 @@ var e2eTimerTests = []backendTest{
 				workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
 
 				_, err := f.Get(ctx)
-				if err != nil && err != workflow.Canceled {
+				if err != nil && !errors.Is(err, workflow.Canceled) {
 					return err
 				}
 
@@ -80,7 +82,7 @@ var e2eTimerTests = []backendTest{
 
 			futureEvents, err := b.GetFutureEvents(ctx)
 			require.NoError(t, err)
-			require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			require.Empty(t, futureEvents, "no future events should be scheduled")
 		},
 	},
 	{
@@ -107,7 +109,7 @@ var e2eTimerTests = []backendTest{
 				// Force another checkpoint
 				workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
 
-				if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
+				if _, err := f.Get(ctx); err != nil && !errors.Is(err, workflow.Canceled) {
 					return err
 				}
 
@@ -123,7 +125,7 @@ var e2eTimerTests = []backendTest{
 
 			futureEvents, err := b.GetFutureEvents(ctx)
 			require.NoError(t, err)
-			require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			require.Empty(t, futureEvents, "no future events should be scheduled")
 		},
 	},
 	{
@@ -145,7 +147,7 @@ var e2eTimerTests = []backendTest{
 				// Force another checkpoint
 				workflow.ExecuteActivity[any](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
 
-				if _, err := f.Get(ctx); err != nil && err != workflow.Canceled {
+				if _, err := f.Get(ctx); err != nil && !errors.Is(err, workflow.Canceled) {
 					return err
 				}
 
@@ -161,7 +163,7 @@ var e2eTimerTests = []backendTest{
 
 			futureEvents, err := b.GetFutureEvents(ctx)
 			require.NoError(t, err)
-			require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			require.Empty(t, futureEvents, "no future events should be scheduled")
 		},
 	},
 	{

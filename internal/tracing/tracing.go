@@ -10,8 +10,8 @@ import (
 )
 
 func SpanWithStartTime(
-	ctx context.Context, tracer trace.Tracer, name string, spanID trace.SpanID, startTime time.Time, opts ...trace.SpanStartOption) trace.Span {
-
+	ctx context.Context, tracer trace.Tracer, name string, spanID trace.SpanID, startTime time.Time, opts ...trace.SpanStartOption,
+) trace.Span {
 	opts = append(opts, trace.WithTimestamp(startTime), trace.WithSpanKind(trace.SpanKindConsumer))
 	_, span := tracer.Start(ctx,
 		name,
