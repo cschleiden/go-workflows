@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Test_Timer(t *testing.T) {
@@ -89,7 +90,7 @@ func Test_TimerSubworkflowCancellation(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 
 	_, wfErr := tester.WorkflowResult()
-	require.Empty(t, wfErr)
+	require.NoError(t, wfErr)
 }
 
 func workflowSubWorkflowTimerCancellation(ctx workflow.Context) error {
@@ -134,7 +135,7 @@ func Test_TimerRespondingWithoutNewEvents(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 
 	_, err := tester.WorkflowResult()
-	require.Empty(t, err)
+	require.NoError(t, err)
 }
 
 func workflowTimerRespondingWithoutNewEvents(ctx workflow.Context) error {
@@ -205,7 +206,7 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()
-	require.Empty(t, werr)
+	require.NoError(t, werr)
 	tester.AssertExpectations(t)
 
 	require.True(t, dl.hasLine("workflows.timer.mode.from=WallClock workflows.timer.mode.to=TimeTravel"))
@@ -219,7 +220,6 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	wf := func(ctx workflow.Context) error {
 		for i := 0; i < 10; i++ {
-
 			tctx, cancel := workflow.WithCancel(ctx)
 			workflow.ScheduleTimer(tctx, time.Millisecond*10)
 			workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
@@ -240,6 +240,6 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()
-	require.Empty(t, werr)
+	require.NoError(t, werr)
 	tester.AssertExpectations(t)
 }

@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 var e2eDiagTests = []backendTest{
@@ -48,7 +49,7 @@ var e2eDiagTests = []backendTest{
 
 			refs, err := diagBackend.GetWorkflowInstances(ctx, afterInstanceID, afterExecutionID, 10)
 			require.NoError(t, err)
-			require.Len(t, refs, 0)
+			require.Empty(t, refs)
 		},
 	},
 	{

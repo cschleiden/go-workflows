@@ -8,11 +8,11 @@ import (
 
 func TestWorkflowOrchestrator_PollerDefaults(t *testing.T) {
 	tests := []struct {
-		name                        string
-		inputOptions                *Options
-		expectedWorkflowPollers     int
-		expectedActivityPollers     int
-		expectedSingleWorkerMode    bool
+		name                     string
+		inputOptions             *Options
+		expectedWorkflowPollers  int
+		expectedActivityPollers  int
+		expectedSingleWorkerMode bool
 	}{
 		{
 			name:                     "nil options should use 1 poller for orchestrator",

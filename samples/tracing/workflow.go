@@ -5,11 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cschleiden/go-workflows/activity"
-	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/cschleiden/go-workflows/activity"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 type Inputs struct {

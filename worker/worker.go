@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/benbjohnson/clock"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/internal/signals"

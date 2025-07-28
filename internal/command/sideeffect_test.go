@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/backend/history"
 )
 
 func TestSideEffectCommand_StateTransitions(t *testing.T) {

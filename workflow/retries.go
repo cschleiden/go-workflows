@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"errors"
 	"math"
 	"time"
 
@@ -68,7 +69,7 @@ func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Cont
 				break
 			}
 
-			if err == Canceled {
+			if errors.Is(err, Canceled) {
 				break
 			}
 

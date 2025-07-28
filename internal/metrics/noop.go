@@ -6,8 +6,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metrics"
 )
 
-type noopMetricsClient struct {
-}
+type noopMetricsClient struct{}
 
 func NewNoopMetricsClient() *noopMetricsClient {
 	return &noopMetricsClient{}
@@ -22,7 +21,6 @@ func (*noopMetricsClient) Distribution(name string, tags metrics.Tags, value flo
 }
 
 func (*noopMetricsClient) Gauge(name string, tags metrics.Tags, value int64) {
-
 }
 
 func (*noopMetricsClient) Timing(name string, tags metrics.Tags, duration time.Duration) {
