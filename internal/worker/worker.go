@@ -14,6 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
+//go:generate mockery --name=TaskWorker --inpackage
 type TaskWorker[Task, Result any] interface {
 	Start(context.Context, []workflow.Queue) error
 	Get(context.Context, []workflow.Queue) (*Task, error)
@@ -27,13 +28,15 @@ type Worker[Task, TaskResult any] struct {
 
 	tw TaskWorker[Task, TaskResult]
 
-	taskQueue chan *Task
+	taskQueue chan timestampedTask[Task]
 
 	logger *slog.Logger
 
 	pollersWg sync.WaitGroup
 
 	dispatcherDone chan struct{}
+
+	currentTime func() time.Time // default is time.Now, can be overwritten for testing
 }
 
 type WorkerOptions struct {
@@ -46,6 +49,11 @@ type WorkerOptions struct {
 	PollingInterval time.Duration
 
 	Queues []workflow.Queue
+}
+
+type timestampedTask[Task any] struct {
+	task     *Task
+	pollTime time.Time
 }
 
 func NewWorker[Task, TaskResult any](
@@ -64,9 +72,10 @@ func NewWorker[Task, TaskResult any](
 	return &Worker[Task, TaskResult]{
 		tw:             tw,
 		options:        options,
-		taskQueue:      make(chan *Task),
+		taskQueue:      make(chan timestampedTask[Task]),
 		logger:         b.Options().Logger,
 		dispatcherDone: make(chan struct{}, 1),
+		currentTime:    time.Now,
 	}
 }
 
@@ -120,7 +129,7 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 				w.logger.ErrorContext(ctx, "error polling task", "error", err)
 			}
 		} else if task != nil {
-			w.taskQueue <- task
+			w.taskQueue <- timestampedTask[Task]{task: task, pollTime: w.currentTime()}
 			continue // check for new tasks right away
 		}
 
@@ -143,7 +152,7 @@ func (w *Worker[Task, TaskResult]) dispatcher() {
 
 	var wg sync.WaitGroup
 
-	for t := range w.taskQueue {
+	for tt := range w.taskQueue {
 		// If limited max tasks, wait for a slot to open up
 		if sem != nil {
 			sem <- struct{}{}
@@ -151,13 +160,13 @@ func (w *Worker[Task, TaskResult]) dispatcher() {
 
 		wg.Add(1)
 
-		t := t
+		tt := tt
 		go func() {
 			defer wg.Done()
 
 			// Create new context to allow tasks to complete when root context is canceled
 			taskCtx := context.Background()
-			if err := w.handle(taskCtx, t); err != nil {
+			if err := w.handle(taskCtx, tt); err != nil {
 				w.logger.ErrorContext(taskCtx, "error handling task", "error", err)
 			}
 
@@ -172,36 +181,69 @@ func (w *Worker[Task, TaskResult]) dispatcher() {
 	w.dispatcherDone <- struct{}{}
 }
 
-func (w *Worker[Task, TaskResult]) handle(ctx context.Context, t *Task) error {
+func (w *Worker[Task, TaskResult]) handle(ctx context.Context, tt timestampedTask[Task]) error {
+	ctx, cancelTask := context.WithCancel(ctx)
+	defer cancelTask()
 	if w.options.HeartbeatInterval > 0 {
 		// Start heartbeat while processing task
-		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-		defer cancelHeartbeat()
-		go w.heartbeatTask(heartbeatCtx, t)
+		go func() {
+			// If heartbeat stops, cancel the task.
+			// A stopped heartbeat indicates that the backend
+			// no longer recognizes our ownership of the task.
+			defer cancelTask()
+			w.heartbeatTask(ctx, tt)
+		}()
 	}
 
-	result, err := w.tw.Execute(ctx, t)
+	result, err := w.tw.Execute(ctx, tt.task)
 	if err != nil {
 		return fmt.Errorf("executing task: %w", err)
 	}
 
-	return w.tw.Complete(ctx, result, t)
+	return w.tw.Complete(ctx, result, tt.task)
 }
 
-func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, task *Task) {
+func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, tt timestampedTask[Task]) {
+	// For first heartbeat, check how long it's been since
+	// the task was polled.
+	timeSincePoll := w.currentTime().Sub(tt.pollTime)
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(w.options.HeartbeatInterval - timeSincePoll):
+		if !w.extend(ctx, tt.task) {
+			return
+		}
+	}
+
+	// Afterwards, heartbeat at regular intervals
 	t := time.NewTicker(w.options.HeartbeatInterval)
 	defer t.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := w.tw.Extend(ctx, task); err != nil {
-				w.logger.ErrorContext(ctx, "could not heartbeat task", "error", err)
+			if !w.extend(ctx, tt.task) {
+				return
 			}
 		}
 	}
+}
+
+// extend returns whether or not the task was extended.
+func (w *Worker[Task, TaskResult]) extend(ctx context.Context, t *Task) bool {
+	if err := w.tw.Extend(ctx, t); err != nil {
+		if errors.Is(err, context.Canceled) && ctx.Err() == context.Canceled {
+			// If upstream ctx cancellation, this is because the
+			// task completed and we are simply cleaning up
+			// the heartbeat goroutine. Nothing interesting to log.
+			return false
+		}
+		w.logger.ErrorContext(ctx, "could not heartbeat task", "error", err)
+		return false
+	}
+	return true
 }
 
 func (w *Worker[Task, TaskResult]) poll(ctx context.Context, timeout time.Duration) (*Task, error) {
