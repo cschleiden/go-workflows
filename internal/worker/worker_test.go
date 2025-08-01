@@ -107,7 +107,7 @@ func TestWorker(t *testing.T) {
 		// For this test, we poll a task and then return an error
 		// on the first call to Extend. We make the Execute call
 		// artificially long so that it gets interrupted by the cancellation
-		// of the task concept, triggered by the stopped heartbeat.
+		// of the task context, triggered by the stopped heartbeat.
 
 		// Set up the test
 		be := backend.NewMockBackend(t)
