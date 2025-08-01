@@ -77,7 +77,7 @@ jobs:
           cat bench-mysql-vl.md >> mysql-benchmark.md
 
       - name: Upload MySQL benchmark results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mysql-results
           path: mysql-benchmark.md
@@ -148,7 +148,7 @@ jobs:
           cat bench-sqlite-vl.md >> sqlite-benchmark.md
 
       - name: Upload SQLite benchmark results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sqlite-results
           path: sqlite-benchmark.md
@@ -230,7 +230,7 @@ jobs:
           cat bench-redis-vl.md >> redis-benchmark.md
 
       - name: Upload Redis benchmark results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: redis-results
           path: redis-benchmark.md
@@ -242,7 +242,7 @@ jobs:
     steps:
       - name: Download MySQL results
         if: needs.mysql-bench.result == 'success'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mysql-results
           path: ./results
@@ -250,7 +250,7 @@ jobs:
 
       - name: Download SQLite results
         if: needs.sqlite-bench.result == 'success'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: sqlite-results
           path: ./results
@@ -258,7 +258,7 @@ jobs:
 
       - name: Download Redis results
         if: needs.redis-bench.result == 'success'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: redis-results
           path: ./results
