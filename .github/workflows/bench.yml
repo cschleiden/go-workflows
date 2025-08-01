@@ -1,14 +1,16 @@
 on:
   workflow_dispatch:
   issue_comment:
-    types: [ created ]
+    types: [created]
 
 name: Benchmark
 
 jobs:
-  bench:
+  mysql-bench:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))
+    if: (github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))) && !contains(github.event.comment.body, '!skipmysql')
+    outputs:
+      pr-sha: ${{ steps.sha.outputs.result || github.sha }}
     steps:
       - name: Install Hyperfine
         run: |
@@ -26,7 +28,7 @@ jobs:
             return response.data.head.sha;
 
       - name: Checkout PR
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.sha.outputs.result || github.sha }}
 
@@ -42,7 +44,152 @@ jobs:
           go build -o bench-pr ./bench
 
       - name: Checkout main branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          ref: main
+
+      - name: Build main
+        run: |
+          go build -o bench-main ./bench
+
+      - name: Start MySQL
+        run: sudo /etc/init.d/mysql start
+
+      - name: Run MySQL benchmarks
+        run: |
+          echo "## MySQL run" > mysql-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
+          cat bench-mysql.md >> mysql-benchmark.md
+
+      - name: Run large MySQL benchmarks
+        if: contains(github.event.comment.body, '!large')
+        run: |
+          echo "## Large MySQL payload run (1MB)" >> mysql-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s'
+          cat bench-mysql-l.md >> mysql-benchmark.md
+
+      - name: Run very large MySQL benchmarks
+        if: contains(github.event.comment.body, '!verylarge')
+        run: |
+          echo "## Very Large MySQL payload run (5MB)" >> mysql-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-mysql-vl.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
+          cat bench-mysql-vl.md >> mysql-benchmark.md
+
+      - name: Upload MySQL benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: mysql-results
+          path: mysql-benchmark.md
+
+  sqlite-bench:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))) && !contains(github.event.comment.body, '!skipsqlite')
+    steps:
+      - name: Install Hyperfine
+        run: |
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
+          sudo dpkg -i hyperfine_1.11.0_amd64.deb
+
+      - name: Get PR SHA
+        if: github.event_name == 'issue_comment'
+        id: sha
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            const response = await github.request(context.payload.issue.pull_request.url);
+            return response.data.head.sha;
+
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.result || github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+          check-latest: true
+          cache: true
+
+      - name: Build PR
+        run: |
+          go build -o bench-pr ./bench
+
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          ref: main
+
+      - name: Build main
+        run: |
+          go build -o bench-main ./bench
+
+      - name: Run SQLite benchmarks
+        run: |
+          echo "## SQLite run" > sqlite-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
+          cat bench-sqlite.md >> sqlite-benchmark.md
+
+      - name: Run large SQLite benchmarks
+        if: contains(github.event.comment.body, '!large')
+        run: |
+          echo "## Large SQLite payload run (1MB)" >> sqlite-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend sqlite -timeout 240s'
+          cat bench-sqlite-l.md >> sqlite-benchmark.md
+
+      - name: Run very large SQLite benchmarks
+        if: contains(github.event.comment.body, '!verylarge')
+        run: |
+          echo "## Very Large SQLite payload run (5MB)" >> sqlite-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-vl.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
+          cat bench-sqlite-vl.md >> sqlite-benchmark.md
+
+      - name: Upload SQLite benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: sqlite-results
+          path: sqlite-benchmark.md
+
+  redis-bench:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))) && !contains(github.event.comment.body, '!skipredis')
+    steps:
+      - name: Install Hyperfine
+        run: |
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
+          sudo dpkg -i hyperfine_1.11.0_amd64.deb
+
+      - name: Get PR SHA
+        if: github.event_name == 'issue_comment'
+        id: sha
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            const response = await github.request(context.payload.issue.pull_request.url);
+            return response.data.head.sha;
+
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.result || github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+          check-latest: true
+          cache: true
+
+      - name: Build PR
+        run: |
+          go build -o bench-pr ./bench
+
+      - name: Checkout main branch
+        uses: actions/checkout@v4
         with:
           clean: false
           ref: main
@@ -56,84 +203,90 @@ jobs:
         with:
           auto-start: true
           redis-port: 6379
-          redis-version: '6.2'
+          redis-version: "6.2"
           redis-conf: |
             requirepass RedisPassw0rd
             appendonly yes
             appendfsync always
 
-      - name: Start MySQL
-        run: sudo /etc/init.d/mysql start
-
-      - name: Run MySQL benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipmysql')
-        run: |
-          echo "## MySQL run" >> benchmark.md
-          hyperfine --show-output --warmup 1 --export-markdown bench-mysql.md -n 'mysql-main' './bench-main -runs 2 -backend mysql' -n 'mysql-pr' './bench-pr -runs 2 -backend mysql'
-          cat bench-mysql.md >> benchmark.md
-
-      - name: Run SQLite benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipsqlite')
-        run: |
-          echo "## SQLite run" >> benchmark.md
-          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite.md -n 'sqlite-main' './bench-main -runs 2 -backend sqlite' -n 'sqlite-pr' './bench-pr -runs 2 -backend sqlite'
-          cat bench-sqlite.md >> benchmark.md
-
       - name: Run Redis benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipredis')
         run: |
-          echo "## Redis run" >> benchmark.md
+          echo "## Redis run" > redis-benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-redis.md -n 'redis-main' './bench-main -runs 2 -backend redis' -n 'redis-pr' './bench-pr -runs 2 -backend redis'
-          cat bench-redis.md >> benchmark.md
-
-      - name: Run large MySQL benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipmysql') && contains(github.event.comment.body, '!large')
-        run: |
-          echo "## Large MySQL payload run (1MB)" >> benchmark.md
-          hyperfine --show-output --warmup 1 --export-markdown bench-mysql-l.md -n 'mysql-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend mysql -timeout 240s'
-          cat bench-mysql-l.md >> benchmark.md
-
-      - name: Run large SQLite benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipsqlite') && contains(github.event.comment.body, '!large')
-        run: |
-          echo "## Large SQLite payload run (1MB)" >> benchmark.md
-          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-l.md -n 'sqlite-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend sqlite -timeout 240s'
-          cat bench-sqlite-l.md >> benchmark.md
+          cat bench-redis.md >> redis-benchmark.md
 
       - name: Run large Redis benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipredis') && contains(github.event.comment.body, '!large')
+        if: contains(github.event.comment.body, '!large')
         run: |
-          echo "## Large Redis payload run (1MB)" >> benchmark.md
+          echo "## Large Redis payload run (1MB)" >> redis-benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-redis-l.md -n 'redis-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend redis -timeout 240s' -n 'redis-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend redis -timeout 240s'
-          cat bench-redis-l.md >> benchmark.md
-
-      - name: Run very large MySQL benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipmysql') && contains(github.event.comment.body, '!verylarge')
-        run: |
-          echo "## Very Large MySQL payload run (5MB)" >> benchmark.md
-          hyperfine --show-output --warmup 1 --export-markdown bench-mysql-vl.md -n 'mysql-main' './bench-main -resultsize 5000000 -runs 2 -backend mysql -timeout 240s' -n 'mysql-pr' './bench-pr -resultsize 5000000 -runs 2 -backend mysql -timeout 240s'
-          cat bench-mysql-vl.md >> benchmark.md
-
-      - name: Run very large SQLite benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipsqlite') && contains(github.event.comment.body, '!verylarge')
-        run: |
-          echo "## Very Large SQLite payload run (5MB)" >> benchmark.md
-          hyperfine --show-output --warmup 1 --export-markdown bench-sqlite-vl.md -n 'sqlite-main' './bench-main -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s' -n 'sqlite-pr' './bench-pr -resultsize 5000000 -runs 2 -backend sqlite -timeout 240s'
-          cat bench-sqlite-vl.md >> benchmark.md
+          cat bench-redis-l.md >> redis-benchmark.md
 
       - name: Run very large Redis benchmarks
-        if: github.event.issue.pull_request && !contains(github.event.comment.body, '!skipredis') && contains(github.event.comment.body, '!verylarge')
+        if: contains(github.event.comment.body, '!verylarge')
         run: |
-          echo "## Very Large Redis payload run (5MB)" >> benchmark.md
+          echo "## Very Large Redis payload run (5MB)" >> redis-benchmark.md
           hyperfine --show-output --warmup 1 --export-markdown bench-redis-vl.md -n 'redis-main' './bench-main -resultsize 5000000 -runs 2 -backend redis -timeout 240s' -n 'redis-pr' './bench-pr -resultsize 5000000 -runs 2 -backend redis -timeout 240s'
-          cat bench-redis-vl.md >> benchmark.md
+          cat bench-redis-vl.md >> redis-benchmark.md
 
-      - run: |
-          cat ./benchmark.md
+      - name: Upload Redis benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: redis-results
+          path: redis-benchmark.md
+
+  combine-results:
+    runs-on: ubuntu-latest
+    needs: [mysql-bench, sqlite-bench, redis-bench]
+    if: always() && (needs.mysql-bench.result == 'success' || needs.sqlite-bench.result == 'success' || needs.redis-bench.result == 'success') && github.event.issue.pull_request
+    steps:
+      - name: Download MySQL results
+        if: needs.mysql-bench.result == 'success'
+        uses: actions/download-artifact@v3
+        with:
+          name: mysql-results
+          path: ./results
+        continue-on-error: true
+
+      - name: Download SQLite results
+        if: needs.sqlite-bench.result == 'success'
+        uses: actions/download-artifact@v3
+        with:
+          name: sqlite-results
+          path: ./results
+        continue-on-error: true
+
+      - name: Download Redis results
+        if: needs.redis-bench.result == 'success'
+        uses: actions/download-artifact@v3
+        with:
+          name: redis-results
+          path: ./results
+        continue-on-error: true
+
+      - name: Combine benchmark results
+        run: |
+          echo "# Benchmark Results" > combined-benchmark.md
+          echo "" >> combined-benchmark.md
+
+          if [ -f "./results/mysql-benchmark.md" ]; then
+            cat ./results/mysql-benchmark.md >> combined-benchmark.md
+            echo "" >> combined-benchmark.md
+          fi
+
+          if [ -f "./results/sqlite-benchmark.md" ]; then
+            cat ./results/sqlite-benchmark.md >> combined-benchmark.md
+            echo "" >> combined-benchmark.md
+          fi
+
+          if [ -f "./results/redis-benchmark.md" ]; then
+            cat ./results/redis-benchmark.md >> combined-benchmark.md
+            echo "" >> combined-benchmark.md
+          fi
 
       - name: Write a new comment
         uses: peter-evans/create-or-update-comment@v2
         continue-on-error: true
         with:
           issue-number: ${{ github.event.issue.number }}
-          body-file: ./benchmark.md
+          body-file: ./combined-benchmark.md
