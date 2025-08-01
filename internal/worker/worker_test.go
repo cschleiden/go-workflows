@@ -25,6 +25,8 @@ func TestWorker(t *testing.T) {
 		// We anticipate that two heartbeats will be sent; The first will
 		// be sent early, relative to when work starts, due to the time spent waiting.
 		// The second will be sent after a regular heartbeat interval.
+
+		// Set up the test
 		be := backend.NewMockBackend(t)
 		logBuffer := &bytes.Buffer{}
 		logger := slog.New(slog.NewTextHandler(logBuffer, nil))
@@ -35,7 +37,7 @@ func TestWorker(t *testing.T) {
 			Pollers:           2,
 			HeartbeatInterval: heartbeatInterval,
 			MaxParallelTasks:  1,
-			PollingInterval:   100 * time.Millisecond,
+			PollingInterval:   heartbeatInterval / 10,
 		})
 		tw.On("Start", mock.Anything, mock.Anything).Return(nil).Once()
 		t1 := newStr("task1")
@@ -73,28 +75,29 @@ func TestWorker(t *testing.T) {
 		tw.On("Execute", mock.Anything, t1).Return(r1, nil).Once()
 		done := make(chan struct{})
 		tw.On("Complete", mock.Anything, r1, t1).Return(nil).Once().Run(func(args mock.Arguments) {
-			time.Sleep(2 * time.Second)
+			time.Sleep(2 * heartbeatInterval) // sleep to force 2 heartbeats before completion
 			close(done)
 		})
+
+		// Run the worker and wait for task to complete
 		require.NoError(t, w.Start(ctx))
 		<-done
-		func() {
-			mu.Lock()
-			defer mu.Unlock()
-			cancel()
-		}()
+		mu.Lock()
+		cancel()
+		mu.Unlock()
 		require.NoError(t, w.WaitForCompletion())
 
-		assert.Len(t, taskExtensions, 2)
+		// We should have 2 heartbeats
+		require.Len(t, taskExtensions, 2)
 
-		// first heartbeat
+		// First heartbeat
 		timeBeforeFirstExtend := taskExtensions[0].Sub(pollTime).Nanoseconds()
 		timeBetweenStartAndPoll := startWorkTime.Sub(pollTime).Nanoseconds()
 		expectedTimeBeforeFirst := heartbeatInterval.Nanoseconds() - timeBetweenStartAndPoll
 		wiggleRoom := float64(heartbeatInterval.Nanoseconds()) * 0.05 // 5% wiggle room
 		assert.InDelta(t, expectedTimeBeforeFirst, timeBeforeFirstExtend, wiggleRoom)
 
-		// second heartbeat
+		// Second heartbeat
 		timeBetweenFirstAndSecond := taskExtensions[1].Sub(taskExtensions[0]).Nanoseconds()
 		expectedTimeBetweenFirstAndSecond := heartbeatInterval.Nanoseconds()
 		assert.InDelta(t, expectedTimeBetweenFirstAndSecond, timeBetweenFirstAndSecond, wiggleRoom)
@@ -105,6 +108,8 @@ func TestWorker(t *testing.T) {
 		// on the first call to Extend. We make the Execute call
 		// artificially long so that it gets interrupted by the cancellation
 		// of the task concept, triggered by the stopped heartbeat.
+
+		// Set up the test
 		be := backend.NewMockBackend(t)
 		logBuffer := &bytes.Buffer{}
 		logger := slog.New(slog.NewTextHandler(logBuffer, nil))
@@ -115,7 +120,7 @@ func TestWorker(t *testing.T) {
 			Pollers:           2,
 			HeartbeatInterval: heartbeatInterval,
 			MaxParallelTasks:  1,
-			PollingInterval:   100 * time.Millisecond,
+			PollingInterval:   heartbeatInterval / 10,
 		})
 		tw.On("Start", mock.Anything, mock.Anything).Return(nil).Once()
 		t1 := newStr("task1")
@@ -123,7 +128,8 @@ func TestWorker(t *testing.T) {
 		tw.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		tw.On("Extend", mock.Anything, t1).Return(errors.New("test error")).Once()
+		extendErr := errors.New("test error")
+		tw.On("Extend", mock.Anything, t1).Return(extendErr).Once()
 		executeCompleted := false
 		done := make(chan struct{})
 		tw.On("Execute", mock.Anything, t1).Return(nil, context.Canceled).Once().Run(func(args mock.Arguments) {
@@ -135,10 +141,17 @@ func TestWorker(t *testing.T) {
 			}
 			close(done)
 		})
+
+		// Run the worker and wait for task to complete
 		require.NoError(t, w.Start(ctx))
 		<-done
 		cancel()
 		require.NoError(t, w.WaitForCompletion())
+
+		// Execute should not have been called since the task ctx should be cancelled
 		assert.False(t, executeCompleted)
+
+		// We should have logged this error (this is not very exact, but better than nothing)
+		assert.Contains(t, logBuffer.String(), extendErr.Error())
 	})
 }
