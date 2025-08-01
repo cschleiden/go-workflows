@@ -187,9 +187,7 @@ func (w *Worker[Task, TaskResult]) handle(ctx context.Context, tt timestampedTas
 	if w.options.HeartbeatInterval > 0 {
 		// Start heartbeat while processing task
 		go func() {
-			// If heartbeat stops, cancel the task.
-			// A stopped heartbeat indicates that the backend
-			// no longer recognizes our ownership of the task.
+			// If heartbeat stops, cancel the task
 			defer cancelTask()
 			w.heartbeatTask(ctx, tt)
 		}()
@@ -204,8 +202,8 @@ func (w *Worker[Task, TaskResult]) handle(ctx context.Context, tt timestampedTas
 }
 
 func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, tt timestampedTask[Task]) {
-	// For first heartbeat, check how long it's been since
-	// the task was polled.
+	// For first heartbeat, discount wait time based on
+	// how long it's been since the task was polled.
 	timeSincePoll := w.currentTime().Sub(tt.pollTime)
 	select {
 	case <-ctx.Done():
