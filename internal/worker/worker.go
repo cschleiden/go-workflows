@@ -125,6 +125,7 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				w.logger.ErrorContext(ctx, "error polling task", "error", err)
+				w.taskQueue.release()
 			}
 		} else if task != nil {
 			if err := w.taskQueue.add(ctx, task); err != nil {
