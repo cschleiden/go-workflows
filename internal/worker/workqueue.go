@@ -3,9 +3,8 @@ package worker
 import "context"
 
 type workQueue[Task any] struct {
-	tasks       chan *Task
-	slots       chan struct{}
-	emptyNotify chan struct{}
+	tasks chan *Task
+	slots chan struct{}
 }
 
 func newWorkQueue[Task any](maxParallelTasks int) *workQueue[Task] {
