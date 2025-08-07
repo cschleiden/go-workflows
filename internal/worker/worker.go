@@ -27,7 +27,7 @@ type Worker[Task, TaskResult any] struct {
 
 	tw TaskWorker[Task, TaskResult]
 
-	taskQueue chan *Task
+	taskQueue *workQueue[Task]
 
 	logger *slog.Logger
 
@@ -64,7 +64,7 @@ func NewWorker[Task, TaskResult any](
 	return &Worker[Task, TaskResult]{
 		tw:             tw,
 		options:        options,
-		taskQueue:      make(chan *Task),
+		taskQueue:      newWorkQueue[Task](options.MaxParallelTasks),
 		logger:         b.Options().Logger,
 		dispatcherDone: make(chan struct{}, 1),
 	}
@@ -91,7 +91,7 @@ func (w *Worker[Task, TaskResult]) WaitForCompletion() error {
 	w.pollersWg.Wait()
 
 	// Wait for tasks to finish
-	close(w.taskQueue)
+	close(w.taskQueue.tasks)
 	<-w.dispatcherDone
 
 	return nil
@@ -114,16 +114,33 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 		default:
 		}
 
+		// Reserve slot for work we might get. This blocks if there are no slots available.
+		if err := w.taskQueue.reserve(ctx); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+		}
+
 		task, err := w.poll(ctx, 30*time.Second)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				w.logger.ErrorContext(ctx, "error polling task", "error", err)
+				w.taskQueue.release()
 			}
 		} else if task != nil {
-			w.taskQueue <- task
+			if err := w.taskQueue.add(ctx, task); err != nil {
+				if !errors.Is(err, context.Canceled) {
+					w.logger.ErrorContext(ctx, "error adding task to queue", "error", err)
+					w.taskQueue.release()
+				}
+			}
 			continue // check for new tasks right away
+		} else {
+			// Did not use the reserved slot, release
+			w.taskQueue.release()
 		}
 
+		// Optionally wait between unsuccessful polling attempts
 		if w.options.PollingInterval > 0 {
 			select {
 			case <-ticker.C:
@@ -135,24 +152,14 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 }
 
 func (w *Worker[Task, TaskResult]) dispatcher() {
-	var sem chan struct{}
-
-	if w.options.MaxParallelTasks > 0 {
-		sem = make(chan struct{}, w.options.MaxParallelTasks)
-	}
-
 	var wg sync.WaitGroup
 
-	for t := range w.taskQueue {
-		// If limited max tasks, wait for a slot to open up
-		if sem != nil {
-			sem <- struct{}{}
-		}
-
+	for t := range w.taskQueue.tasks {
 		wg.Add(1)
 
 		t := t
 		go func() {
+			defer w.taskQueue.release()
 			defer wg.Done()
 
 			// Create new context to allow tasks to complete when root context is canceled
@@ -160,15 +167,13 @@ func (w *Worker[Task, TaskResult]) dispatcher() {
 			if err := w.handle(taskCtx, t); err != nil {
 				w.logger.ErrorContext(taskCtx, "error handling task", "error", err)
 			}
-
-			if sem != nil {
-				<-sem
-			}
 		}()
 	}
 
+	// Wait for all pending tasks to finish
 	wg.Wait()
 
+	// Then notify anyone waiting for this that the dispatcher is done.
 	w.dispatcherDone <- struct{}{}
 }
 
