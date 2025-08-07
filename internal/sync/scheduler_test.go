@@ -167,7 +167,7 @@ func Test_Scheduler_Panic(t *testing.T) {
 
 	err := s.Execute()
 
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, "panic: something went wrong", err.Error())
 	require.Equal(t, 0, s.RunningCoroutines())
 }

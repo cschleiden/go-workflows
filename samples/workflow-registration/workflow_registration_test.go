@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/tester"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/tester"
 )
 
 func Test_Workflow(t *testing.T) {
@@ -22,6 +23,6 @@ func Test_Workflow(t *testing.T) {
 
 	wr, werr := tester.WorkflowResult()
 	require.Equal(t, 47, wr)
-	require.Empty(t, werr)
+	require.NoError(t, werr)
 	tester.AssertExpectations(t)
 }

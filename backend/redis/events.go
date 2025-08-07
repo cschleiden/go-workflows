@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/redis/go-redis/v9"
 )
 
 type eventWithoutAttributes struct {

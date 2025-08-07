@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	redisv8 "github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/monoprocess"
 	"github.com/cschleiden/go-workflows/backend/mysql"
@@ -18,20 +20,21 @@ import (
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
-	redisv8 "github.com/redis/go-redis/v9"
 )
 
-var b = flag.String("backend", "redis", "Backend to use. Supported backends are:\n- redis\n- mysql\n- sqlite\n")
-var timeout = flag.Duration("timeout", time.Second*30, "Timeout for the benchmark run")
-var scenario = flag.String("scenario", "basic", "Scenario to run. Support scenarios are:\n- basic\n")
-var runs = flag.Int("runs", 1, "Number of root workflows to start")
-var depth = flag.Int("depth", 2, "Depth of mid workflows")
-var fanOut = flag.Int("fanout", 2, "Number of child workflows to execute per root/mid workflow")
-var leafFanOut = flag.Int("leaffanout", 2, "Number of leaf workflows to execute per mid workflow")
-var activities = flag.Int("activities", 2, "Number of activities to execute per leaf workflow")
-var resultSize = flag.Int("resultsize", 100, "Size of activity result payload in bytes")
-var format = flag.String("format", "text", "Output format. Supported formats are:\n- text\n- csv\n")
-var cacheSize = flag.Int("cachesize", 128, "Size of the workflow executor cache")
+var (
+	b          = flag.String("backend", "redis", "Backend to use. Supported backends are:\n- redis\n- mysql\n- sqlite\n")
+	timeout    = flag.Duration("timeout", time.Second*30, "Timeout for the benchmark run")
+	scenario   = flag.String("scenario", "basic", "Scenario to run. Support scenarios are:\n- basic\n")
+	runs       = flag.Int("runs", 1, "Number of root workflows to start")
+	depth      = flag.Int("depth", 2, "Depth of mid workflows")
+	fanOut     = flag.Int("fanout", 2, "Number of child workflows to execute per root/mid workflow")
+	leafFanOut = flag.Int("leaffanout", 2, "Number of leaf workflows to execute per mid workflow")
+	activities = flag.Int("activities", 2, "Number of activities to execute per leaf workflow")
+	resultSize = flag.Int("resultsize", 100, "Size of activity result payload in bytes")
+	format     = flag.String("format", "text", "Output format. Supported formats are:\n- text\n- csv\n")
+	cacheSize  = flag.Int("cachesize", 128, "Size of the workflow executor cache")
+)
 
 func main() {
 	flag.Parse()

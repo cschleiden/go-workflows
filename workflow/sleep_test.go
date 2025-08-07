@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
 func Test_Sleep_Yields(t *testing.T) {

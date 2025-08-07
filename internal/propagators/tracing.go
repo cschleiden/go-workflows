@@ -3,10 +3,11 @@ package propagators
 import (
 	"context"
 
-	"github.com/cschleiden/go-workflows/internal/tracing"
-	"github.com/cschleiden/go-workflows/workflow"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/cschleiden/go-workflows/internal/tracing"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 var propagator propagation.TextMapPropagator = propagation.NewCompositeTextMapPropagator(
@@ -22,8 +23,7 @@ func extractSpan(ctx context.Context, metadata *workflow.Metadata) context.Conte
 	return propagator.Extract(ctx, metadata)
 }
 
-type TracingContextPropagator struct {
-}
+type TracingContextPropagator struct{}
 
 var _ workflow.ContextPropagator = &TracingContextPropagator{}
 
