@@ -33,12 +33,14 @@ import (
 var migrationsFS embed.FS
 
 func NewInMemoryBackend(opts ...option) *sqliteBackend {
-	b := newSqliteBackend("file::memory:?mode=memory&cache=shared", opts...)
+	// Use a unique named in-memory database
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
+	b := newSqliteBackend(dsn, opts...)
 
 	b.db.SetConnMaxIdleTime(0)
 	b.db.SetMaxIdleConns(1)
 
-	// WORKAROUND: Keep a connection open at all times to prevent hte in-memory db from being dropped
+	// WORKAROUND: Keep a connection open at all times to prevent the in-memory db from being dropped
 	b.db.SetMaxOpenConns(2)
 
 	var err error
