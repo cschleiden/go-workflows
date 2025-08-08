@@ -537,6 +537,7 @@ func TestWorker_FullWorkflow(t *testing.T) {
 		// Track processed tasks
 		var processedTasks int32
 		var taskResults []*testResult
+		var mu sync.Mutex
 
 		task1 := &testTask{ID: 1, Data: "task1"}
 		task2 := &testTask{ID: 2, Data: "task2"}
@@ -553,10 +554,14 @@ func TestWorker_FullWorkflow(t *testing.T) {
 
 		mockTaskWorker.On("Execute", mock.Anything, task1).Return(result1, nil).Run(func(args mock.Arguments) {
 			atomic.AddInt32(&processedTasks, 1)
+			mu.Lock()
+			defer mu.Unlock()
 			taskResults = append(taskResults, result1)
 		})
 		mockTaskWorker.On("Execute", mock.Anything, task2).Return(result2, nil).Run(func(args mock.Arguments) {
 			atomic.AddInt32(&processedTasks, 1)
+			mu.Lock()
+			defer mu.Unlock()
 			taskResults = append(taskResults, result2)
 		})
 
