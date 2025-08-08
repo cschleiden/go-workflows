@@ -314,8 +314,8 @@ func TestWorker_Handle(t *testing.T) {
 		task := &testTask{ID: 1, Data: "test"}
 		result := &testResult{Output: "success"}
 
-		mockTaskWorker.On("Execute", ctx, task).Return(result, nil)
-		mockTaskWorker.On("Complete", ctx, result, task).Return(nil)
+		mockTaskWorker.On("Execute", mock.Anything, task).Return(result, nil)
+		mockTaskWorker.On("Complete", mock.Anything, result, task).Return(nil)
 
 		err := worker.handle(ctx, task)
 		assert.NoError(t, err)
@@ -339,8 +339,8 @@ func TestWorker_Handle(t *testing.T) {
 		task := &testTask{ID: 1, Data: "test"}
 		result := &testResult{Output: "success"}
 
-		mockTaskWorker.On("Execute", ctx, task).Return(result, nil)
-		mockTaskWorker.On("Complete", ctx, result, task).Return(nil)
+		mockTaskWorker.On("Execute", mock.Anything, task).Return(result, nil)
+		mockTaskWorker.On("Complete", mock.Anything, result, task).Return(nil)
 		// Heartbeat might be called during execution
 		mockTaskWorker.On("Extend", mock.Anything, task).Return(nil).Maybe()
 
@@ -365,7 +365,7 @@ func TestWorker_Handle(t *testing.T) {
 		task := &testTask{ID: 1, Data: "test"}
 		expectedErr := errors.New("execution error")
 
-		mockTaskWorker.On("Execute", ctx, task).Return(nil, expectedErr)
+		mockTaskWorker.On("Execute", mock.Anything, task).Return(nil, expectedErr)
 
 		err := worker.handle(ctx, task)
 		assert.Error(t, err)
@@ -391,12 +391,45 @@ func TestWorker_Handle(t *testing.T) {
 		result := &testResult{Output: "success"}
 		expectedErr := errors.New("completion error")
 
-		mockTaskWorker.On("Execute", ctx, task).Return(result, nil)
-		mockTaskWorker.On("Complete", ctx, result, task).Return(expectedErr)
+		mockTaskWorker.On("Execute", mock.Anything, task).Return(result, nil)
+		mockTaskWorker.On("Complete", mock.Anything, result, task).Return(expectedErr)
 
 		err := worker.handle(ctx, task)
 		assert.Error(t, err)
 		assert.Equal(t, expectedErr, err)
+
+		mockTaskWorker.AssertExpectations(t)
+	})
+
+	t.Run("abort processing on heartbeat extend failure", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:           1,
+			MaxParallelTasks:  1,
+			HeartbeatInterval: time.Millisecond * 5,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		task := &testTask{ID: 1, Data: "test"}
+
+		// Simulate Extend failing immediately so the heartbeat cancels processing
+		mockTaskWorker.On("Extend", mock.Anything, task).Return(errors.New("extend failed")).Maybe()
+
+		// Execute should see canceled context and return context.Canceled or respect ctx.Done
+		mockTaskWorker.On("Execute", mock.Anything, task).Return(nil, context.Canceled)
+
+		// Complete must NOT be called when execution is aborted due to lost ownership
+		// No expectation set for Complete to ensure it's not invoked
+		mockTaskWorker.AssertNotCalled(t, "Complete", mock.Anything, mock.Anything, mock.Anything)
+
+		err := worker.handle(ctx, task)
+		require.Error(t, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -423,7 +456,7 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 		// Expect multiple heartbeat calls
 		mockTaskWorker.On("Extend", ctx, task).Return(nil)
 
-		worker.heartbeatTask(ctx, task)
+		worker.heartbeatTask(ctx, task, nil)
 
 		// Should have called Extend at least once
 		mockTaskWorker.AssertExpectations(t)
@@ -450,7 +483,7 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 		mockTaskWorker.On("Extend", ctx, task).Return(expectedErr)
 
 		// Should not panic even with errors
-		worker.heartbeatTask(ctx, task)
+		worker.heartbeatTask(ctx, task, nil)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -475,7 +508,7 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 
 		// Should exit quickly without calling Extend
 		start := time.Now()
-		worker.heartbeatTask(ctx, task)
+		worker.heartbeatTask(ctx, task, nil)
 		duration := time.Since(start)
 
 		assert.Less(t, duration, time.Millisecond*100)
