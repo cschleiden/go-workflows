@@ -178,22 +178,30 @@ func (w *Worker[Task, TaskResult]) dispatcher() {
 }
 
 func (w *Worker[Task, TaskResult]) handle(ctx context.Context, t *Task) error {
+	// Create a cancelable context for this task so we can abort processing on heartbeat failure
+	taskCtx, cancelTask := context.WithCancel(ctx)
+	defer cancelTask()
+
 	if w.options.HeartbeatInterval > 0 {
-		// Start heartbeat while processing task
-		heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
-		defer cancelHeartbeat()
-		go w.heartbeatTask(heartbeatCtx, t)
+		// Start heartbeat while processing task.
+		// If Extend fails we assume we might not own the task anymore and cancel processing.
+		go w.heartbeatTask(taskCtx, t, cancelTask)
 	}
 
-	result, err := w.tw.Execute(ctx, t)
+	result, err := w.tw.Execute(taskCtx, t)
 	if err != nil {
+		// If execution was canceled (e.g., because heartbeat extend failed), abort without completing.
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
+
 		return fmt.Errorf("executing task: %w", err)
 	}
 
 	return w.tw.Complete(ctx, result, t)
 }
 
-func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, task *Task) {
+func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, task *Task, cancel func()) {
 	t := time.NewTicker(w.options.HeartbeatInterval)
 	defer t.Stop()
 
@@ -204,6 +212,13 @@ func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, task *Task
 		case <-t.C:
 			if err := w.tw.Extend(ctx, task); err != nil {
 				w.logger.ErrorContext(ctx, "could not heartbeat task", "error", err)
+
+				// We might not own the task anymore, abort processing
+				if cancel != nil {
+					cancel()
+				}
+
+				return
 			}
 		}
 	}
