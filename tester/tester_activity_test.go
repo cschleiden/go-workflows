@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/activity"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/activity"
+	"github.com/cschleiden/go-workflows/workflow"
 )
 
 func Test_Activity_Long(t *testing.T) {

@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
@@ -14,7 +16,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/propagators"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/redis/go-redis/v9"
 )
 
 func (rb *redisBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {

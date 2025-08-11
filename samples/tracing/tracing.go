@@ -5,25 +5,23 @@ import (
 	"log"
 	"time"
 
-	"github.com/cschleiden/go-workflows/backend"
-	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/core"
-	"github.com/cschleiden/go-workflows/samples"
-	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/cschleiden/go-workflows/workflow/executor"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-
+	"github.com/cschleiden/go-workflows/backend"
+	"github.com/cschleiden/go-workflows/client"
+	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/samples"
 	"github.com/cschleiden/go-workflows/worker"
-
-	"github.com/google/uuid"
+	"github.com/cschleiden/go-workflows/workflow"
+	"github.com/cschleiden/go-workflows/workflow/executor"
 )
 
 func main() {
@@ -106,8 +104,7 @@ func runWorkflow(ctx context.Context, c *client.Client) {
 }
 
 // Ensure we aren't caching for this sample
-type noopWorkflowExecutorCache struct {
-}
+type noopWorkflowExecutorCache struct{}
 
 var _ executor.Cache = (*noopWorkflowExecutorCache)(nil)
 

@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cschleiden/go-workflows/activity"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/activity"
 )
 
 func Activity(ctx context.Context, a int, b int) (int, error) {

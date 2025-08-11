@@ -9,7 +9,7 @@ import (
 func Test_newKeys(t *testing.T) {
 	t.Run("WithEmptyPrefix", func(t *testing.T) {
 		k := newKeys("")
-		require.Equal(t, "", k.prefix)
+		require.Empty(t, k.prefix)
 	})
 
 	t.Run("WithNonEmptyPrefixWithoutColon", func(t *testing.T) {

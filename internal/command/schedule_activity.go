@@ -2,6 +2,7 @@ package command
 
 import (
 	"github.com/benbjohnson/clock"
+
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"

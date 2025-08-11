@@ -7,14 +7,15 @@ import (
 	"io/fs"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var _ backend.Backend = (*redisBackend)(nil)
