@@ -64,21 +64,6 @@ func executeActivity[TResult any](ctx Context, options ActivityOptions, attempt 
 
 	name := fn.Name(activity)
 
-	// Auto-register activity if in single worker mode
-	if contextvalue.IsSingleWorkerMode(ctx) {
-		r := contextvalue.GetRegistry(ctx)
-		if r != nil {
-			_, err := r.GetActivity(name)
-			if err != nil {
-				// Activity not found in registry, register it directly
-				if err := r.RegisterActivity(activity); err != nil {
-					f.Set(*new(TResult), fmt.Errorf("auto-registering activity %s: %w", name, err))
-					return f
-				}
-			}
-		}
-	}
-
 	// Capture context
 	propagators := propagators(ctx)
 	metadata := &Metadata{}

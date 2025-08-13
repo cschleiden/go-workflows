@@ -89,7 +89,6 @@ func NewExecutor(
 	metadata *metadata.WorkflowMetadata,
 	clock clock.Clock,
 	maxHistorySize int64,
-	singleWorkerMode bool,
 ) (WorkflowExecutor, error) {
 	s := workflowstate.NewWorkflowState(instance, logger, tracer, clock)
 
@@ -98,11 +97,6 @@ func NewExecutor(
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
 	wfCtx = sync.WithValue(wfCtx, contextvalue.PropagatorsCtxKey, propagators)
 	wfCtx = contextvalue.WithRegistry(wfCtx, r)
-
-	// Set single worker mode flag if requested
-	if singleWorkerMode {
-		wfCtx = contextvalue.WithSingleWorkerMode(wfCtx)
-	}
 
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 

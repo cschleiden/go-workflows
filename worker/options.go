@@ -42,9 +42,9 @@ type Options struct {
 	WorkflowWorkerOptions
 	ActivityWorkerOptions
 
-	// SingleWorkerMode enables automatic registration of workflows and activities
-	// when they are used in workflows. This is useful for simple scenarios where
-	// you don't want to explicitly register each workflow and activity.
+	// SingleWorkerMode enables optimizations for scenarios where only a single worker
+	// is processing tasks. This should only be enabled when you have exactly one worker
+	// instance running.
 	SingleWorkerMode bool
 }
 

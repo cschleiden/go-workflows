@@ -27,7 +27,6 @@ type WorkflowWorkerOptions struct {
 	WorkflowExecutorCache     executor.Cache
 	WorkflowExecutorCacheSize int
 	WorkflowExecutorCacheTTL  time.Duration
-	SingleWorkerMode          bool
 }
 
 func NewWorkflowWorker(
@@ -40,22 +39,20 @@ func NewWorkflowWorker(
 	}
 
 	tw := &WorkflowTaskWorker{
-		backend:          b,
-		registry:         registry,
-		cache:            options.WorkflowExecutorCache,
-		logger:           b.Options().Logger,
-		singleWorkerMode: options.SingleWorkerMode,
+		backend:  b,
+		registry: registry,
+		cache:    options.WorkflowExecutorCache,
+		logger:   b.Options().Logger,
 	}
 
 	return NewWorker(b, tw, &options.WorkerOptions)
 }
 
 type WorkflowTaskWorker struct {
-	backend          backend.Backend
-	registry         *registry.Registry
-	cache            executor.Cache
-	logger           *slog.Logger
-	singleWorkerMode bool
+	backend  backend.Backend
+	registry *registry.Registry
+	cache    executor.Cache
+	logger   *slog.Logger
 }
 
 func (wtw *WorkflowTaskWorker) Start(ctx context.Context, queues []workflow.Queue) error {
@@ -184,7 +181,6 @@ func (wtw *WorkflowTaskWorker) getExecutor(ctx context.Context, t *backend.Workf
 			t.Metadata,
 			clock.New(),
 			wtw.backend.Options().MaxHistorySize,
-			wtw.singleWorkerMode,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating workflow task executor: %w", err)

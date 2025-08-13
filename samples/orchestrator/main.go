@@ -25,6 +25,10 @@ func main() {
 		nil,
 	)
 
+	// Register workflows and activities explicitly
+	orchestrator.RegisterWorkflow(SimpleWorkflow)
+	orchestrator.RegisterActivity(ProcessMessage)
+
 	if err := orchestrator.Start(ctx); err != nil {
 		panic("could not start orchestrator: " + err.Error())
 	}
@@ -32,7 +36,7 @@ func main() {
 	// Create instance ID
 	instanceID := uuid.NewString()
 
-	// Create and run workflow using the orchestrator - no explicit registration needed
+	// Create and run workflow using the orchestrator
 	instance, err := orchestrator.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: instanceID,
 	}, SimpleWorkflow, "Hello from orchestrator!")
@@ -69,7 +73,6 @@ func SimpleWorkflow(ctx workflow.Context, message string) (string, error) {
 }
 
 // ProcessMessage is a simple activity that processes a message
-// When orchestrator mode is enabled, this will be automatically registered
 func ProcessMessage(ctx context.Context, message string) (string, error) {
 	return message + " (processed by activity)", nil
 }

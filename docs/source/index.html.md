@@ -141,16 +141,12 @@ With the exception of the in-memory backend, we do not have to start the workflo
 For simpler scenarios where you don't need the separation between client and worker, you can use the `WorkflowOrchestrator` which combines both:
 
 ```go
-// Define the workflow with activities that will be auto-registered
-func AutoRegisteredWorkflow(ctx workflow.Context, input string) (string, error) {
-	// When using WorkflowOrchestrator, activities are automatically registered
-	// You can directly use any activity function without registering it first
+func MyWorkflow(ctx workflow.Context, input string) (string, error) {
 	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1).Get(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	// Another activity that will be auto-registered
 	r2, err := workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, FormatResult, input, r1).Get(ctx)
 	if err != nil {
 		return "", err
@@ -159,7 +155,6 @@ func AutoRegisteredWorkflow(ctx workflow.Context, input string) (string, error) 
 	return r2, nil
 }
 
-// Activities are automatically registered when using WorkflowOrchestrator
 func Activity1(ctx context.Context) (int, error) {
 	return 42, nil
 }
@@ -176,8 +171,10 @@ func main() {
 	// Create orchestrator instead of separate client and worker
 	orchestrator := worker.NewWorkflowOrchestrator(b, nil)
 
-	// Workflows are automatically registered
-	// Activities defined with InlineActivity don't need registration
+	// Register workflows and activities explicitly
+	orchestrator.RegisterWorkflow(MyWorkflow)
+	orchestrator.RegisterActivity(Activity1)
+	orchestrator.RegisterActivity(FormatResult)
 
 	// Start the orchestrator
 	if err := orchestrator.Start(ctx); err != nil {
@@ -187,7 +184,7 @@ func main() {
 	// Create workflow instance
 	wf, err := orchestrator.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
-	}, AutoRegisteredWorkflow, "input-for-workflow")
+	}, MyWorkflow, "input-for-workflow")
 	if err != nil {
 		panic("could not start workflow")
 	}
@@ -202,4 +199,4 @@ func main() {
 }
 ```
 
-The `WorkflowOrchestrator` provides automatic registration of workflows when passing workflow functions directly to `CreateWorkflowInstance`. For activities, the orchestrator automatically registers any activities used in the workflows via `ExecuteActivity` without explicit registration. Similarly, any sub-workflows created with `CreateSubWorkflowInstance` are registered automatically. This approach offers a unified API for workflow creation and execution in a single component, simplifying the development experience for simpler scenarios.
+The `WorkflowOrchestrator` provides a unified API for workflow creation and execution in a single component, combining both client and worker functionality. You need to explicitly register workflows and activities before starting the orchestrator, ensuring proper registration before any workflow or activity tasks are processed.

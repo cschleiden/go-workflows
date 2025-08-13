@@ -2,12 +2,10 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
-	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/registry"
 	"github.com/cschleiden/go-workflows/workflow"
 )
@@ -26,9 +24,8 @@ func NewWorkflowOrchestrator(backend backend.Backend, options *Options) *Workflo
 		options = &DefaultOptions
 	}
 
-	// Enable SingleWorkerMode automatically for the orchestrator
+	// Create copy of options without auto-enabling SingleWorkerMode
 	orchestratorOptions := *options
-	orchestratorOptions.SingleWorkerMode = true
 
 	// Set default pollers to 1 for orchestrator mode (unless explicitly overridden)
 	if orchestratorOptions.WorkflowPollers == DefaultOptions.WorkflowPollers {
@@ -41,8 +38,8 @@ func NewWorkflowOrchestrator(backend backend.Backend, options *Options) *Workflo
 	// Create registry that will be shared between worker and orchestrator
 	reg := registry.New()
 
-	// Create a regular worker with the registry and SingleWorkerMode enabled
-	workflowWorker := newWorkflowWorker(backend, reg, &orchestratorOptions.WorkflowWorkerOptions, orchestratorOptions.SingleWorkerMode)
+	// Create a regular worker with the registry
+	workflowWorker := newWorkflowWorker(backend, reg, &orchestratorOptions.WorkflowWorkerOptions)
 	activityWorker := newActivityWorker(backend, reg, &orchestratorOptions.ActivityWorkerOptions)
 	w := newWorker(backend, reg, []worker{workflowWorker, activityWorker})
 	c := client.New(backend)
@@ -57,7 +54,7 @@ func NewWorkflowOrchestrator(backend backend.Backend, options *Options) *Workflo
 	return orchestrator
 }
 
-// Start starts the worker with single worker mode enabled.
+// Start starts the worker.
 func (o *WorkflowOrchestrator) Start(ctx context.Context) error {
 	return o.worker.Start(ctx)
 }
@@ -68,21 +65,7 @@ func (o *WorkflowOrchestrator) WaitForCompletion() error {
 }
 
 // CreateWorkflowInstance creates a new workflow instance using the client.
-// Automatically registers the workflow if it's not already registered.
 func (o *WorkflowOrchestrator) CreateWorkflowInstance(ctx context.Context, options client.WorkflowInstanceOptions, wf workflow.Workflow, args ...any) (*workflow.Instance, error) {
-	// Check if the workflow is a function (not a string name) and register it if needed
-	if _, ok := wf.(string); !ok {
-		// It's a function reference, try to register it if not already registered
-		name := fn.Name(wf)
-		_, err := o.registry.GetWorkflow(name)
-		if err != nil {
-			// Workflow not found in registry, register it directly
-			if err := o.worker.RegisterWorkflow(wf); err != nil {
-				return nil, fmt.Errorf("auto-registering workflow %s: %w", name, err)
-			}
-		}
-	}
-
 	return o.Client.CreateWorkflowInstance(ctx, options, wf, args...)
 }
 
@@ -97,6 +80,16 @@ func (o *WorkflowOrchestrator) WaitForWorkflowInstance(ctx context.Context, inst
 // SignalWorkflow signals a workflow instance.
 func (o *WorkflowOrchestrator) SignalWorkflow(ctx context.Context, instanceID string, name string, arg any) error {
 	return o.Client.SignalWorkflow(ctx, instanceID, name, arg)
+}
+
+// RegisterWorkflow registers a workflow with the orchestrator's registry.
+func (o *WorkflowOrchestrator) RegisterWorkflow(wf workflow.Workflow, opts ...registry.RegisterOption) error {
+	return o.worker.RegisterWorkflow(wf, opts...)
+}
+
+// RegisterActivity registers an activity with the orchestrator's registry.
+func (o *WorkflowOrchestrator) RegisterActivity(a workflow.Activity, opts ...registry.RegisterOption) error {
+	return o.worker.RegisterActivity(a, opts...)
 }
 
 // RemoveWorkflowInstance removes a workflow instance.
