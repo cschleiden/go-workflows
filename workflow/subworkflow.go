@@ -58,21 +58,6 @@ func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	} else {
 		workflowName = fn.Name(wf)
 
-		// Auto-register workflow if in single worker mode
-		if contextvalue.IsSingleWorkerMode(ctx) {
-			r := contextvalue.GetRegistry(ctx)
-			if r != nil {
-				_, err := r.GetWorkflow(workflowName)
-				if err != nil {
-					// Workflow not found in registry, register it directly
-					if err := r.RegisterWorkflow(wf); err != nil {
-						f.Set(*new(TResult), fmt.Errorf("auto-registering workflow %s: %w", workflowName, err))
-						return f
-					}
-				}
-			}
-		}
-
 		if err := a.ReturnTypeMatch[TResult](wf); err != nil {
 			f.Set(*new(TResult), err)
 			return f
