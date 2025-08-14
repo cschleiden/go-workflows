@@ -124,6 +124,18 @@ func WithWorkerName(workerName string) BackendOption {
 	}
 }
 
+func WithWorkflowLockTimeout(timeout time.Duration) BackendOption {
+	return func(o *Options) {
+		o.WorkflowLockTimeout = timeout
+	}
+}
+
+func WithActivityLockTimeout(timeout time.Duration) BackendOption {
+	return func(o *Options) {
+		o.ActivityLockTimeout = timeout
+	}
+}
+
 func ApplyOptions(opts ...BackendOption) *Options {
 	options := DefaultOptions
 
