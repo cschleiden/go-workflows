@@ -124,6 +124,22 @@ func WithWorkerName(workerName string) BackendOption {
 	}
 }
 
+// WithWorkflowLockTimeout sets the timeout for workflow task locks. If a workflow task is not completed
+// within this timeframe, it's considered abandoned and another worker might pick it up.
+func WithWorkflowLockTimeout(timeout time.Duration) BackendOption {
+	return func(o *Options) {
+		o.WorkflowLockTimeout = timeout
+	}
+}
+
+// WithActivityLockTimeout sets the timeout for activity task locks. If an activity task is not completed
+// within this timeframe, it's considered abandoned and another worker might pick it up.
+func WithActivityLockTimeout(timeout time.Duration) BackendOption {
+	return func(o *Options) {
+		o.ActivityLockTimeout = timeout
+	}
+}
+
 func ApplyOptions(opts ...BackendOption) *Options {
 	options := DefaultOptions
 
