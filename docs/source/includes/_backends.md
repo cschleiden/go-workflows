@@ -8,6 +8,7 @@ There are three backend implementations maintained in this repository. Some back
 - `WithTracerProvider(tp trace.TracerProvider)` - Set the OpenTelemetry tracer provider
 - `WithConverter(converter converter.Converter)` - Provide a custom `Converter` implementation
 - `WithContextPropagator(prop workflow.ContextPropagator)` - Adds a custom context propagator
+- `WithRemoveContinuedAsNewInstances()` - Immediately removes workflow instances that complete using ContinueAsNew, including their history. ContinueAsNew allows workflows to restart with new parameters while preserving the same instance ID. By default, such instances are retained according to the configured retention policy. Use this option to prevent storage bloat in workflows that frequently use ContinueAsNew.
 
 
 ## SQLite
