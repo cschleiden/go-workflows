@@ -3,6 +3,8 @@
 There are three backend implementations maintained in this repository. Some backend implementations have custom options and all of them accept:
 
 - `WithStickyTimeout(timeout time.Duration)` - Set the timeout for sticky tasks. Defaults to 30 seconds
+- `WithWorkflowLockTimeout(timeout time.Duration)` - Set the timeout for workflow task locks. Defaults to 1 minute
+- `WithActivityLockTimeout(timeout time.Duration)` - Set the timeout for activity task locks. Defaults to 2 minutes
 - `WithLogger(logger *slog.Logger)` - Set the logger implementation
 - `WithMetrics(client metrics.Client)` - Set the metrics client
 - `WithTracerProvider(tp trace.TracerProvider)` - Set the OpenTelemetry tracer provider
