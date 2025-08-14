@@ -326,7 +326,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 
 func (e *executor) Close() {
 	if e.workflow != nil {
-		e.logger.Debug("Stopping workflow executor", log.InstanceIDKey, e.workflowState.Instance().InstanceID)
+		e.logger.Debug("Stopping workflow executor")
 
 		// End workflow if running to prevent leaking goroutines
 		e.workflow.Close()
@@ -335,7 +335,6 @@ func (e *executor) Close() {
 
 func (e *executor) executeEvent(event *history.Event) error {
 	fields := []any{
-		log.InstanceIDKey, e.workflowState.Instance().InstanceID,
 		log.EventIDKey, event.ID,
 		log.SeqIDKey, event.SequenceID,
 		log.EventTypeKey, event.Type,
