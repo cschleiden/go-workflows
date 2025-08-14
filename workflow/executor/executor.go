@@ -110,11 +110,6 @@ func NewExecutor(
 		}
 	}
 
-	logger = logger.With(
-		slog.String(log.InstanceIDKey, instance.InstanceID),
-		slog.String(log.ExecutionIDKey, instance.ExecutionID),
-	)
-
 	return &executor{
 		registry:          r,
 		historyProvider:   historyProvider,
