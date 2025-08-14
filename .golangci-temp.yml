@@ -1,0 +1,9 @@
+run:
+  tests: false
+
+linters:
+  enable:
+  - gofmt
+  - govet
+  - ineffassign
+  - misspell
