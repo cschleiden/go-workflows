@@ -53,7 +53,7 @@ func NewInMemoryBackend(opts ...option) *sqliteBackend {
 }
 
 func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
-	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
+	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
 }
 
 func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
@@ -69,6 +69,15 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		panic(err)
+	}
+
+	// Apply SQLite-specific settings using PRAGMA statements
+	// These were previously set via URL parameters which are not supported by modernc.org/sqlite
+	// Note: WAL mode is not supported for in-memory databases
+	if !strings.Contains(dsn, "mode=memory") {
+		if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+			panic(fmt.Errorf("setting journal_mode=WAL: %w", err))
+		}
 	}
 
 	// SQLite does not support multiple writers on the database, see https://www.sqlite.org/faq.html#q5
