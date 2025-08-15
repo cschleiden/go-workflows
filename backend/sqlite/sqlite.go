@@ -53,7 +53,7 @@ func NewInMemoryBackend(opts ...option) *sqliteBackend {
 }
 
 func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
-	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
+	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
 }
 
 func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
@@ -68,6 +68,15 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
+		panic(err)
+	}
+
+	// Set WAL mode via PRAGMA
+	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		panic(err)
+	}
+
+	if _, err = db.Exec("PRAGMA busy_timeout = 5000;"); err != nil {
 		panic(err)
 	}
 
