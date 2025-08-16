@@ -28,13 +28,13 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 		batchEvents := events[batchStart:batchEnd]
 
 		aquery := "INSERT IGNORE INTO `attributes` (event_id, instance_id, execution_id, data) VALUES (?, ?, ?, ?)" + strings.Repeat(", (?, ?, ?, ?)", len(batchEvents)-1)
-		aargs := make([]interface{}, 0, len(batchEvents)*4)
+		aargs := make([]any, 0, len(batchEvents)*4)
 
 		query := "INSERT INTO `" + tableName +
 			"` (event_id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
 			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
 
-		args := make([]interface{}, 0, len(batchEvents)*8)
+		args := make([]any, 0, len(batchEvents)*8)
 
 		for _, newEvent := range batchEvents {
 			a, err := history.SerializeAttributes(newEvent.Attributes)
