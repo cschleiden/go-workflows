@@ -21,7 +21,7 @@ var e2eRemovalTests = []backendTest{
 				return true, nil
 			}
 
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			workflowA := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[bool](ctx, c, workflowA, time.Second*10)
@@ -54,7 +54,7 @@ var e2eRemovalTests = []backendTest{
 				return true, nil
 			}
 
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			err := c.StartAutoExpiration(ctx, time.Millisecond)
 			if errors.As(err, &backend.ErrNotSupported{}) {
@@ -88,7 +88,7 @@ var e2eRemovalTests = []backendTest{
 				return true, nil
 			}
 
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			err := c.StartAutoExpiration(ctx, time.Hour)
 			if errors.As(err, &backend.ErrNotSupported{}) {

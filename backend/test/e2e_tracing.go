@@ -34,7 +34,7 @@ var e2eTracingTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
@@ -70,7 +70,7 @@ var e2eTracingTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
@@ -116,7 +116,7 @@ var e2eTracingTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
@@ -213,7 +213,7 @@ var e2eTracingTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)

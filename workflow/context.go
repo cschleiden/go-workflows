@@ -53,10 +53,10 @@ func WithCancelCause(parent Context) (ctx Context, cancel CancelCauseFunc) {
 // string or any other built-in type to avoid collisions between
 // packages using context. Users of WithValue should define their own
 // types for keys. To avoid allocating when assigning to an
-// interface{}, context keys often have concrete type
+// any, context keys often have concrete type
 // struct{}. Alternatively, exported context key variables' static
 // type should be a pointer or interface.
-func WithValue(parent Context, key, val interface{}) Context {
+func WithValue(parent Context, key, val any) Context {
 	return sync.WithValue(parent, key, val)
 }
 

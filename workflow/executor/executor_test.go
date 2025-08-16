@@ -768,7 +768,7 @@ func Test_Executor(t *testing.T) {
 	}
 }
 
-func startWorkflowTask(instanceID string, workflow interface{}, workflowArgs ...interface{}) *backend.WorkflowTask {
+func startWorkflowTask(instanceID string, workflow any, workflowArgs ...any) *backend.WorkflowTask {
 	inputs, err := args.ArgsToInputs(converter.DefaultConverter, workflowArgs...)
 	if err != nil {
 		panic(err)

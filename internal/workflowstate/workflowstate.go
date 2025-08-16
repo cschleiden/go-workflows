@@ -49,7 +49,7 @@ func AsDecodingSettable[T any](cv converter.Converter, name string, f sync.Setta
 
 type signalChannel struct {
 	receive func(payload.Payload)
-	channel interface{}
+	channel any
 }
 
 type WfState struct {

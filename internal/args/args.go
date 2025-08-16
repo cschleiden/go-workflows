@@ -11,7 +11,7 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 )
 
-func ArgsToInputs(c converter.Converter, args ...interface{}) ([]payload.Payload, error) {
+func ArgsToInputs(c converter.Converter, args ...any) ([]payload.Payload, error) {
 	inputs := make([]payload.Payload, 0)
 
 	for _, arg := range args {
@@ -67,7 +67,7 @@ func InputsToArgs(c converter.Converter, fn reflect.Value, inputs []payload.Payl
 	return args, addContext, nil
 }
 
-func ReturnTypeMatch[TResult any](fn interface{}) error {
+func ReturnTypeMatch[TResult any](fn any) error {
 	fnType := reflect.TypeOf(fn)
 	if fnType.Kind() != reflect.Func {
 		return errors.New("not a function")
@@ -99,7 +99,7 @@ func ReturnTypeMatch[TResult any](fn interface{}) error {
 	return nil
 }
 
-func ParamsMatch(fn interface{}, args ...interface{}) error {
+func ParamsMatch(fn any, args ...any) error {
 	fnType := reflect.TypeOf(fn)
 	if fnType.Kind() != reflect.Func {
 		return errors.New("not a function")
@@ -126,7 +126,7 @@ func ParamsMatch(fn interface{}, args ...interface{}) error {
 	}
 
 	for _, arg := range args {
-		// if target is interface{} skip
+		// if target is any skip
 		if fnType.In(targetIdx).Kind() == reflect.Interface {
 			continue
 		}

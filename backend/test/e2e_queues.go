@@ -25,7 +25,7 @@ var e2eQueueTests = []backendTest{
 				panic("should never be called")
 			}
 
-			register(t, ctx, w, []interface{}{wf, wfNever}, nil)
+			register(t, ctx, w, []any{wf, wfNever}, nil)
 
 			instance, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 				InstanceID: uuid.NewString(),

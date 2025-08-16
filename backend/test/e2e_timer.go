@@ -27,7 +27,7 @@ var e2eTimerTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+			register(t, ctx, w, []any{wf}, []any{a})
 
 			instance := runWorkflow(t, ctx, c, wf)
 
@@ -64,7 +64,7 @@ var e2eTimerTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+			register(t, ctx, w, []any{wf}, []any{a})
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
@@ -113,7 +113,7 @@ var e2eTimerTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+			register(t, ctx, w, []any{wf}, []any{a})
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
@@ -151,7 +151,7 @@ var e2eTimerTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+			register(t, ctx, w, []any{wf}, []any{a})
 
 			instance := runWorkflow(t, ctx, c, wf)
 			_, err := client.GetWorkflowResult[any](ctx, c, instance, time.Second*5)
@@ -189,7 +189,7 @@ var e2eTimerTests = []backendTest{
 
 				return nil
 			}
-			register(t, ctx, w, []interface{}{wf}, nil)
+			register(t, ctx, w, []any{wf}, nil)
 
 			_, err := runWorkflowWithResult[any](t, ctx, c, wf)
 			require.NoError(t, err)
