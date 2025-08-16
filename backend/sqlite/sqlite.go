@@ -313,7 +313,7 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 
 		placeholders := strings.Repeat(",?", len(instanceIDs)-1)
 		whereCondition := fmt.Sprintf("id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
-		args := make([]interface{}, 0, len(instanceIDs)*2)
+		args := make([]any, 0, len(instanceIDs)*2)
 		for i := range instanceIDs {
 			args = append(args, instanceIDs[i])
 		}
@@ -598,7 +598,7 @@ func (sb *sqliteBackend) CompleteWorkflowTask(
 
 	// Remove handled events from task
 	if len(executedEvents) > 0 {
-		args := make([]interface{}, 0, len(executedEvents)+1)
+		args := make([]any, 0, len(executedEvents)+1)
 		args = append(args, instance.InstanceID, instance.ExecutionID)
 		for _, e := range executedEvents {
 			args = append(args, e.ID)
@@ -737,7 +737,7 @@ func (sb *sqliteBackend) GetActivityTask(ctx context.Context, queues []workflow.
 	// (work around missing LIMIT support in sqlite driver for UPDATE statements by using sub-query)
 	now := time.Now()
 
-	args := []interface{}{
+	args := []any{
 		now.Add(sb.options.ActivityLockTimeout),
 		sb.workerName,
 		now,

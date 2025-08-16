@@ -62,7 +62,7 @@ func setSpanContext(span trace.Span, sc trace.SpanContext) {
 	setUnexportedField(field, sc)
 }
 
-func setUnexportedField(field reflect.Value, value interface{}) {
+func setUnexportedField(field reflect.Value, value any) {
 	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
 		Elem().
 		Set(reflect.ValueOf(value))

@@ -28,11 +28,11 @@ func (e *Event) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func SerializeAttributes(attributes interface{}) ([]byte, error) {
+func SerializeAttributes(attributes any) ([]byte, error) {
 	return json.Marshal(attributes)
 }
 
-func DeserializeAttributes(eventType EventType, attributes []byte) (attr interface{}, err error) {
+func DeserializeAttributes(eventType EventType, attributes []byte) (attr any, err error) {
 	switch eventType {
 	case EventType_WorkflowExecutionStarted:
 		attr = &ExecutionStartedAttributes{}
