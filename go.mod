@@ -8,10 +8,8 @@ require (
 	github.com/go-errors/errors v1.4.2
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golang-migrate/migrate/v4 v4.16.2
-	github.com/golangci/golangci-lint v1.54.2
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.0.0
-	github.com/jstemmer/go-junit-report/v2 v2.0.0-beta1
 	github.com/redis/go-redis/v9 v9.0.2
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.31.0
@@ -38,7 +36,9 @@ require (
 	github.com/curioswitch/go-reassign v0.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
+	github.com/golangci/golangci-lint v1.54.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
+	github.com/jstemmer/go-junit-report/v2 v2.0.0-beta1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.4 // indirect
 	github.com/lufeee/execinquery v1.2.1 // indirect
@@ -228,4 +228,9 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	go.opentelemetry.io/otel/sdk v1.31.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+tool (
+	github.com/golangci/golangci-lint/cmd/golangci-lint
+	github.com/jstemmer/go-junit-report/v2
 )
