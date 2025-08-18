@@ -215,7 +215,7 @@ func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 	return f, nil
 }
 
-func TestNewMysqlBackendWithDB(t *testing.T) {
+func TestNewMysqlBackendWithDB_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -300,7 +300,7 @@ func TestNewMysqlBackendWithDB(t *testing.T) {
 		defer testDB.Close()
 
 		// Test creating backend with existing DB and migrations disabled
-		mysqlBackend := NewMysqlBackendWithDB(testDB, 
+		mysqlBackend := NewMysqlBackendWithDB(testDB,
 			WithApplyMigrations(false),
 			WithBackendOptions(backend.WithStickyTimeout(0)))
 		if mysqlBackend == nil {
