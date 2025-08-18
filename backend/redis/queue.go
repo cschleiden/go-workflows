@@ -238,13 +238,13 @@ func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, q
 	}
 
 	if len(r) > 1 {
-		msgs := r[1].([]interface{})
+		msgs := r[1].([]any)
 		if len(msgs) > 0 && msgs[0] != nil {
-			msgData := msgs[0].([]interface{})
+			msgData := msgs[0].([]any)
 
 			id := msgData[0].(string)
-			rawValues := msgData[1].([]interface{})
-			values := make(map[string]interface{})
+			rawValues := msgData[1].([]any)
+			values := make(map[string]any)
 			for i := 0; i < len(rawValues); i += 2 {
 				key := rawValues[i].(string)
 				value := rawValues[i+1].(string)

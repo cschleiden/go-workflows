@@ -239,7 +239,7 @@ func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...b
 
 		placeholders := strings.Repeat(",?", len(instanceIDs)-1)
 		whereCondition := fmt.Sprintf("instance_id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
-		args := make([]interface{}, 0, len(instanceIDs)*2)
+		args := make([]any, 0, len(instanceIDs)*2)
 		for i := range instanceIDs {
 			args = append(args, instanceIDs[i])
 		}
@@ -670,7 +670,7 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 
 	// Remove handled events from task
 	if len(executedEvents) > 0 {
-		args := make([]interface{}, 0, len(executedEvents)+1)
+		args := make([]any, 0, len(executedEvents)+1)
 		args = append(args, instance.InstanceID, instance.ExecutionID)
 		for _, e := range executedEvents {
 			args = append(args, e.ID)
@@ -817,7 +817,7 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 
 	now := time.Now()
 
-	args := make([]interface{}, 0, len(queues)+1)
+	args := make([]any, 0, len(queues)+1)
 	args = append(args, now)
 	for _, q := range queues {
 		args = append(args, string(q))
