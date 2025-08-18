@@ -1,8 +1,8 @@
 module github.com/cschleiden/go-workflows
 
-go 1.22
+go 1.23
 
-toolchain go1.23.2
+toolchain go1.23.4
 
 require (
 	github.com/go-errors/errors v1.4.2
