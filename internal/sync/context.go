@@ -98,7 +98,7 @@ type Context interface {
 	// 		u, ok := ctx.Value(userKey).(*User)
 	// 		return u, ok
 	// 	}
-	Value(key any) any
+	Value(key interface{}) interface{}
 }
 
 // Canceled is the error returned by Context.Err when the context is canceled.
@@ -122,7 +122,7 @@ func (*emptyCtx) Err() error {
 	return nil
 }
 
-func (*emptyCtx) Value(key any) any {
+func (*emptyCtx) Value(key interface{}) interface{} {
 	return nil
 }
 
@@ -326,7 +326,7 @@ type cancelCtx struct {
 	cause    error                 // set to non-nil by the first cancel call
 }
 
-func (c *cancelCtx) Value(key any) any {
+func (c *cancelCtx) Value(key interface{}) interface{} {
 	if key == &cancelCtxKey {
 		return c
 	}
@@ -381,10 +381,10 @@ func (c *cancelCtx) cancel(removeFromParent bool, err, cause error) {
 // string or any other built-in type to avoid collisions between
 // packages using context. Users of WithValue should define their own
 // types for keys. To avoid allocating when assigning to an
-// any, context keys often have concrete type
+// interface{}, context keys often have concrete type
 // struct{}. Alternatively, exported context key variables' static
 // type should be a pointer or interface.
-func WithValue(parent Context, key, val any) Context {
+func WithValue(parent Context, key, val interface{}) Context {
 	if parent == nil {
 		panic("cannot create context from nil parent")
 	}
@@ -401,10 +401,10 @@ func WithValue(parent Context, key, val any) Context {
 // delegates all other calls to the embedded Context.
 type valueCtx struct {
 	Context
-	key, val any
+	key, val interface{}
 }
 
-func (c *valueCtx) Value(key any) any {
+func (c *valueCtx) Value(key interface{}) interface{} {
 	if c.key == key {
 		return c.val
 	}

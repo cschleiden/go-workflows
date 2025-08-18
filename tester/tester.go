@@ -81,7 +81,7 @@ type WorkflowTester[TResult any] interface {
 	Now() time.Time
 
 	// Execute executes the workflow under test with the given inputs.
-	Execute(ctx context.Context, args ...any)
+	Execute(ctx context.Context, args ...interface{})
 
 	// Registry returns the registry used by the tester.
 	Registry() *registry.Registry
@@ -92,16 +92,16 @@ type WorkflowTester[TResult any] interface {
 	ActivityMock() *mock.Mock
 
 	// OnActivity registers a mock activity.
-	OnActivity(activity workflow.Activity, args ...any) *mock.Call
+	OnActivity(activity workflow.Activity, args ...interface{}) *mock.Call
 
 	// OnActivityByName registers a mock activity with the given name.
-	OnActivityByName(name string, activity workflow.Activity, args ...any) *mock.Call
+	OnActivityByName(name string, activity workflow.Activity, args ...interface{}) *mock.Call
 
 	// OnSubworkflow registers a mock sub-workflow.
-	OnSubWorkflow(workflow workflow.Workflow, args ...any) *mock.Call
+	OnSubWorkflow(workflow workflow.Workflow, args ...interface{}) *mock.Call
 
 	// OnSubWorkflowByName registers a mock sub-workflow with the given name.
-	OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...any) *mock.Call
+	OnSubWorkflowByName(name string, workflow workflow.Workflow, args ...interface{}) *mock.Call
 
 	// CancelWorkflow cancels the workflow under test.
 	CancelWorkflow()
@@ -110,10 +110,10 @@ type WorkflowTester[TResult any] interface {
 	CancelWorkflowInstance(wfi *core.WorkflowInstance) error
 
 	// SignalWorkflow signals the workflow under test with the given signal name and value.
-	SignalWorkflow(signalName string, value any)
+	SignalWorkflow(signalName string, value interface{})
 
 	// SignalWorkflowInstance signals the given workflow instance with the given signal name and value.
-	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value any) error
+	SignalWorkflowInstance(wfi *core.WorkflowInstance, signalName string, value interface{}) error
 
 	// WorkflowFinished returns true if the workflow under test is finished.
 	WorkflowFinished() bool
@@ -139,7 +139,7 @@ type workflowTester[TResult any] struct {
 	options *options
 
 	// Workflow under test
-	wf  any
+	wf  interface{}
 	wfi *core.WorkflowInstance
 	wfm *metadata.WorkflowMetadata
 
@@ -671,7 +671,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 				panic("Could not convert activity inputs to args: " + err.Error())
 			}
 
-			args := make([]any, len(argValues))
+			args := make([]interface{}, len(argValues))
 			for i, arg := range argValues {
 				if i == 0 && addContext {
 					ctx := context.Background()
@@ -830,7 +830,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event *history.WorkflowEv
 		panic("Could not convert workflow inputs to args: " + err.Error())
 	}
 
-	args := make([]any, len(argValues))
+	args := make([]interface{}, len(argValues))
 	for i, arg := range argValues {
 		if i == 0 && addContext {
 			args[i] = context.Background()
@@ -883,7 +883,7 @@ func (wt *workflowTester[TResult]) scheduleSubWorkflow(event *history.WorkflowEv
 	}
 }
 
-func (wt *workflowTester[TResult]) getInitialEvent(wf any, a []any) *history.Event {
+func (wt *workflowTester[TResult]) getInitialEvent(wf interface{}, a []interface{}) *history.Event {
 	name := fn.Name(wf)
 
 	inputs, err := args.ArgsToInputs(wt.converter, a...)

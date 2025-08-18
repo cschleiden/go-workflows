@@ -12,8 +12,8 @@ import (
 
 func TestInputsToArgs(t *testing.T) {
 	type args struct {
-		fn     any
-		inputs []any
+		fn     interface{}
+		inputs []interface{}
 	}
 	tests := []struct {
 		name       string
@@ -26,7 +26,7 @@ func TestInputsToArgs(t *testing.T) {
 			name: "just context",
 			args: args{
 				fn:     func(context.Context) error { return nil },
-				inputs: []any{},
+				inputs: []interface{}{},
 			},
 			addContext: true,
 		},
@@ -34,7 +34,7 @@ func TestInputsToArgs(t *testing.T) {
 			name: "arguments with context",
 			args: args{
 				fn:     func(context.Context, int, string) error { return nil },
-				inputs: []any{42, ""},
+				inputs: []interface{}{42, ""},
 			},
 			addContext: true,
 		},
@@ -42,7 +42,7 @@ func TestInputsToArgs(t *testing.T) {
 			name: "mismatched argument count - too many",
 			args: args{
 				fn:     func(int, string) error { return nil },
-				inputs: []any{42, "", 13},
+				inputs: []interface{}{42, "", 13},
 			},
 			wantErr: true,
 			err:     "mismatched argument count: expected 2, got 3",
@@ -51,7 +51,7 @@ func TestInputsToArgs(t *testing.T) {
 			name: "mismatched argument count - too few",
 			args: args{
 				fn:     func(int, string) error { return nil },
-				inputs: []any{42},
+				inputs: []interface{}{42},
 			},
 			wantErr: true,
 			err:     "mismatched argument count: expected 2, got 1",
@@ -153,7 +153,7 @@ func intParam(int) {
 func stringParam(string) {
 }
 
-func interfaceParam(string, any, int) {
+func interfaceParam(string, interface{}, int) {
 }
 
 func mixedParams(context.Context, int, string) {
@@ -187,7 +187,7 @@ func TestParamsMatch(t *testing.T) {
 			want: "mismatched argument type: expected string, got int",
 		},
 		{
-			name: "any ignored",
+			name: "interface{} ignored",
 			fn: func() error {
 				return ParamsMatch(interfaceParam, "", 23, 42)
 			},

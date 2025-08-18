@@ -19,13 +19,13 @@ type WorkflowInstanceRef struct {
 }
 
 type Event struct {
-	ID              string     `json:"id,omitempty"`
-	SequenceID      int64      `json:"sequence_id,omitempty"`
-	Type            string     `json:"type,omitempty"`
-	Timestamp       time.Time  `json:"timestamp,omitempty"`
-	ScheduleEventID int64      `json:"schedule_event_id,omitempty"`
-	Attributes      any        `json:"attributes,omitempty"`
-	VisibleAt       *time.Time `json:"visible_at,omitempty"`
+	ID              string      `json:"id,omitempty"`
+	SequenceID      int64       `json:"sequence_id,omitempty"`
+	Type            string      `json:"type,omitempty"`
+	Timestamp       time.Time   `json:"timestamp,omitempty"`
+	ScheduleEventID int64       `json:"schedule_event_id,omitempty"`
+	Attributes      interface{} `json:"attributes,omitempty"`
+	VisibleAt       *time.Time  `json:"visible_at,omitempty"`
 }
 
 type WorkflowInstanceInfo struct {

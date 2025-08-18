@@ -25,7 +25,7 @@ var e2eDiagTests = []backendTest{
 				return true, nil
 			}
 
-			register(t, ctx, w, []any{wf}, nil)
+			register(t, ctx, w, []interface{}{wf}, nil)
 
 			for i := 0; i < 50; i++ {
 				runWorkflow(t, ctx, c, wf)
@@ -63,7 +63,7 @@ var e2eDiagTests = []backendTest{
 				return true, nil
 			}
 
-			register(t, ctx, w, []any{wf}, nil)
+			register(t, ctx, w, []interface{}{wf}, nil)
 
 			wfi := runWorkflow(t, ctx, c, wf)
 

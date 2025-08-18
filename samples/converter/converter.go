@@ -24,11 +24,11 @@ type CustomConverter struct {
 
 var _ converter.Converter = (*CustomConverter)(nil)
 
-func (*CustomConverter) From(data payload.Payload, v any) error {
+func (*CustomConverter) From(data payload.Payload, v interface{}) error {
 	return gob.NewDecoder(bytes.NewReader(data)).Decode(v)
 }
 
-func (*CustomConverter) To(v any) (payload.Payload, error) {
+func (*CustomConverter) To(v interface{}) (payload.Payload, error) {
 	var buf bytes.Buffer
 
 	if err := gob.NewEncoder(&buf).Encode(v); err != nil {

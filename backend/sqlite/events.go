@@ -130,7 +130,7 @@ func getHistory(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance
 }
 
 type Scanner interface {
-	Scan(dest ...any) error
+	Scan(dest ...interface{}) error
 }
 
 func scanEvent(row Scanner) (*history.Event, error) {
@@ -178,12 +178,12 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 
 		// INSERT OR IGNORE since the attributes might already exist due to an event being moved from pending to history.
 		aquery := "INSERT OR IGNORE INTO `attributes` (id, instance_id, execution_id, data) VALUES (?, ?, ?, ?)" + strings.Repeat(", (?, ?, ?, ?)", len(batchEvents)-1)
-		aargs := make([]any, 0, len(batchEvents)*4)
+		aargs := make([]interface{}, 0, len(batchEvents)*4)
 
 		query := "INSERT INTO `" + tableName + "` (id, sequence_id, instance_id, execution_id, event_type, timestamp, schedule_event_id, visible_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)" +
 			strings.Repeat(", (?, ?, ?, ?, ?, ?, ?, ?)", len(batchEvents)-1)
 
-		args := make([]any, 0, len(batchEvents)*8)
+		args := make([]interface{}, 0, len(batchEvents)*8)
 
 		for _, newEvent := range batchEvents {
 			a, err := history.SerializeAttributes(newEvent.Attributes)
@@ -228,7 +228,7 @@ func removeFutureEvent(ctx context.Context, tx *sql.Tx, instance *core.WorkflowI
 		return fmt.Errorf("removing future event: %w", err)
 	}
 
-	ids := make([]any, 0)
+	ids := make([]interface{}, 0)
 
 	defer row.Close()
 	for row.Next() {

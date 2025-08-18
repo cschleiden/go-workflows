@@ -103,7 +103,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	workflowEvents []*history.WorkflowEvent,
 ) error {
 	keys := make([]string, 0)
-	args := make([]any, 0)
+	args := make([]interface{}, 0)
 
 	instance := task.WorkflowInstance
 

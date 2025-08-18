@@ -26,7 +26,7 @@ var e2eContinueAsNewTests = []backendTest{
 
 				return run, nil
 			}
-			register(t, ctx, w, []any{wf}, nil)
+			register(t, ctx, w, []interface{}{wf}, nil)
 
 			instance := runWorkflow(t, ctx, c, wf, 0)
 
@@ -57,7 +57,7 @@ var e2eContinueAsNewTests = []backendTest{
 			wf := func(ctx workflow.Context, run int) (int, error) {
 				return workflow.CreateSubWorkflowInstance[int](ctx, workflow.DefaultSubWorkflowOptions, swf, run).Get(ctx)
 			}
-			register(t, ctx, w, []any{wf, swf}, nil)
+			register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 			instance := runWorkflow(t, ctx, c, wf, 0)
 
@@ -98,7 +98,7 @@ var e2eContinueAsNewTests = []backendTest{
 				return r, err
 			}
 
-			register(t, ctx, w, []any{wf, swf}, nil)
+			register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 			wfi := runWorkflow(t, ctx, c, wf)
 

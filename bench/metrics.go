@@ -31,7 +31,7 @@ func newMemMetrics() *memMetrics {
 }
 
 func (m *memMetrics) Print() {
-	m.s.counters.Range(func(k, v any) bool {
+	m.s.counters.Range(func(k, v interface{}) bool {
 		fmt.Printf("%s: %d\n", k, v)
 
 		return true

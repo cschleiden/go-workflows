@@ -14,7 +14,7 @@ func (q Queue) Value() (string, error) {
 	return string(q), nil
 }
 
-func (q *Queue) Scan(value any) error {
+func (q *Queue) Scan(value interface{}) error {
 	*q = Queue(value.(string))
 	return nil
 }

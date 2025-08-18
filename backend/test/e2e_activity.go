@@ -39,7 +39,7 @@ var e2eActivityTests = []backendTest{
 				var perr *workflow.PanicError
 				return errors.As(err, &perr), nil
 			}
-			register(t, ctx, w, []any{wf}, []any{a})
+			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 			output, err := runWorkflowWithResult[bool](t, ctx, c, wf)
 
@@ -68,7 +68,7 @@ var e2eActivityTests = []backendTest{
 
 				return false, nil
 			}
-			register(t, ctx, w, []any{wf}, []any{a})
+			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 			output, err := runWorkflowWithResult[bool](t, ctx, c, wf)
 
@@ -101,7 +101,7 @@ var e2eActivityTests = []backendTest{
 
 				return err
 			}
-			register(t, ctx, w, []any{wf}, []any{a})
+			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 			_, err := runWorkflowWithResult[bool](t, ctx, c, wf)
 			require.NoError(t, err)
@@ -129,7 +129,7 @@ var e2eActivityTests = []backendTest{
 
 				return err
 			}
-			register(t, ctx, w, []any{wf}, []any{a})
+			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 			_, err := runWorkflowWithResult[any](t, ctx, c, wf)
 			require.NoError(t, err)

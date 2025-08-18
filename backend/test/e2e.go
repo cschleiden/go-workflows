@@ -36,7 +36,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
@@ -78,7 +78,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return msg + " world", nil
 				}
-				register(t, ctx, w, []any{wf}, []any{a})
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 				output, err := runWorkflowWithResult[string](t, ctx, c, wf, "hello")
 
@@ -92,7 +92,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf, "hello")
 
@@ -128,7 +128,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				wf := func(ctx workflow.Context, p1 int) (int, error) {
 					return 42, nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 					InstanceID: uuid.NewString(),
@@ -149,7 +149,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 						},
 					}, a).Get(ctx)
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
 
@@ -168,7 +168,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 						},
 					}, a, 42).Get(ctx)
 				}
-				register(t, ctx, w, []any{wf}, []any{a})
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 				output, err := runWorkflowWithResult[int](t, ctx, c, wf)
 
@@ -196,7 +196,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r1 + r2, nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -211,7 +211,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				wf := func(ctx workflow.Context) error {
 					return nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				// Run workflow to completion
 				instance := runWorkflow(t, ctx, c, wf)
@@ -236,7 +236,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r, nil
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -276,7 +276,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r, nil
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -309,7 +309,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r, nil
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -367,7 +367,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r, nil
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -412,7 +412,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r, nil
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 				r, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
@@ -453,7 +453,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return f.Get(ctx)
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -492,7 +492,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return f.Get(ctx)
 				}
-				register(t, ctx, w, []any{wf, swf}, nil)
+				register(t, ctx, w, []interface{}{wf, swf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -517,7 +517,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return 42, nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -547,7 +547,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return r, nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 
@@ -562,7 +562,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				wf := func(ctx workflow.Context, msg string) (string, error) {
 					return msg + " world", nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf, "hello")
 
@@ -602,7 +602,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 					return fmt.Sprintf("%s-%d", d.Name, ar), nil
 				}
 
-				register(t, ctx, w, []any{wf}, []any{a})
+				register(t, ctx, w, []interface{}{wf}, []interface{}{a})
 
 				ctx = withMyValues(ctx, &myData{Name: "hello", Count: 42})
 
@@ -633,7 +633,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 
 					return 42, nil
 				}
-				register(t, ctx, w, []any{wf}, nil)
+				register(t, ctx, w, []interface{}{wf}, nil)
 
 				instance := runWorkflow(t, ctx, c, wf)
 				_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*5)
@@ -725,7 +725,7 @@ func (*noopWorkflowExecutorCache) Store(ctx context.Context, instance *core.Work
 	return nil
 }
 
-func register(t *testing.T, ctx context.Context, w *worker.Worker, workflows []any, activities []any) {
+func register(t *testing.T, ctx context.Context, w *worker.Worker, workflows []interface{}, activities []interface{}) {
 	for _, wf := range workflows {
 		require.NoError(t, w.RegisterWorkflow(wf))
 	}
@@ -738,7 +738,7 @@ func register(t *testing.T, ctx context.Context, w *worker.Worker, workflows []a
 	require.NoError(t, err)
 }
 
-func runWorkflow(t *testing.T, ctx context.Context, c *client.Client, wf any, inputs ...any) *workflow.Instance {
+func runWorkflow(t *testing.T, ctx context.Context, c *client.Client, wf interface{}, inputs ...interface{}) *workflow.Instance {
 	instance, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
 	}, wf, inputs...)
@@ -747,7 +747,7 @@ func runWorkflow(t *testing.T, ctx context.Context, c *client.Client, wf any, in
 	return instance
 }
 
-func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c *client.Client, wf any, inputs ...any) (T, error) {
+func runWorkflowWithResult[T any](t *testing.T, ctx context.Context, c *client.Client, wf interface{}, inputs ...interface{}) (T, error) {
 	instance := runWorkflow(t, ctx, c, wf, inputs...)
 	return client.GetWorkflowResult[T](ctx, c, instance, time.Second*10)
 }

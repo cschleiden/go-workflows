@@ -25,7 +25,7 @@ func bar(_ int) {
 func Test_FuncName(t *testing.T) {
 	tests := []struct {
 		name string
-		i    any
+		i    interface{}
 		want string
 	}{
 		{
