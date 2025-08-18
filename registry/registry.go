@@ -107,7 +107,7 @@ func (r *Registry) RegisterActivity(activity any, opts ...RegisterOption) error 
 	return nil
 }
 
-func (r *Registry) registerActivitiesFromStruct(a any) error {
+func (r *Registry) registerActivitiesFromStruct(a interface{}) error {
 	// Enumerate functions defined on a
 	v := reflect.ValueOf(a)
 	t := v.Type()
@@ -163,7 +163,7 @@ func (r *Registry) GetWorkflow(name string) (any, error) {
 	return nil, errors.New("workflow not found")
 }
 
-func (r *Registry) GetActivity(name string) (any, error) {
+func (r *Registry) GetActivity(name string) (interface{}, error) {
 	r.Lock()
 	defer r.Unlock()
 

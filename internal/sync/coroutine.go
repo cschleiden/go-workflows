@@ -41,7 +41,7 @@ type key int
 var coroutinesCtxKey key
 
 type logger interface {
-	Println(v ...any)
+	Println(v ...interface{})
 }
 
 type coState struct {

@@ -790,7 +790,7 @@ func (e *executor) nextSequenceID() int64 {
 	return e.lastSequenceID
 }
 
-func (e *executor) createNewEvent(eventType history.EventType, attributes any, opts ...history.HistoryEventOption) *history.Event {
+func (e *executor) createNewEvent(eventType history.EventType, attributes interface{}, opts ...history.HistoryEventOption) *history.Event {
 	return history.NewPendingEvent(
 		e.clock.Now(),
 		eventType,

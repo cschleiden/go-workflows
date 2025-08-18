@@ -17,7 +17,7 @@ type eventWithoutAttributes struct {
 func (e *eventWithoutAttributes) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		*history.Event
-		Attributes any `json:"attr"`
+		Attributes interface{} `json:"attr"`
 	}{
 		Event:      e.Event,
 		Attributes: nil,
@@ -44,7 +44,7 @@ var addPayloadsCmd = redis.NewScript(`
 `)
 
 func (rb *redisBackend) addEventPayloadsP(ctx context.Context, p redis.Pipeliner, instance *core.WorkflowInstance, events []*history.Event) error {
-	args := make([]any, 0)
+	args := make([]interface{}, 0)
 
 	for _, event := range events {
 		payload, err := json.Marshal(event.Attributes)
@@ -67,7 +67,7 @@ func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string,
 	return p.XAdd(ctx, &redis.XAddArgs{
 		Stream: streamKey,
 		ID:     "*",
-		Values: map[string]any{
+		Values: map[string]interface{}{
 			"event": string(eventData),
 		},
 	}).Err()

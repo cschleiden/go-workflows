@@ -15,9 +15,9 @@ type (
 	// Metadata represents the metadata of a workflow instance.
 	Metadata = metadata.WorkflowMetadata
 
-	Workflow = any
+	Workflow = interface{}
 
-	Activity = any
+	Activity = interface{}
 )
 
 const (

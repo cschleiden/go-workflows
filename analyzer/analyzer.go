@@ -24,7 +24,7 @@ func New() *analysis.Analyzer {
 	return a
 }
 
-func run(pass *analysis.Pass) (any, error) {
+func run(pass *analysis.Pass) (interface{}, error) {
 	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	// Expect workflows to be top level functions in a file. Therefore it should be enough to just keep track if the current

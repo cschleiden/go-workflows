@@ -131,7 +131,7 @@ type Event struct {
 	ScheduleEventID int64 `json:"seid,omitempty"`
 
 	// Attributes are event type specific attributes
-	Attributes any `json:"attr,omitempty"`
+	Attributes interface{} `json:"attr,omitempty"`
 
 	VisibleAt *time.Time `json:"vat,omitempty"`
 }
@@ -154,7 +154,7 @@ func VisibleAt(visibleAt time.Time) HistoryEventOption {
 	}
 }
 
-func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType, attributes any, opts ...HistoryEventOption) *Event {
+func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) *Event {
 	e := &Event{
 		ID:         uuid.NewString(),
 		SequenceID: sequenceID,
@@ -170,7 +170,7 @@ func NewHistoryEvent(sequenceID int64, timestamp time.Time, eventType EventType,
 	return e
 }
 
-func NewPendingEvent(timestamp time.Time, eventType EventType, attributes any, opts ...HistoryEventOption) *Event {
+func NewPendingEvent(timestamp time.Time, eventType EventType, attributes interface{}, opts ...HistoryEventOption) *Event {
 	return NewHistoryEvent(0, timestamp, eventType, attributes, opts...)
 }
 

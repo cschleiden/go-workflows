@@ -336,11 +336,11 @@ func (_m *MockBackend) RemoveWorkflowInstance(ctx context.Context, instance *cor
 
 // RemoveWorkflowInstances provides a mock function with given fields: ctx, options
 func (_m *MockBackend) RemoveWorkflowInstances(ctx context.Context, options ...RemovalOption) error {
-	_va := make([]any, len(options))
+	_va := make([]interface{}, len(options))
 	for _i := range options {
 		_va[_i] = options[_i]
 	}
-	var _ca []any
+	var _ca []interface{}
 	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)

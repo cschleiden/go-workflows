@@ -6,10 +6,9 @@ import (
 	"strings"
 )
 
-// Name returns the name of the function.
-func Name(f any) string {
+func Name(i interface{}) string {
 	// Adapted from https://stackoverflow.com/a/7053871
-	fnName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
+	fnName := runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 
 	s := strings.Split(fnName, ".")
 	fnName = s[len(s)-1]

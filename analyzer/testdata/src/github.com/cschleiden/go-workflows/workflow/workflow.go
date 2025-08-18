@@ -1,3 +1,3 @@
 package workflow
 
-type Context any
+type Context interface{}
