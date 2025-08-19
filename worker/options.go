@@ -41,6 +41,11 @@ type WorkflowWorkerOptions struct {
 type Options struct {
 	WorkflowWorkerOptions
 	ActivityWorkerOptions
+
+	// SingleWorkerMode enables optimizations for scenarios where only a single worker
+	// is processing tasks. This should only be enabled when you have exactly one worker
+	// instance running.
+	SingleWorkerMode bool
 }
 
 type ActivityWorkerOptions struct {
@@ -82,4 +87,7 @@ var DefaultOptions = Options{
 		MaxParallelActivityTasks:  0,
 		ActivityHeartbeatInterval: 25 * time.Second,
 	},
+
+	// By default, SingleWorkerMode is disabled
+	SingleWorkerMode: false,
 }

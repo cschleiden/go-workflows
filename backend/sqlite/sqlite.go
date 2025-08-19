@@ -33,12 +33,14 @@ import (
 var migrationsFS embed.FS
 
 func NewInMemoryBackend(opts ...option) *sqliteBackend {
-	b := newSqliteBackend("file::memory:?mode=memory&cache=shared", opts...)
+	// Use a unique named in-memory database
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
+	b := newSqliteBackend(dsn, opts...)
 
 	b.db.SetConnMaxIdleTime(0)
 	b.db.SetMaxIdleConns(1)
 
-	// WORKAROUND: Keep a connection open at all times to prevent hte in-memory db from being dropped
+	// WORKAROUND: Keep a connection open at all times to prevent the in-memory db from being dropped
 	b.db.SetMaxOpenConns(2)
 
 	var err error
@@ -51,7 +53,7 @@ func NewInMemoryBackend(opts ...option) *sqliteBackend {
 }
 
 func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
-	return newSqliteBackend(fmt.Sprintf("file:%v?_mutex=no&_journal=wal", path), opts...)
+	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
 }
 
 func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
@@ -69,6 +71,15 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 		panic(err)
 	}
 
+	// Set WAL mode via PRAGMA
+	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		panic(err)
+	}
+
+	if _, err = db.Exec("PRAGMA busy_timeout = 5000;"); err != nil {
+		panic(err)
+	}
+
 	// SQLite does not support multiple writers on the database, see https://www.sqlite.org/faq.html#q5
 	// A frequently used workaround is to have a single connection, effectively acting as a mutex
 	// See https://github.com/mattn/go-sqlite3/issues/274 for more context
@@ -76,7 +87,7 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 
 	b := &sqliteBackend{
 		db:         db,
-		workerName: fmt.Sprintf("worker-%v", uuid.NewString()),
+		workerName: getWorkerName(options),
 		options:    options,
 	}
 
@@ -861,4 +872,12 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, task *backend.A
 	}
 
 	return tx.Commit()
+}
+
+// getWorkerName returns the worker name from options, or generates a UUID-based name if not set.
+func getWorkerName(options *options) string {
+	if options.Options.WorkerName != "" {
+		return options.Options.WorkerName
+	}
+	return fmt.Sprintf("worker-%v", uuid.NewString())
 }

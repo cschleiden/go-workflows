@@ -58,7 +58,7 @@ func Workflow1(ctx workflow.Context, input string) error {
 }
 ```
 
-Let's first write a simple workflows. Our workflow executes two _activities_ in sequence waiting for each result. Both workflows and activities are written in plain Go. Workflows can be long-running and have to be deterministic so that they can be interrupted and resumed. Activities are functions that can have side-effects and don't have to be deterministic.
+Let's first write a simple workflow. Our workflow executes two _activities_ in sequence waiting for each result. Both workflows and activities are written in plain Go. Workflows can be long-running and have to be deterministic so that they can be interrupted and resumed. Activities are functions that can have side-effects and don't have to be deterministic.
 
 Both workflows and activities support arbitrary inputs and outputs as long as those are serializable.
 
@@ -135,3 +135,68 @@ func main() {
 To finish the example, we create the backend, start a worker in a separate go-routine. We then create a `Client` instance which we then  use to create a new _workflow instance_. A workflow instance is just one running instance of a previously registered workflow.
 
 With the exception of the in-memory backend, we do not have to start the workflow from the same process the worker runs in, we could create the client from another process and create/wait for/cancel/... workflow instances from there.
+
+## Using the WorkflowOrchestrator
+
+For simpler scenarios where you don't need the separation between client and worker, you can use the `WorkflowOrchestrator` which combines both:
+
+```go
+func MyWorkflow(ctx workflow.Context, input string) (string, error) {
+	r1, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity1).Get(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	r2, err := workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, FormatResult, input, r1).Get(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return r2, nil
+}
+
+func Activity1(ctx context.Context) (int, error) {
+	return 42, nil
+}
+
+func FormatResult(ctx context.Context, input string, value int) (string, error) {
+	return fmt.Sprintf("Processed %s with result %d", input, value), nil
+}
+
+func main() {
+	ctx := context.Background()
+
+	b := sqlite.NewSqliteBackend("simple.sqlite")
+
+	// Create orchestrator instead of separate client and worker
+	orchestrator := worker.NewWorkflowOrchestrator(b, nil)
+
+	// Register workflows and activities explicitly
+	orchestrator.RegisterWorkflow(MyWorkflow)
+	orchestrator.RegisterActivity(Activity1)
+	orchestrator.RegisterActivity(FormatResult)
+
+	// Start the orchestrator
+	if err := orchestrator.Start(ctx); err != nil {
+		panic("could not start orchestrator")
+	}
+
+	// Create workflow instance
+	wf, err := orchestrator.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
+		InstanceID: uuid.NewString(),
+	}, MyWorkflow, "input-for-workflow")
+	if err != nil {
+		panic("could not start workflow")
+	}
+
+	// Get result directly
+	result, err := client.GetWorkflowResult[string](ctx, orchestrator.Client, wf, 5*time.Second)
+	if err != nil {
+		panic("error getting workflow result: " + err.Error())
+	}
+
+	fmt.Println("Workflow completed with result:", result)
+}
+```
+
+The `WorkflowOrchestrator` provides a unified API for workflow creation and execution in a single component, combining both client and worker functionality. You need to explicitly register workflows and activities before starting the orchestrator, ensuring proper registration before any workflow or activity tasks are processed.

@@ -10,7 +10,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
-	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -85,9 +84,7 @@ func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, trac
 		clock: clock,
 	}
 
-	state.logger = NewReplayLogger(state, logger.With(
-		log.InstanceIDKey, instance.InstanceID,
-		log.ExecutionIDKey, instance.ExecutionID))
+	state.logger = NewReplayLogger(state, logger)
 
 	return state
 }

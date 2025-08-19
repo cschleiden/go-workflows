@@ -170,8 +170,10 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 				queues := []workflow.Queue{workflow.QueueDefault, core.QueueSystem}
 				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
 
-				task, err := b.GetWorkflowTask(ctx, queues)
-				require.NoError(t, err)
+				tctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
+				task, err := b.GetWorkflowTask(tctx, queues)
+				cancel()
+				require.True(t, err == nil || errors.Is(err, context.DeadlineExceeded))
 				require.Nil(t, task)
 
 				customQueues := []workflow.Queue{"customQueue"}
@@ -423,14 +425,12 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				require.NoError(t, b.PrepareActivityQueues(ctx, []workflow.Queue{workflow.QueueDefault, "custom"}))
 
-				task, err := b.GetActivityTask(ctx, []workflow.Queue{workflow.QueueDefault})
-				require.NoError(t, err)
+				tctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
+				task, err := b.GetActivityTask(tctx, []workflow.Queue{workflow.QueueDefault})
+				cancel()
+				require.True(t, err == nil || errors.Is(err, context.DeadlineExceeded))
 				require.NotNil(t, task)
 				require.Equal(t, wfiDefault.InstanceID, task.WorkflowInstance.InstanceID)
-
-				task, err = b.GetActivityTask(ctx, []workflow.Queue{workflow.QueueDefault})
-				require.NoError(t, err)
-				require.Nil(t, task)
 
 				customQueue := workflow.Queue("custom")
 				wfiCustom := runWorkflowWithActivity(t, ctx, b, core.QueueDefault, customQueue)

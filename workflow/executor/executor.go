@@ -81,7 +81,7 @@ type executor struct {
 func NewExecutor(
 	logger *slog.Logger,
 	tracer trace.Tracer,
-	registry *registry.Registry,
+	r *registry.Registry,
 	cv converter.Converter,
 	propagators []wf.ContextPropagator,
 	historyProvider WorkflowHistoryProvider,
@@ -96,6 +96,8 @@ func NewExecutor(
 	wfCtx = contextvalue.WithConverter(wfCtx, cv)
 	wfCtx = workflowstate.WithWorkflowState(wfCtx, s)
 	wfCtx = sync.WithValue(wfCtx, contextvalue.PropagatorsCtxKey, propagators)
+	wfCtx = contextvalue.WithRegistry(wfCtx, r)
+
 	wfCtx, cancel := sync.WithCancel(wfCtx)
 
 	// As part of this, the default tracing propagator will run, and set the parent span
@@ -108,13 +110,8 @@ func NewExecutor(
 		}
 	}
 
-	logger = logger.With(
-		slog.String(log.InstanceIDKey, instance.InstanceID),
-		slog.String(log.ExecutionIDKey, instance.ExecutionID),
-	)
-
 	return &executor{
-		registry:          registry,
+		registry:          r,
 		historyProvider:   historyProvider,
 		workflowState:     s,
 		workflowCtx:       wfCtx,
@@ -324,7 +321,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 
 func (e *executor) Close() {
 	if e.workflow != nil {
-		e.logger.Debug("Stopping workflow executor", log.InstanceIDKey, e.workflowState.Instance().InstanceID)
+		e.logger.Debug("Stopping workflow executor")
 
 		// End workflow if running to prevent leaking goroutines
 		e.workflow.Close()
@@ -333,7 +330,6 @@ func (e *executor) Close() {
 
 func (e *executor) executeEvent(event *history.Event) error {
 	fields := []any{
-		log.InstanceIDKey, e.workflowState.Instance().InstanceID,
 		log.EventIDKey, event.ID,
 		log.SeqIDKey, event.SequenceID,
 		log.EventTypeKey, event.Type,
@@ -355,6 +351,9 @@ func (e *executor) executeEvent(event *history.Event) error {
 		err = e.handleWorkflowExecutionStarted(event, event.Attributes.(*history.ExecutionStartedAttributes))
 
 	case history.EventType_WorkflowExecutionFinished:
+	// Ignore
+
+	case history.EventType_WorkflowExecutionContinuedAsNew:
 	// Ignore
 
 	case history.EventType_WorkflowExecutionCanceled:

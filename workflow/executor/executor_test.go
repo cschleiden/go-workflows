@@ -278,10 +278,10 @@ func Test_Executor(t *testing.T) {
 
 					sync.Select(
 						ctx,
-						sync.Await[int](f1, func(ctx sync.Context, f sync.Future[int]) {
+						sync.Await(f1, func(ctx sync.Context, f sync.Future[int]) {
 							workflowWithSelectorHits++
 						}),
-						sync.Await[any](t, func(ctx sync.Context, _ sync.Future[any]) {
+						sync.Await(t, func(ctx sync.Context, _ sync.Future[any]) {
 							workflowWithSelectorHits++
 						}),
 					)
@@ -705,6 +705,50 @@ func Test_Executor(t *testing.T) {
 
 				// Expect them to be removed
 				require.Equal(t, goRoutines, runtime.NumGoroutine())
+			},
+		},
+		{
+			name: "WorkflowExecutionContinuedAsNew event handled without error",
+			f: func(t *testing.T, r *registry.Registry, e *executor, i *core.WorkflowInstance, hp *testHistoryProvider) {
+				// Simple workflow that completes
+				wf := func(ctx sync.Context) error {
+					return nil
+				}
+
+				r.RegisterWorkflow(wf)
+
+				// Create a task with WorkflowExecutionContinuedAsNew event
+				result, _ := converter.DefaultConverter.To(42)
+				task := &backend.WorkflowTask{
+					ID:               "taskID",
+					WorkflowInstance: core.NewWorkflowInstance("instanceID", "executionID"),
+					Metadata:         &metadata.WorkflowMetadata{},
+					NewEvents: []*history.Event{
+						history.NewHistoryEvent(
+							1,
+							time.Now(),
+							history.EventType_WorkflowExecutionStarted,
+							&history.ExecutionStartedAttributes{
+								Name:   fn.Name(wf),
+								Inputs: []payload.Payload{},
+							},
+						),
+						history.NewHistoryEvent(
+							2,
+							time.Now(),
+							history.EventType_WorkflowExecutionContinuedAsNew,
+							&history.ExecutionContinuedAsNewAttributes{
+								Result:               result,
+								ContinuedExecutionID: "continued-execution-id",
+							},
+						),
+					},
+				}
+
+				// Execute the task - should not return an error
+				_, err := e.ExecuteTask(context.Background(), task)
+				require.NoError(t, err)
+				require.Nil(t, e.workflow.err)
 			},
 		},
 	}

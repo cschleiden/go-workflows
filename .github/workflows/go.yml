@@ -2,9 +2,9 @@ name: Build & Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -16,116 +16,122 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.22
-        check-latest: true
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
 
-    - name: Build
-      run: go build -v ./...
+      - name: Build
+        run: go build -v ./...
 
-    - name: Tests
-      run: |
-        go install github.com/jstemmer/go-junit-report/v2@latest
-        go test -short -timeout 120s -race -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+      - name: Tests
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go test -short -timeout 120s -race -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
-
-    - name: Test Summary
-      uses: test-summary/action@v2
-      with:
-        paths: |
-          ${{ github.workspace }}/report.xml
-      if: always()
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: |
+            ${{ github.workspace }}/report.xml
+        if: always()
 
   test_redis:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21
-        check-latest: true
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
 
-    - name: Start Redis
-      uses: shogo82148/actions-setup-redis@v1
-      with:
-        auto-start: true
-        redis-port: 6379
-        redis-version: '6.2'
-        redis-conf: 'requirepass RedisPassw0rd'
+      - name: Start Redis
+        uses: shogo82148/actions-setup-redis@v1
+        with:
+          auto-start: true
+          redis-port: 6379
+          redis-version: "6.2"
+          redis-conf: "requirepass RedisPassw0rd"
 
-    - name: Tests
-      run: |
-        go install github.com/jstemmer/go-junit-report/v2@latest
-        go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+      - name: Tests
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
-    - name: Test Summary
-      uses: test-summary/action@v2
-      with:
-        paths: |
-          ${{ github.workspace }}/report.xml
-      if: always()
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: |
+            ${{ github.workspace }}/report.xml
+        if: always()
 
   test_sqlite:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21
-        check-latest: true
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
 
-    - name: Tests
-      run: |
-        go install github.com/jstemmer/go-junit-report/v2@latest
-        go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+      - name: Install dependencies
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
 
-    - name: Test Summary
-      uses: test-summary/action@v2
-      with:
-        paths: |
-          ${{ github.workspace }}/report.xml
-      if: always()
+      - name: Tests (sqlite)
+        run: |
+          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+
+      - name: Tests (monoprocess backend)
+        run: |
+          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/monoprocess 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: |
+            ${{ github.workspace }}/report.xml
+        if: always()
 
   test_mysql:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21
-        check-latest: true
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
 
-    - name: Start MySQL
-      run: sudo /etc/init.d/mysql start
+      - name: Start MySQL
+        run: sudo /etc/init.d/mysql start
 
-    - name: Tests
-      run: |
-        go install github.com/jstemmer/go-junit-report/v2@latest
-        go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+      - name: Tests
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
-    - name: Test Summary
-      uses: test-summary/action@v2
-      with:
-        paths: |
-          ${{ github.workspace }}/report.xml
-      if: always()
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: |
+            ${{ github.workspace }}/report.xml
+        if: always()
