@@ -9,7 +9,8 @@ import (
 func Test_stack(t *testing.T) {
 	fn := func() {
 		s := stack(1)
-		require.NotContains(t, s, "Test_stack.func1")
+		// In Go 1.24+, anonymous functions are named with .func1, .func2, etc.
+		require.Contains(t, s, "Test_stack.func1")
 	}
 
 	foo(fn)
