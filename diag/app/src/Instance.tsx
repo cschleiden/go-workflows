@@ -8,8 +8,8 @@ import {
   WorkflowInstanceState,
   decodePayload,
   decodePayloads,
-  formatAttributesForDisplay,
 } from "./Components";
+import { formatAttributesForDisplay } from "./utils";
 import {
   ExecutionCompletedAttributes,
   ExecutionStartedAttributes,
