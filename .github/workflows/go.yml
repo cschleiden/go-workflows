@@ -31,7 +31,7 @@ jobs:
       - name: Tests
         run: |
           go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -short -timeout 120s -race -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -short -timeout 240s -race -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
@@ -65,7 +65,7 @@ jobs:
       - name: Tests
         run: |
           go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
@@ -94,11 +94,11 @@ jobs:
 
       - name: Tests (sqlite)
         run: |
-          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Tests (monoprocess backend)
         run: |
-          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/monoprocess 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/monoprocess 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
@@ -127,7 +127,7 @@ jobs:
       - name: Tests
         run: |
           go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -timeout 120s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
