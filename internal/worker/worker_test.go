@@ -516,6 +516,58 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 		// Should not have called Extend
 		mockTaskWorker.AssertNotCalled(t, "Extend")
 	})
+
+	t.Run("context canceled error in extend should not be logged as error", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:           1,
+			MaxParallelTasks:  1,
+			HeartbeatInterval: time.Millisecond * 10,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+
+		task := &testTask{ID: 1, Data: "test"}
+
+		// Mock Extend to return context.Canceled error
+		mockTaskWorker.On("Extend", ctx, task).Return(context.Canceled)
+
+		// This test will verify that context.Canceled errors don't generate ERROR logs
+		worker.heartbeatTask(ctx, task, nil)
+
+		mockTaskWorker.AssertExpectations(t)
+	})
+
+	t.Run("context deadline exceeded error in extend should not be logged as error", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:           1,
+			MaxParallelTasks:  1,
+			HeartbeatInterval: time.Millisecond * 10,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+
+		task := &testTask{ID: 1, Data: "test"}
+
+		// Mock Extend to return context.DeadlineExceeded error
+		mockTaskWorker.On("Extend", ctx, task).Return(context.DeadlineExceeded)
+
+		// This test will verify that context.DeadlineExceeded errors don't generate ERROR logs
+		worker.heartbeatTask(ctx, task, nil)
+
+		mockTaskWorker.AssertExpectations(t)
+	})
 }
 
 func TestWorker_FullWorkflow(t *testing.T) {
