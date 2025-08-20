@@ -5,7 +5,17 @@ import { WorkflowInstance as Instance } from "./client";
 
 export function decodePayload(payload: string): string {
   try {
-    return atob(payload);
+    const decoded = atob(payload);
+    
+    // Try to parse as JSON and pretty-print if valid
+    try {
+      JSON.parse(decoded);
+      // If parsing succeeds, pretty-print the JSON
+      return JSON.stringify(JSON.parse(decoded), null, 2);
+    } catch {
+      // If not valid JSON, return as-is
+      return decoded;
+    }
   } catch {
     return payload;
   }
@@ -39,6 +49,8 @@ export function decodePayloads(payload: { [key: string]: any }): any {
 
   return r;
 }
+
+
 
 export const Payload: React.FC<{ payloads: string[] }> = ({ payloads }) => {
   return (
