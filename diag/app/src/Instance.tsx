@@ -8,6 +8,7 @@ import {
   WorkflowInstanceState,
   decodePayload,
   decodePayloads,
+  formatAttributesForDisplay,
 } from "./Components";
 import {
   ExecutionCompletedAttributes,
@@ -208,11 +209,7 @@ function Instance() {
                 <dd>
                   <Payload
                     payloads={[
-                      JSON.stringify(
-                        decodePayloads(event.attributes),
-                        undefined,
-                        2
-                      ),
+                      formatAttributesForDisplay(event.attributes)
                     ]}
                   />
                 </dd>
