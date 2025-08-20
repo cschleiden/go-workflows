@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -42,11 +41,7 @@ func Test_MysqlBackend(t *testing.T) {
 			panic(err)
 		}
 
-		options = append(options, 
-			backend.WithStickyTimeout(0),
-			backend.WithWorkflowLockTimeout(5*time.Second),
-			backend.WithActivityLockTimeout(10*time.Second),
-		)
+		options = append(options, backend.WithStickyTimeout(0))
 
 		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
@@ -91,11 +86,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 			panic(err)
 		}
 
-		options = append(options, 
-			backend.WithStickyTimeout(0),
-			backend.WithWorkflowLockTimeout(5*time.Second),
-			backend.WithActivityLockTimeout(10*time.Second),
-		)
+		options = append(options, backend.WithStickyTimeout(0))
 
 		return NewMysqlBackend("localhost", 3306, testUser, testPassword, dbName, WithBackendOptions(options...))
 	}, func(b test.TestBackend) {
