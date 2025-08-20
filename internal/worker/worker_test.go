@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,6 +18,90 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// testLogger captures log output for testing
+type testLogger struct {
+	mu       sync.RWMutex
+	logLines []logEntry
+	logger   *slog.Logger
+}
+
+type logEntry struct {
+	level   slog.Level
+	message string
+	attrs   map[string]interface{}
+}
+
+func newTestLogger() *testLogger {
+	tl := &testLogger{
+		logLines: make([]logEntry, 0),
+	}
+	
+	handler := &testHandler{tl: tl}
+	tl.logger = slog.New(handler)
+	
+	return tl
+}
+
+func (tl *testLogger) hasErrorLog(message string) bool {
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+	
+	for _, entry := range tl.logLines {
+		if entry.level == slog.LevelError && strings.Contains(entry.message, message) {
+			return true
+		}
+	}
+	return false
+}
+
+func (tl *testLogger) errorLogCount() int {
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+	
+	count := 0
+	for _, entry := range tl.logLines {
+		if entry.level == slog.LevelError {
+			count++
+		}
+	}
+	return count
+}
+
+type testHandler struct {
+	tl *testLogger
+}
+
+func (h *testHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return true
+}
+
+func (h *testHandler) Handle(ctx context.Context, record slog.Record) error {
+	h.tl.mu.Lock()
+	defer h.tl.mu.Unlock()
+	
+	attrs := make(map[string]interface{})
+	record.Attrs(func(attr slog.Attr) bool {
+		attrs[attr.Key] = attr.Value.Any()
+		return true
+	})
+	
+	h.tl.logLines = append(h.tl.logLines, logEntry{
+		level:   record.Level,
+		message: record.Message,
+		attrs:   attrs,
+	})
+	
+	return nil
+}
+
+func (h *testHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return h
+}
+
+func (h *testHandler) WithGroup(name string) slog.Handler {
+	return h
+}
 
 // Test types
 type testResult struct {
@@ -62,9 +147,14 @@ func (m *mockTaskWorker) Complete(ctx context.Context, result *testResult, task 
 
 // Helper function to create a mock backend with basic setup
 func createMockBackend() *backend.MockBackend {
+	return createMockBackendWithLogger(slog.Default())
+}
+
+// Helper function to create a mock backend with custom logger
+func createMockBackendWithLogger(logger *slog.Logger) *backend.MockBackend {
 	mockBackend := &backend.MockBackend{}
 	mockBackend.On("Options").Return(&backend.Options{
-		Logger: slog.Default(),
+		Logger: logger,
 	})
 	return mockBackend
 }
@@ -515,6 +605,93 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 
 		// Should not have called Extend
 		mockTaskWorker.AssertNotCalled(t, "Extend")
+	})
+
+	t.Run("context canceled error in extend should not be logged as error", func(t *testing.T) {
+		testLogger := newTestLogger()
+		mockBackend := createMockBackendWithLogger(testLogger.logger)
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:           1,
+			MaxParallelTasks:  1,
+			HeartbeatInterval: time.Millisecond * 10,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+
+		task := &testTask{ID: 1, Data: "test"}
+
+		mockTaskWorker.On("Extend", ctx, task).Return(context.Canceled)
+
+		worker.heartbeatTask(ctx, task, nil)
+
+		assert.False(t, testLogger.hasErrorLog("could not heartbeat task"))
+		assert.Equal(t, 0, testLogger.errorLogCount())
+
+		mockTaskWorker.AssertExpectations(t)
+	})
+
+	t.Run("context deadline exceeded error in extend should not be logged as error", func(t *testing.T) {
+		testLogger := newTestLogger()
+		mockBackend := createMockBackendWithLogger(testLogger.logger)
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:           1,
+			MaxParallelTasks:  1,
+			HeartbeatInterval: time.Millisecond * 10,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+
+		task := &testTask{ID: 1, Data: "test"}
+
+		mockTaskWorker.On("Extend", ctx, task).Return(context.DeadlineExceeded)
+
+		worker.heartbeatTask(ctx, task, nil)
+
+		assert.False(t, testLogger.hasErrorLog("could not heartbeat task"))
+		assert.Equal(t, 0, testLogger.errorLogCount())
+
+		mockTaskWorker.AssertExpectations(t)
+	})
+
+	t.Run("other errors in extend should be logged as error", func(t *testing.T) {
+		testLogger := newTestLogger()
+		mockBackend := createMockBackendWithLogger(testLogger.logger)
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:           1,
+			MaxParallelTasks:  1,
+			HeartbeatInterval: time.Millisecond * 10,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+
+		task := &testTask{ID: 1, Data: "test"}
+
+		// Mock Extend to return a different error (not context related)
+		otherError := errors.New("connection lost")
+		mockTaskWorker.On("Extend", ctx, task).Return(otherError)
+
+		worker.heartbeatTask(ctx, task, nil)
+
+		// Verify that other errors DO generate ERROR logs
+		assert.True(t, testLogger.hasErrorLog("could not heartbeat task"))
+		assert.Equal(t, 1, testLogger.errorLogCount())
+
+		mockTaskWorker.AssertExpectations(t)
 	})
 }
 

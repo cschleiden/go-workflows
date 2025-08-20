@@ -211,7 +211,9 @@ func (w *Worker[Task, TaskResult]) heartbeatTask(ctx context.Context, task *Task
 			return
 		case <-t.C:
 			if err := w.tw.Extend(ctx, task); err != nil {
-				w.logger.ErrorContext(ctx, "could not heartbeat task", "error", err)
+				if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+					w.logger.ErrorContext(ctx, "could not heartbeat task", "error", err)
+				}
 
 				// We might not own the task anymore, abort processing
 				if cancel != nil {
