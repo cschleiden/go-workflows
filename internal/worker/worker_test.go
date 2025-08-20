@@ -629,7 +629,6 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 
 		worker.heartbeatTask(ctx, task, nil)
 
-		// Verify that context.Canceled errors don't generate ERROR logs
 		assert.False(t, testLogger.hasErrorLog("could not heartbeat task"))
 		assert.Equal(t, 0, testLogger.errorLogCount())
 
@@ -658,7 +657,6 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 
 		worker.heartbeatTask(ctx, task, nil)
 
-		// Verify that context.DeadlineExceeded errors don't generate ERROR logs
 		assert.False(t, testLogger.hasErrorLog("could not heartbeat task"))
 		assert.Equal(t, 0, testLogger.errorLogCount())
 
