@@ -109,6 +109,58 @@ func TestMySqlBackendE2E(t *testing.T) {
 	})
 }
 
+func TestMySqlBackendWithDB_E2E(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	var dbName string
+
+	test.EndToEndBackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
+		// Create a database for testing
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			panic(err)
+		}
+
+		dbName = "test_with_db_e2e_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
+			panic(fmt.Errorf("creating database: %w", err))
+		}
+
+		if err := db.Close(); err != nil {
+			panic(err)
+		}
+
+		// Create a connection to the test database
+		testDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true&multiStatements=true", testUser, testPassword, dbName))
+		if err != nil {
+			panic(fmt.Errorf("connecting to test database: %w", err))
+		}
+
+		options = append(options, backend.WithStickyTimeout(0))
+
+		return NewMysqlBackendWithDB(testDB, WithBackendOptions(options...))
+	}, func(b test.TestBackend) {
+		if err := b.Close(); err != nil {
+			panic(err)
+		}
+
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			panic(err)
+		}
+
+		if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
+			panic(fmt.Errorf("dropping database: %w", err))
+		}
+
+		if err := db.Close(); err != nil {
+			panic(err)
+		}
+	})
+}
+
 var _ test.TestBackend = (*mysqlBackend)(nil)
 
 func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
@@ -161,6 +213,105 @@ func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 	}
 
 	return f, nil
+}
+
+func TestNewMysqlBackendWithDB_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	var dbName string
+
+	t.Run("NewMysqlBackendWithDB_Basic", func(t *testing.T) {
+		// Create a database for testing
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			t.Fatalf("Failed to open database: %v", err)
+		}
+		defer db.Close()
+
+		dbName = "test_with_db_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
+			t.Fatalf("Failed to create database: %v", err)
+		}
+		defer func() {
+			if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
+				t.Errorf("Failed to drop database: %v", err)
+			}
+		}()
+
+		// Create a connection to the test database
+		testDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true&multiStatements=true", testUser, testPassword, dbName))
+		if err != nil {
+			t.Fatalf("Failed to connect to test database: %v", err)
+		}
+		defer testDB.Close()
+
+		// Test creating backend with existing DB
+		mysqlBackend := NewMysqlBackendWithDB(testDB, WithBackendOptions(backend.WithStickyTimeout(0)))
+		if mysqlBackend == nil {
+			t.Fatal("Expected backend to be created")
+		}
+
+		// Verify the backend has the correct DB instance
+		if mysqlBackend.db != testDB {
+			t.Error("Expected backend to use the provided DB instance")
+		}
+
+		// Verify DSN is empty when using existing DB
+		if mysqlBackend.dsn != "" {
+			t.Errorf("Expected DSN to be empty when using existing DB, got: %s", mysqlBackend.dsn)
+		}
+
+		// Test that the backend can perform basic operations
+		if !mysqlBackend.FeatureSupported(backend.Feature_Expiration) {
+			t.Error("Expected backend to support expiration feature")
+		}
+
+		// Close the backend
+		if err := mysqlBackend.Close(); err != nil {
+			t.Errorf("Failed to close backend: %v", err)
+		}
+	})
+
+	t.Run("NewMysqlBackendWithDB_WithoutMigrations", func(t *testing.T) {
+		// Create a database for testing
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			t.Fatalf("Failed to open database: %v", err)
+		}
+		defer db.Close()
+
+		dbName = "test_no_migrations_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
+			t.Fatalf("Failed to create database: %v", err)
+		}
+		defer func() {
+			if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
+				t.Errorf("Failed to drop database: %v", err)
+			}
+		}()
+
+		// Create a connection to the test database
+		testDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true&multiStatements=true", testUser, testPassword, dbName))
+		if err != nil {
+			t.Fatalf("Failed to connect to test database: %v", err)
+		}
+		defer testDB.Close()
+
+		// Test creating backend with existing DB and migrations disabled
+		mysqlBackend := NewMysqlBackendWithDB(testDB,
+			WithApplyMigrations(false),
+			WithBackendOptions(backend.WithStickyTimeout(0)))
+		if mysqlBackend == nil {
+			t.Fatal("Expected backend to be created")
+		}
+
+		// Close the backend
+		if err := mysqlBackend.Close(); err != nil {
+			t.Errorf("Failed to close backend: %v", err)
+		}
+	})
 }
 
 func Test_MysqlBackend_WorkerName(t *testing.T) {

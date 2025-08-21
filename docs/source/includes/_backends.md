@@ -40,9 +40,29 @@ See `migrations/sqlite` for the schema and migrations. Main tables:
 
 ```go
 func NewMysqlBackend(host string, port int, user, password, database string, opts ...option)
+func NewMysqlBackendWithDB(db *sql.DB, opts ...option)
 ```
 
-Create a new MySQL backend instance with `NewMysqlBackend`.
+Create a new MySQL backend instance with `NewMysqlBackend` or `NewMysqlBackendWithDB`.
+
+Use `NewMysqlBackend` when you want the backend to manage the database connection:
+
+```go
+backend := mysql.NewMysqlBackend("localhost", 3306, "user", "password", "dbname")
+```
+
+Use `NewMysqlBackendWithDB` when you want to provide your own database connection:
+
+```go
+db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/dbname?parseTime=true&interpolateParams=true&multiStatements=true")
+// Configure connection pool settings as needed
+db.SetMaxOpenConns(10)
+db.SetMaxIdleConns(5)
+
+backend := mysql.NewMysqlBackendWithDB(db)
+```
+
+**Note:** When using `NewMysqlBackendWithDB`, ensure your connection string includes `multiStatements=true` if you plan to use automatic migrations (which is the default).
 
 ### Options
 
