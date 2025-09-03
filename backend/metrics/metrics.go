@@ -5,7 +5,7 @@ import "time"
 type Tags map[string]string
 
 type Client interface {
-	//Counter records a value at a point in time.
+	// Counter records a value at a point in time.
 	Counter(name string, tags Tags, value int64)
 
 	// Distribution records a value at a point in time.

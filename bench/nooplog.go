@@ -5,8 +5,7 @@ import (
 	"log/slog"
 )
 
-type nullHandler struct {
-}
+type nullHandler struct{}
 
 // Enabled implements slog.Handler.
 func (*nullHandler) Enabled(context.Context, slog.Level) bool {

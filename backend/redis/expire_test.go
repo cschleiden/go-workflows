@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/client"
 	"github.com/cschleiden/go-workflows/worker"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_AutoExpiration(t *testing.T) {
@@ -54,7 +55,7 @@ func Test_AutoExpiration(t *testing.T) {
 	// Check that the instance is gone from the list of instances
 	insts, err := b.(*redisBackend).GetWorkflowInstances(ctx, "", "", 1)
 	require.NoError(t, err)
-	assert.Len(t, insts, 0)
+	assert.Empty(t, insts)
 
 	cancel()
 	require.NoError(t, w.WaitForCompletion())

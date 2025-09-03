@@ -3,12 +3,13 @@ package workflow
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/internal/command"
 	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/tracing"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type wfSpan struct {
@@ -33,8 +34,7 @@ func Tracer(ctx Context) *WorkflowTracer {
 	return &WorkflowTracer{}
 }
 
-type WorkflowTracer struct {
-}
+type WorkflowTracer struct{}
 
 // Start starts a new span.
 func (wt *WorkflowTracer) Start(ctx Context, name string, opts ...trace.SpanStartOption) (Context, Span) {

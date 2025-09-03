@@ -5,9 +5,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/payload"
-	"github.com/stretchr/testify/require"
 )
 
 func TestInputsToArgs(t *testing.T) {

@@ -7,6 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -16,9 +20,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/fn"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/registry"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestExecutor_ExecuteActivity(t *testing.T) {
@@ -100,8 +101,12 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 
 				var expectedErr *workflowerrors.Error
 				require.ErrorAs(t, err, &expectedErr)
-				e := err.(*workflowerrors.Error)
-				require.Equal(t, e.Type, "PanicError")
+				e := func() *workflowerrors.Error {
+					target := &workflowerrors.Error{}
+					_ = errors.As(err, &target)
+					return target
+				}()
+				require.Equal(t, "PanicError", e.Type)
 			},
 		},
 	}

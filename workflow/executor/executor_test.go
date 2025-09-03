@@ -9,6 +9,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+	"go.uber.org/goleak"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -21,10 +26,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
-	"go.uber.org/goleak"
 )
 
 type testHistoryProvider struct {
@@ -111,7 +112,7 @@ func Test_Executor(t *testing.T) {
 
 				_, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 1, workflowActivityHit)
 				require.Len(t, e.workflowState.Commands(), 1)
 
@@ -181,7 +182,7 @@ func Test_Executor(t *testing.T) {
 
 				_, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 2, workflowActivityHit)
 				require.True(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 2)
@@ -233,7 +234,7 @@ func Test_Executor(t *testing.T) {
 
 				taskResult, err := e.ExecuteTask(context.Background(), oldTask)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 1, workflowActivityHit)
 				require.False(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 1)
@@ -259,7 +260,7 @@ func Test_Executor(t *testing.T) {
 				// Execute the workflow again with the activity completed event
 				_, err = e.ExecuteTask(context.Background(), newTask)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 2, workflowActivityHit)
 				require.True(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 2)
@@ -313,7 +314,7 @@ func Test_Executor(t *testing.T) {
 
 				_, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 1, workflowWithSelectorHits)
 				require.Len(t, e.workflowState.Commands(), 2)
 
@@ -359,7 +360,7 @@ func Test_Executor(t *testing.T) {
 
 				_, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 1, workflowTimerHits)
 				require.Len(t, e.workflowState.Commands(), 1)
 
@@ -391,7 +392,7 @@ func Test_Executor(t *testing.T) {
 
 				result, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Len(t, e.workflowState.Commands(), 2)
 
 				task2 := continueTask(i.InstanceID, []*history.Event{
@@ -400,7 +401,7 @@ func Test_Executor(t *testing.T) {
 
 				_, err = e.ExecuteTask(context.Background(), task2)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 			},
 		},
 		{
@@ -448,7 +449,7 @@ func Test_Executor(t *testing.T) {
 
 				_, err = e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Equal(t, 1, workflowSignalHits)
 				require.True(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 1)
@@ -484,7 +485,7 @@ func Test_Executor(t *testing.T) {
 				require.Error(t, e.workflow.err)
 				require.True(t, e.workflow.Completed())
 				require.Len(t, e.workflowState.Commands(), 1)
-				require.Len(t, pendingCommands(e.workflowState.Commands()), 0)
+				require.Empty(t, pendingCommands(e.workflowState.Commands()))
 				require.Equal(t, core.WorkflowInstanceStateFinished, r1.State)
 			},
 		},
@@ -510,7 +511,7 @@ func Test_Executor(t *testing.T) {
 
 				result, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Len(t, result.Executed, 3)
 				require.Len(t, result.WorkflowEvents, 1)
 				require.Equal(t, history.EventType_WorkflowExecutionStarted, result.WorkflowEvents[0].HistoryEvent.Type)
@@ -545,7 +546,7 @@ func Test_Executor(t *testing.T) {
 				task := startWorkflowTask("instanceID", workflow)
 				result, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 				require.Len(t, result.Executed, 4)
 				require.Len(t, result.TimerEvents, 1)
 				require.Len(t, result.WorkflowEvents, 1)
@@ -748,7 +749,7 @@ func Test_Executor(t *testing.T) {
 				// Execute the task - should not return an error
 				_, err := e.ExecuteTask(context.Background(), task)
 				require.NoError(t, err)
-				require.Nil(t, e.workflow.err)
+				require.NoError(t, e.workflow.err)
 			},
 		},
 	}

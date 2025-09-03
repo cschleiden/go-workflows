@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -14,7 +15,7 @@ func scheduleFutureEvents(ctx context.Context, rb *redisBackend) error {
 	nowStr := strconv.FormatInt(now, 10)
 	if _, err := futureEventsCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.futureEventsKey(),
-	}, nowStr, rb.keys.prefix).Result(); err != nil && err != redis.Nil {
+	}, nowStr, rb.keys.prefix).Result(); err != nil && !errors.Is(err, redis.Nil) {
 		return fmt.Errorf("checking future events: %w", err)
 	}
 

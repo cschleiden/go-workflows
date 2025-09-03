@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/converter"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -27,8 +30,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"github.com/cschleiden/go-workflows/registry"
 	wf "github.com/cschleiden/go-workflows/workflow"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type ExecutionResult struct {
@@ -309,7 +310,8 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 				e.workflowSpan, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending))
 		}
 
-		if canErr, ok := e.workflow.Error().(*continueasnew.Error); ok {
+		canErr := &continueasnew.Error{}
+		if errors.As(e.workflow.Error(), &canErr) {
 			e.workflowRestarted(e.workflow.Result(), canErr)
 		} else {
 			e.workflowCompleted(e.workflow.Result(), e.workflow.Error())

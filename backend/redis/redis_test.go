@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/test"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -93,7 +94,6 @@ func (rb *redisBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 		Min: "-inf",
 		Max: "+inf",
 	}).Result()
-
 	if err != nil {
 		return nil, fmt.Errorf("getting future events: %w", err)
 	}
