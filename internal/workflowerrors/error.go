@@ -61,7 +61,7 @@ func FromError(err error) *Error {
 		return e
 	}
 
-	e := &Error{
+	e = &Error{
 		Type:    getErrorType(err),
 		Message: err.Error(),
 	}
