@@ -28,7 +28,7 @@ func Test_Diag_GetWorkflowInstances(t *testing.T) {
 	ctx := context.Background()
 	instances, err := bd.GetWorkflowInstances(ctx, "", "", 5)
 	require.NoError(t, err)
-	require.Len(t, instances, 0)
+	require.Empty(t, instances)
 
 	c := client.New(b)
 

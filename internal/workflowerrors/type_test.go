@@ -8,7 +8,7 @@ import (
 )
 
 func Test_getErrorType_stringError(t *testing.T) {
-	require.Equal(t, "", getErrorType(errors.New("test")))
+	require.Empty(t, getErrorType(errors.New("test")))
 }
 
 func Test_getErrorType_error(t *testing.T) {

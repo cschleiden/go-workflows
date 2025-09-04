@@ -48,7 +48,7 @@ var e2eDiagTests = []backendTest{
 
 			refs, err := diagBackend.GetWorkflowInstances(ctx, afterInstanceID, afterExecutionID, 10)
 			require.NoError(t, err)
-			require.Len(t, refs, 0)
+			require.Empty(t, refs)
 		},
 	},
 	{

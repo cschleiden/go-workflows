@@ -24,6 +24,6 @@ func Test_Workflow(t *testing.T) {
 
 	wr, werr := tester.WorkflowResult()
 	require.Empty(t, wr)
-	require.Empty(t, werr)
+	require.NoError(t, werr)
 	tester.AssertExpectations(t)
 }

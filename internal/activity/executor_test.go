@@ -101,7 +101,7 @@ func TestExecutor_ExecuteActivity(t *testing.T) {
 				var expectedErr *workflowerrors.Error
 				require.ErrorAs(t, err, &expectedErr)
 				e := err.(*workflowerrors.Error)
-				require.Equal(t, e.Type, "PanicError")
+				require.Equal(t, "PanicError", e.Type)
 			},
 		},
 	}

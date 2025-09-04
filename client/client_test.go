@@ -147,7 +147,7 @@ func Test_Client_SignalWorkflow(t *testing.T) {
 
 	err := c.SignalWorkflow(ctx, instanceID, "test", "signal")
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	b.AssertExpectations(t)
 }
 
@@ -176,6 +176,6 @@ func Test_Client_SignalWorkflow_WithArgs(t *testing.T) {
 
 	err := c.SignalWorkflow(ctx, instanceID, "test", arg)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	b.AssertExpectations(t)
 }

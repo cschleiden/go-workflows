@@ -195,7 +195,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 						Queue: workflow.QueueDefault,
 					}),
 				)
-				require.Nil(t, err)
+				require.NoError(t, err)
 
 				queues := []workflow.Queue{workflow.QueueDefault, core.QueueSystem}
 				require.NoError(t, b.PrepareWorkflowQueues(ctx, queues))
@@ -283,7 +283,7 @@ func BackendTest(t *testing.T, setup func(options ...backend.BackendOption) Test
 
 				h, err := b.GetWorkflowInstanceHistory(ctx, wfi, nil)
 				require.NoError(t, err)
-				require.Equal(t, len(events), len(h))
+				require.Len(t, h, len(events))
 				for i, event := range events {
 					require.Equal(t, event.ID, h[i].ID)
 					require.Equal(t, event.Type, h[i].Type)

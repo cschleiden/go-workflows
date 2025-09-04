@@ -80,7 +80,7 @@ var e2eTimerTests = []backendTest{
 
 			futureEvents, err := b.GetFutureEvents(ctx)
 			require.NoError(t, err)
-			require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			require.Empty(t, futureEvents, "no future events should be scheduled")
 		},
 	},
 	{
@@ -123,7 +123,7 @@ var e2eTimerTests = []backendTest{
 
 			futureEvents, err := b.GetFutureEvents(ctx)
 			require.NoError(t, err)
-			require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			require.Empty(t, futureEvents, "no future events should be scheduled")
 		},
 	},
 	{
@@ -161,7 +161,7 @@ var e2eTimerTests = []backendTest{
 
 			futureEvents, err := b.GetFutureEvents(ctx)
 			require.NoError(t, err)
-			require.Len(t, futureEvents, 0, "no future events should be scheduled")
+			require.Empty(t, futureEvents, "no future events should be scheduled")
 		},
 	},
 	{
