@@ -36,17 +36,17 @@ func newTestLogger() *testLogger {
 	tl := &testLogger{
 		logLines: make([]logEntry, 0),
 	}
-	
+
 	handler := &testHandler{tl: tl}
 	tl.logger = slog.New(handler)
-	
+
 	return tl
 }
 
 func (tl *testLogger) hasErrorLog(message string) bool {
 	tl.mu.RLock()
 	defer tl.mu.RUnlock()
-	
+
 	for _, entry := range tl.logLines {
 		if entry.level == slog.LevelError && strings.Contains(entry.message, message) {
 			return true
@@ -58,7 +58,7 @@ func (tl *testLogger) hasErrorLog(message string) bool {
 func (tl *testLogger) errorLogCount() int {
 	tl.mu.RLock()
 	defer tl.mu.RUnlock()
-	
+
 	count := 0
 	for _, entry := range tl.logLines {
 		if entry.level == slog.LevelError {
@@ -79,19 +79,19 @@ func (h *testHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *testHandler) Handle(ctx context.Context, record slog.Record) error {
 	h.tl.mu.Lock()
 	defer h.tl.mu.Unlock()
-	
+
 	attrs := make(map[string]interface{})
 	record.Attrs(func(attr slog.Attr) bool {
 		attrs[attr.Key] = attr.Value.Any()
 		return true
 	})
-	
+
 	h.tl.logLines = append(h.tl.logLines, logEntry{
 		level:   record.Level,
 		message: record.Message,
 		attrs:   attrs,
 	})
-	
+
 	return nil
 }
 
