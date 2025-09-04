@@ -89,7 +89,7 @@ func Test_TimerSubworkflowCancellation(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 
 	_, wfErr := tester.WorkflowResult()
-	require.Empty(t, wfErr)
+	require.NoError(t, wfErr)
 }
 
 func workflowSubWorkflowTimerCancellation(ctx workflow.Context) error {
@@ -134,7 +134,7 @@ func Test_TimerRespondingWithoutNewEvents(t *testing.T) {
 	require.True(t, tester.WorkflowFinished())
 
 	_, err := tester.WorkflowResult()
-	require.Empty(t, err)
+	require.NoError(t, err)
 }
 
 func workflowTimerRespondingWithoutNewEvents(ctx workflow.Context) error {
@@ -205,7 +205,7 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()
-	require.Empty(t, werr)
+	require.NoError(t, werr)
 	tester.AssertExpectations(t)
 
 	require.True(t, dl.hasLine("workflows.timer.mode.from=WallClock workflows.timer.mode.to=TimeTravel"))
@@ -240,6 +240,6 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	require.True(t, tester.WorkflowFinished())
 	_, werr := tester.WorkflowResult()
-	require.Empty(t, werr)
+	require.NoError(t, werr)
 	tester.AssertExpectations(t)
 }

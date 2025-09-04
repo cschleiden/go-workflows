@@ -210,7 +210,7 @@ func Test_Coroutine_Error(t *testing.T) {
 
 	require.True(t, c.Finished())
 	require.Error(t, c.Error())
-	require.Equal(t, c.Error().Error(), "custom error")
+	require.Equal(t, "custom error", c.Error().Error())
 }
 
 func Test_Coroutine_Panic(t *testing.T) {
@@ -222,5 +222,5 @@ func Test_Coroutine_Panic(t *testing.T) {
 
 	require.True(t, c.Finished())
 	require.Error(t, c.Error())
-	require.Equal(t, c.Error().Error(), "panic: test panic")
+	require.Equal(t, "panic: test panic", c.Error().Error())
 }
