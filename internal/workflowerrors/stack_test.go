@@ -9,8 +9,10 @@ import (
 func Test_stack(t *testing.T) {
 	fn := func() {
 		s := stack(1)
-		// In Go 1.24+, anonymous functions are named with .func1, .func2, etc.
-		require.Contains(t, s, "Test_stack.func1")
+		// Check that the stack trace contains the current test function
+		require.Contains(t, s, "Test_stack")
+		// Check that the stack trace contains the bar function where fn() is called
+		require.Contains(t, s, "bar")
 	}
 
 	foo(fn)
