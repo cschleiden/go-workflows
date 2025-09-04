@@ -26,12 +26,26 @@ jobs:
           cache: true
 
       - name: Build
-        run: go build -v ./...
+        run: make build
+
+      - name: Format
+        run: |
+          make fmt
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Code is not formatted. Please run 'make fmt'"
+            git diff
+            exit 1
+          fi
+
+      # Disabled for now
+      # - name: Lint
+      #   uses: golangci/golangci-lint-action@v8
+      #   with:
+      #     version: v2.4.0
 
       - name: Tests
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -short -timeout 240s -race -count 1 -v ./... 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -short -timeout 240s -race -count 1 -v ./... 2>&1 | go tool go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
@@ -64,8 +78,7 @@ jobs:
 
       - name: Tests
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/redis 2>&1 | go tool go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
@@ -88,17 +101,13 @@ jobs:
           check-latest: true
           cache: true
 
-      - name: Install dependencies
-        run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
-
       - name: Tests (sqlite)
         run: |
-          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/sqlite 2>&1 | go tool go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Tests (monoprocess backend)
         run: |
-          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/monoprocess 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/monoprocess 2>&1 | go tool go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
@@ -126,8 +135,7 @@ jobs:
 
       - name: Tests
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+          go test -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/mysql 2>&1 | go tool go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
 
       - name: Test Summary
         uses: test-summary/action@v2
