@@ -82,6 +82,6 @@ func DeserializeAttributes(eventType EventType, attributes []byte) (attr interfa
 		return nil, errors.New("unknown event type when deserializing attributes")
 	}
 
-	err = json.Unmarshal([]byte(attributes), &attr)
+	err = json.Unmarshal(attributes, &attr)
 	return attr, err
 }
