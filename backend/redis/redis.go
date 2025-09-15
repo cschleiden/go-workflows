@@ -12,7 +12,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -112,8 +111,6 @@ type redisBackend struct {
 	options *RedisOptions
 
 	keys *keys
-
-	queues []workflow.Queue
 
 	workflowQueue *taskQueue[workflowData]
 	activityQueue *taskQueue[activityData]
