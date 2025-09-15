@@ -40,9 +40,9 @@ type key int
 
 var coroutinesCtxKey key
 
-type logger interface {
-	Println(v ...interface{})
-}
+// type logger interface {
+// 	Println(v ...interface{})
+// }
 
 type coState struct {
 	blocking   chan bool    // coroutine is going to be blocked
