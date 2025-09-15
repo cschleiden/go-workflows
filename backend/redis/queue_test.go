@@ -284,7 +284,7 @@ func Test_TaskQueue(t *testing.T) {
 			q, err := newTaskQueue[any](ctx, client, "prefix", taskType, "")
 			require.NoError(t, err)
 
-			q.Prepare(ctx, client, []workflow.Queue{workflow.QueueDefault})
+			require.NoError(t, q.Prepare(ctx, client, []workflow.Queue{workflow.QueueDefault}))
 
 			tt.f(t, q)
 		})

@@ -20,7 +20,7 @@ func Test_Diag_GetWorkflowInstances(t *testing.T) {
 	b := setup()
 
 	t.Cleanup(func() {
-		b.Close()
+		require.NoError(t, b.Close())
 	})
 
 	bd := b.(diag.Backend)
