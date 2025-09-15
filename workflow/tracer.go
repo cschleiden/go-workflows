@@ -89,7 +89,7 @@ func start(ctx Context, name string, opts ...trace.SpanStartOption) (sync.Contex
 
 	// Use workflow timestamp
 	opts = append(opts, trace.WithTimestamp(state.Time()))
-	sctx, span := tracer.Start(sctx, name, opts...)
+	_, span := tracer.Start(sctx, name, opts...)
 
 	return tracing.ContextWithSpan(ctx, span), &wfSpan{span, state}
 }
