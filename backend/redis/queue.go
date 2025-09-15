@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -86,7 +87,7 @@ func (q *taskQueue[T]) Prepare(ctx context.Context, rdb redis.UniversalClient, q
 	}
 
 	_, err := prepareCmd.Run(ctx, rdb, keys, q.groupName).Result()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return fmt.Errorf("preparing queues: %w", err)
 	}
 
@@ -164,11 +165,11 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, rdb redis.UniversalClient, q
 		Count:    1,
 		Block:    timeout,
 	}).Result()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, fmt.Errorf("dequeueing task: %w", err)
 	}
 
-	if len(ids) == 0 || len(ids[0].Messages) == 0 || err == redis.Nil {
+	if len(ids) == 0 || len(ids[0].Messages) == 0 || errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
 
@@ -186,7 +187,7 @@ func (q *taskQueue[T]) Extend(ctx context.Context, p redis.Pipeliner, queue work
 		Messages: []string{taskID},
 		MinIdle:  0, // Always claim this message
 	}).Result()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return fmt.Errorf("extending lease: %w", err)
 	}
 
@@ -198,7 +199,7 @@ func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, queue wo
 		q.Keys(queue).SetKey,
 		q.Keys(queue).StreamKey,
 	}, taskID, q.groupName)
-	if err := cmd.Err(); err != nil && err != redis.Nil {
+	if err := cmd.Err(); err != nil && !errors.Is(err, redis.Nil) {
 		return nil, fmt.Errorf("completing task: %w", err)
 	}
 
@@ -207,7 +208,7 @@ func (q *taskQueue[T]) Complete(ctx context.Context, p redis.Pipeliner, queue wo
 
 func (q *taskQueue[T]) Data(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, taskID string) (*TaskItem[T], error) {
 	msg, err := p.XRange(ctx, q.Keys(queue).StreamKey, taskID, taskID).Result()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, fmt.Errorf("finding task: %w", err)
 	}
 
@@ -230,7 +231,7 @@ func (q *taskQueue[T]) recover(ctx context.Context, rdb redis.UniversalClient, q
 		"0",
 	).Slice()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, nil
 		}
 
