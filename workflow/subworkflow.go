@@ -42,7 +42,7 @@ func CreateSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOpti
 	})
 }
 
-func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, attempt int, wf Workflow, args ...any) Future[TResult] {
+func createSubWorkflowInstance[TResult any](ctx Context, options SubWorkflowOptions, _ int, wf Workflow, args ...any) Future[TResult] {
 	f := sync.NewFuture[TResult]()
 
 	// If the context is already canceled, return immediately.
