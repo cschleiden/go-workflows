@@ -61,7 +61,7 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		return nil, fmt.Errorf("getting instances: %w", err)
 	}
 
-	var instanceRefs []*diag.WorkflowInstanceRef
+	instanceRefs := make([]*diag.WorkflowInstanceRef, 0, len(instances))
 	for _, instance := range instances {
 		instStr, ok := instance.(string)
 		if !ok {

@@ -90,7 +90,7 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 	}
 
 	payloadKeys := make([]string, 0, len(msgs))
-	var events []*history.Event
+	events := make([]*history.Event, 0, len(msgs))
 	for _, msg := range msgs {
 		var event *history.Event
 		if err := json.Unmarshal([]byte(msg.Values["event"].(string)), &event); err != nil {
