@@ -70,6 +70,7 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 		attribute.String(log.ActivityIDKey, task.ID),
 		attribute.Int(log.AttemptKey, a.Attempt),
 	))
+	defer span.End()
 
 	activity, err := e.r.GetActivity(a.Name)
 	if err != nil {
@@ -85,8 +86,6 @@ func (e *Executor) ExecuteActivity(ctx context.Context, task *backend.ActivityTa
 	if err != nil {
 		return nil, workflowerrors.NewPermanentError(tracing.WithSpanError(span, fmt.Errorf("converting activity inputs: %w", err)))
 	}
-
-	defer span.End()
 
 	// Execute activity
 	if addContext {
