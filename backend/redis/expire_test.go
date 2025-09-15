@@ -36,7 +36,7 @@ func Test_AutoExpiration(t *testing.T) {
 		return nil
 	}
 
-	w.RegisterWorkflow(wf)
+	require.NoError(t, w.RegisterWorkflow(wf))
 
 	wfi, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
@@ -97,13 +97,15 @@ func Test_AutoExpiration_SubWorkflow(t *testing.T) {
 			InstanceID: swfInstanceID,
 		}, swf).Get(ctx)
 
-		workflow.ScheduleTimer(ctx, time.Second*2).Get(ctx)
+		if _, err := workflow.ScheduleTimer(ctx, time.Second*2).Get(ctx); err != nil {
+			return 0, err
+		}
 
 		return r, err
 	}
 
-	w.RegisterWorkflow(wf)
-	w.RegisterWorkflow(swf)
+	require.NoError(t, w.RegisterWorkflow(wf))
+	require.NoError(t, w.RegisterWorkflow(swf))
 
 	wfi, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
@@ -168,13 +170,15 @@ func Test_AutoExpiration_ContinueAsNew_SubWorkflow(t *testing.T) {
 			InstanceID: swfInstanceID,
 		}, swf, 0).Get(ctx)
 
-		workflow.ScheduleTimer(ctx, time.Second*2).Get(ctx)
+		if _, err := workflow.ScheduleTimer(ctx, time.Second*2).Get(ctx); err != nil {
+			return 0, err
+		}
 
 		return r, err
 	}
 
-	w.RegisterWorkflow(wf)
-	w.RegisterWorkflow(swf)
+	require.NoError(t, w.RegisterWorkflow(wf))
+	require.NoError(t, w.RegisterWorkflow(swf))
 
 	wfi, err := c.CreateWorkflowInstance(ctx, client.WorkflowInstanceOptions{
 		InstanceID: uuid.NewString(),
