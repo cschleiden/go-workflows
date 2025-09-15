@@ -14,7 +14,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -173,17 +172,17 @@ func TestNewWorker(t *testing.T) {
 
 		worker := NewWorker(mockBackend, mockTaskWorker, options)
 
-		assert.NotNil(t, worker)
-		assert.Equal(t, mockTaskWorker, worker.tw)
-		assert.Equal(t, options, worker.options)
-		assert.NotNil(t, worker.taskQueue)
-		assert.NotNil(t, worker.logger)
-		assert.NotNil(t, worker.dispatcherDone)
+		require.NotNil(t, worker)
+		require.Equal(t, mockTaskWorker, worker.tw)
+		require.Equal(t, options, worker.options)
+		require.NotNil(t, worker.taskQueue)
+		require.NotNil(t, worker.logger)
+		require.NotNil(t, worker.dispatcherDone)
 
 		// Should add default queue if none provided
-		assert.Contains(t, worker.options.Queues, workflow.QueueDefault)
+		require.Contains(t, worker.options.Queues, workflow.QueueDefault)
 		// Should always include system queue
-		assert.Contains(t, worker.options.Queues, core.QueueSystem)
+		require.Contains(t, worker.options.Queues, core.QueueSystem)
 	})
 
 	t.Run("with custom queues", func(t *testing.T) {
@@ -199,9 +198,9 @@ func TestNewWorker(t *testing.T) {
 
 		worker := NewWorker(mockBackend, mockTaskWorker, options)
 
-		assert.Contains(t, worker.options.Queues, customQueue)
-		assert.Contains(t, worker.options.Queues, core.QueueSystem)
-		assert.Len(t, worker.options.Queues, 2)
+		require.Contains(t, worker.options.Queues, customQueue)
+		require.Contains(t, worker.options.Queues, core.QueueSystem)
+		require.Len(t, worker.options.Queues, 2)
 	})
 
 	t.Run("system queue already included", func(t *testing.T) {
@@ -223,7 +222,7 @@ func TestNewWorker(t *testing.T) {
 				queueCount++
 			}
 		}
-		assert.Equal(t, 1, queueCount)
+		require.Equal(t, 1, queueCount)
 	})
 }
 
@@ -253,7 +252,7 @@ func TestWorker_Start(t *testing.T) {
 		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil)
 
 		err := worker.Start(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Give pollers a moment to start
 		time.Sleep(10 * time.Millisecond)
@@ -263,7 +262,7 @@ func TestWorker_Start(t *testing.T) {
 
 		// Wait for completion
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -285,9 +284,9 @@ func TestWorker_Start(t *testing.T) {
 		mockTaskWorker.On("Start", ctx, mock.Anything).Return(expectedErr)
 
 		err := worker.Start(ctx)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "starting task worker")
-		assert.Contains(t, err.Error(), expectedErr.Error())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "starting task worker")
+		require.Contains(t, err.Error(), expectedErr.Error())
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -311,8 +310,8 @@ func TestWorker_Poll(t *testing.T) {
 		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(expectedTask, nil)
 
 		task, err := worker.poll(ctx, time.Second)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedTask, task)
+		require.NoError(t, err)
+		require.Equal(t, expectedTask, task)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -333,8 +332,8 @@ func TestWorker_Poll(t *testing.T) {
 		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, context.DeadlineExceeded)
 
 		task, err := worker.poll(ctx, time.Millisecond)
-		assert.NoError(t, err)
-		assert.Nil(t, task)
+		require.NoError(t, err)
+		require.Nil(t, task)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -356,9 +355,9 @@ func TestWorker_Poll(t *testing.T) {
 		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, expectedErr)
 
 		task, err := worker.poll(ctx, time.Second)
-		assert.Error(t, err)
-		assert.Equal(t, expectedErr, err)
-		assert.Nil(t, task)
+		require.Error(t, err)
+		require.Equal(t, expectedErr, err)
+		require.Nil(t, task)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -380,8 +379,8 @@ func TestWorker_Poll(t *testing.T) {
 
 		// Pass 0 timeout to test default timeout behavior
 		task, err := worker.poll(ctx, 0)
-		assert.NoError(t, err)
-		assert.Nil(t, task)
+		require.NoError(t, err)
+		require.Nil(t, task)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -408,7 +407,7 @@ func TestWorker_Handle(t *testing.T) {
 		mockTaskWorker.On("Complete", mock.Anything, result, task).Return(nil)
 
 		err := worker.handle(ctx, task)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -435,7 +434,7 @@ func TestWorker_Handle(t *testing.T) {
 		mockTaskWorker.On("Extend", mock.Anything, task).Return(nil).Maybe()
 
 		err := worker.handle(ctx, task)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -458,9 +457,9 @@ func TestWorker_Handle(t *testing.T) {
 		mockTaskWorker.On("Execute", mock.Anything, task).Return(nil, expectedErr)
 
 		err := worker.handle(ctx, task)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "executing task")
-		assert.Contains(t, err.Error(), expectedErr.Error())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "executing task")
+		require.Contains(t, err.Error(), expectedErr.Error())
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -485,8 +484,8 @@ func TestWorker_Handle(t *testing.T) {
 		mockTaskWorker.On("Complete", mock.Anything, result, task).Return(expectedErr)
 
 		err := worker.handle(ctx, task)
-		assert.Error(t, err)
-		assert.Equal(t, expectedErr, err)
+		require.Error(t, err)
+		require.Equal(t, expectedErr, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -601,7 +600,7 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 		worker.heartbeatTask(ctx, task, nil)
 		duration := time.Since(start)
 
-		assert.Less(t, duration, time.Millisecond*100)
+		require.Less(t, duration, time.Millisecond*100)
 
 		// Should not have called Extend
 		mockTaskWorker.AssertNotCalled(t, "Extend")
@@ -629,8 +628,8 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 
 		worker.heartbeatTask(ctx, task, nil)
 
-		assert.False(t, testLogger.hasErrorLog("could not heartbeat task"))
-		assert.Equal(t, 0, testLogger.errorLogCount())
+		require.False(t, testLogger.hasErrorLog("could not heartbeat task"))
+		require.Equal(t, 0, testLogger.errorLogCount())
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -657,8 +656,8 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 
 		worker.heartbeatTask(ctx, task, nil)
 
-		assert.False(t, testLogger.hasErrorLog("could not heartbeat task"))
-		assert.Equal(t, 0, testLogger.errorLogCount())
+		require.False(t, testLogger.hasErrorLog("could not heartbeat task"))
+		require.Equal(t, 0, testLogger.errorLogCount())
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -688,8 +687,8 @@ func TestWorker_HeartbeatTask(t *testing.T) {
 		worker.heartbeatTask(ctx, task, nil)
 
 		// Verify that other errors DO generate ERROR logs
-		assert.True(t, testLogger.hasErrorLog("could not heartbeat task"))
-		assert.Equal(t, 1, testLogger.errorLogCount())
+		require.True(t, testLogger.hasErrorLog("could not heartbeat task"))
+		require.Equal(t, 1, testLogger.errorLogCount())
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -757,11 +756,11 @@ func TestWorker_FullWorkflow(t *testing.T) {
 		// Cancel and wait for completion
 		cancel()
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify results
-		assert.Equal(t, int32(2), atomic.LoadInt32(&processedTasks))
-		assert.Len(t, taskResults, 2)
+		require.Equal(t, int32(2), atomic.LoadInt32(&processedTasks))
+		require.Len(t, taskResults, 2)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -833,13 +832,13 @@ func TestWorker_FullWorkflow(t *testing.T) {
 		// Cancel and wait for completion
 		cancel()
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify concurrent execution
-		assert.GreaterOrEqual(t, int(atomic.LoadInt32(&processedCount)), taskCount-1) // Allow for timing issues
+		require.GreaterOrEqual(t, int(atomic.LoadInt32(&processedCount)), taskCount-1) // Allow for timing issues
 
 		mu.Lock()
-		assert.GreaterOrEqual(t, len(executionTimes), taskCount-1) // Allow for timing issues
+		require.GreaterOrEqual(t, len(executionTimes), taskCount-1) // Allow for timing issues
 		mu.Unlock()
 
 		mockTaskWorker.AssertExpectations(t)
@@ -876,7 +875,7 @@ func TestWorker_ErrorHandling(t *testing.T) {
 
 		cancel()
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})
@@ -910,7 +909,7 @@ func TestWorker_ErrorHandling(t *testing.T) {
 		cancel()
 
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Don't assert specific expectations since timing can vary
 	})
@@ -937,7 +936,7 @@ func TestWorker_Configuration(t *testing.T) {
 		require.NoError(t, err)
 
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Should not call Get since no pollers
 		mockTaskWorker.AssertNotCalled(t, "Get")
@@ -956,12 +955,12 @@ func TestWorker_Configuration(t *testing.T) {
 		worker := NewWorker(mockBackend, mockTaskWorker, options)
 
 		// The workQueue should be created with unlimited capacity
-		assert.NotNil(t, worker.taskQueue)
+		require.NotNil(t, worker.taskQueue)
 
 		// Test that reservation works without blocking
 		ctx := context.Background()
 		err := worker.taskQueue.reserve(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Release should be no-op
 		worker.taskQueue.release()
@@ -993,7 +992,7 @@ func TestWorker_Configuration(t *testing.T) {
 
 		cancel()
 		err = worker.WaitForCompletion()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		mockTaskWorker.AssertExpectations(t)
 	})

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithWorkflowLockTimeout(t *testing.T) {
@@ -13,7 +13,7 @@ func TestWithWorkflowLockTimeout(t *testing.T) {
 
 	opts := ApplyOptions(option)
 
-	assert.Equal(t, timeout, opts.WorkflowLockTimeout)
+	require.Equal(t, timeout, opts.WorkflowLockTimeout)
 }
 
 func TestWithActivityLockTimeout(t *testing.T) {
@@ -22,7 +22,7 @@ func TestWithActivityLockTimeout(t *testing.T) {
 
 	opts := ApplyOptions(option)
 
-	assert.Equal(t, timeout, opts.ActivityLockTimeout)
+	require.Equal(t, timeout, opts.ActivityLockTimeout)
 }
 
 func TestWithWorkflowAndActivityLockTimeout(t *testing.T) {
@@ -34,16 +34,16 @@ func TestWithWorkflowAndActivityLockTimeout(t *testing.T) {
 		WithActivityLockTimeout(activityTimeout),
 	)
 
-	assert.Equal(t, workflowTimeout, opts.WorkflowLockTimeout)
-	assert.Equal(t, activityTimeout, opts.ActivityLockTimeout)
+	require.Equal(t, workflowTimeout, opts.WorkflowLockTimeout)
+	require.Equal(t, activityTimeout, opts.ActivityLockTimeout)
 }
 
 func TestDefaultValues(t *testing.T) {
 	opts := ApplyOptions()
 
 	// Verify default values are preserved when no options are provided
-	assert.Equal(t, time.Minute, opts.WorkflowLockTimeout)
-	assert.Equal(t, time.Minute*2, opts.ActivityLockTimeout)
+	require.Equal(t, time.Minute, opts.WorkflowLockTimeout)
+	require.Equal(t, time.Minute*2, opts.ActivityLockTimeout)
 }
 
 // TestIntegrationWithOtherOptions ensures the new timeout functions can be combined with existing options
@@ -60,8 +60,8 @@ func TestIntegrationWithOtherOptions(t *testing.T) {
 		WithMaxHistorySize(maxHistorySize),
 	)
 
-	assert.Equal(t, workflowTimeout, opts.WorkflowLockTimeout)
-	assert.Equal(t, activityTimeout, opts.ActivityLockTimeout)
-	assert.Equal(t, stickyTimeout, opts.StickyTimeout)
-	assert.Equal(t, maxHistorySize, opts.MaxHistorySize)
+	require.Equal(t, workflowTimeout, opts.WorkflowLockTimeout)
+	require.Equal(t, activityTimeout, opts.ActivityLockTimeout)
+	require.Equal(t, stickyTimeout, opts.StickyTimeout)
+	require.Equal(t, maxHistorySize, opts.MaxHistorySize)
 }
