@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -63,10 +64,10 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		payloadData,
 		time.Now().UTC().UnixNano(),
 	).Result()
-
 	if err != nil {
-		if _, ok := err.(redis.Error); ok {
-			if err.Error() == "ERR InstanceAlreadyExists" {
+		var redisErr redis.Error
+		if errors.As(err, &redisErr) {
+			if redisErr.Error() == "ERR InstanceAlreadyExists" {
 				return backend.ErrInstanceAlreadyExists
 			}
 		}
@@ -194,7 +195,7 @@ func readInstanceP(ctx context.Context, p redis.Pipeliner, instanceKey string) *
 func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 	val, err := cmd.Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, backend.ErrInstanceNotFound
 		}
 
@@ -212,7 +213,7 @@ func readInstancePipelineCmd(cmd *redis.StringCmd) (*instanceState, error) {
 func (rb *redisBackend) readActiveInstanceExecution(ctx context.Context, instanceID string) (*core.WorkflowInstance, error) {
 	val, err := rb.rdb.Get(ctx, rb.keys.activeInstanceExecutionKey(instanceID)).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			return nil, nil
 		}
 
