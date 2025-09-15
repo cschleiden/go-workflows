@@ -149,7 +149,7 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	nowUnix := now.Unix()
 	args = append(
 		args,
-		string(nowStr),
+		nowStr,
 		nowUnix,
 		int(state),
 		int(core.WorkflowInstanceStateContinuedAsNew),

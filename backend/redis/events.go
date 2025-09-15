@@ -67,8 +67,8 @@ func addEventToStreamP(ctx context.Context, p redis.Pipeliner, streamKey string,
 	return p.XAdd(ctx, &redis.XAddArgs{
 		Stream: streamKey,
 		ID:     "*",
-		Values: map[string]interface{}{
-			"event": string(eventData),
+		Values: map[string]any{
+			"event": eventData,
 		},
 	}).Err()
 }
