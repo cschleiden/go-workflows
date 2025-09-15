@@ -133,8 +133,8 @@ func (rb *redisBackend) Tracer() trace.Tracer {
 	return rb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func (b *redisBackend) Options() *backend.Options {
-	return b.options.Options
+func (rb *redisBackend) Options() *backend.Options {
+	return rb.options.Options
 }
 
 func (rb *redisBackend) Close() error {
