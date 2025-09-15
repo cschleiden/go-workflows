@@ -193,7 +193,9 @@ func TestWorkQueue_ConcurrentOperations(t *testing.T) {
 				defer wg.Done()
 
 				err := wq.reserve(ctx)
-				require.NoError(t, err, "goroutine %d failed to reserve", id)
+				if err != nil {
+					panic(err)
+				}
 
 				// Simulate some work
 				time.Sleep(time.Millisecond)
@@ -234,7 +236,9 @@ func TestWorkQueue_ConcurrentOperations(t *testing.T) {
 				defer wg.Done()
 				task := &testTask{ID: id, Data: "concurrent"}
 				err := wq.add(ctx, task)
-				require.NoError(t, err)
+				if err != nil {
+					panic(err)
+				}
 			}(i)
 		}
 
