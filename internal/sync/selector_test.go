@@ -91,7 +91,7 @@ func Test_FutureSelector_DefaultCase(t *testing.T) {
 	cs := NewCoroutine(Background(), func(ctx Context) error {
 		Select(
 			ctx,
-			Await[int](f, func(ctx Context, _ Future[int]) {
+			Await(f, func(ctx Context, _ Future[int]) {
 				require.Fail(t, "should not be called")
 			}),
 
