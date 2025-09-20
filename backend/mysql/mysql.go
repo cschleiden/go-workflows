@@ -118,20 +118,20 @@ func (mb *mysqlBackend) Migrate() error {
 	return nil
 }
 
-func (b *mysqlBackend) Tracer() trace.Tracer {
-	return b.options.TracerProvider.Tracer(backend.TracerName)
+func (mb *mysqlBackend) Tracer() trace.Tracer {
+	return mb.options.TracerProvider.Tracer(backend.TracerName)
 }
 
-func (b *mysqlBackend) Metrics() metrics.Client {
-	return b.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
+func (mb *mysqlBackend) Metrics() metrics.Client {
+	return mb.options.Metrics.WithTags(metrics.Tags{metrickeys.Backend: "mysql"})
 }
 
-func (b *mysqlBackend) Options() *backend.Options {
-	return b.options.Options
+func (mb *mysqlBackend) Options() *backend.Options {
+	return mb.options.Options
 }
 
-func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+func (mb *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -158,21 +158,21 @@ func (b *mysqlBackend) CreateWorkflowInstance(ctx context.Context, instance *wor
 	return nil
 }
 
-func (b *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
-	tx, err := b.db.BeginTx(ctx, nil)
+func (mb *mysqlBackend) RemoveWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) error {
+	tx, err := mb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	if err := b.removeWorkflowInstance(ctx, instance, tx); err != nil {
+	if err := mb.removeWorkflowInstance(ctx, instance, tx); err != nil {
 		return err
 	}
 
 	return tx.Commit()
 }
 
-func (b *mysqlBackend) removeWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, tx *sql.Tx) error {
+func (mb *mysqlBackend) removeWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance, tx *sql.Tx) error {
 	row := tx.QueryRowContext(ctx, "SELECT state FROM `instances` WHERE instance_id = ? AND execution_id = ? LIMIT 1", instance.InstanceID, instance.ExecutionID)
 	var state core.WorkflowInstanceState
 	if err := row.Scan(&state); err != nil {
@@ -201,13 +201,13 @@ func (b *mysqlBackend) removeWorkflowInstance(ctx context.Context, instance *cor
 	return nil
 }
 
-func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
 	ro := backend.DefaultRemovalOptions
 	for _, opt := range options {
 		opt(&ro)
 	}
 
-	rows, err := b.db.QueryContext(ctx, `SELECT instance_id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
+	rows, err := mb.db.QueryContext(ctx, `SELECT instance_id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
 	if err != nil {
 		return err
 	}
@@ -224,12 +224,16 @@ func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...b
 		executionIDs = append(executionIDs, executionID)
 	}
 
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
 	batchSize := ro.BatchSize
 	for i := 0; i < len(instanceIDs); i += batchSize {
 		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
 		executionIDs := executionIDs[i:min(i+batchSize, len(executionIDs))]
 
-		tx, err := b.db.BeginTx(ctx, nil)
+		tx, err := mb.db.BeginTx(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -267,8 +271,8 @@ func (b *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...b
 	return nil
 }
 
-func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+func (mb *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -294,8 +298,8 @@ func (b *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *wor
 	return tx.Commit()
 }
 
-func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]*history.Event, error) {
-	tx, err := b.db.BeginTx(ctx, nil)
+func (mb *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *workflow.Instance, lastSequenceID *int64) ([]*history.Event, error) {
+	tx, err := mb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -353,11 +357,15 @@ func (b *mysqlBackend) GetWorkflowInstanceHistory(ctx context.Context, instance 
 		h = append(h, historyEvent)
 	}
 
+	if historyEvents.Err() != nil {
+		return nil, historyEvents.Err()
+	}
+
 	return h, nil
 }
 
-func (b *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
-	row := b.db.QueryRowContext(
+func (mb *mysqlBackend) GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error) {
+	row := mb.db.QueryRowContext(
 		ctx,
 		"SELECT state FROM instances WHERE instance_id = ? AND execution_id = ?",
 		instance.InstanceID,
@@ -418,8 +426,8 @@ func createInstance(ctx context.Context, tx *sql.Tx, queue workflow.Queue, wfi *
 }
 
 // SignalWorkflow signals a running workflow instance
-func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+func (mb *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -443,17 +451,17 @@ func (b *mysqlBackend) SignalWorkflow(ctx context.Context, instanceID string, ev
 	return tx.Commit()
 }
 
-func (b *mysqlBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
+func (mb *mysqlBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
 	return nil
 }
 
-func (b *mysqlBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
+func (mb *mysqlBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
 	return nil
 }
 
 // GetWorkflowInstance returns a pending workflow task or nil if there are no pending worflow executions
-func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+func (mb *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -467,7 +475,7 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 		now,                              // event.visible_at
 		now,                              // locked_until
 		now,                              // sticky_until
-		b.workerName,                     // worker
+		mb.workerName,                    // worker
 	}
 
 	queuePlaceholders := strings.Repeat(",?", len(queues)-1)
@@ -511,8 +519,8 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 		`UPDATE instances i
 			SET locked_until = ?, worker = ?
 			WHERE id = ?`,
-		now.Add(b.options.WorkflowLockTimeout),
-		b.workerName,
+		now.Add(mb.options.WorkflowLockTimeout),
+		mb.workerName,
 		id,
 	)
 	if err != nil {
@@ -590,6 +598,10 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 		t.NewEvents = append(t.NewEvents, historyEvent)
 	}
 
+	if events.Err() != nil {
+		return nil, events.Err()
+	}
+
 	// Return if there aren't any new events
 	if len(t.NewEvents) == 0 {
 		return nil, nil
@@ -622,14 +634,14 @@ func (b *mysqlBackend) GetWorkflowTask(ctx context.Context, queues []workflow.Qu
 // This checkpoints the execution. events are new events from the last workflow execution
 // which will be added to the workflow instance history. workflowEvents are new events for the
 // completed or other workflow instances.
-func (b *mysqlBackend) CompleteWorkflowTask(
+func (mb *mysqlBackend) CompleteWorkflowTask(
 	ctx context.Context,
 	task *backend.WorkflowTask,
 	state core.WorkflowInstanceState,
 	executedEvents, activityEvents, timerEvents []*history.Event,
 	workflowEvents []*history.WorkflowEvent,
 ) error {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -649,12 +661,12 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = NULL, sticky_until = ?, completed_at = ?, state = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
-		time.Now().Add(b.options.StickyTimeout),
+		time.Now().Add(mb.options.StickyTimeout),
 		completedAt,
 		state,
 		instance.InstanceID,
 		instance.ExecutionID,
-		b.workerName,
+		mb.workerName,
 	)
 	if err != nil {
 		return fmt.Errorf("unlocking instance: %w", err)
@@ -759,8 +771,8 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 		}
 	}
 
-	if b.options.RemoveContinuedAsNewInstances && state == core.WorkflowInstanceStateContinuedAsNew {
-		if err := b.removeWorkflowInstance(ctx, instance, tx); err != nil {
+	if mb.options.RemoveContinuedAsNewInstances && state == core.WorkflowInstanceStateContinuedAsNew {
+		if err := mb.removeWorkflowInstance(ctx, instance, tx); err != nil {
 			return fmt.Errorf("removing old instance: %w", err)
 		}
 	}
@@ -772,21 +784,21 @@ func (b *mysqlBackend) CompleteWorkflowTask(
 	return nil
 }
 
-func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, task *backend.WorkflowTask) error {
-	tx, err := b.db.BeginTx(ctx, nil)
+func (mb *mysqlBackend) ExtendWorkflowTask(ctx context.Context, task *backend.WorkflowTask) error {
+	tx, err := mb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	until := time.Now().Add(b.options.WorkflowLockTimeout)
+	until := time.Now().Add(mb.options.WorkflowLockTimeout)
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE instances SET locked_until = ? WHERE instance_id = ? AND execution_id = ? AND worker = ?`,
 		until,
 		task.WorkflowInstance.InstanceID,
 		task.WorkflowInstance.ExecutionID,
-		b.workerName,
+		mb.workerName,
 	)
 	if err != nil {
 		return fmt.Errorf("extending workflow task lock: %w", err)
@@ -802,8 +814,8 @@ func (b *mysqlBackend) ExtendWorkflowTask(ctx context.Context, task *backend.Wor
 }
 
 // GetActivityTask returns a pending activity task or nil if there are no pending activities
-func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+func (mb *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -859,8 +871,8 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 	if _, err := tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ?, worker = ? WHERE id = ?`,
-		now.Add(b.options.ActivityLockTimeout),
-		b.workerName,
+		now.Add(mb.options.ActivityLockTimeout),
+		mb.workerName,
 		id,
 	); err != nil {
 		return nil, fmt.Errorf("locking activity: %w", err)
@@ -882,8 +894,8 @@ func (b *mysqlBackend) GetActivityTask(ctx context.Context, queues []workflow.Qu
 }
 
 // CompleteActivityTask completes a activity task retrieved using GetActivityTask
-func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+func (mb *mysqlBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -898,7 +910,7 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, task *backend.A
 		task.ActivityID,
 		task.WorkflowInstance.InstanceID,
 		task.WorkflowInstance.ExecutionID,
-		b.workerName,
+		mb.workerName,
 		task.Queue,
 	); err != nil {
 		return fmt.Errorf("completing activity: %w", err)
@@ -925,20 +937,20 @@ func (b *mysqlBackend) CompleteActivityTask(ctx context.Context, task *backend.A
 	return nil
 }
 
-func (b *mysqlBackend) ExtendActivityTask(ctx context.Context, task *backend.ActivityTask) error {
-	tx, err := b.db.BeginTx(ctx, nil)
+func (mb *mysqlBackend) ExtendActivityTask(ctx context.Context, task *backend.ActivityTask) error {
+	tx, err := mb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	until := time.Now().Add(b.options.ActivityLockTimeout)
+	until := time.Now().Add(mb.options.ActivityLockTimeout)
 	_, err = tx.ExecContext(
 		ctx,
 		`UPDATE activities SET locked_until = ? WHERE activity_id = ? AND worker = ?`,
 		until,
 		task.ActivityID,
-		b.workerName,
+		mb.workerName,
 	)
 	if err != nil {
 		return fmt.Errorf("extending activity lock: %w", err)

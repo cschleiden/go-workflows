@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -297,6 +296,10 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 
 		instanceIDs = append(instanceIDs, id)
 		executionIDs = append(executionIDs, executionID)
+	}
+
+	if rows.Err() != nil {
+		return rows.Err()
 	}
 
 	batchSize := ro.BatchSize
@@ -876,8 +879,8 @@ func (sb *sqliteBackend) ExtendActivityTask(ctx context.Context, task *backend.A
 
 // getWorkerName returns the worker name from options, or generates a UUID-based name if not set.
 func getWorkerName(options *options) string {
-	if options.Options.WorkerName != "" {
-		return options.Options.WorkerName
+	if options.WorkerName != "" {
+		return options.WorkerName
 	}
 	return fmt.Sprintf("worker-%v", uuid.NewString())
 }

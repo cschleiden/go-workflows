@@ -14,7 +14,7 @@ import (
 var _ diag.Backend = (*redisBackend)(nil)
 
 func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
-	max := "+inf"
+	stop := "+inf"
 
 	if afterInstanceID != "" {
 		afterSegmentID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
@@ -31,19 +31,19 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 			return nil, nil
 		}
 
-		max = fmt.Sprintf("(%v", int64(scores[0]))
+		stop = fmt.Sprintf("(%v", int64(scores[0]))
 	}
 
 	result, err := rb.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
 		Key:     rb.keys.instancesByCreation(),
-		Stop:    max,
+		Stop:    stop,
 		Start:   "-inf",
 		ByScore: true,
 		Rev:     true,
 		Count:   int64(count),
 	}).Result()
 	if err != nil {
-		return nil, fmt.Errorf("getting instances after %v: %w", max, err)
+		return nil, fmt.Errorf("getting instances after %v: %w", stop, err)
 	}
 
 	instanceKeys := make([]string, 0)

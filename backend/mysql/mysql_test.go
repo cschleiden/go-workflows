@@ -32,7 +32,7 @@ func Test_MysqlBackend(t *testing.T) {
 			panic(err)
 		}
 
-		dbName = "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		dbName = "test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
 			panic(fmt.Errorf("creating database: %w", err))
 		}
@@ -77,7 +77,7 @@ func TestMySqlBackendE2E(t *testing.T) {
 			panic(err)
 		}
 
-		dbName = "test_" + strings.Replace(uuid.NewString(), "-", "", -1)
+		dbName = "test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		if _, err := db.Exec("CREATE DATABASE " + dbName); err != nil {
 			panic(fmt.Errorf("creating database: %w", err))
 		}
@@ -158,6 +158,10 @@ func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, 
 		fe.Attributes = a
 
 		f = append(f, fe)
+	}
+
+	if futureEvents.Err() != nil {
+		return nil, futureEvents.Err()
 	}
 
 	return f, nil

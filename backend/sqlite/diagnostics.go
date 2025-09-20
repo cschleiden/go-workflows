@@ -48,6 +48,9 @@ func (sb *sqliteBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 	if err != nil {
 		return nil, err
 	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
 
 	defer rows.Close()
 
