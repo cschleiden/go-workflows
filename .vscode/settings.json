@@ -1,6 +1,6 @@
 {
   // Some integration tests take quite long to run, increase the overall limit for now
-  "go.testFlags": ["-timeout", "120s", "-race", "-count", "1" , "-short"],
+  "go.testFlags": ["-timeout", "120s", "-race", "-count", "1", "-short"],
   "files.exclude": {
     "**/.git": true,
     "**/.svn": true,
@@ -13,6 +13,9 @@
   "github-actions.workflows.pinned.workflows": [],
   "go.testExplorer.showDynamicSubtestsInEditor": true,
   "go.lintTool": "golangci-lint-v2",
-  "Lua.diagnostics.globals": ["KEYS", "ARGV", "redis", "cjson"],
-
+  // "go.lintFlags": ["--path-mode=abs", "--fast-only"],
+  // "go.alternateTools": {
+  //   "golangci-lint-v2": "${workspaceFolder}/custom-gcl"
+  // },
+  "Lua.diagnostics.globals": ["KEYS", "ARGV", "redis", "cjson"]
 }

@@ -1,13 +1,52 @@
+version: "2"
+
 run:
-  tests: false
+  allow-parallel-runners: true
 
 linters:
   enable:
-  - goworkflows
+    - bidichk
+    - bodyclose
+    - errcheck
+    - errname
+    - errorlint
+    - goprintffuncname
+    - govet
+    - importas
+    - ineffassign
+    - makezero
+    - prealloc
+    - predeclared
+    - promlinter
+    - rowserrcheck
+    - staticcheck
+    - tagalign
+    - testifylint
+    - tparallel
+    - unconvert
+    - usetesting
+    - wastedassign
+    - whitespace
+    - unused
+    - goworkflows
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        - "-ST1003"
+    custom:
+      goworkflows:
+        type: "module"
+        original-url: "github.com/cschleiden/go-workflows/analyzer"
+        settings:
+          checkprivatereturnvalues: true
 
-linters-settings:
-  custom:
-    goworkflows:
-      path: ./plugin.so
-      description: go-workflows
-      original-url: github.com/cschleiden/go-workflows/analyzer
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - "github.com/cschleiden/go-workflows"

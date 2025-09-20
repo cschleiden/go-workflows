@@ -9,6 +9,7 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOFMT=gofmt
 GOLINT=golangci-lint
+CUSTOM_GOLINT=./custom-gcl
 
 # Test parameters
 TEST_TIMEOUT=240s
@@ -59,12 +60,16 @@ test-monoprocess:
 # Run all backend tests
 test-backends: test-redis test-mysql test-sqlite test-monoprocess
 
-# Lint the code
-lint:
+custom-gcl:
 	@echo "Checking if golangci-lint is installed..."
 	@which $(GOLINT) > /dev/null || (echo "golangci-lint is not installed. Please install it first." && exit 1)
+	@echo "Building custom linter plugin..."
+	$(GOLINT) custom
+
+# Lint the code
+lint: custom-gcl
 	@echo "Running linter..."
-	$(GOLINT) run
+	$(CUSTOM_GOLINT) run
 
 # Format the code
 fmt:
