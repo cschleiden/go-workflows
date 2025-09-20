@@ -6,3 +6,5 @@ vendor
 plugin.so
 
 web/app/node_modules
+
+custom-gcl
