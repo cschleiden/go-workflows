@@ -159,7 +159,7 @@ func (rb *redisBackend) FeatureSupported(feature backend.Feature) bool {
 // to prevent NOGROUP errors when the worker starts and tries to recover abandoned tasks
 func (rb *redisBackend) ensureDefaultConsumerGroups(ctx context.Context) error {
 	// Initialize consumer groups for both default and system queues
-	queues := []workflow.Queue{workflow.QueueDefault, core.QueueSystem}
+	queues := []workflow.Queue{core.QueueDefault, core.QueueSystem}
 
 	// Prepare workflow queue consumer groups
 	if err := rb.workflowQueue.Prepare(ctx, rb.rdb, queues); err != nil {
