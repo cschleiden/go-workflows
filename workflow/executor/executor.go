@@ -72,7 +72,6 @@ type executor struct {
 	tracer            trace.Tracer
 	lastSequenceID    int64
 
-	parentSpan   trace.Span
 	workflowSpan trace.Span
 
 	maxHistorySize int64
