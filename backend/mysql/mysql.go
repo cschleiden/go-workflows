@@ -31,6 +31,25 @@ import (
 var migrationsFS embed.FS
 
 func NewMysqlBackend(host string, port int, user, password, database string, opts ...option) *mysqlBackend {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&interpolateParams=true", user, password, host, port, database)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		panic(err)
+	}
+
+	return newMysqlBackend(db, dsn, opts...)
+}
+
+// NewMysqlBackendWithDB creates a new MySQL backend using an existing database connection.
+// The provided database connection should already be configured and connected to the target database.
+// Note: Migrations will be applied using the provided connection directly, so ensure the connection
+// supports multiple statements if ApplyMigrations is enabled (default: true).
+func NewMysqlBackendWithDB(db *sql.DB, opts ...option) *mysqlBackend {
+	return newMysqlBackend(db, "", opts...)
+}
+
+func newMysqlBackend(db *sql.DB, dsn string, opts ...option) *mysqlBackend {
 	options := &options{
 		Options:         backend.ApplyOptions(),
 		ApplyMigrations: true,
@@ -38,13 +57,6 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 
 	for _, opt := range opts {
 		opt(options)
-	}
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&interpolateParams=true", user, password, host, port, database)
-
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		panic(err)
 	}
 
 	if options.MySQLOptions != nil {
@@ -84,10 +96,22 @@ func (mb *mysqlBackend) Close() error {
 
 // Migrate applies any pending database migrations.
 func (mb *mysqlBackend) Migrate() error {
-	schemaDsn := mb.dsn + "&multiStatements=true"
-	db, err := sql.Open("mysql", schemaDsn)
-	if err != nil {
-		return fmt.Errorf("opening schema database: %w", err)
+	var db *sql.DB
+	var shouldCloseDb bool
+
+	if mb.dsn != "" {
+		// When DSN is available, create a new connection with multiStatements support
+		schemaDsn := mb.dsn + "&multiStatements=true"
+		var err error
+		db, err = sql.Open("mysql", schemaDsn)
+		if err != nil {
+			return fmt.Errorf("opening schema database: %w", err)
+		}
+		shouldCloseDb = true
+	} else {
+		// When using an existing DB connection, use it directly for migrations
+		db = mb.db
+		shouldCloseDb = false
 	}
 
 	dbi, err := mysql.WithInstance(db, &mysql.Config{})
@@ -111,8 +135,10 @@ func (mb *mysqlBackend) Migrate() error {
 		}
 	}
 
-	if err := db.Close(); err != nil {
-		return fmt.Errorf("closing schema database: %w", err)
+	if shouldCloseDb {
+		if err := db.Close(); err != nil {
+			return fmt.Errorf("closing schema database: %w", err)
+		}
 	}
 
 	return nil
