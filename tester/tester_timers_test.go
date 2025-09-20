@@ -219,7 +219,6 @@ func Test_Timers_MultipleTimers(t *testing.T) {
 
 	wf := func(ctx workflow.Context) error {
 		for i := 0; i < 10; i++ {
-
 			tctx, cancel := workflow.WithCancel(ctx)
 			workflow.ScheduleTimer(tctx, time.Millisecond*10)
 			workflow.ExecuteActivity[string](ctx, workflow.DefaultActivityOptions, activity1).Get(ctx)
