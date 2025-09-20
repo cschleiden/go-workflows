@@ -31,6 +31,7 @@ linters:
     - errname
     - errcheck
     - errorlint
+    - usetesting
   settings:
     staticcheck:
       checks:
