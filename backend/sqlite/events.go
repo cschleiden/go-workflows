@@ -31,6 +31,9 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
+	if futureEvents.Err() != nil {
+		return nil, futureEvents.Err()
+	}
 
 	defer futureEvents.Close()
 
@@ -96,6 +99,10 @@ func getPendingEvents(ctx context.Context, tx *sql.Tx, instance *core.WorkflowIn
 		pendingEvents = append(pendingEvents, pendingEvent)
 	}
 
+	if events.Err() != nil {
+		return nil, events.Err()
+	}
+
 	return pendingEvents, nil
 }
 
@@ -124,6 +131,10 @@ func getHistory(ctx context.Context, tx *sql.Tx, instance *core.WorkflowInstance
 		}
 
 		events = append(events, historyEvent)
+	}
+
+	if historyEvents.Err() != nil {
+		return nil, historyEvents.Err()
 	}
 
 	return events, nil
@@ -213,6 +224,7 @@ func insertEvents(ctx context.Context, tx *sql.Tx, tableName string, instance *c
 			return fmt.Errorf("inserting events: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -238,6 +250,10 @@ func removeFutureEvent(ctx context.Context, tx *sql.Tx, instance *core.WorkflowI
 		}
 
 		ids = append(ids, id)
+	}
+
+	if row.Err() != nil {
+		return row.Err()
 	}
 
 	// Delete attributes

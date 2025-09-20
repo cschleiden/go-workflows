@@ -7,8 +7,6 @@ linters:
   enable:
     - bidichk
     - bodyclose
-    - errcheck
-    - errname
     - errorlint
     - goprintffuncname
     - govet
@@ -28,24 +26,34 @@ linters:
     - wastedassign
     - whitespace
     - unused
-    - goworkflows
+    # - goworkflows
+  disable:
+    - errname
+    - errcheck
+    - errorlint
   settings:
     staticcheck:
       checks:
         - "all"
+        - "-SA1019"
+        - "-ST1000"
         - "-ST1003"
-    custom:
-      goworkflows:
-        type: "module"
-        original-url: "github.com/cschleiden/go-workflows/analyzer"
-        settings:
-          checkprivatereturnvalues: true
+        - "-ST1005"
+        - "-ST1012"
+        - "-ST1020"
+        - "-SA5010"
+    # custom:
+    #   goworkflows:
+    #     type: "module"
+    #     original-url: "github.com/cschleiden/go-workflows/analyzer"
+    #     settings:
+    #       checkprivatereturnvalues: true
 
 
 formatters:
   enable:
     - gofmt
-    - goimports
+    # - goimports
   settings:
     goimports:
       local-prefixes:

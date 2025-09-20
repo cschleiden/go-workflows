@@ -87,7 +87,7 @@ var e2eTracingTests = []backendTest{
 				return strings.Contains(span.Name(), "Timer")
 			})
 			require.NotNil(t, workflow1Span)
-			require.InEpsilon(t, time.Duration(20*time.Millisecond),
+			require.InEpsilon(t, 20*time.Millisecond,
 				timerSpan.EndTime().Sub(timerSpan.StartTime())/time.Millisecond,
 				float64(5*time.Millisecond))
 			require.Equal(t, "Timer", timerSpan.Name())

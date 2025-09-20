@@ -125,7 +125,7 @@ func timerCancellationSubWorkflow(ctx workflow.Context) error {
 func Test_TimerRespondingWithoutNewEvents(t *testing.T) {
 	tester := NewWorkflowTester[time.Time](workflowTimerRespondingWithoutNewEvents)
 
-	tester.ScheduleCallback(time.Duration(2*time.Second), func() {
+	tester.ScheduleCallback(2*time.Second, func() {
 		tester.SignalWorkflow("signal", "s42")
 	})
 
@@ -189,7 +189,7 @@ func Test_Timers_SetsTimeModeCorrectly(t *testing.T) {
 		cancel()
 
 		// This will switch to time-travel
-		tctx, cancel = workflow.WithCancel(ctx)
+		tctx, _ = workflow.WithCancel(ctx)
 		workflow.ScheduleTimer(tctx, time.Hour*24).Get(ctx)
 
 		return nil

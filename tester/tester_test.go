@@ -166,7 +166,7 @@ func Test_CancelWorkflow(t *testing.T) {
 		_, _ = ctx.Done().Receive(ctx)
 		return ctx.Err()
 	})
-	tester.ScheduleCallback(time.Duration(time.Second), func() {
+	tester.ScheduleCallback(time.Second, func() {
 		tester.CancelWorkflow()
 	})
 
@@ -179,7 +179,7 @@ func Test_CancelWorkflow(t *testing.T) {
 
 func Test_Signals(t *testing.T) {
 	tester := NewWorkflowTester[string](workflowSignal)
-	tester.ScheduleCallback(time.Duration(5*time.Second), func() {
+	tester.ScheduleCallback(5*time.Second, func() {
 		tester.SignalWorkflow("signal", "s42")
 	})
 

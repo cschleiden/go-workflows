@@ -84,6 +84,10 @@ func (mb *mysqlBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 		})
 	}
 
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
 	return instances, nil
 }
 
@@ -128,7 +132,7 @@ func (mb *mysqlBackend) GetWorkflowInstance(ctx context.Context, instance *core.
 	}
 
 	return &diag.WorkflowInstanceRef{
-		Instance:    core.NewWorkflowInstance(id, executionID),
+		Instance:    instance,
 		CreatedAt:   createdAt,
 		CompletedAt: completedAt,
 		State:       state,

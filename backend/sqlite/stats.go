@@ -10,10 +10,10 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 )
 
-func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
+func (sb *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	s := &backend.Stats{}
 
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+	tx, err := sb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -70,6 +70,10 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		s.PendingWorkflowTasks[core.Queue(queue)] = pendingInstances
 	}
 
+	if workflowRows.Err() != nil {
+		return nil, workflowRows.Err()
+	}
+
 	// Get pending activities
 	activityRows, err := tx.QueryContext(
 		ctx,
@@ -88,6 +92,10 @@ func (b *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		}
 
 		s.PendingActivityTasks[core.Queue(queue)] = pendingActivities
+	}
+
+	if activityRows.Err() != nil {
+		return nil, activityRows.Err()
 	}
 
 	return s, nil

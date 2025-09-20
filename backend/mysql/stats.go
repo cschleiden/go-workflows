@@ -11,10 +11,10 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
-func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
+func (mb *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	s := &backend.Stats{}
 
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+	tx, err := mb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
@@ -70,6 +70,10 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		s.PendingWorkflowTasks[workflow.Queue(queue)] = pendingInstances
 	}
 
+	if err := workflowRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read active instances: %w", err)
+	}
+
 	// Get pending activities
 	activityRows, err := tx.QueryContext(
 		ctx,
@@ -88,6 +92,10 @@ func (b *mysqlBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 		}
 
 		s.PendingActivityTasks[workflow.Queue(queue)] = pendingActivities
+	}
+
+	if err := activityRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read active activities: %w", err)
 	}
 
 	return s, nil

@@ -14,7 +14,7 @@ type Error struct {
 	Stacktrace string `json:"stacktrace,omitempty"`
 }
 
-func (e *Error) UnmarshalJSON(b []byte) error {
+func (we *Error) UnmarshalJSON(b []byte) error {
 	type Alias Error
 	a := &struct {
 		Cause *Error `json:"cause,omitempty"`
@@ -25,8 +25,8 @@ func (e *Error) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	*e = *(*Error)(a.Alias)
-	e.Cause = a.Cause
+	*we = *(*Error)(a.Alias)
+	we.Cause = a.Cause
 
 	return nil
 }

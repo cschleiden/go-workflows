@@ -57,7 +57,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 					y := make([]workflow.SelectCase, 0)
 					for i := 0; i < 100; i++ {
 						var sc workflow.SelectCase
-						sc = workflow.Await[int](workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{}, a),
+						sc = workflow.Await(workflow.ExecuteActivity[int](ctx, workflow.ActivityOptions{}, a),
 							func(ctx sync.Context, f workflow.Future[int]) {
 								done++
 
@@ -292,7 +292,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 				}
 				wf := func(ctx workflow.Context) (int, error) {
 					// Let sub-workflow run to completion
-					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+					_, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 						InstanceID: "subworkflow",
 					}, swf, 1).Get(ctx)
 					if err != nil {
@@ -300,7 +300,7 @@ func EndToEndBackendTest(t *testing.T, setup func(options ...backend.BackendOpti
 					}
 
 					// Run another subworkflow with the same ID
-					r, err = workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
+					r, err := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 						InstanceID: "subworkflow",
 					}, swf, 2).Get(ctx)
 					if err != nil {
