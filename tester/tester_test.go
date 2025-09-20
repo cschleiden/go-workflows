@@ -229,10 +229,6 @@ func workflowSubWorkFlowsAndSignals(ctx workflow.Context) (string, error) {
 	return "finished without errors!", nil
 }
 
-func workflowSum(_ workflow.Context, valA, valB int) (int, error) {
-	return valA + valB, nil
-}
-
 func Test_SignalSubWorkflow(t *testing.T) {
 	tester := NewWorkflowTester[int](workflowSubworkflowSignal)
 	require.NoError(t, tester.Registry().RegisterWorkflow(waitForSignal))

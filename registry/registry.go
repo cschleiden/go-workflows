@@ -11,8 +11,6 @@ import (
 )
 
 type Registry struct {
-	sealed bool
-
 	sync.Mutex
 
 	workflowMap map[string]any
