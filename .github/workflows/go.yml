@@ -37,11 +37,10 @@ jobs:
             exit 1
           fi
 
-      # Disabled for now
-      # - name: Lint
-      #   uses: golangci/golangci-lint-action@v8
-      #   with:
-      #     version: v2.4.0
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4.0
 
       - name: Tests
         run: |
