@@ -714,7 +714,6 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 					),
 				)
 			}
-
 		} else {
 			executor := activity.NewExecutor(wt.logger, wt.tracer, wt.converter, wt.propagators, wt.registry)
 			activityResult, activityErr = executor.ExecuteActivity(context.Background(), &backend.ActivityTask{
