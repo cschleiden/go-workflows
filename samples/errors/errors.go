@@ -21,7 +21,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("errors")
+	b := samples.GetBackend("errors", true)
 
 	db, ok := b.(diag.Backend)
 	if !ok {

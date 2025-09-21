@@ -20,7 +20,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("continue-as-new")
+	b := samples.GetBackend("continue-as-new", true)
 
 	db, ok := b.(diag.Backend)
 	if !ok {

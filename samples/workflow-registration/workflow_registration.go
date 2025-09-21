@@ -17,7 +17,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("simple")
+	b := samples.GetBackend("simple", true)
 
 	// Run worker
 	w := RunWorker(ctx, b)

@@ -17,7 +17,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("complex-parameters")
+	b := samples.GetBackend("complex-parameters", true)
 
 	// Run worker
 	go RunWorker(ctx, b)

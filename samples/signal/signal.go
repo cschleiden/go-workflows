@@ -18,7 +18,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("signal")
+	b := samples.GetBackend("signal", true)
 
 	// Run worker
 	go RunWorker(ctx, b)

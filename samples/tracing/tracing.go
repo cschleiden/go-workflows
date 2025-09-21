@@ -60,7 +60,7 @@ func main() {
 
 	otel.SetTracerProvider(tp)
 
-	b := samples.GetBackend("tracing",
+	b := samples.GetBackend("tracing", true,
 		backend.WithTracerProvider(tp),
 		backend.WithStickyTimeout(0),
 	)

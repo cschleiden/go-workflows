@@ -21,7 +21,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("web")
+	b := samples.GetBackend("web", true)
 
 	db, ok := b.(diag.Backend)
 	if !ok {

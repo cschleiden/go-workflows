@@ -16,7 +16,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("simple", backend.WithContextPropagator(&myPropagator{}))
+	b := samples.GetBackend("simple", true, backend.WithContextPropagator(&myPropagator{}))
 
 	// Run worker
 	w := RunWorker(ctx, b)

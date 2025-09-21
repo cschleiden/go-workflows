@@ -19,7 +19,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("retries")
+	b := samples.GetBackend("retries", true)
 
 	// Run worker
 	go RunWorker(ctx, b)

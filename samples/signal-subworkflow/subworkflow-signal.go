@@ -18,7 +18,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("subworkflow-signal")
+	b := samples.GetBackend("subworkflow-signal", true)
 
 	// Run worker
 	go RunWorker(ctx, b)

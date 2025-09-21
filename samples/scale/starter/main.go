@@ -19,7 +19,7 @@ var count int32
 
 func main() {
 	ctx := context.Background()
-	b := samples.GetBackend("scale")
+	b := samples.GetBackend("scale", false)
 
 	count = int32(*tostart)
 
