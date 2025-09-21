@@ -18,7 +18,7 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	b := samples.GetBackend("timer")
+	b := samples.GetBackend("timer", true)
 
 	// Run worker
 	w := RunWorker(ctx, b)

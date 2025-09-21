@@ -41,7 +41,7 @@ func (*CustomConverter) To(v interface{}) (payload.Payload, error) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("converter", backend.WithConverter(&CustomConverter{}))
+	b := samples.GetBackend("converter", true, backend.WithConverter(&CustomConverter{}))
 
 	// Run worker
 	w := RunWorker(ctx, b)

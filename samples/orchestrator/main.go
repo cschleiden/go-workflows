@@ -18,7 +18,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	backend := samples.GetBackend("orchestrator", backend.WithWorkerName("orchestrator-worker"))
+	backend := samples.GetBackend("orchestrator", true, backend.WithWorkerName("orchestrator-worker"))
 
 	orchestrator := worker.NewWorkflowOrchestrator(
 		backend,

@@ -18,7 +18,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("subworkflow")
+	b := samples.GetBackend("subworkflow", true)
 
 	// Run worker
 	w := RunWorker(ctx, b)

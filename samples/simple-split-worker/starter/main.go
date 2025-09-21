@@ -13,7 +13,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("simple-split")
+	b := samples.GetBackend("simple-split", false)
 
 	// Start workflow via client
 	c := client.New(b)

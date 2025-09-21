@@ -14,7 +14,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("simple-split")
+	b := samples.GetBackend("simple-split", false)
 
 	// Run worker
 	go RunWorker(ctx, b)

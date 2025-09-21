@@ -20,7 +20,7 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	b := samples.GetBackend("cancellation")
+	b := samples.GetBackend("cancellation", true)
 
 	// Run worker
 	go RunWorker(ctx, b)

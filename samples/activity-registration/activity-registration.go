@@ -20,7 +20,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("activity-registration")
+	b := samples.GetBackend("activity-registration", true)
 
 	go RunWorker(ctx, b)
 

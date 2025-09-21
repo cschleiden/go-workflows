@@ -18,7 +18,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("scale")
+	b := samples.GetBackend("scale", false)
 
 	// Run worker
 	go RunWorker(ctx, b)

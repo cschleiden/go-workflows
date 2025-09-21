@@ -18,7 +18,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	b := samples.GetBackend("concurrent")
+	b := samples.GetBackend("concurrent", true)
 
 	// Run worker
 	go RunWorker(ctx, b)

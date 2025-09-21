@@ -27,7 +27,7 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	b := samples.GetBackend("queues", backend.WithLogger(slog.Default()))
+	b := samples.GetBackend("queues", true, backend.WithLogger(slog.Default()))
 
 	db, ok := b.(diag.Backend)
 	if !ok {
