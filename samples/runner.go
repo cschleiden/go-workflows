@@ -16,7 +16,7 @@ import (
 	redisv9 "github.com/redis/go-redis/v9"
 )
 
-func GetBackend(name string, clear bool, opt ...backend.BackendOption) backend.Backend {
+func GetBackend(name string, recreate bool, opt ...backend.BackendOption) backend.Backend {
 	b := flag.String("backend", "redis", "backend to use: memory, sqlite, mysql, redis")
 	flag.Parse()
 
@@ -53,7 +53,7 @@ func GetBackend(name string, clear bool, opt ...backend.BackendOption) backend.B
 			ReadTimeout:  time.Second * 30,
 		})
 
-		if clear {
+		if recreate {
 			rclient.FlushAll(context.Background()).Result()
 		}
 
