@@ -376,7 +376,15 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 
 			result, err := e.ExecuteTask(ctx, t)
 			if err != nil {
-				panic("Error while executing workflow" + err.Error())
+				// Set workflow error and mark as finished
+				wt.logger.Debug("ExecuteTask returned error", "error", err.Error())
+				if !tw.instance.SubWorkflow() {
+					wt.workflowFinished = true
+					wt.workflowErr = workflowerrors.FromError(err)
+					wt.logger.Debug("Set workflow error", "error", wt.workflowErr)
+				}
+				e.Close()
+				continue
 			}
 
 			e.Close()
@@ -744,7 +752,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 					&history.ActivityCompletedAttributes{
 						Result: activityResult,
 					},
-					history.ScheduleEventID(event.ScheduleEventID),
+						history.ScheduleEventID(event.ScheduleEventID),
 				)
 			}
 
