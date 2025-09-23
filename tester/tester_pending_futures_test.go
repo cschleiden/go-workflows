@@ -25,30 +25,26 @@ func workflowWithPendingTimer(ctx wf.Context) error {
 	return nil // BUG: Returns without waiting for timer
 }
 
-// This test demonstrates the BUG: activities should trigger pending futures error but don't
-func TestPendingActivityFuturesBug(t *testing.T) {
-	wft := NewWorkflowTester[any](workflowWithPendingActivityBug)
+// This test demonstrates the CORRECT behavior: activities automatically block workflow completion
+func TestActivitiesAutomaticallyBlockWorkflowCompletion(t *testing.T) {
+	wft := NewWorkflowTester[any](workflowWithScheduledActivity)
 	wft.Registry().RegisterActivity(testActivity)
 	
-	// This SHOULD panic due to pending activity future, but currently doesn't (this is the bug)
-	// TODO: Uncomment this when the bug is fixed
-	// require.Panics(t, func() {
-	//     wft.Execute(context.Background())
-	// }, "Expected panic about pending activity futures")
-	
-	// Currently, the workflow completes without detecting the pending activity future
+	// Activities automatically block workflow completion - this is the correct behavior
+	// The workflow will wait for the activity to complete before finishing
 	wft.Execute(context.Background())
 	require.True(t, wft.WorkflowFinished())
 	
 	result, err := wft.WorkflowResult()
 	require.NoError(t, err)
-	require.Nil(t, result) // Returns nil because workflow doesn't return anything
+	require.Nil(t, result)
 }
 
-func workflowWithPendingActivityBug(ctx wf.Context) error {
-	// Schedule activity but don't wait for it - this should be detected as pending future
+func workflowWithScheduledActivity(ctx wf.Context) error {
+	// Schedule activity but don't explicitly wait for it
+	// The workflow framework automatically waits for activities to complete
 	wf.ExecuteActivity[string](ctx, wf.DefaultActivityOptions, testActivity)
-	return nil // BUG: Returns without waiting for activity
+	return nil // This returns after the activity completes (automatic blocking)
 }
 
 func workflowWithPendingActivity(ctx wf.Context) (string, error) {

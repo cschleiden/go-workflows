@@ -378,12 +378,10 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 			if err != nil {
 				// Set workflow error and mark as finished
 				wt.logger.Debug("ExecuteTask returned error", "error", err.Error())
-				fmt.Printf("DEBUG TESTER: ExecuteTask returned error: %v\n", err)
 				if !tw.instance.SubWorkflow() {
 					wt.workflowFinished = true
 					wt.workflowErr = workflowerrors.FromError(err)
 					wt.logger.Debug("Set workflow error", "error", wt.workflowErr)
-					fmt.Printf("DEBUG TESTER: Set workflow error: %v\n", wt.workflowErr)
 				}
 				e.Close()
 				continue
@@ -666,7 +664,6 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 	go func() {
 		defer atomic.AddInt32(&wt.runningActivities, -1)
 
-		fmt.Printf("DEBUG TESTER: Activity execution starting for %s\n", e.Name)
 		var activityErr error
 		var activityResult payload.Payload
 
@@ -734,16 +731,7 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			})
 		}
 
-		fmt.Printf("DEBUG TESTER: Activity execution completed for %s, err=%v\n", e.Name, activityErr)
-
-		// Use a separate goroutine with a timer to ensure the completion event
-		// is processed in the next iteration, not immediately
-		go func() {
-			// Small delay to ensure the current workflow task completes first
-			timer := time.NewTimer(1 * time.Second)
-			<-timer.C
-			
-			wt.callbacks <- func() *history.WorkflowEvent {
+		wt.callbacks <- func() *history.WorkflowEvent {
 				var ne *history.Event
 
 			if activityErr != nil {
@@ -764,16 +752,15 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 					&history.ActivityCompletedAttributes{
 						Result: activityResult,
 					},
-						history.ScheduleEventID(event.ScheduleEventID),
+					history.ScheduleEventID(event.ScheduleEventID),
 				)
 			}
 
-				return &history.WorkflowEvent{
-					WorkflowInstance: wfi,
-					HistoryEvent:     ne,
-				}
+			return &history.WorkflowEvent{
+				WorkflowInstance: wfi,
+				HistoryEvent:     ne,
 			}
-		}()
+		}
 	}()
 }
 

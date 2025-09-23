@@ -283,15 +283,36 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	e.workflowState.SetReplaying(false)
 
 	for i, event := range newEvents {
+		wasCompleted := e.workflow != nil && e.workflow.Completed()
+		
 		if err := e.executeEvent(event); err != nil {
 			return newEvents[:i], err
+		}
+		
+		// Check if workflow just completed during this event processing
+		if e.workflow != nil && !wasCompleted && e.workflow.Completed() {
+			if e.workflowState.HasPendingFutures() {
+				// This should not happen, provide debug information to the developer
+				var pending []string
+				pf := e.workflowState.PendingFutureNames()
+				for id, name := range pf {
+					pending = append(pending, fmt.Sprintf("%d-%s", id, name))
+				}
+				slices.Sort(pending)
+
+				if testing.Testing() {
+					panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
+				}
+
+				return newEvents[:i+1], tracing.WithSpanError(
+					e.workflowSpan, fmt.Errorf("workflow completed, but there are still pending futures: %s", pending))
+			}
 		}
 	}
 
 	if e.workflow.Completed() {
 		defer e.workflowSpan.End()
 
-		fmt.Printf("DEBUG EXECUTOR: Workflow completed, checking pending futures. HasPendingFutures: %v\n", e.workflowState.HasPendingFutures())
 		if e.workflowState.HasPendingFutures() {
 			// This should not happen, provide debug information to the developer
 			var pending []string
@@ -301,7 +322,6 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 			}
 			slices.Sort(pending)
 
-			fmt.Printf("DEBUG EXECUTOR: Found pending futures: %v, testing.Testing(): %v\n", pending, testing.Testing())
 			if testing.Testing() {
 				panic(fmt.Sprintf("workflow completed, but there are still pending futures: %s", pending))
 			}
