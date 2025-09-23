@@ -104,7 +104,9 @@ func (wf *WfState) GetNextScheduleEventID() int64 {
 }
 
 func (wf *WfState) TrackFuture(scheduleEventID int64, f *DecodingSettable) {
+	fmt.Printf("DEBUG WORKFLOWSTATE: TrackFuture called with scheduleEventID=%d, name=%s\n", scheduleEventID, f.Name)
 	wf.pendingFutures[scheduleEventID] = f
+	fmt.Printf("DEBUG WORKFLOWSTATE: pendingFutures now has %d futures\n", len(wf.pendingFutures))
 }
 
 func (wf *WfState) PendingFutureNames() map[int64]string {
@@ -126,7 +128,9 @@ func (wf *WfState) FutureByScheduleEventID(scheduleEventID int64) (*DecodingSett
 }
 
 func (wf *WfState) RemoveFuture(scheduleEventID int64) {
+	fmt.Printf("DEBUG WORKFLOWSTATE: RemoveFuture called with scheduleEventID=%d\n", scheduleEventID)
 	delete(wf.pendingFutures, scheduleEventID)
+	fmt.Printf("DEBUG WORKFLOWSTATE: pendingFutures now has %d futures\n", len(wf.pendingFutures))
 }
 
 func (wf *WfState) Commands() []command.Command {
