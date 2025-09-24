@@ -1,17 +1,16 @@
-package main
+package tester
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/cschleiden/go-workflows/tester"
 	wf "github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFoo(t *testing.T) {
-	wft := tester.NewWorkflowTester[any](WF)
+	wft := NewWorkflowTester[any](WF)
 	// wft.OnActivity(Act, mock.Anything).Return(nil)
 	wft.Execute(context.Background())
 	require.True(t, wft.WorkflowFinished())

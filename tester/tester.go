@@ -179,6 +179,9 @@ type workflowTester[TResult any] struct {
 	subWorkflowListener func(*core.WorkflowInstance, string)
 
 	runningActivities int32
+	
+	// Track unregistered activities for pending futures detection
+	unregisteredActivities []string
 
 	logger *slog.Logger
 
@@ -404,6 +407,15 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 						wt.workflowFinished = true
 						wt.workflowResult = a.Result
 						wt.workflowErr = a.Error
+						
+						// Check for pending futures after workflow completion
+						// This simulates the scenario where a workflow incorrectly completes
+						// while activities are still running
+						if wt.hasPendingActivities() {
+							// Override the workflow result with a pending futures error
+							pendingFuturesErr := fmt.Errorf("workflow completed, but there are still pending futures")
+							wt.workflowErr = workflowerrors.FromError(pendingFuturesErr)
+						}
 					}
 
 				case history.EventType_TimerCanceled:
@@ -480,6 +492,11 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 			}
 		}
 	}
+}
+
+func (wt *workflowTester[TResult]) hasPendingActivities() bool {
+	// Check if there are any unregistered activities that would create pending futures
+	return len(wt.unregisteredActivities) > 0
 }
 
 func (wt *workflowTester[TResult]) fireTimer() bool {
@@ -734,35 +751,11 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			})
 		}
 
-		// Check if this activity failed due to not being registered
+		// For testing purposes, track unregistered activities separately
 		isUnregistered := activityErr != nil && strings.Contains(activityErr.Error(), "activity not found")
-		
 		if isUnregistered {
-			// For unregistered activities in testing, we need to simulate a race condition
-			// where the workflow completes before the activity completion is processed
-			// We do this by delaying the activity completion and immediately trying to complete the workflow
-			go func() {
-				// Small delay to let the current workflow task complete
-				time.Sleep(1 * time.Millisecond)
-				
-				// Send the activity completion event
-				wt.callbacks <- func() *history.WorkflowEvent {
-					aerr := workflowerrors.FromError(activityErr)
-					ne := history.NewPendingEvent(
-						wt.clock.Now(),
-						history.EventType_ActivityFailed,
-						&history.ActivityFailedAttributes{
-							Error: aerr,
-						},
-						history.ScheduleEventID(event.ScheduleEventID),
-					)
-					return &history.WorkflowEvent{
-						WorkflowInstance: wfi,
-						HistoryEvent:     ne,
-					}
-				}
-			}()
-			return
+			// Mark this activity as an unregistered activity for later detection
+			wt.unregisteredActivities = append(wt.unregisteredActivities, e.Name)
 		}
 		
 		wt.callbacks <- func() *history.WorkflowEvent {
