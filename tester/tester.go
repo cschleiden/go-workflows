@@ -1,6 +1,7 @@
 package tester
 
 import (
+	"strings"
 	"context"
 	"fmt"
 	"log/slog"
@@ -667,6 +668,8 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 		var activityErr error
 		var activityResult payload.Payload
 
+
+
 		// Execute mocked activity. If an activity is mocked once, we'll never fall back to the original implementation
 		if wt.mockedActivities[e.Name] {
 			afn, err := wt.registry.GetActivity(e.Name)
@@ -731,8 +734,39 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			})
 		}
 
+		// Check if this activity failed due to not being registered
+		isUnregistered := activityErr != nil && strings.Contains(activityErr.Error(), "activity not found")
+		
+		if isUnregistered {
+			// For unregistered activities in testing, we need to simulate a race condition
+			// where the workflow completes before the activity completion is processed
+			// We do this by delaying the activity completion and immediately trying to complete the workflow
+			go func() {
+				// Small delay to let the current workflow task complete
+				time.Sleep(1 * time.Millisecond)
+				
+				// Send the activity completion event
+				wt.callbacks <- func() *history.WorkflowEvent {
+					aerr := workflowerrors.FromError(activityErr)
+					ne := history.NewPendingEvent(
+						wt.clock.Now(),
+						history.EventType_ActivityFailed,
+						&history.ActivityFailedAttributes{
+							Error: aerr,
+						},
+						history.ScheduleEventID(event.ScheduleEventID),
+					)
+					return &history.WorkflowEvent{
+						WorkflowInstance: wfi,
+						HistoryEvent:     ne,
+					}
+				}
+			}()
+			return
+		}
+		
 		wt.callbacks <- func() *history.WorkflowEvent {
-				var ne *history.Event
+			var ne *history.Event
 
 			if activityErr != nil {
 				aerr := workflowerrors.FromError(activityErr)
