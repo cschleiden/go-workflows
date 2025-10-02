@@ -48,6 +48,7 @@ $ go run .h -h
         - redis
         - mysql
         - sqlite
+        - postgres
          (default "redis")
   -cachesize int
         Size of the workflow executor cache (default 128)
