@@ -235,10 +235,92 @@ jobs:
           name: redis-results
           path: redis-benchmark.md
 
+  postgres-bench:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' || (github.event.issue.pull_request && contains(github.event.comment.body, '!bench'))) && !contains(github.event.comment.body, '!skippostgres')
+    outputs:
+      pr-sha: ${{ steps.sha.outputs.result || github.sha }}
+    steps:
+      - name: Install Hyperfine
+        run: |
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
+          sudo dpkg -i hyperfine_1.11.0_amd64.deb
+
+      - name: Get PR SHA
+        if: github.event_name == 'issue_comment'
+        id: sha
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            const response = await github.request(context.payload.issue.pull_request.url);
+            return response.data.head.sha;
+
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.result || github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
+
+      - name: Build PR
+        run: |
+          go build -o bench-pr ./bench
+
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          ref: main
+
+      - name: Build main
+        run: |
+          go build -o bench-main ./bench
+
+      - name: Start Postgres
+        uses: ikalnytskyi/action-setup-postgres@v7
+        with:
+          username: root
+          password: root
+          database: postgres
+          port: 5432
+          postgres-version: "16"
+
+      - name: Run Postgres benchmarks
+        run: |
+          echo "## Postgres run" > postgres-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-postgres.md -n 'postgres-main' './bench-main -runs 2 -backend postgres' -n 'postgres-pr' './bench-pr -runs 2 -backend postgres'
+          cat bench-postgres.md >> postgres-benchmark.md
+
+      - name: Run large Postgres benchmarks
+        if: contains(github.event.comment.body, '!large')
+        run: |
+          echo "## Large Postgres payload run (1MB)" >> postgres-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-postgres-l.md -n 'postgres-main' './bench-main -resultsize 1000000 -activities 10 -runs 2 -backend postgres -timeout 240s' -n 'postgres-pr' './bench-pr -resultsize 1000000 -activities 10 -runs 2 -backend postgres -timeout 240s'
+          cat bench-postgres-l.md >> postgres-benchmark.md
+
+      - name: Run very large Postgres benchmarks
+        if: contains(github.event.comment.body, '!verylarge')
+        run: |
+          echo "## Very Large Postgres payload run (5MB)" >> postgres-benchmark.md
+          hyperfine --show-output --warmup 1 --export-markdown bench-postgres-vl.md -n 'postgres-main' './bench-main -resultsize 5000000 -runs 2 -backend postgres -timeout 240s' -n 'postgres-pr' './bench-pr -resultsize 5000000 -runs 2 -backend postgres -timeout 240s'
+          cat bench-postgres-vl.md >> postgres-benchmark.md
+
+      - name: Upload Postgres benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-results
+          path: postgres-benchmark.md
+
   combine-results:
     runs-on: ubuntu-latest
-    needs: [mysql-bench, sqlite-bench, redis-bench]
-    if: always() && (needs.mysql-bench.result == 'success' || needs.sqlite-bench.result == 'success' || needs.redis-bench.result == 'success') && github.event.issue.pull_request
+    needs: [mysql-bench, sqlite-bench, redis-bench, postgres-bench]
+    if: always() && (needs.mysql-bench.result == 'success' || needs.sqlite-bench.result == 'success' || needs.redis-bench.result == 'success' || needs.postgres-bench.result == 'success') && github.event.issue.pull_request
     steps:
       - name: Download MySQL results
         if: needs.mysql-bench.result == 'success'
@@ -264,6 +346,14 @@ jobs:
           path: ./results
         continue-on-error: true
 
+      - name: Download Postgres results
+        if: needs.postgres-bench.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: postgres-results
+          path: ./results
+        continue-on-error: true
+
       - name: Combine benchmark results
         run: |
           echo "# Benchmark Results" > combined-benchmark.md
@@ -281,6 +371,11 @@ jobs:
 
           if [ -f "./results/redis-benchmark.md" ]; then
             cat ./results/redis-benchmark.md >> combined-benchmark.md
+            echo "" >> combined-benchmark.md
+          fi
+
+          if [ -f "./results/postgres-benchmark.md" ]; then
+            cat ./results/postgres-benchmark.md >> combined-benchmark.md
             echo "" >> combined-benchmark.md
           fi
 

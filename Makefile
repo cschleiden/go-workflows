@@ -47,6 +47,11 @@ test-mysql:
 	@echo "Running MySQL backend tests..."
 	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/mysql
 
+# Run Postgres backend tests
+test-postgres:
+	@echo "Running Postgres backend tests..."
+	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/postgres
+
 # Run SQLite backend tests
 test-sqlite:
 	@echo "Running SQLite backend tests..."
@@ -58,7 +63,7 @@ test-monoprocess:
 	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/monoprocess
 
 # Run all backend tests
-test-backends: test-redis test-mysql test-sqlite test-monoprocess
+test-backends: test-redis test-mysql test-sqlite test-monoprocess test-postgres
 
 custom-gcl:
 	@echo "Checking if golangci-lint is installed..."

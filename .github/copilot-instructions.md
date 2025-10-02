@@ -1,6 +1,6 @@
 # go-workflows Development Instructions
 
-Durable workflows library for Go that borrows heavily from Temporal and DTFx. Supports multiple backends (MySQL, Redis, SQLite, in-memory) and provides comprehensive workflow orchestration capabilities.
+Durable workflows library for Go that borrows heavily from Temporal and DTFx. Supports multiple backends (MySQL, Postgres, Redis, SQLite, in-memory) and provides comprehensive workflow orchestration capabilities.
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
@@ -125,6 +125,7 @@ Execute these scenarios to verify workflow functionality:
   - `signal/` - Signal handling patterns
 - **`/backend/`** - Storage backend implementations:
   - `mysql/` - MySQL backend
+  - `postgres/` - Postgres backend
   - `redis/` - Redis backend  
   - `sqlite/` - SQLite backend
   - `monoprocess/` - In-memory backend
@@ -137,7 +138,7 @@ Execute these scenarios to verify workflow functionality:
 
 ### Build and Configuration Files
 - **`go.mod`** - Go module definition with all dependencies
-- **`docker-compose.yml`** - Development dependencies (MySQL, Redis)
+- **`docker-compose.yml`** - Development dependencies (MySQL, Redis, Postgres)
 - **`.golangci.yml`** - Linting configuration (includes custom analyzer)
 - **`tools.go`** - Development tool dependencies
 - **`.github/workflows/go.yml`** - CI pipeline definition
@@ -202,7 +203,7 @@ docker compose down
 The GitHub Actions workflow (`.github/workflows/go.yml`) runs:
 1. Build validation
 2. Short tests on main branch
-3. Backend-specific tests (Redis, MySQL, SQLite) in parallel
+3. Backend-specific tests (Redis, MySQL, Postgres, SQLite) in parallel
 4. Test reporting with summaries
 
 Always ensure your changes pass the same tests that CI runs.
