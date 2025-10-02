@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/mysql"
+	postgres "github.com/cschleiden/go-workflows/backend/postgres"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/diag"
@@ -17,7 +19,7 @@ import (
 )
 
 func GetBackend(name string, recreate bool, opt ...backend.BackendOption) backend.Backend {
-	b := flag.String("backend", "redis", "backend to use: memory, sqlite, mysql, redis")
+	b := flag.String("backend", "redis", "backend to use: memory, sqlite, mysql, redis, postgres")
 	flag.Parse()
 
 	switch *b {
@@ -41,6 +43,23 @@ func GetBackend(name string, recreate bool, opt ...backend.BackendOption) backen
 			}
 
 			return mysql.NewMysqlBackend("localhost", 3306, "root", "root", name, mysql.WithBackendOptions(opt...))
+		}
+
+	case "postgres":
+		{
+			// Create a new Postgres database
+			db, err := sql.Open("pgx", "host=localhost port=5432 user=root password=root dbname=postgres sslmode=disable")
+			if err != nil {
+				panic(err)
+			}
+			defer db.Close()
+
+			_, err = db.Exec("CREATE DATABASE $1", name)
+			if err != nil {
+				panic(err)
+			}
+
+			return postgres.NewPostgresBackend("localhost", 5432, "root", "root", name, postgres.WithBackendOptions(opt...))
 		}
 
 	case "redis":
