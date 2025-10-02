@@ -17,7 +17,7 @@ TEST_FLAGS=-race -count=1 -v
 TEST_SHORT_FLAGS=-short $(TEST_FLAGS)
 
 # Build targets
-.PHONY: all build clean test test-integration test-redis test-mysql test-sqlite test-backends lint fmt
+.PHONY: all build clean test test-integration test-redis test-mysql test-postgres test-sqlite test-backends lint fmt
 
 # Default target
 all: build test lint
