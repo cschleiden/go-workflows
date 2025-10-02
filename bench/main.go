@@ -14,6 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/monoprocess"
 	"github.com/cschleiden/go-workflows/backend/mysql"
+	postgresbackend "github.com/cschleiden/go-workflows/backend/postgres"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
@@ -21,7 +22,7 @@ import (
 	redisv8 "github.com/redis/go-redis/v9"
 )
 
-var b = flag.String("backend", "redis", "Backend to use. Supported backends are:\n- redis\n- mysql\n- sqlite\n")
+var b = flag.String("backend", "redis", "Backend to use. Supported backends are:\n- redis\n- mysql\n- sqlite\n- postgres\n")
 var timeout = flag.Duration("timeout", time.Second*30, "Timeout for the benchmark run")
 var scenario = flag.String("scenario", "basic", "Scenario to run. Support scenarios are:\n- basic\n")
 var runs = flag.Int("runs", 1, "Number of root workflows to start")
@@ -146,6 +147,29 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 				})),
 		)
 
+	case "postgres":
+		db, err := sql.Open("pgx", fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=postgres sslmode=disable", "localhost", 5432, "root", "root"))
+		if err != nil {
+			panic(err)
+		}
+		if _, err := db.Exec("DROP DATABASE IF EXISTS bench"); err != nil {
+			panic(fmt.Errorf("dropping database: %w", err))
+		}
+
+		if _, err := db.Exec("CREATE DATABASE bench"); err != nil {
+			panic(fmt.Errorf("creating database: %w", err))
+		}
+
+		if err := db.Close(); err != nil {
+			panic(err)
+		}
+
+		return monoprocess.NewMonoprocessBackend(
+			postgresbackend.NewPostgresBackend("localhost", 5432, "root", "root", "bench", postgresbackend.WithBackendOptions(opt...),
+				postgresbackend.WithPostgresOptions(func(db *sql.DB) {
+					db.SetMaxOpenConns(100)
+				})),
+		)
 	case "redis":
 		rclient := redisv8.NewUniversalClient(&redisv8.UniversalOptions{
 			Addrs:        []string{"localhost:6379"},
