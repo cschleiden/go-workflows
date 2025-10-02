@@ -11,10 +11,10 @@ import (
 	"github.com/cschleiden/go-workflows/workflow"
 )
 
-func (b *postgresBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
+func (pb *postgresBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	s := &backend.Stats{}
 
-	tx, err := b.db.BeginTx(ctx, &sql.TxOptions{
+	tx, err := pb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
 	if err != nil {
