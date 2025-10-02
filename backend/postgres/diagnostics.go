@@ -11,9 +11,9 @@ import (
 
 var _ diag.Backend = (*postgresBackend)(nil)
 
-func (mb *postgresBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
+func (pb *postgresBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
 	var err error
-	tx, err := mb.db.BeginTx(ctx, nil)
+	tx, err := pb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +91,8 @@ func (mb *postgresBackend) GetWorkflowInstances(ctx context.Context, afterInstan
 	return instances, nil
 }
 
-func (mb *postgresBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
-	tx, err := mb.db.BeginTx(ctx, nil)
+func (pb *postgresBackend) GetWorkflowInstance(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceRef, error) {
+	tx, err := pb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (mb *postgresBackend) GetWorkflowInstance(ctx context.Context, instance *co
 	}, nil
 }
 
-func (mb *postgresBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {
-	itb := diag.NewInstanceTreeBuilder(mb)
+func (pb *postgresBackend) GetWorkflowTree(ctx context.Context, instance *core.WorkflowInstance) (*diag.WorkflowInstanceTree, error) {
+	itb := diag.NewInstanceTreeBuilder(pb)
 	return itb.BuildWorkflowInstanceTree(ctx, instance)
 }

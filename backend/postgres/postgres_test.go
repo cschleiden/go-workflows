@@ -105,8 +105,8 @@ func TestPostgresBackendE2E(t *testing.T) {
 var _ test.TestBackend = (*postgresBackend)(nil)
 
 // GetFutureEvents returns all pending events that have a non-null visible_at (timers / scheduled future events).
-func (mb *postgresBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
-	tx, err := mb.db.BeginTx(ctx, nil)
+func (pb *postgresBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {
+	tx, err := pb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
