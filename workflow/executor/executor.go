@@ -210,6 +210,9 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		executedEvents[i].SequenceID = e.nextSequenceID()
 	}
 
+	// Update history length in workflow state
+	e.workflowState.SetHistoryLength(e.lastSequenceID)
+
 	logger.Debug("Finished workflow task",
 		log.ExecutedEventsKey, len(executedEvents),
 		log.TaskLastSequenceIDKey, e.lastSequenceID,
@@ -248,6 +251,7 @@ func (e *executor) catchupOnHistory(ctx context.Context, t *backend.WorkflowTask
 
 			// With an error occurred during replay, we need to ensure new events don't get duplicate sequence ids
 			e.lastSequenceID = t.LastSequenceID
+			e.workflowState.SetHistoryLength(e.lastSequenceID)
 
 			return true, nil
 		} else if t.LastSequenceID != e.lastSequenceID {
@@ -275,6 +279,7 @@ func (e *executor) replayHistory(h []*history.Event) error {
 		}
 
 		e.lastSequenceID = event.SequenceID
+		e.workflowState.SetHistoryLength(e.lastSequenceID)
 	}
 
 	return nil

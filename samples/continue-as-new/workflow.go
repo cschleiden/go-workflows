@@ -32,6 +32,11 @@ func Workflow1(ctx workflow.Context, start, times int, inputs Inputs) (int, erro
 			return 0, fmt.Errorf("error getting sub workflow result: %w", err)
 		}
 
+		// Check history length and continue as new if it's getting large
+		// This is useful to avoid hitting history size limits
+		info := workflow.GetWorkflowInstanceInfo(ctx)
+		logger.Debug("Workflow instance info", "historyLength", info.HistoryLength)
+
 		if i < 3 {
 			return r, workflow.ContinueAsNew(ctx, i+1, times, inputs)
 		}
