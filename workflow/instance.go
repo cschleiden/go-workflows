@@ -17,7 +17,7 @@ type WorkflowInstanceInfo struct {
 	HistoryLength int64
 }
 
-// WorkflowInstanceInfo returns metadata about the current workflow instance,
+// GetWorkflowInstanceInfo returns metadata about the current workflow instance,
 // including the history length which is useful for deciding when to call ContinueAsNew.
 func GetWorkflowInstanceInfo(ctx Context) WorkflowInstanceInfo {
 	wfState := workflowstate.WorkflowState(ctx)
