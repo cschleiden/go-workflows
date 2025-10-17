@@ -27,6 +27,7 @@ var (
 	completeActivityTaskCmd   *redis.Script
 	futureEventsCmd           *redis.Script
 	expireWorkflowInstanceCmd *redis.Script
+	cancelWorkflowInstanceCmd *redis.Script
 )
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
@@ -81,6 +82,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		"complete_activity_task.lua":   &completeActivityTaskCmd,
 		"schedule_future_events.lua":   &futureEventsCmd,
 		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
+		"cancel_workflow_instance.lua": &cancelWorkflowInstanceCmd,
 	}
 
 	if err := loadScripts(ctx, rb.rdb, cmdMapping); err != nil {
