@@ -25,6 +25,7 @@ var (
 	createWorkflowInstanceCmd *redis.Script
 	completeWorkflowTaskCmd   *redis.Script
 	completeActivityTaskCmd   *redis.Script
+	deleteInstanceCmd         *redis.Script
 	futureEventsCmd           *redis.Script
 	expireWorkflowInstanceCmd *redis.Script
 	cancelWorkflowInstanceCmd *redis.Script
