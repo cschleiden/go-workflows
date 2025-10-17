@@ -145,7 +145,7 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 	},
 		event.ID,
 		eventData,
-		string(payloadData),
+		payloadData,
 		instanceSegment(instance),
 	).Err(); err != nil {
 		return fmt.Errorf("canceling workflow instance: %w", err)

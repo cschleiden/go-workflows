@@ -72,7 +72,7 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.
 		rb.activityQueue.groupName,
 		result.ID,
 		eventData,
-		string(payload),
+		payload,
 		rb.workflowQueue.groupName,
 		instanceSegment(task.WorkflowInstance),
 	).Err()
