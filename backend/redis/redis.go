@@ -24,8 +24,12 @@ var luaScripts embed.FS
 var (
 	createWorkflowInstanceCmd *redis.Script
 	completeWorkflowTaskCmd   *redis.Script
+	completeActivityTaskCmd   *redis.Script
+	deleteInstanceCmd         *redis.Script
 	futureEventsCmd           *redis.Script
 	expireWorkflowInstanceCmd *redis.Script
+	cancelWorkflowInstanceCmd *redis.Script
+	signalWorkflowCmd         *redis.Script
 )
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
@@ -60,26 +64,16 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		activityQueue: activityQueue,
 	}
 
-	// Preload scripts here. Usually redis-go attempts to execute them first, and if redis doesn't know
-	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
-	cmds := map[string]*redis.StringCmd{
-		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
-		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),
-	}
-	for name, cmd := range cmds {
-		// fmt.Println(name, cmd.Val())
-
-		if cmd.Err() != nil {
-			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
-		}
-	}
-
 	// Load all Lua scripts
 	cmdMapping := map[string]**redis.Script{
-		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
+		"cancel_workflow_instance.lua": &cancelWorkflowInstanceCmd,
+		"complete_activity_task.lua":   &completeActivityTaskCmd,
 		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
-		"schedule_future_events.lua":   &futureEventsCmd,
+		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
+		"delete_instance.lua":          &deleteInstanceCmd,
 		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
+		"schedule_future_events.lua":   &futureEventsCmd,
+		"signal_workflow.lua":          &signalWorkflowCmd,
 	}
 
 	if err := loadScripts(ctx, rb.rdb, cmdMapping); err != nil {

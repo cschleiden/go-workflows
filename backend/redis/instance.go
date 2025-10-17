@@ -34,14 +34,9 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		return fmt.Errorf("marshaling instance: %w", err)
 	}
 
-	eventData, err := marshalEventWithoutAttributes(event)
+	eventData, payloadData, err := marshalEvent(event)
 	if err != nil {
-		return fmt.Errorf("marshaling event: %w", err)
-	}
-
-	payloadData, err := json.Marshal(event.Attributes)
-	if err != nil {
-		return fmt.Errorf("marshaling event payload: %w", err)
+		return err
 	}
 
 	keyInfo := rb.workflowQueue.Keys(a.Queue)
@@ -133,12 +128,27 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 		return err
 	}
 
+	// Prepare event data
+	eventData, payloadData, err := marshalEvent(event)
+	if err != nil {
+		return err
+	}
+
+	keyInfo := rb.workflowQueue.Keys(workflow.Queue(instanceState.Queue))
+
 	// Cancel instance
-	if _, err := rb.rdb.Pipelined(ctx, func(p redis.Pipeliner) error {
-		return rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instance, event)
-	}); err != nil {
-		// fmt.Println(cmds)
-		return fmt.Errorf("adding cancellation event to workflow instance: %w", err)
+	if err := cancelWorkflowInstanceCmd.Run(ctx, rb.rdb, []string{
+		rb.keys.payloadKey(instance),
+		rb.keys.pendingEventsKey(instance),
+		keyInfo.SetKey,
+		keyInfo.StreamKey,
+	},
+		event.ID,
+		eventData,
+		payloadData,
+		instanceSegment(instance),
+	).Err(); err != nil {
+		return fmt.Errorf("canceling workflow instance: %w", err)
 	}
 
 	return nil
