@@ -2,6 +2,8 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
@@ -48,17 +50,42 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.
 		return err
 	}
 
-	p := rb.rdb.TxPipeline()
-
-	if err := rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), task.WorkflowInstance, result); err != nil {
+	// Marshal event data
+	eventData, err := marshalEventWithoutAttributes(result)
+	if err != nil {
 		return err
 	}
 
-	// Unlock activity
-	if _, err := rb.activityQueue.Complete(ctx, p, task.Queue, task.ID); err != nil {
+	// Marshal payload
+	payload, err := json.Marshal(result.Attributes)
+	if err != nil {
 		return err
 	}
 
-	_, err = p.Exec(ctx)
-	return err
+	activityQueueKeys := rb.activityQueue.Keys(task.Queue)
+	workflowQueueKeys := rb.workflowQueue.Keys(workflow.Queue(instanceState.Queue))
+
+	err = completeActivityTaskCmd.Run(ctx, rb.rdb,
+		[]string{
+			activityQueueKeys.SetKey,
+			activityQueueKeys.StreamKey,
+			rb.keys.pendingEventsKey(task.WorkflowInstance),
+			rb.keys.payloadKey(task.WorkflowInstance),
+			rb.workflowQueue.queueSetKey,
+			workflowQueueKeys.SetKey,
+			workflowQueueKeys.StreamKey,
+		},
+		task.ID,
+		rb.activityQueue.groupName,
+		result.ID,
+		eventData,
+		string(payload),
+		rb.workflowQueue.groupName,
+		instanceSegment(task.WorkflowInstance),
+	).Err()
+	if err != nil {
+		return fmt.Errorf("completing activity task: %w", err)
+	}
+
+	return nil
 }

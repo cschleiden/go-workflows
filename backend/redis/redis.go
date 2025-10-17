@@ -24,6 +24,7 @@ var luaScripts embed.FS
 var (
 	createWorkflowInstanceCmd *redis.Script
 	completeWorkflowTaskCmd   *redis.Script
+	completeActivityTaskCmd   *redis.Script
 	futureEventsCmd           *redis.Script
 	expireWorkflowInstanceCmd *redis.Script
 )
@@ -60,8 +61,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		activityQueue: activityQueue,
 	}
 
-	// Preload scripts here. Usually redis-go attempts to execute them first, and if redis doesn't know
-	// them, loads them. This doesn't work when using (transactional) pipelines, so eagerly load them on startup.
+	// Preload scripts here.
 	cmds := map[string]*redis.StringCmd{
 		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
 		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),
@@ -78,6 +78,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	cmdMapping := map[string]**redis.Script{
 		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
 		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
+		"complete_activity_task.lua":   &completeActivityTaskCmd,
 		"schedule_future_events.lua":   &futureEventsCmd,
 		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
 	}
