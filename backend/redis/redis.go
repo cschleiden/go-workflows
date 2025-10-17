@@ -63,26 +63,15 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		activityQueue: activityQueue,
 	}
 
-	// Preload scripts here.
-	cmds := map[string]*redis.StringCmd{
-		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
-	}
-	for name, cmd := range cmds {
-		// fmt.Println(name, cmd.Val())
-
-		if cmd.Err() != nil {
-			return nil, fmt.Errorf("loading redis script: %v %w", name, cmd.Err())
-		}
-	}
-
 	// Load all Lua scripts
 	cmdMapping := map[string]**redis.Script{
-		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
-		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
-		"complete_activity_task.lua":   &completeActivityTaskCmd,
-		"schedule_future_events.lua":   &futureEventsCmd,
-		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
 		"cancel_workflow_instance.lua": &cancelWorkflowInstanceCmd,
+		"complete_activity_task.lua":   &completeActivityTaskCmd,
+		"complete_workflow_task.lua":   &completeWorkflowTaskCmd,
+		"create_workflow_instance.lua": &createWorkflowInstanceCmd,
+		"delete_instance.lua":          &deleteInstanceCmd,
+		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
+		"schedule_future_events.lua":   &futureEventsCmd,
 		"signal_workflow.lua":          &signalWorkflowCmd,
 	}
 

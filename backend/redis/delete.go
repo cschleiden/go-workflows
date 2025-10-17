@@ -15,7 +15,7 @@ import (
 // KEYS[5] - active-instance-execution key
 // KEYS[6] - instances-by-creation key
 // ARGV[1] - instance segment
-var deleteCmd = redis.NewScript(
+var deleteInstanceCmd = redis.NewScript(
 	`redis.call("DEL", KEYS[1], KEYS[2], KEYS[3], KEYS[4], KEYS[5])
 	return redis.call("ZREM", KEYS[6], ARGV[1])`)
 
@@ -24,7 +24,7 @@ var deleteCmd = redis.NewScript(
 //
 // Note: might want to revisit this in the future if we want to support removing hung instances.
 func (rb *redisBackend) deleteInstance(ctx context.Context, instance *core.WorkflowInstance) error {
-	if err := deleteCmd.Run(ctx, rb.rdb, []string{
+	if err := deleteInstanceCmd.Run(ctx, rb.rdb, []string{
 		rb.keys.instanceKey(instance),
 		rb.keys.pendingEventsKey(instance),
 		rb.keys.historyKey(instance),
