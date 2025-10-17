@@ -190,4 +190,3 @@ func Test_withRetries_timerCancellation(t *testing.T) {
 	require.EqualError(t, err, "context canceled")
 	tester.AssertExpectations(t)
 }
-
