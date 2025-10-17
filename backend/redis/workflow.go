@@ -126,14 +126,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	args = append(args, len(executedEvents))
 
 	for _, event := range executedEvents {
-		eventData, err := marshalEventWithoutAttributes(event)
+		eventData, payloadData, err := marshalEvent(event)
 		if err != nil {
-			return fmt.Errorf("marshaling event: %w", err)
-		}
-
-		payloadData, err := json.Marshal(event.Attributes)
-		if err != nil {
-			return fmt.Errorf("marshaling event payload: %w", err)
+			return err
 		}
 
 		args = append(args, event.ID, eventData, payloadData, event.SequenceID)
@@ -174,14 +169,9 @@ func (rb *redisBackend) CompleteWorkflowTask(
 	// Schedule timers
 	args = append(args, len(timerEvents))
 	for _, timerEvent := range timerEvents {
-		eventData, err := marshalEventWithoutAttributes(timerEvent)
+		eventData, payloadEventData, err := marshalEvent(timerEvent)
 		if err != nil {
-			return fmt.Errorf("marshaling event: %w", err)
-		}
-
-		payloadEventData, err := json.Marshal(timerEvent.Attributes)
-		if err != nil {
-			return fmt.Errorf("marshaling event payload: %w", err)
+			return err
 		}
 
 		args = append(args, timerEvent.ID, strconv.FormatInt(timerEvent.VisibleAt.UnixMilli(), 10), eventData, payloadEventData)
@@ -337,22 +327,4 @@ func marshalEvent(event *history.Event) (string, string, error) {
 		return "", "", fmt.Errorf("marshaling event payload: %w", err)
 	}
 	return eventData, string(payloadEventData), nil
-}
-
-func (rb *redisBackend) addWorkflowInstanceEventP(ctx context.Context, p redis.Pipeliner, queue workflow.Queue, instance *core.WorkflowInstance, event *history.Event) error {
-	// Add event to pending events for instance
-	if err := rb.addEventPayloadsP(ctx, p, instance, []*history.Event{event}); err != nil {
-		return err
-	}
-
-	if err := addEventToStreamP(ctx, p, rb.keys.pendingEventsKey(instance), event); err != nil {
-		return err
-	}
-
-	// Queue workflow task
-	if err := rb.workflowQueue.Enqueue(ctx, p, queue, instanceSegment(instance), nil); err != nil {
-		return fmt.Errorf("queueing workflow: %w", err)
-	}
-
-	return nil
 }
