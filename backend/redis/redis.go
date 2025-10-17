@@ -28,6 +28,7 @@ var (
 	futureEventsCmd           *redis.Script
 	expireWorkflowInstanceCmd *redis.Script
 	cancelWorkflowInstanceCmd *redis.Script
+	signalWorkflowCmd         *redis.Script
 )
 
 func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (*redisBackend, error) {
@@ -65,7 +66,6 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 	// Preload scripts here.
 	cmds := map[string]*redis.StringCmd{
 		"deleteInstanceCmd": deleteCmd.Load(ctx, rb.rdb),
-		"addPayloadsCmd":    addPayloadsCmd.Load(ctx, rb.rdb),
 	}
 	for name, cmd := range cmds {
 		// fmt.Println(name, cmd.Val())
@@ -83,6 +83,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 		"schedule_future_events.lua":   &futureEventsCmd,
 		"expire_workflow_instance.lua": &expireWorkflowInstanceCmd,
 		"cancel_workflow_instance.lua": &cancelWorkflowInstanceCmd,
+		"signal_workflow.lua":          &signalWorkflowCmd,
 	}
 
 	if err := loadScripts(ctx, rb.rdb, cmdMapping); err != nil {

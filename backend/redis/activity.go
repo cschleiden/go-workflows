@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -51,13 +50,7 @@ func (rb *redisBackend) CompleteActivityTask(ctx context.Context, task *backend.
 	}
 
 	// Marshal event data
-	eventData, err := marshalEventWithoutAttributes(result)
-	if err != nil {
-		return err
-	}
-
-	// Marshal payload
-	payload, err := json.Marshal(result.Attributes)
+	eventData, payload, err := marshalEvent(result)
 	if err != nil {
 		return err
 	}

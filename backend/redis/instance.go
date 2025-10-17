@@ -34,14 +34,9 @@ func (rb *redisBackend) CreateWorkflowInstance(ctx context.Context, instance *wo
 		return fmt.Errorf("marshaling instance: %w", err)
 	}
 
-	eventData, err := marshalEventWithoutAttributes(event)
+	eventData, payloadData, err := marshalEvent(event)
 	if err != nil {
-		return fmt.Errorf("marshaling event: %w", err)
-	}
-
-	payloadData, err := json.Marshal(event.Attributes)
-	if err != nil {
-		return fmt.Errorf("marshaling event payload: %w", err)
+		return err
 	}
 
 	keyInfo := rb.workflowQueue.Keys(a.Queue)
@@ -134,14 +129,9 @@ func (rb *redisBackend) CancelWorkflowInstance(ctx context.Context, instance *co
 	}
 
 	// Prepare event data
-	eventData, err := marshalEventWithoutAttributes(event)
+	eventData, payloadData, err := marshalEvent(event)
 	if err != nil {
-		return fmt.Errorf("marshaling event: %w", err)
-	}
-
-	payloadData, err := json.Marshal(event.Attributes)
-	if err != nil {
-		return fmt.Errorf("marshaling event payload: %w", err)
+		return err
 	}
 
 	keyInfo := rb.workflowQueue.Keys(workflow.Queue(instanceState.Queue))
