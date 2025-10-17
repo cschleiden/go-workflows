@@ -67,6 +67,8 @@ type WfState struct {
 
 	clock clock.Clock
 	time  time.Time
+
+	historyLength int64
 }
 
 func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, tracer trace.Tracer, clock clock.Clock) *WfState {
@@ -173,4 +175,12 @@ func (wf *WfState) Logger() *slog.Logger {
 
 func (wf *WfState) Tracer() trace.Tracer {
 	return wf.tracer
+}
+
+func (wf *WfState) HistoryLength() int64 {
+	return wf.historyLength
+}
+
+func (wf *WfState) SetHistoryLength(length int64) {
+	wf.historyLength = length
 }
