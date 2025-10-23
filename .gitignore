@@ -9,3 +9,6 @@ web/app/node_modules
 *.sqlite-wal
 
 custom-gcl
+
+# Documentation build artifacts
+docs/build/
