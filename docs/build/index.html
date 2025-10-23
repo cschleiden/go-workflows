@@ -1,0 +1,1532 @@
+
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <meta
+            name="description"
+            content="Documentation for go-workflows"
+        >
+    <title>go-workflows</title>
+
+    <style media="screen">
+      .highlight table td { padding: 5px; }
+.highlight table pre { margin: 0; }
+.highlight .gh {
+  color: #999999;
+}
+.highlight .sr {
+  color: #f6aa11;
+}
+.highlight .go {
+  color: #888888;
+}
+.highlight .gp {
+  color: #555555;
+}
+.highlight .gs {
+}
+.highlight .gu {
+  color: #aaaaaa;
+}
+.highlight .nb {
+  color: #f6aa11;
+}
+.highlight .cm {
+  color: #75715e;
+}
+.highlight .cp {
+  color: #75715e;
+}
+.highlight .c1 {
+  color: #75715e;
+}
+.highlight .cs {
+  color: #75715e;
+}
+.highlight .c, .highlight .ch, .highlight .cd, .highlight .cpf {
+  color: #75715e;
+}
+.highlight .err {
+  color: #960050;
+}
+.highlight .gr {
+  color: #960050;
+}
+.highlight .gt {
+  color: #960050;
+}
+.highlight .gd {
+  color: #49483e;
+}
+.highlight .gi {
+  color: #49483e;
+}
+.highlight .ge {
+  color: #49483e;
+}
+.highlight .kc {
+  color: #66d9ef;
+}
+.highlight .kd {
+  color: #66d9ef;
+}
+.highlight .kr {
+  color: #66d9ef;
+}
+.highlight .no {
+  color: #66d9ef;
+}
+.highlight .kt {
+  color: #66d9ef;
+}
+.highlight .mf {
+  color: #ae81ff;
+}
+.highlight .mh {
+  color: #ae81ff;
+}
+.highlight .il {
+  color: #ae81ff;
+}
+.highlight .mi {
+  color: #ae81ff;
+}
+.highlight .mo {
+  color: #ae81ff;
+}
+.highlight .m, .highlight .mb, .highlight .mx {
+  color: #ae81ff;
+}
+.highlight .sc {
+  color: #ae81ff;
+}
+.highlight .se {
+  color: #ae81ff;
+}
+.highlight .ss {
+  color: #ae81ff;
+}
+.highlight .sd {
+  color: #e6db74;
+}
+.highlight .s2 {
+  color: #e6db74;
+}
+.highlight .sb {
+  color: #e6db74;
+}
+.highlight .sh {
+  color: #e6db74;
+}
+.highlight .si {
+  color: #e6db74;
+}
+.highlight .sx {
+  color: #e6db74;
+}
+.highlight .s1 {
+  color: #e6db74;
+}
+.highlight .s, .highlight .sa, .highlight .dl {
+  color: #e6db74;
+}
+.highlight .na {
+  color: #a6e22e;
+}
+.highlight .nc {
+  color: #a6e22e;
+}
+.highlight .nd {
+  color: #a6e22e;
+}
+.highlight .ne {
+  color: #a6e22e;
+}
+.highlight .nf, .highlight .fm {
+  color: #a6e22e;
+}
+.highlight .vc {
+  color: #ffffff;
+}
+.highlight .nn {
+  color: #ffffff;
+}
+.highlight .ni {
+  color: #ffffff;
+}
+.highlight .bp {
+  color: #ffffff;
+}
+.highlight .vg {
+  color: #ffffff;
+}
+.highlight .vi {
+  color: #ffffff;
+}
+.highlight .nv, .highlight .vm {
+  color: #ffffff;
+}
+.highlight .w {
+  color: #ffffff;
+}
+.highlight {
+  color: #ffffff;
+}
+.highlight .n, .highlight .py, .highlight .nx {
+  color: #ffffff;
+}
+.highlight .nl {
+  color: #f92672;
+}
+.highlight .ow {
+  color: #f92672;
+}
+.highlight .nt {
+  color: #f92672;
+}
+.highlight .k, .highlight .kv {
+  color: #f92672;
+}
+.highlight .kn {
+  color: #f92672;
+}
+.highlight .kp {
+  color: #f92672;
+}
+.highlight .o {
+  color: #f92672;
+}
+    </style>
+    <style media="print">
+      * {
+        -webkit-transition:none!important;
+        transition:none!important;
+      }
+      .highlight table td { padding: 5px; }
+.highlight table pre { margin: 0; }
+.highlight, .highlight .w {
+  color: #586e75;
+}
+.highlight .err {
+  color: #002b36;
+  background-color: #dc322f;
+}
+.highlight .c, .highlight .ch, .highlight .cd, .highlight .cm, .highlight .cpf, .highlight .c1, .highlight .cs {
+  color: #657b83;
+}
+.highlight .cp {
+  color: #b58900;
+}
+.highlight .nt {
+  color: #b58900;
+}
+.highlight .o, .highlight .ow {
+  color: #93a1a1;
+}
+.highlight .p, .highlight .pi {
+  color: #93a1a1;
+}
+.highlight .gi {
+  color: #859900;
+}
+.highlight .gd {
+  color: #dc322f;
+}
+.highlight .gh {
+  color: #268bd2;
+  background-color: #002b36;
+  font-weight: bold;
+}
+.highlight .k, .highlight .kn, .highlight .kp, .highlight .kr, .highlight .kv {
+  color: #6c71c4;
+}
+.highlight .kc {
+  color: #cb4b16;
+}
+.highlight .kt {
+  color: #cb4b16;
+}
+.highlight .kd {
+  color: #cb4b16;
+}
+.highlight .s, .highlight .sb, .highlight .sc, .highlight .dl, .highlight .sd, .highlight .s2, .highlight .sh, .highlight .sx, .highlight .s1 {
+  color: #859900;
+}
+.highlight .sa {
+  color: #6c71c4;
+}
+.highlight .sr {
+  color: #2aa198;
+}
+.highlight .si {
+  color: #d33682;
+}
+.highlight .se {
+  color: #d33682;
+}
+.highlight .nn {
+  color: #b58900;
+}
+.highlight .nc {
+  color: #b58900;
+}
+.highlight .no {
+  color: #b58900;
+}
+.highlight .na {
+  color: #268bd2;
+}
+.highlight .m, .highlight .mb, .highlight .mf, .highlight .mh, .highlight .mi, .highlight .il, .highlight .mo, .highlight .mx {
+  color: #859900;
+}
+.highlight .ss {
+  color: #859900;
+}
+    </style>
+    <link href="stylesheets/screen-9c19b03a.css" rel="stylesheet" media="screen" />
+    <link href="stylesheets/print-966d6edc.css" rel="stylesheet" media="print" />
+      <script src="javascripts/all-b12a2749.js"></script>
+
+    <script>
+      $(function() { setupCodeCopy(); });
+    </script>
+  </head>
+
+  <body class="index" data-languages="[]">
+    <a href="#" id="nav-button">
+      <span>
+        NAV
+        <img src="images/navbar-cad8cdcb.png" alt="" />
+      </span>
+    </a>
+    <div class="toc-wrapper">
+      <img src="images/logo-d0cdb88a.png" class="logo" alt="" />
+        <div class="search">
+          <input type="text" class="search" id="input-search" placeholder="Search">
+        </div>
+        <ul class="search-results"></ul>
+      <ul id="toc" class="toc-list-h1">
+          <li>
+            <a href="#go-workflows" class="toc-h1 toc-link" data-title="go-workflows">go-workflows</a>
+          </li>
+          <li>
+            <a href="#quickstart" class="toc-h1 toc-link" data-title="Quickstart">Quickstart</a>
+              <ul class="toc-list-h2">
+                  <li>
+                    <a href="#workflow" class="toc-h2 toc-link" data-title="Workflow">Workflow</a>
+                  </li>
+                  <li>
+                    <a href="#activities" class="toc-h2 toc-link" data-title="Activities">Activities</a>
+                  </li>
+                  <li>
+                    <a href="#worker" class="toc-h2 toc-link" data-title="Worker">Worker</a>
+                  </li>
+                  <li>
+                    <a href="#backend" class="toc-h2 toc-link" data-title="Backend">Backend</a>
+                  </li>
+                  <li>
+                    <a href="#putting-it-all-together" class="toc-h2 toc-link" data-title="Putting it all together">Putting it all together</a>
+                  </li>
+                  <li>
+                    <a href="#using-the-workfloworchestrator" class="toc-h2 toc-link" data-title="Using the WorkflowOrchestrator">Using the WorkflowOrchestrator</a>
+                  </li>
+              </ul>
+          </li>
+          <li>
+            <a href="#guide" class="toc-h1 toc-link" data-title="Guide">Guide</a>
+              <ul class="toc-list-h2">
+                  <li>
+                    <a href="#writing-workflows" class="toc-h2 toc-link" data-title="Writing workflows">Writing workflows</a>
+                  </li>
+                  <li>
+                    <a href="#registering-workflows" class="toc-h2 toc-link" data-title="Registering workflows">Registering workflows</a>
+                  </li>
+                  <li>
+                    <a href="#writing-activities" class="toc-h2 toc-link" data-title="Writing activities">Writing activities</a>
+                  </li>
+                  <li>
+                    <a href="#registering-activities" class="toc-h2 toc-link" data-title="Registering activities">Registering activities</a>
+                  </li>
+                  <li>
+                    <a href="#starting-workflows" class="toc-h2 toc-link" data-title="Starting workflows">Starting workflows</a>
+                  </li>
+                  <li>
+                    <a href="#canceling-workflows" class="toc-h2 toc-link" data-title="Canceling workflows">Canceling workflows</a>
+                  </li>
+                  <li>
+                    <a href="#workers" class="toc-h2 toc-link" data-title="Workers">Workers</a>
+                  </li>
+                  <li>
+                    <a href="#queues" class="toc-h2 toc-link" data-title="Queues">Queues</a>
+                  </li>
+                  <li>
+                    <a href="#executing-activities" class="toc-h2 toc-link" data-title="Executing activities">Executing activities</a>
+                  </li>
+                  <li>
+                    <a href="#timers" class="toc-h2 toc-link" data-title="Timers">Timers</a>
+                  </li>
+                  <li>
+                    <a href="#signals" class="toc-h2 toc-link" data-title="Signals">Signals</a>
+                  </li>
+                  <li>
+                    <a href="#executing-side-effects" class="toc-h2 toc-link" data-title="Executing side effects">Executing side effects</a>
+                  </li>
+                  <li>
+                    <a href="#accessing-workflow-execution-information" class="toc-h2 toc-link" data-title="Accessing workflow execution information">Accessing workflow execution information</a>
+                  </li>
+                  <li>
+                    <a href="#executing-sub-workflows" class="toc-h2 toc-link" data-title="Executing sub-workflows">Executing sub-workflows</a>
+                  </li>
+                  <li>
+                    <a href="#error-handling" class="toc-h2 toc-link" data-title="Error handling">Error handling</a>
+                  </li>
+                  <li>
+                    <a href="#continueasnew" class="toc-h2 toc-link" data-title="ContinueAsNew"><code>ContinueAsNew</code></a>
+                  </li>
+                  <li>
+                    <a href="#select" class="toc-h2 toc-link" data-title="select"><code>select</code></a>
+                  </li>
+                  <li>
+                    <a href="#testing-workflows" class="toc-h2 toc-link" data-title="Testing Workflows">Testing Workflows</a>
+                  </li>
+                  <li>
+                    <a href="#testing-activities" class="toc-h2 toc-link" data-title="Testing Activities">Testing Activities</a>
+                  </li>
+                  <li>
+                    <a href="#removing-workflow-instances" class="toc-h2 toc-link" data-title="Removing workflow instances">Removing workflow instances</a>
+                  </li>
+                  <li>
+                    <a href="#logging" class="toc-h2 toc-link" data-title="Logging">Logging</a>
+                  </li>
+                  <li>
+                    <a href="#tracing" class="toc-h2 toc-link" data-title="Tracing">Tracing</a>
+                  </li>
+                  <li>
+                    <a href="#context-propagation" class="toc-h2 toc-link" data-title="Context Propagation">Context Propagation</a>
+                  </li>
+                  <li>
+                    <a href="#tools" class="toc-h2 toc-link" data-title="Tools">Tools</a>
+                  </li>
+              </ul>
+          </li>
+          <li>
+            <a href="#samples" class="toc-h1 toc-link" data-title="Samples">Samples</a>
+              <ul class="toc-list-h2">
+                  <li>
+                    <a href="#activity-registration" class="toc-h2 toc-link" data-title="Activity Registration">Activity Registration</a>
+                  </li>
+                  <li>
+                    <a href="#cancellation" class="toc-h2 toc-link" data-title="Cancellation">Cancellation</a>
+                  </li>
+                  <li>
+                    <a href="#complex-parameters" class="toc-h2 toc-link" data-title="Complex Parameters">Complex Parameters</a>
+                  </li>
+                  <li>
+                    <a href="#concurrent" class="toc-h2 toc-link" data-title="Concurrent">Concurrent</a>
+                  </li>
+                  <li>
+                    <a href="#context-propagation" class="toc-h2 toc-link" data-title="Context Propagation">Context Propagation</a>
+                  </li>
+                  <li>
+                    <a href="#continue-as-new" class="toc-h2 toc-link" data-title="Continue-As-New">Continue-As-New</a>
+                  </li>
+                  <li>
+                    <a href="#converter" class="toc-h2 toc-link" data-title="Converter">Converter</a>
+                  </li>
+                  <li>
+                    <a href="#errors" class="toc-h2 toc-link" data-title="Errors">Errors</a>
+                  </li>
+                  <li>
+                    <a href="#retries" class="toc-h2 toc-link" data-title="Retries">Retries</a>
+                  </li>
+                  <li>
+                    <a href="#queues" class="toc-h2 toc-link" data-title="Queues">Queues</a>
+                  </li>
+                  <li>
+                    <a href="#scale" class="toc-h2 toc-link" data-title="Scale">Scale</a>
+                  </li>
+                  <li>
+                    <a href="#signal" class="toc-h2 toc-link" data-title="Signal">Signal</a>
+                  </li>
+                  <li>
+                    <a href="#signal-to-a-sub-workflow" class="toc-h2 toc-link" data-title="Signal to a Sub-Workflow">Signal to a Sub-Workflow</a>
+                  </li>
+                  <li>
+                    <a href="#simple" class="toc-h2 toc-link" data-title="Simple">Simple</a>
+                  </li>
+                  <li>
+                    <a href="#simple-split-worker" class="toc-h2 toc-link" data-title="Simple (Split Worker)">Simple (Split Worker)</a>
+                  </li>
+                  <li>
+                    <a href="#sub-workflow" class="toc-h2 toc-link" data-title="Sub-Workflow">Sub-Workflow</a>
+                  </li>
+                  <li>
+                    <a href="#timer" class="toc-h2 toc-link" data-title="Timer">Timer</a>
+                  </li>
+                  <li>
+                    <a href="#tracing" class="toc-h2 toc-link" data-title="Tracing">Tracing</a>
+                  </li>
+                  <li>
+                    <a href="#web-diagnostic-ui" class="toc-h2 toc-link" data-title="Web / Diagnostic UI">Web / Diagnostic UI</a>
+                  </li>
+                  <li>
+                    <a href="#workflow-info" class="toc-h2 toc-link" data-title="Workflow Info">Workflow Info</a>
+                  </li>
+              </ul>
+          </li>
+          <li>
+            <a href="#backends" class="toc-h1 toc-link" data-title="Backends">Backends</a>
+              <ul class="toc-list-h2">
+                  <li>
+                    <a href="#sqlite" class="toc-h2 toc-link" data-title="SQLite">SQLite</a>
+                  </li>
+                  <li>
+                    <a href="#mysql" class="toc-h2 toc-link" data-title="MySQL">MySQL</a>
+                  </li>
+                  <li>
+                    <a href="#redis" class="toc-h2 toc-link" data-title="Redis">Redis</a>
+                  </li>
+                  <li>
+                    <a href="#custom-implementation" class="toc-h2 toc-link" data-title="Custom implementation">Custom implementation</a>
+                  </li>
+              </ul>
+          </li>
+          <li>
+            <a href="#faq" class="toc-h1 toc-link" data-title="FAQ">FAQ</a>
+              <ul class="toc-list-h2">
+                  <li>
+                    <a href="#how-are-releases-versioned" class="toc-h2 toc-link" data-title="How are releases versioned?">How are releases versioned?</a>
+                  </li>
+                  <li>
+                    <a href="#workflow-versioning" class="toc-h2 toc-link" data-title="Workflow versioning">Workflow versioning</a>
+                  </li>
+                  <li>
+                    <a href="#how-to-safely-upgrade" class="toc-h2 toc-link" data-title="How to safely upgrade?">How to safely upgrade?</a>
+                  </li>
+              </ul>
+          </li>
+      </ul>
+        <ul class="toc-footer">
+            <li><a href='https://github.com/cschleiden/go-workflows'>GitHub</a></li>
+        </ul>
+    </div>
+    <div class="page-wrapper">
+      <div class="dark-box"></div>
+      <div class="content">
+        <h1 id='go-workflows'>go-workflows</h1>
+<p>go-workflows is an embedded engine for orchestrating long running processes or &quot;workflows&quot; written in Go.</p>
+
+<p>It borrows heavily from <a href="https://github.com/temporalio/temporal">Temporal</a> (and since it&#39;s a fork also <a href="https://github.com/uber/cadence">Cadence</a>) as well as Azure&#39;s <a href="https://github.com/Azure/durabletask">Durable Task Framework (DTFx)</a>. Workflows are written in plain Go.</p>
+
+<p>go-workflows support pluggable backends with official implementations for Sqlite, MySql, and Redis.</p>
+
+<p>See also the following blog posts:</p>
+
+<ul>
+<li><a href="https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/">https://cschleiden.dev/blog/2022-02-13-go-workflows-part1/</a></li>
+<li><a href="https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/">https://cschleiden.dev/blog/2022-05-02-go-workflows-part2/</a></li>
+</ul>
+<h1 id='quickstart'>Quickstart</h1>
+<p>A short walkthrough of the most important concepts:</p>
+<h2 id='workflow'>Workflow</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">input</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting activity 1 result"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A1 result:"</span><span class="p">,</span> <span class="n">r1</span><span class="p">)</span>
+
+    <span class="n">r2</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity2</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting activity 1 result"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A2 result:"</span><span class="p">,</span> <span class="n">r2</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Let&#39;s first write a simple workflow. Our workflow executes two <em>activities</em> in sequence waiting for each result. Both workflows and activities are written in plain Go. Workflows can be long-running and have to be deterministic so that they can be interrupted and resumed. Activities are functions that can have side-effects and don&#39;t have to be deterministic.</p>
+
+<p>Both workflows and activities support arbitrary inputs and outputs as long as those are serializable.</p>
+
+<p>Workflows have to take a <code>workflow.Context</code> as their first argument.</p>
+<h2 id='activities'>Activities</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">Activity2</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="m">12</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Activities receive a plain <code>context.Context</code> as their first argument. Activities are automatically retried by default, so it&#39;s good practice to make them idempotent.</p>
+<h2 id='worker'>Worker</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">runWorker</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">mb</span> <span class="n">backend</span><span class="o">.</span><span class="n">Backend</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">w</span> <span class="o">:=</span> <span class="n">worker</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="n">mb</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+
+    <span class="n">w</span><span class="o">.</span><span class="n">RegisterWorkflow</span><span class="p">(</span><span class="n">Workflow1</span><span class="p">)</span>
+
+    <span class="n">w</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">Activity1</span><span class="p">)</span>
+    <span class="n">w</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">Activity2</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">w</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"could not start worker"</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Next, we&#39;ll have to start a <em>worker</em>. Workers are responsible for executing workflows and activities and therefore we need to register both with the worker.</p>
+
+<p>Backends support multiple worker processes, so you can scale out horizontially.</p>
+<h2 id='backend'>Backend</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">b</span> <span class="o">:=</span> <span class="n">sqlite</span><span class="o">.</span><span class="n">NewSqliteBackend</span><span class="p">(</span><span class="s">"simple.sqlite"</span><span class="p">)</span>
+</code></pre></div>
+<p>The backend is responsible for persisting the workflow events. Currently there is an in-memory backend implementation for testing, one using <a href="http://sqlite.org">SQLite</a>, one using MySql, and one using Redis. See <a href="#backends">backends</a> for more information.</p>
+<h2 id='putting-it-all-together'>Putting it all together</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">ctx</span> <span class="o">:=</span> <span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">()</span>
+
+    <span class="n">b</span> <span class="o">:=</span> <span class="n">sqlite</span><span class="o">.</span><span class="n">NewSqliteBackend</span><span class="p">(</span><span class="s">"simple.sqlite"</span><span class="p">)</span>
+
+    <span class="k">go</span> <span class="n">runWorker</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="n">c</span> <span class="o">:=</span> <span class="n">client</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+    <span class="n">wf</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">CreateWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">client</span><span class="o">.</span><span class="n">WorkflowInstanceOptions</span><span class="p">{</span>
+        <span class="n">InstanceID</span><span class="o">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">NewString</span><span class="p">(),</span>
+    <span class="p">},</span> <span class="n">Workflow1</span><span class="p">,</span> <span class="s">"input-for-workflow"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"could not start workflow"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">c2</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="k">chan</span> <span class="n">os</span><span class="o">.</span><span class="n">Signal</span><span class="p">,</span> <span class="m">1</span><span class="p">)</span>
+    <span class="n">signal</span><span class="o">.</span><span class="n">Notify</span><span class="p">(</span><span class="n">c2</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">Interrupt</span><span class="p">)</span>
+    <span class="o">&lt;-</span><span class="n">c2</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>To finish the example, we create the backend, start a worker in a separate go-routine. We then create a <code>Client</code> instance which we then  use to create a new <em>workflow instance</em>. A workflow instance is just one running instance of a previously registered workflow.</p>
+
+<p>With the exception of the in-memory backend, we do not have to start the workflow from the same process the worker runs in, we could create the client from another process and create/wait for/cancel/... workflow instances from there.</p>
+<h2 id='using-the-workfloworchestrator'>Using the WorkflowOrchestrator</h2>
+<p>For simpler scenarios where you don&#39;t need the separation between client and worker, you can use the <code>WorkflowOrchestrator</code> which combines both:</p>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">MyWorkflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">input</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+
+    <span class="n">r2</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">string</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">FormatResult</span><span class="p">,</span> <span class="n">input</span><span class="p">,</span> <span class="n">r1</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">r2</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="m">42</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">FormatResult</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">input</span> <span class="kt">string</span><span class="p">,</span> <span class="n">value</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="s">"Processed %s with result %d"</span><span class="p">,</span> <span class="n">input</span><span class="p">,</span> <span class="n">value</span><span class="p">),</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">ctx</span> <span class="o">:=</span> <span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">()</span>
+
+    <span class="n">b</span> <span class="o">:=</span> <span class="n">sqlite</span><span class="o">.</span><span class="n">NewSqliteBackend</span><span class="p">(</span><span class="s">"simple.sqlite"</span><span class="p">)</span>
+
+    <span class="c">// Create orchestrator instead of separate client and worker</span>
+    <span class="n">orchestrator</span> <span class="o">:=</span> <span class="n">worker</span><span class="o">.</span><span class="n">NewWorkflowOrchestrator</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+
+    <span class="c">// Register workflows and activities explicitly</span>
+    <span class="n">orchestrator</span><span class="o">.</span><span class="n">RegisterWorkflow</span><span class="p">(</span><span class="n">MyWorkflow</span><span class="p">)</span>
+    <span class="n">orchestrator</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">Activity1</span><span class="p">)</span>
+    <span class="n">orchestrator</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">FormatResult</span><span class="p">)</span>
+
+    <span class="c">// Start the orchestrator</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"could not start orchestrator"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="c">// Create workflow instance</span>
+    <span class="n">wf</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">CreateWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">client</span><span class="o">.</span><span class="n">WorkflowInstanceOptions</span><span class="p">{</span>
+        <span class="n">InstanceID</span><span class="o">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">NewString</span><span class="p">(),</span>
+    <span class="p">},</span> <span class="n">MyWorkflow</span><span class="p">,</span> <span class="s">"input-for-workflow"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"could not start workflow"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="c">// Get result directly</span>
+    <span class="n">result</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">client</span><span class="o">.</span><span class="n">GetWorkflowResult</span><span class="p">[</span><span class="kt">string</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">orchestrator</span><span class="o">.</span><span class="n">Client</span><span class="p">,</span> <span class="n">wf</span><span class="p">,</span> <span class="m">5</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting workflow result: "</span> <span class="o">+</span> <span class="n">err</span><span class="o">.</span><span class="n">Error</span><span class="p">())</span>
+    <span class="p">}</span>
+
+    <span class="n">fmt</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"Workflow completed with result:"</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>The <code>WorkflowOrchestrator</code> provides a unified API for workflow creation and execution in a single component, combining both client and worker functionality. You need to explicitly register workflows and activities before starting the orchestrator, ensuring proper registration before any workflow or activity tasks are processed.</p>
+<h1 id='guide'>Guide</h1><h2 id='writing-workflows'>Writing workflows</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Workflows must accept <code>workflow.Context</code> as their first parameter. They can also receive any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no <code>chan</code>s etc.) by the default or any custom <em>Converter</em>.</p>
+
+<p>Workflows must return an <code>error</code> and optionally one additional result, which again needs to be serializable by the used <em>Converter</em>.</p>
+<h2 id='registering-workflows'>Registering workflows</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">var</span> <span class="n">b</span> <span class="n">backend</span><span class="o">.</span><span class="n">Backend</span>
+<span class="n">w</span> <span class="o">:=</span> <span class="n">worker</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+<span class="n">w</span><span class="o">.</span><span class="n">RegisterWorkflow</span><span class="p">(</span><span class="n">Workflow1</span><span class="p">)</span>
+</code></pre></div>
+<p>Workflows needs to be registered with the worker before they can be started. The name is automatically inferred from the function name.</p>
+<h2 id='writing-activities'>Writing activities</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">Activity2</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Activities must accept a <code>context.Context</code> as their first parameter. They can also receive any number of inputs parameters afterwards. Parameters need to be serializable (e.g., no <code>chan</code>s etc.) by the default or any custom <em>Converter</em>. Activities must return an <code>error</code> and optionally one additional result, which again needs to be serializable by the used <em>Converter</em>.</p>
+<h2 id='registering-activities'>Registering activities</h2>
+<blockquote>
+<p>Register activities as functions:</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">var</span> <span class="n">w</span> <span class="n">worker</span><span class="o">.</span><span class="n">Worker</span>
+<span class="n">w</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">Activity1</span><span class="p">)</span>
+</code></pre></div>
+<blockquote>
+<p>Register activities using a <code>struct</code>. <code>SharedState</code> will be available to all activities executed by this worker:</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">type</span> <span class="n">act</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">SharedState</span> <span class="kt">int</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span><span class="n">act</span><span class="p">)</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="o">+</span> <span class="n">act</span><span class="o">.</span><span class="n">SharedState</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span><span class="n">act</span><span class="p">)</span> <span class="n">Activity2</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">act</span><span class="o">.</span><span class="n">SharedState</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">var</span> <span class="n">w</span> <span class="n">worker</span><span class="o">.</span><span class="n">Worker</span>
+
+<span class="n">a</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">act</span><span class="p">{</span>
+  <span class="n">SharedState</span><span class="o">:</span> <span class="m">12</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">w</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+</code></pre></div>
+<p>Similar to workflows, activities need to be registered with the worker before they can be started.</p>
+
+<p>Activites can be registered as plain <code>func</code>s or as methods on a <code>struct</code>. The latter is useful if you want to provide some shared state to activities, for example, a database connection.</p>
+
+<p>To execute activities registered as methods on a <code>struct</code>, pass the method to <code>workflow.ExecuteActivity</code>.</p>
+
+<blockquote>
+<p>Calling activities registered on a struct</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="c">// ...</span>
+<span class="k">var</span> <span class="n">a</span> <span class="o">*</span><span class="n">act</span>
+
+<span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="c">// handle error</span>
+<span class="p">}</span>
+
+<span class="c">// Output r1 = 47 + 12 (from the worker registration) = 59</span>
+</code></pre></div><h2 id='starting-workflows'>Starting workflows</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">wf</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">CreateWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">client</span><span class="o">.</span><span class="n">WorkflowInstanceOptions</span><span class="p">{</span>
+    <span class="n">InstanceID</span><span class="o">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">NewString</span><span class="p">(),</span>
+<span class="p">},</span> <span class="n">Workflow1</span><span class="p">,</span> <span class="s">"input-for-workflow"</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="c">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>CreateWorkflowInstance</code> on a client instance will start a new workflow instance. Pass options, a workflow to run, and any inputs.</p>
+<h2 id='canceling-workflows'>Canceling workflows</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">var</span> <span class="n">c</span> <span class="o">*</span><span class="n">client</span><span class="o">.</span><span class="n">Client</span>
+<span class="n">err</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">CancelWorkflowInstance</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">(),</span> <span class="n">workflowInstance</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="nb">panic</span><span class="p">(</span><span class="s">"could not cancel workflow"</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Create a <code>Client</code> instance then then call <code>CancelWorkflow</code> to cancel a workflow. When a workflow is canceled, its workflow context is canceled. Any subsequent calls to schedule activities or sub-workflows will immediately return an error, skipping their execution. Any activities already running when a workflow is canceled will still run to completion and their result will be available.</p>
+
+<p>Sub-workflows will be canceled if their parent workflow is canceled.</p>
+<h3 id='perform-any-cleanup-in-cancelled-workflow'>Perform any cleanup in cancelled workflow</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow2</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">msg</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">defer</span> <span class="k">func</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="n">errors</span><span class="o">.</span><span class="n">Is</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">Err</span><span class="p">(),</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Canceled</span><span class="p">)</span> <span class="p">{</span>
+            <span class="c">// Workflow was canceled. Get new context to perform any cleanup activities</span>
+            <span class="n">ctx</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">NewDisconnectedContext</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+            <span class="c">// Execute the cleanup activity</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ActivityCleanup</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="no">nil</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+                <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">Wrap</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"could not perform cleanup"</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}()</span>
+
+    <span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ActivityCancel</span><span class="p">,</span> <span class="m">1</span><span class="p">,</span> <span class="m">2</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>  <span class="c">// &lt;---- Workflow is canceled while this activity is running</span>
+        <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">Wrap</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"could not get ActivityCancel result"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="c">// r1 will contain the result of ActivityCancel</span>
+    <span class="c">// ⬇ ActivitySkip will be skipped immediately</span>
+    <span class="n">r2</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ActivitySkip</span><span class="p">,</span> <span class="m">1</span><span class="p">,</span> <span class="m">2</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">Wrap</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"could not get ActivitySkip result"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="s">"some result"</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>If you need to run any activities or make calls using <code>workflow.Context</code> you need to create a new context with <code>workflow.NewDisconnectedContext</code>, since the original context is canceled at this point.</p>
+<h2 id='workers'>Workers</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">defaultWorker</span> <span class="o">:=</span> <span class="n">worker</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="n">mb</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">worker</span><span class="o">.</span><span class="n">Options</span><span class="p">{})</span>
+
+<span class="n">workflowWorker</span> <span class="o">:=</span> <span class="n">worker</span><span class="o">.</span><span class="n">NewWorkflowWorker</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">worker</span><span class="o">.</span><span class="n">WorkflowWorkerOptions</span><span class="p">{})</span>
+
+<span class="n">activityWorker</span> <span class="o">:=</span> <span class="n">worker</span><span class="o">.</span><span class="n">NewActivityWorker</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">worker</span><span class="o">.</span><span class="n">ActivityWorkerOptions</span><span class="p">{})</span>
+</code></pre></div>
+<p>There are three different types of workers:</p>
+
+<ul>
+<li>the default worker is a combined worker that listens to both workflow and activity queues</li>
+<li>a workflow worker that only listens to workflow queues</li>
+<li>an activity worker that only listens to activity queues</li>
+</ul>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="n">defaultWorker</span><span class="o">.</span><span class="n">RegisterWorkflow</span><span class="p">(</span><span class="n">Workflow1</span><span class="p">)</span>
+<span class="n">defaultWorker</span><span class="o">.</span><span class="n">RegisterActivity</span><span class="p">(</span><span class="n">Activity1</span><span class="p">)</span>
+
+<span class="n">ctx</span><span class="p">,</span> <span class="n">cancel</span> <span class="o">:=</span> <span class="n">context</span><span class="o">.</span><span class="n">WithCancel</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">())</span>
+<span class="n">defaultWorker</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+<span class="n">cancel</span><span class="p">()</span>
+<span class="n">defaultWorker</span><span class="o">.</span><span class="n">WaitForCompletion</span><span class="p">()</span>
+</code></pre></div>
+<p>All workers have the same simple interface. You can register workflows and activities, start the worker, and when shutting down wait for all pending tasks to be finished.</p>
+<h2 id='queues'>Queues</h2>
+<p>Workers can pull workflow and activity tasks from different queues. By default workers listen to two queues:</p>
+
+<ul>
+<li><code>default</code></li>
+<li><code>_system_</code> for system workflows and activities</li>
+</ul>
+
+<p>For now, every worker will <em>always</em> pull from <code>_system_</code>, but you can configure other queues you want to listen to. All worker options <code>struct</code>s take a <code>Queues</code> option.</p>
+
+<p>When starting workflows, creating sub-workflow instances, or scheduling activities you can pass a queue you want the task to be scheduled on.</p>
+
+<p>The default behavior if no explicit queue is given:</p>
+
+<ul>
+<li><strong>Starting a workflow</strong>: the default queue is <code>default</code>.</li>
+<li><strong>Creating a sub-workflow instance</strong>: the default behavior is to inherit the queue from the parent workflow instance.</li>
+<li><strong>Scheduling an activity</strong>: the default behavior is to inherit the queue from the parent workflow instance.</li>
+</ul>
+<h2 id='executing-activities'>Executing activities</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">,</span> <span class="no">nil</span><span class="p">,</span> <span class="s">"test"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting activity 1 result"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="n">r1</span><span class="p">)</span>
+</code></pre></div>
+<p>From a workflow, call <code>workflow.ExecuteActivity</code> to execute an activity. The call returns a <code>Future[T]</code> you can await to get the result or any error it might return.</p>
+
+<div style="clear: both"></div>
+<h3 id='executing-activities-on-a-specific-queue'>Executing activities on a specific queue</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ActivityOptions</span><span class="p">{</span>
+    <span class="n">Queue</span><span class="o">:</span> <span class="s">"my-queue"</span><span class="p">,</span>
+<span class="p">},</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">,</span> <span class="no">nil</span><span class="p">,</span> <span class="s">"test"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting activity 1 result"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="n">r1</span><span class="p">)</span>
+</code></pre></div>
+<div style="clear: both"></div>
+<h3 id='canceling-activities'>Canceling activities</h3>
+<p>Canceling activities is not supported at this time.</p>
+<h2 id='timers'>Timers</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">t</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ScheduleTimer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="m">2</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+<span class="n">err</span> <span class="o">:=</span> <span class="n">t</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+</code></pre></div>
+<p>You can schedule timers to fire at any point in the future by calling <code>workflow.ScheduleTimer</code>. It returns a <code>Future</code> you can await to wait for the timer to fire.</p>
+
+<aside class="notice">
+    All timers must have either fired or been canceled before a workflow can complete. If the workflow function exits with pending timer futures an error will be returned.
+</aside>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="n">t</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ScheduleTimer</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="m">2</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">WithTimerName</span><span class="p">(</span><span class="s">"my-timer"</span><span class="p">))</span>
+</code></pre></div>
+<p>You can optionally name timers for tracing and debugging purposes.</p>
+<h3 id='canceling-timers'>Canceling timers</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">tctx</span><span class="p">,</span> <span class="n">cancel</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">WithCancel</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="n">t</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ScheduleTimer</span><span class="p">(</span><span class="n">tctx</span><span class="p">,</span> <span class="m">2</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+
+<span class="c">// Cancel the timer</span>
+<span class="n">cancel</span><span class="p">()</span>
+</code></pre></div>
+<p>There is no explicit API to cancel timers. You can cancel a timer by creating a cancelable context, and canceling that.</p>
+<h2 id='signals'>Signals</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="c">// From outside the workflow:</span>
+<span class="n">c</span><span class="o">.</span><span class="n">SignalWorkflow</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"&lt;instance-id&gt;"</span><span class="p">,</span> <span class="s">"signal-name"</span><span class="p">,</span> <span class="s">"value"</span><span class="p">)</span>
+
+<span class="k">func</span> <span class="n">Workflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="c">// ...</span>
+
+    <span class="n">signalCh</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">NewSignalChannel</span><span class="p">[</span><span class="kt">string</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"signal-name"</span><span class="p">)</span>
+
+    <span class="c">// Pause workflow until signal is received</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Select</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span>
+        <span class="n">workflow</span><span class="o">.</span><span class="n">Receive</span><span class="p">(</span><span class="n">signalCh</span><span class="p">,</span> <span class="k">func</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">r</span> <span class="kt">string</span><span class="p">,</span> <span class="n">ok</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">Debug</span><span class="p">(</span><span class="s">"Received signal:"</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+        <span class="p">}),</span>
+    <span class="p">)</span>
+
+    <span class="c">// Continue execution</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Signals are a way to send a message to a running workflow instance. You can send a signal to a workflow by calling <code>workflow.Signal</code> and listen to them by creating a <code>SignalChannel</code> via <code>NewSignalChannel</code>.</p>
+
+<aside class="notice">
+    Signals can only be delivered to active workflow instances. If a workflow instance has completed, `SignalWorkflow` will return a `backend.ErrInstanceNotFound` error.
+</aside>
+<h3 id='signaling-other-workflows-from-within-a-workflow'>Signaling other workflows from within a workflow</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">_</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">SignalWorkflow</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"sub-instance-id"</span><span class="p">,</span> <span class="s">"signal-name"</span><span class="p">,</span> <span class="s">"value"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="c">// Handle error</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>You can also signal a workflow from within another workflow. This is useful if you want to signal a sub-workflow from its parent or vice versa.</p>
+<h2 id='executing-side-effects'>Executing side effects</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">id</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">SideEffect</span><span class="p">[</span><span class="kt">string</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="k">func</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">string</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">uuid</span><span class="o">.</span><span class="n">NewString</span><span class="p">()</span>
+<span class="p">})</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<p>Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use <code>workflow.SideEffect</code>. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.</p>
+<h2 id='accessing-workflow-execution-information'>Accessing workflow execution information</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">info</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">InstanceExecutionDetails</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">Info</span><span class="p">(</span><span class="s">"Current history length"</span><span class="p">,</span> <span class="s">"historyLength"</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">HistoryLength</span><span class="p">)</span>
+
+    <span class="c">// Execute an activity</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+
+    <span class="c">// Check history length again after activity</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">InstanceExecutionDetails</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">Info</span><span class="p">(</span><span class="s">"History length after activity"</span><span class="p">,</span> <span class="s">"historyLength"</span><span class="p">,</span> <span class="n">info</span><span class="o">.</span><span class="n">HistoryLength</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>You can access information about the current workflow execution using <code>workflow.InstanceExecutionDetails</code>. This function returns a <code>WorkflowInstanceExecutionDetails</code> struct containing metadata about the workflow&#39;s execution state.</p>
+<h3 id='history-length'>History Length</h3>
+<p>The <code>HistoryLength</code> field provides the number of events in the workflow history at the current point in execution. This value increases as the workflow executes and generates new events.</p>
+
+<p>The history includes all events that have been added to the workflow&#39;s event history, such as:</p>
+
+<ul>
+<li><code>WorkflowExecutionStarted</code></li>
+<li><code>WorkflowTaskStarted</code></li>
+<li><code>ActivityScheduled</code> / <code>ActivityCompleted</code></li>
+<li><code>TimerScheduled</code> / <code>TimerFired</code></li>
+<li><code>SubWorkflowScheduled</code> / <code>SubWorkflowCompleted</code></li>
+<li>And other workflow events</li>
+</ul>
+
+<p>This can be useful for:</p>
+
+<ul>
+<li><strong>Monitoring workflow complexity</strong>: Track how large your workflow&#39;s history is growing</li>
+<li><strong>Implementing workflow logic</strong>: Make decisions based on how far the workflow has progressed</li>
+<li><strong>Custom limits and checkpointing</strong>: Implement logic to continue-as-new when the history reaches a certain size</li>
+<li><strong>Debugging and diagnostics</strong>: Understanding workflow execution and troubleshooting issues</li>
+</ul>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">LongRunningWorkflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="o">:=</span> <span class="m">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="m">1000</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span> <span class="p">{</span>
+        <span class="c">// Do some work</span>
+        <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+        <span class="c">// Check if history is getting too large</span>
+        <span class="n">info</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">InstanceExecutionDetails</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">HistoryLength</span> <span class="o">&gt;</span> <span class="m">500</span> <span class="p">{</span>
+            <span class="c">// Restart the workflow with ContinueAsNew to keep history manageable</span>
+            <span class="k">return</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ContinueAsNew</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div><h2 id='executing-sub-workflows'>Executing sub-workflows</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">msg</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">result</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">CreateSubWorkflowInstance</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+        <span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">SubWorkflowInstanceOptions</span><span class="p">{},</span> <span class="n">SubWorkflow</span><span class="p">,</span> <span class="s">"some input"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">Wrap</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"could not get sub workflow result"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">Debug</span><span class="p">(</span><span class="s">"Sub workflow result:"</span><span class="p">,</span> <span class="s">"result"</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">SubWorkflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">msg</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">errors</span><span class="o">.</span><span class="n">Wrap</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"could not get activity result"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">Debug</span><span class="p">(</span><span class="s">"A1 result:"</span><span class="p">,</span> <span class="s">"r1"</span><span class="p">,</span> <span class="n">r1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">r1</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Call <code>workflow.CreateSubWorkflowInstance</code> to start a sub-workflow. The returned <code>Future</code> will resolve once the sub-workflow has finished.</p>
+
+<div style="clear: both"></div>
+<h3 id='executing-sub-workflows-on-a-specific-queue'>Executing sub-workflows on a specific queue</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">result</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">CreateSubWorkflowInstance</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+    <span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">SubWorkflowInstanceOptions</span><span class="p">{</span>
+        <span class="n">Queue</span><span class="o">:</span> <span class="s">"my-queue"</span><span class="p">,</span>
+    <span class="p">},</span> <span class="n">SubWorkflow</span><span class="p">,</span> <span class="s">"some input"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">Wrap</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="s">"could not get sub workflow result"</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<div style="clear: both"></div>
+<h3 id='canceling-sub-workflows'>Canceling sub-workflows</h3>
+<p>Similar to timer cancellation, you can pass a cancelable context to <code>CreateSubWorkflowInstance</code> and cancel the sub-workflow that way. Reacting to the cancellation is the same as canceling a workflow via the <code>Client</code>. See <a href="#canceling-workflows">Canceling workflows</a> for more details.</p>
+<h2 id='error-handling'>Error handling</h2><h3 id='custom-errors'>Custom errors</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">handleError</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">logger</span> <span class="n">log</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span> <span class="n">err</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">var</span> <span class="n">werr</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Error</span>
+    <span class="k">if</span> <span class="n">errors</span><span class="o">.</span><span class="n">As</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">werr</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">switch</span> <span class="n">werr</span><span class="o">.</span><span class="n">Type</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="s">"CustomError"</span><span class="o">:</span> <span class="c">// This was a `type CustomError struct...` returned by an activity/subworkflow</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="s">"Custom error"</span><span class="p">,</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">werr</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="p">}</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="s">"Generic workflow error"</span><span class="p">,</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">werr</span><span class="p">,</span> <span class="s">"stack"</span><span class="p">,</span> <span class="n">werr</span><span class="o">.</span><span class="n">Stack</span><span class="p">())</span>
+        <span class="k">return</span>
+    <span class="p">}</span>
+
+    <span class="k">var</span> <span class="n">perr</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">PanicError</span>
+    <span class="k">if</span> <span class="n">errors</span><span class="o">.</span><span class="n">As</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">perr</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Activity/subworkflow ran into a panic</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="s">"Panic"</span><span class="p">,</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">perr</span><span class="p">,</span> <span class="s">"stack"</span><span class="p">,</span> <span class="n">perr</span><span class="o">.</span><span class="n">Stack</span><span class="p">())</span>
+        <span class="k">return</span>
+    <span class="p">}</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="s">"Generic error"</span><span class="p">,</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Errors returned from activities and subworkflows need to be marshalled/unmarshalled by the library so they are wrapped in a <code>workflow.Error</code>. You can access the original type via the <code>err.Type</code> field. If a stacktrace was captured, you can access it via <code>err.Stack()</code>. Example (see also <code>samples/errors</code>).</p>
+<h3 id='panics'>Panics</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="s">"test"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting activity 1 result"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">var</span> <span class="n">perr</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">PanicError</span>
+<span class="k">if</span> <span class="n">errors</span><span class="o">.</span><span class="n">As</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">perr</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="s">"Panic"</span><span class="p">,</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">perr</span><span class="p">,</span> <span class="s">"stack"</span><span class="p">,</span> <span class="n">perr</span><span class="o">.</span><span class="n">Stack</span><span class="p">())</span>
+    <span class="k">return</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>A panic in an activity will be captured by the library and made available as a <code>workflow.PanicError</code> in the calling workflow.</p>
+<h3 id='retries'>Retries</h3>
+<blockquote>
+<p><strong>Workflow</strong>:</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="n">r1</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="s">"test"</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="nb">panic</span><span class="p">(</span><span class="s">"error getting activity 1 result"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="n">r1</span><span class="p">)</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Activity</strong>:</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">name</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s">"test"</span> <span class="p">{</span>
+        <span class="c">// No need to retry in this case, the activity will aways fail with the given inputs</span>
+        <span class="k">return</span> <span class="m">0</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">NewPermanentError</span><span class="p">(</span><span class="n">errors</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="s">"test is not a valid name"</span><span class="p">))</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">http</span><span class="o">.</span><span class="n">Do</span><span class="p">(</span><span class="s">"POST"</span><span class="p">,</span> <span class="s">"https://example.com"</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>With the default <code>DefaultActivityOptions</code>, Activities are retried up to three times when they return an error. If you want to keep automatic retries, but want to avoid them when hitting certain error types, you can wrap an error with <code>workflow.NewPermanentError</code>.</p>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">name</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Current retry attempt</span>
+    <span class="n">attempt</span> <span class="o">:=</span> <span class="n">activity</span><span class="o">.</span><span class="n">Attempt</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">http</span><span class="o">.</span><span class="n">Do</span><span class="p">(</span><span class="s">"POST"</span><span class="p">,</span> <span class="s">"https://example.com"</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>activity.Attempt</code> returns the current attempt retry.</p>
+<h2 id='continueasnew'><code>ContinueAsNew</code></h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">wf</span> <span class="o">:=</span> <span class="k">func</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">run</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">run</span> <span class="o">=</span> <span class="n">run</span> <span class="o">+</span> <span class="m">1</span>
+    <span class="k">if</span> <span class="n">run</span> <span class="o">&gt;</span> <span class="m">3</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">run</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ContinueAsNew</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">run</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">run</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>ContinueAsNew</code> allows you to restart workflow execution with different inputs. The purpose is to keep the history size small enough to avoid hitting size limits, running out of memory and impacting performance. It works by returning a special <code>error</code> from your workflow that contains the new inputs.</p>
+
+<p>Here the workflow is going to be restarted when <code>workflow.ContinueAsNew</code> is returned. Internally the new execution starts with a fresh history. It uses the same <code>InstanceID</code> but a different <code>ExecutionID</code>.</p>
+
+<p>If a sub-workflow is restarted, the caller doesn&#39;t notice this, only once it ends without being restarted the caller will get the result and control will be passed back.</p>
+<h2 id='select'><code>select</code></h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">var</span> <span class="n">f1</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+<span class="k">var</span> <span class="n">c</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Channel</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+
+<span class="n">value</span> <span class="o">:=</span> <span class="m">42</span>
+
+<span class="n">workflow</span><span class="o">.</span><span class="n">Select</span><span class="p">(</span>
+    <span class="n">ctx</span><span class="p">,</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Await</span><span class="p">(</span><span class="n">f1</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">f</span> <span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">])</span> <span class="p">{</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">f</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="c">// ...</span>
+    <span class="p">}),</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Receive</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">v</span> <span class="kt">int</span><span class="p">,</span> <span class="n">ok</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c">// use v</span>
+    <span class="p">}),</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Default</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c">// ...</span>
+    <span class="p">})</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Due its non-deterministic behavior you must not use a <code>select</code> statement in workflows. Instead you can use the provided <code>workflow.Select</code> function. It blocks until one of the provided cases is ready. Cases are evaluated in the order passed to `Select.</p>
+<h3 id='waiting-for-a-future'>Waiting for a Future</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">var</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+
+<span class="n">workflow</span><span class="o">.</span><span class="n">Select</span><span class="p">(</span>
+    <span class="n">ctx</span><span class="p">,</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Await</span><span class="p">(</span><span class="n">f1</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">f</span> <span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">])</span> <span class="p">{</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">f</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="c">// ...</span>
+    <span class="p">}),</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Await</span><span class="p">(</span><span class="n">f2</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">f</span> <span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">])</span> <span class="p">{</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">f</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="c">// ...</span>
+    <span class="p">}),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>Await</code> adds a case to wait for a <code>Future</code> to have a value.</p>
+<h3 id='waiting-to-receive-from-a-channel'>Waiting to receive from a Channel</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">var</span> <span class="n">c</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Channel</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+
+<span class="n">workflow</span><span class="o">.</span><span class="n">Select</span><span class="p">(</span>
+    <span class="n">ctx</span><span class="p">,</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Receive</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">v</span> <span class="kt">int</span><span class="p">,</span> <span class="n">ok</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c">// ...</span>
+    <span class="p">}),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>Receive</code> adds a case to receive from a given channel.</p>
+<h3 id='default-non-blocking'>Default/Non-blocking</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">var</span> <span class="n">f1</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">]</span>
+
+<span class="n">workflow</span><span class="o">.</span><span class="n">Select</span><span class="p">(</span>
+    <span class="n">ctx</span><span class="p">,</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Await</span><span class="p">(</span><span class="n">f1</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">f</span> <span class="n">Future</span><span class="p">[</span><span class="kt">int</span><span class="p">])</span> <span class="p">{</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">f</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">r</span><span class="p">)</span>
+        <span class="c">// ...</span>
+    <span class="p">}),</span>
+    <span class="n">workflow</span><span class="o">.</span><span class="n">Default</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="k">func</span> <span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c">// ...</span>
+    <span class="p">})</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>A <code>Default</code> case is executed if no previous case is ready to be selected.</p>
+<h2 id='testing-workflows'>Testing Workflows</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">TestWorkflow</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">tester</span> <span class="o">:=</span> <span class="n">tester</span><span class="o">.</span><span class="n">NewWorkflowTester</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">Workflow1</span><span class="p">)</span>
+
+    <span class="c">// Mock two activities</span>
+    <span class="n">tester</span><span class="o">.</span><span class="n">OnActivity</span><span class="p">(</span><span class="n">Activity1</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">Anything</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Return</span><span class="p">(</span><span class="m">47</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+    <span class="n">tester</span><span class="o">.</span><span class="n">OnActivity</span><span class="p">(</span><span class="n">Activity2</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">Anything</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">Anything</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">Anything</span><span class="p">)</span><span class="o">.</span><span class="n">Return</span><span class="p">(</span><span class="m">12</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+
+    <span class="c">// Run workflow with inputs</span>
+    <span class="n">tester</span><span class="o">.</span><span class="n">Execute</span><span class="p">(</span><span class="s">"Hello world"</span><span class="p">)</span>
+
+    <span class="c">// Workflows always run to completion, or time-out</span>
+    <span class="n">require</span><span class="o">.</span><span class="n">True</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">tester</span><span class="o">.</span><span class="n">WorkflowFinished</span><span class="p">())</span>
+
+    <span class="n">wr</span><span class="p">,</span> <span class="n">werr</span> <span class="o">:=</span> <span class="n">tester</span><span class="o">.</span><span class="n">WorkflowResult</span><span class="p">()</span>
+    <span class="n">require</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="m">59</span><span class="p">,</span> <span class="n">wr</span><span class="p">)</span>
+    <span class="n">require</span><span class="o">.</span><span class="n">Empty</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">werr</span><span class="p">)</span>
+
+    <span class="c">// Ensure any expectations set for activity or sub-workflow mocks were met</span>
+    <span class="n">tester</span><span class="o">.</span><span class="n">AssertExpectations</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>go-workflows includes support for testing workflows, a simple example using mocked activities.</p>
+
+<ul>
+<li>Timers are automatically fired by advancing a mock workflow clock that is used for testing workflows</li>
+<li>You can register callbacks to fire at specific times (in mock-clock time). Callbacks can send signals, cancel workflows etc.</li>
+</ul>
+<h2 id='testing-activities'>Testing Activities</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span> <span class="kt">int</span><span class="p">,</span> <span class="n">b</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">activity</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span><span class="o">.</span><span class="n">Debug</span><span class="p">(</span><span class="s">"Activity is called"</span><span class="p">,</span> <span class="s">"a"</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">TestActivity</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">ctx</span> <span class="o">:=</span> <span class="n">activitytester</span><span class="o">.</span><span class="n">WithActivityTestState</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">(),</span> <span class="s">"activityID"</span><span class="p">,</span> <span class="s">"instanceID"</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+
+    <span class="n">r</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">Activity</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span>
+    <span class="n">require</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="m">47</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+    <span class="n">require</span><span class="o">.</span><span class="n">NoError</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Activities can be tested like any other function. If you make use of the activity context, for example, to retrieve a logger, you can use <code>activitytester.WithActivityTestState</code> to provide a test activity context. If you don&#39;t specify a logger, the default logger implementation will be used.</p>
+<h2 id='removing-workflow-instances'>Removing workflow instances</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">err</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">RemoveWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflowInstance</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="c">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>RemoveWorkflowInstance</code> on a client instance will remove that workflow instance including all history data from the backend. A workflow instance needs to be in the finished state before calling this, otherwise an error will be returned.</p>
+
+<div style="clear: both"></div>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="n">err</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">RemoveWorkflowInstances</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">backend</span><span class="o">.</span><span class="n">RemoveFinishedBefore</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">()</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="o">-</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">*</span> <span class="m">24</span><span class="p">))</span>
+<span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+    <span class="c">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p><code>RemoveWorkflowInstances</code> on a client instance will remove all finished workflow instances that match the given condition(s). Currently only <code>RemoveFinishedBefore</code> is supported.</p>
+<h3 id='automatically-expiring-finished-workflow-instances'>Automatically expiring finished workflow instances</h3>
+<p>This differs for different backend implementations.</p>
+<h4 id='sqlite-amp-mysql'>SQLite &amp; MySQL</h4><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">client</span><span class="o">.</span><span class="n">StartAutoExpiration</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">delay</span> <span class="n">time</span><span class="o">.</span><span class="n">Duration</span><span class="p">)</span>
+</code></pre></div>
+<p>When you call this on a client, a workflow will be started in the <code>system</code> queue that will periodically run and remove finished workflow instances that are older than the specified delay.</p>
+
+<div style="clear: both"></div>
+<h4 id='redis'>Redis</h4><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">b</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">redis</span><span class="o">.</span><span class="n">NewRedisBackend</span><span class="p">(</span><span class="n">redisClient</span><span class="p">,</span> <span class="n">redis</span><span class="o">.</span><span class="n">WithAutoExpiration</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">*</span> <span class="m">48</span><span class="p">))</span>
+<span class="c">// ...</span>
+</code></pre></div>
+<p>When an <code>AutoExpiration</code> is passed to the backend, finished workflow instances will be automatically removed after the specified duration. This works by setting a TTL on the Redis keys for finished workflow instances. If <code>AutoExpiration</code> is set to <code>0</code> (the default), no TTL will be set.</p>
+<h2 id='logging'>Logging</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">b</span> <span class="o">:=</span> <span class="n">sqlite</span><span class="o">.</span><span class="n">NewInMemoryBackend</span><span class="p">(</span><span class="n">backend</span><span class="o">.</span><span class="n">WithLogger</span><span class="p">(</span><span class="n">slog</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="n">slog</span><span class="o">.</span><span class="n">Config</span><span class="p">{</span><span class="n">Level</span><span class="o">:</span> <span class="n">slog</span><span class="o">.</span><span class="n">LevelDebug</span><span class="p">}))</span>
+</code></pre></div>
+<p>go-workflows supports structured logging using Go&#39;s <code>slog</code> package. <code>slog.Default</code> is used by default, pass a custom logger with <code>backend.WithLogger</code> when creating a backend instance.</p>
+<h3 id='workflows'>Workflows</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">logger</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<p>For logging in workflows, you can get a logger using <code>workflow.Logger</code>. The returned logger instance  already has the workflow instance set as a default field.</p>
+<h3 id='activities'>Activities</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">logger</span> <span class="o">:=</span> <span class="n">activity</span><span class="o">.</span><span class="n">Logger</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+</code></pre></div>
+<p>For logging in activities, you can get a logger using <code>activity.Logger</code>. The returned logger already has the id of the activity, and the workflow instance set as default field.</p>
+<h2 id='tracing'>Tracing</h2>
+<p>The library supports tracing via <a href="https://opentelemetry.io/">OpenTelemetry</a>. When you pass a <code>TracerProvider</code> when creating a backend instance, workflow execution will be traced. You can also add additional spans for both activities and workflows.</p>
+<h3 id='activities-2'>Activities</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Activity1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="kt">int</span><span class="p">)</span> <span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">ctx</span><span class="p">,</span> <span class="n">span</span> <span class="o">:=</span> <span class="n">otel</span><span class="o">.</span><span class="n">Tracer</span><span class="p">(</span><span class="s">"activity1"</span><span class="p">)</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"Custom Activity1 span"</span><span class="p">)</span>
+    <span class="k">defer</span> <span class="n">span</span><span class="o">.</span><span class="n">End</span><span class="p">()</span>
+
+    <span class="c">// Do something</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>The <code>context.Context</code> passed into activities is set up with the correct current span. If you create additional spans, they&#39;ll show up under the <code>ActivityTaskExecution</code>.</p>
+<h3 id='workflows-2'>Workflows</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">ctx</span><span class="p">,</span> <span class="n">span</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Tracer</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span><span class="o">.</span><span class="n">Start</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"Workflow1 span"</span><span class="p">,</span> <span class="n">trace</span><span class="o">.</span><span class="n">WithAttributes</span><span class="p">(</span>
+        <span class="c">// Add additional</span>
+        <span class="n">attribute</span><span class="o">.</span><span class="n">String</span><span class="p">(</span><span class="s">"msg"</span><span class="p">,</span> <span class="s">"hello world"</span><span class="p">),</span>
+    <span class="p">))</span>
+
+    <span class="c">// Do something</span>
+
+    <span class="n">span</span><span class="o">.</span><span class="n">End</span><span class="p">()</span>
+</code></pre></div>
+<p>For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not. You can get a replay-aware racer with <code>workflow.Tracer(ctx)</code>.</p>
+<h2 id='context-propagation'>Context Propagation</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">type</span> <span class="n">ContextPropagator</span> <span class="k">interface</span> <span class="p">{</span>
+    <span class="n">Inject</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">Metadata</span><span class="p">)</span> <span class="kt">error</span>
+    <span class="n">Extract</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">Metadata</span><span class="p">)</span> <span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+
+    <span class="n">InjectFromWorkflow</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">Metadata</span><span class="p">)</span> <span class="kt">error</span>
+    <span class="n">ExtractToWorkflow</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">Metadata</span><span class="p">)</span> <span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>In Go programs it is common to use <code>context.Context</code> to pass around request-scoped data. This library supports context propagation between activities and workflows. When you create a workflow, you can pass a <code>ContextPropagator</code> to the backend to propagate context values.</p>
+
+<p>The <code>context-propagation</code> sample shows an example of how to use this.</p>
+<h2 id='tools'>Tools</h2><h3 id='analyzer'>Analyzer</h3>
+<p><code>/analyzer</code> contains a simple <a href="https://github.com/golangci/golangci-lint">golangci-lint</a> based analyzer to spot common issues in workflow code.</p>
+<h3 id='diagnostics-web-ui'>Diagnostics Web UI</h3><div class="highlight"><pre class="highlight go tab-go"><code><span class="n">m</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">NewServeMux</span><span class="p">()</span>
+<span class="n">m</span><span class="o">.</span><span class="n">Handle</span><span class="p">(</span><span class="s">"/diag/"</span><span class="p">,</span> <span class="n">http</span><span class="o">.</span><span class="n">StripPrefix</span><span class="p">(</span><span class="s">"/diag"</span><span class="p">,</span> <span class="n">diag</span><span class="o">.</span><span class="n">NewServeMux</span><span class="p">(</span><span class="n">b</span><span class="p">)))</span>
+<span class="k">go</span> <span class="n">http</span><span class="o">.</span><span class="n">ListenAndServe</span><span class="p">(</span><span class="s">":3000"</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+</code></pre></div>
+<p>For investigating workflows, the package includes a simple diagnostic web UI. You can serve it via <code>diag.NewServeMux</code>.</p>
+
+<p>It provides a simple paginated list of workflow instances:</p>
+
+<p><img src="./images/diag-list.png" width="700"></p>
+
+<p>And a way to inspect the history of a workflow instance:</p>
+
+<p><img src="./images/diag-details.png" width="700"></p>
+<h1 id='samples'>Samples</h1><h2 id='activity-registration'>Activity Registration</h2>
+<p>Shows to register activities, both as plain functions and on <code>struct</code>s to share state.</p>
+<h2 id='cancellation'>Cancellation</h2>
+<p>Shows how to cancel a workflow and now to react to cancellation in workflow implementations.</p>
+<h2 id='complex-parameters'>Complex Parameters</h2>
+<p>Demonstrates how to pass complex parameters to workflows and activities.</p>
+<h2 id='concurrent'>Concurrent</h2>
+<p>Demonstrates how to run multiple activities concurrently.</p>
+<h2 id='context-propagation'>Context Propagation</h2>
+<p>Shows how to propagate context into workflows and from there to activities.</p>
+<h2 id='continue-as-new'>Continue-As-New</h2>
+<p>Shows how to use <code>ContinueAsNew</code> to restart a workflow for &quot;infinite&quot; workflows.</p>
+<h2 id='converter'>Converter</h2>
+<p>Shows how to use a custom converter to convert between different types.</p>
+<h2 id='errors'>Errors</h2>
+<p>Shows how to handle errors in workflows and activities.</p>
+<h2 id='retries'>Retries</h2>
+<p>Demonstrates sub-workflow and activity retries.</p>
+<h2 id='queues'>Queues</h2>
+<p>Shows how to queue workflows and activities to different queues and how to create workers that only listen for specific queues or specific tasks (workflows or activities).</p>
+<h2 id='scale'>Scale</h2>
+<p>Simple sample with a split worker and &quot;starter&quot; process.</p>
+<h2 id='signal'>Signal</h2>
+<p>Shows how to send and receive signals to workflow.</p>
+<h2 id='signal-to-a-sub-workflow'>Signal to a Sub-Workflow</h2>
+<p>Shows how to send signals to a sub-workflows.</p>
+<h2 id='simple'>Simple</h2>
+<p>Simple end-to-end sample with a single activity.</p>
+<h2 id='simple-split-worker'>Simple (Split Worker)</h2>
+<p>Same as the simple example, but with a split worker and &quot;starter&quot; process.</p>
+<h2 id='sub-workflow'>Sub-Workflow</h2>
+<p>Shows how to implement and call a sub-workflow from a workflow.</p>
+<h2 id='timer'>Timer</h2>
+<p>Shows how to use timers in workflows.</p>
+<h2 id='tracing'>Tracing</h2>
+<p>Shows how to use OpenTelemetry to trace workflows and activities.</p>
+<h2 id='web-diagnostic-ui'>Web / Diagnostic UI</h2>
+<p>Shows how to use the Web UI to monitor workflows and activities.</p>
+<h2 id='workflow-info'>Workflow Info</h2>
+<p>Demonstrates how to access workflow execution information, including the history length, using <code>workflow.InstanceExecutionDetails()</code>. Shows how the history grows as the workflow executes activities and how this information can be used for monitoring workflow complexity and implementing custom logic.</p>
+<h1 id='backends'>Backends</h1>
+<p>There are three backend implementations maintained in this repository. Some backend implementations have custom options and all of them accept:</p>
+
+<ul>
+<li><code>WithStickyTimeout(timeout time.Duration)</code> - Set the timeout for sticky tasks. Defaults to 30 seconds</li>
+<li><code>WithWorkflowLockTimeout(timeout time.Duration)</code> - Set the timeout for workflow task locks. Defaults to 1 minute</li>
+<li><code>WithActivityLockTimeout(timeout time.Duration)</code> - Set the timeout for activity task locks. Defaults to 2 minutes</li>
+<li><code>WithLogger(logger *slog.Logger)</code> - Set the logger implementation</li>
+<li><code>WithMetrics(client metrics.Client)</code> - Set the metrics client</li>
+<li><code>WithTracerProvider(tp trace.TracerProvider)</code> - Set the OpenTelemetry tracer provider</li>
+<li><code>WithConverter(converter converter.Converter)</code> - Provide a custom <code>Converter</code> implementation</li>
+<li><code>WithContextPropagator(prop workflow.ContextPropagator)</code> - Adds a custom context propagator</li>
+<li><code>WithRemoveContinuedAsNewInstances()</code> - Immediately removes workflow instances that complete using ContinueAsNew, including their history. ContinueAsNew allows workflows to restart with new parameters while preserving the same instance ID. By default, such instances are retained according to the configured retention policy. Use this option to prevent storage bloat in workflows that frequently use ContinueAsNew.</li>
+</ul>
+<h2 id='sqlite'>SQLite</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">NewSqliteBackend</span><span class="p">(</span><span class="n">path</span> <span class="kt">string</span><span class="p">,</span> <span class="n">opts</span> <span class="o">...</span><span class="n">option</span><span class="p">)</span>
+</code></pre></div>
+<p>Create a new SQLite backend instance with <code>NewSqliteBackend</code>.</p>
+<h3 id='options'>Options</h3>
+<ul>
+<li><code>WithApplyMigrations(applyMigrations bool)</code> - Set whether migrations should be applied on startup. Defaults to <code>true</code></li>
+<li><code>WithBackendOptions(opts ...backend.BackendOption)</code> - Apply generic backend options</li>
+</ul>
+<h3 id='schema'>Schema</h3>
+<p>See <code>migrations/sqlite</code> for the schema and migrations. Main tables:</p>
+
+<ul>
+<li><code>instances</code> - Tracks workflow instances. Functions as instance queue joined with <code>pending_events</code></li>
+<li><code>pending_events</code> - Pending events for workflow instances</li>
+<li><code>history</code> - History for workflow instances</li>
+<li><code>activities</code> - Queue of pending activities</li>
+<li><code>attributes</code> - Payloads of events</li>
+</ul>
+<h2 id='mysql'>MySQL</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">NewMysqlBackend</span><span class="p">(</span><span class="n">host</span> <span class="kt">string</span><span class="p">,</span> <span class="n">port</span> <span class="kt">int</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">database</span> <span class="kt">string</span><span class="p">,</span> <span class="n">opts</span> <span class="o">...</span><span class="n">option</span><span class="p">)</span>
+</code></pre></div>
+<p>Create a new MySQL backend instance with <code>NewMysqlBackend</code>.</p>
+<h3 id='options-2'>Options</h3>
+<ul>
+<li><code>WithMySQLOptions(f func(db *sql.DB))</code> - Apply custom options to the MySQL database connection</li>
+<li><code>WithApplyMigrations(applyMigrations bool)</code> - Set whether migrations should be applied on startup. Defaults to <code>true</code></li>
+<li><code>WithBackendOptions(opts ...backend.BackendOption)</code> - Apply generic backend options</li>
+</ul>
+<h3 id='schema-2'>Schema</h3>
+<p>See <code>migrations/mysql</code> for the schema and migrations. Main tables:</p>
+
+<ul>
+<li><code>instances</code> - Tracks workflow instances. Functions as instance queue joined with <code>pending_events</code></li>
+<li><code>pending_events</code> - Pending events for workflow instances</li>
+<li><code>history</code> - History for workflow instances</li>
+<li><code>activities</code> - Queue of pending activities</li>
+<li><code>attributes</code> - Payloads of events</li>
+</ul>
+<h2 id='redis'>Redis</h2><div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">NewRedisBackend</span><span class="p">(</span><span class="n">client</span> <span class="n">redis</span><span class="o">.</span><span class="n">UniversalClient</span><span class="p">,</span> <span class="n">opts</span> <span class="o">...</span><span class="n">RedisBackendOption</span><span class="p">)</span>
+</code></pre></div>
+<p>Create a new Redis backend instance with <code>NewRedisBackend</code>.</p>
+<h3 id='options-3'>Options</h3>
+<ul>
+<li><code>WithKeyPrefix</code> - Set the key prefix for all keys. Defaults to <code>&quot;&quot;</code></li>
+<li><code>WithBlockTimeout(timeout time.Duration)</code> - Set the timeout for blocking operations. Defaults to <code>5s</code></li>
+<li><code>WithAutoExpiration(expireFinishedRunsAfter time.Duration)</code> - Set the expiration time for finished runs. Defaults to <code>0</code>, which never expires runs</li>
+<li><code>WithAutoExpirationContinueAsNew(expireContinuedAsNewRunsAfter time.Duration)</code> - Set the expiration time for continued as new runs. Defaults to <code>0</code>, which uses the same value as <code>WithAutoExpiration</code></li>
+<li><code>WithBackendOptions(opts ...backend.BackendOption)</code> - Apply generic backend options</li>
+</ul>
+<h3 id='schema-keys'>Schema/Keys</h3>
+<p>Shared keys:</p>
+
+<ul>
+<li><code>instances-by-creation</code> - <code>ZSET</code> - Instances sorted by creation time</li>
+<li><code>instances-active</code> - <code>SET</code> - Active instances</li>
+<li><p><code>instances-expiring</code> - <code>SET</code> - Instances about to expire</p></li>
+<li><p><code>task-queue:workflows</code> - <code>STREAM</code> - Task queue for workflows</p></li>
+<li><p><code>task-queue:activities</code> - <code>STREAM</code> - Task queue for activities</p></li>
+</ul>
+
+<p>Instance specific keys:</p>
+
+<ul>
+<li><code>active-instance-execution:{instanceID}</code> - Latest execution for a workflow instance</li>
+<li><code>instance:{instanceID}:{executionID}</code> - State of the workflow instance</li>
+<li><code>pending-events:{instanceID}:{executionID}</code> - <code>STREAM</code> - Pending events for a workflow instance</li>
+<li><code>history:{instanceID}:{executionID}</code> - <code>STREAM</code> - History for a workflow instance</li>
+<li><p><code>payload:{instanceID}:{executionID}</code> - <code>HASH</code> - Payloads of events for given workflow instance</p></li>
+<li><p><code>future-events</code> - <code>ZSET</code> - Events not yet visible like timer events</p></li>
+</ul>
+<h2 id='custom-implementation'>Custom implementation</h2>
+<p>To provide a custom backend, implement the following interface:</p>
+<div class="highlight"><pre class="highlight go"><code><span class="k">type</span> <span class="n">Backend</span> <span class="k">interface</span> <span class="p">{</span>
+    <span class="c">// CreateWorkflowInstance creates a new workflow instance</span>
+    <span class="n">CreateWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">,</span> <span class="n">event</span> <span class="o">*</span><span class="n">history</span><span class="o">.</span><span class="n">Event</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// CancelWorkflowInstance cancels a running workflow instance</span>
+    <span class="n">CancelWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">,</span> <span class="n">cancelEvent</span> <span class="o">*</span><span class="n">history</span><span class="o">.</span><span class="n">Event</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// RemoveWorkflowInstance removes a workflow instance</span>
+    <span class="n">RemoveWorkflowInstance</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// GetWorkflowInstanceState returns the state of the given workflow instance</span>
+    <span class="n">GetWorkflowInstanceState</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">)</span> <span class="p">(</span><span class="n">core</span><span class="o">.</span><span class="n">WorkflowInstanceState</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+
+    <span class="c">// GetWorkflowInstanceHistory returns the workflow history for the given instance. When lastSequenceID</span>
+    <span class="c">// is given, only events after that event are returned. Otherwise the full history is returned.</span>
+    <span class="n">GetWorkflowInstanceHistory</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">,</span> <span class="n">lastSequenceID</span> <span class="o">*</span><span class="kt">int64</span><span class="p">)</span> <span class="p">([]</span><span class="o">*</span><span class="n">history</span><span class="o">.</span><span class="n">Event</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+
+    <span class="c">// SignalWorkflow signals a running workflow instance</span>
+    <span class="c">//</span>
+    <span class="c">// If the given instance does not exist, it will return an error</span>
+    <span class="n">SignalWorkflow</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instanceID</span> <span class="kt">string</span><span class="p">,</span> <span class="n">event</span> <span class="o">*</span><span class="n">history</span><span class="o">.</span><span class="n">Event</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// GetWorkflowTask returns a pending workflow task or nil if there are no pending workflow executions</span>
+    <span class="n">GetWorkflowTask</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">WorkflowTask</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+
+    <span class="c">// ExtendWorkflowTask extends the lock of a workflow task</span>
+    <span class="n">ExtendWorkflowTask</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">taskID</span> <span class="kt">string</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">core</span><span class="o">.</span><span class="n">WorkflowInstance</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// CompleteWorkflowTask checkpoints a workflow task retrieved using GetWorkflowTask</span>
+    <span class="c">//</span>
+    <span class="c">// This checkpoints the execution. events are new events from the last workflow execution</span>
+    <span class="c">// which will be added to the workflow instance history. workflowEvents are new events for the</span>
+    <span class="c">// completed or other workflow instances.</span>
+    <span class="n">CompleteWorkflowTask</span><span class="p">(</span>
+        <span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">task</span> <span class="o">*</span><span class="n">WorkflowTask</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">,</span> <span class="n">state</span> <span class="n">core</span><span class="o">.</span><span class="n">WorkflowInstanceState</span><span class="p">,</span>
+        <span class="n">executedEvents</span><span class="p">,</span> <span class="n">activityEvents</span><span class="p">,</span> <span class="n">timerEvents</span> <span class="p">[]</span><span class="o">*</span><span class="n">history</span><span class="o">.</span><span class="n">Event</span><span class="p">,</span> <span class="n">workflowEvents</span> <span class="p">[]</span><span class="n">history</span><span class="o">.</span><span class="n">WorkflowEvent</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// GetActivityTask returns a pending activity task or nil if there are no pending activities</span>
+    <span class="n">GetActivityTask</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ActivityTask</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+
+    <span class="c">// CompleteActivityTask completes an activity task retrieved using GetActivityTask</span>
+    <span class="n">CompleteActivityTask</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">instance</span> <span class="o">*</span><span class="n">workflow</span><span class="o">.</span><span class="n">Instance</span><span class="p">,</span> <span class="n">activityID</span> <span class="kt">string</span><span class="p">,</span> <span class="n">event</span> <span class="o">*</span><span class="n">history</span><span class="o">.</span><span class="n">Event</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// ExtendActivityTask extends the lock of an activity task</span>
+    <span class="n">ExtendActivityTask</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">activityID</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span>
+
+    <span class="c">// GetStats returns stats about the backend</span>
+    <span class="n">GetStats</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">Stats</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+
+    <span class="c">// Logger returns the configured logger for the backend</span>
+    <span class="n">Logger</span><span class="p">()</span> <span class="o">*</span><span class="n">slog</span><span class="o">.</span><span class="n">Logger</span>
+
+    <span class="c">// Tracer returns the configured trace provider for the backend</span>
+    <span class="n">Tracer</span><span class="p">()</span> <span class="n">trace</span><span class="o">.</span><span class="n">Tracer</span>
+
+    <span class="c">// Metrics returns the configured metrics client for the backend</span>
+    <span class="n">Metrics</span><span class="p">()</span> <span class="n">metrics</span><span class="o">.</span><span class="n">Client</span>
+
+    <span class="c">// Converter returns the configured converter for the backend</span>
+    <span class="n">Converter</span><span class="p">()</span> <span class="n">converter</span><span class="o">.</span><span class="n">Converter</span>
+
+    <span class="c">// ContextPropagators returns the configured context propagators for the backend</span>
+    <span class="n">ContextPropagators</span><span class="p">()</span> <span class="p">[]</span><span class="n">workflow</span><span class="o">.</span><span class="n">ContextPropagator</span>
+
+    <span class="c">// Close closes any underlying resources</span>
+    <span class="n">Close</span><span class="p">()</span> <span class="kt">error</span>
+<span class="p">}</span>
+</code></pre></div><h1 id='faq'>FAQ</h1><h2 id='how-are-releases-versioned'>How are releases versioned?</h2>
+<p>For now this library is in a pre-release state. There are no guarantees given regarding breaking changes between (pre)-releases.</p>
+<h2 id='workflow-versioning'>Workflow versioning</h2>
+<p>For now, I&#39;ve intentionally left out versioning. Cadence, Temporal, and DTFx all support the concept of versions for workflows as well as activities. This is mostly required when you make changes to workflows and need to keep backwards compatibility with workflows that are being executed at the time of the upgrade.</p>
+
+<p><strong>Example</strong>: when you change a workflow from:</p>
+
+<blockquote>
+<p>Workflow version 1</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">r1</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A1 result:"</span><span class="p">,</span> <span class="n">r1</span><span class="p">)</span>
+
+    <span class="n">r2</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity2</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A2 result:"</span><span class="p">,</span> <span class="n">r2</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<div style="clear: both"></div>
+
+<p>to</p>
+
+<blockquote>
+<p>Workflow version 2</p>
+</blockquote>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">var</span> <span class="n">r1</span> <span class="kt">int</span>
+    <span class="n">r1</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A1 result:"</span><span class="p">,</span> <span class="n">r1</span><span class="p">)</span>
+
+    <span class="n">r3</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity3</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A3 result:"</span><span class="p">,</span> <span class="n">r3</span><span class="p">)</span>
+
+    <span class="n">r2</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity2</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A2 result:"</span><span class="p">,</span> <span class="n">r2</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<div style="clear: both"></div>
+
+<p>and you replay a workflow history that contains:</p>
+
+<ol>
+<li><code>ActivitySchedule</code> - <code>Activity1</code></li>
+<li><code>ActivityCompleted</code> - <code>Activity1</code></li>
+<li><code>ActivitySchedule</code> - <code>Activity2</code></li>
+<li><code>ActivityCompleted</code> - <code>Activity2</code></li>
+</ol>
+
+<p>the workflow will encounter an attempt to execute <code>Activity3</code> in-between event 2 and 3, for which there is no matching event. This is a non-recoverable error. The usual approach to solve is to version the workflows and every time you make a change to a workflow, you have to check that logic. For this example this could look like:</p>
+<div class="highlight"><pre class="highlight go tab-go"><code><span class="k">func</span> <span class="n">Workflow1</span><span class="p">(</span><span class="n">ctx</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">r1</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity1</span><span class="p">,</span> <span class="m">35</span><span class="p">,</span> <span class="m">12</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A1 result:"</span><span class="p">,</span> <span class="n">r1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">workflow</span><span class="o">.</span><span class="n">Version</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="m">2</span> <span class="p">{</span>
+        <span class="n">r3</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity3</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A3 result:"</span><span class="p">,</span> <span class="n">r3</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">r2</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">workflow</span><span class="o">.</span><span class="n">ExecuteActivity</span><span class="p">[</span><span class="kt">int</span><span class="p">](</span><span class="n">ctx</span><span class="p">,</span> <span class="n">workflow</span><span class="o">.</span><span class="n">DefaultActivityOptions</span><span class="p">,</span> <span class="n">Activity2</span><span class="p">)</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"A2 result:"</span><span class="p">,</span> <span class="n">r2</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<div style="clear: both"></div>
+
+<p>and only if a workflow instance was created with a version of <code>&gt;= 2</code> will <code>Activity3</code> be executed. Older workflows are persisted with a version <code>&lt; 2</code> and will not execute <code>Activity3</code>.</p>
+
+<p>This kind of check is understandable for simple changes, but it becomes hard and a source of bugs for more complicated workflows. Therefore for now versioning is not supported and the guidance is to rely on <strong>side-by-side</strong> deployments. See also Azure&#39;s <a href="https://docs.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-versioning">Durable Functions</a> documentation for the same topic.</p>
+
+<p>In addition to side-by-side deployments, you can use <a href="#queues">Queues</a> to route workflows to different workers based on their version.</p>
+<h2 id='how-to-safely-upgrade'>How to safely upgrade?</h2>
+<p>All backend implementations have limited support for migrations which by default are automatically executed when a backend is started. This generally assumes only a single running worker. If you use multiple workers, you need to synchronize migration execution yourself.</p>
+
+<p>In general, the guidance is to rely on <strong>side-by-side</strong> deployments. See also the previous section about workflow versioning.</p>
+
+      </div>
+      <div class="dark-box">
+      </div>
+    </div>
+  </body>
+</html>
