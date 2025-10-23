@@ -75,3 +75,7 @@ Shows how to use OpenTelemetry to trace workflows and activities.
 ## Web / Diagnostic UI
 
 Shows how to use the Web UI to monitor workflows and activities.
+
+## Workflow Info
+
+Demonstrates how to access workflow execution information, including the history length, using `workflow.InstanceExecutionDetails()`. Shows how the history grows as the workflow executes activities and how this information can be used for monitoring workflow complexity and implementing custom logic.
