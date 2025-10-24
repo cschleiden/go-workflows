@@ -45,7 +45,7 @@ func Test_InstanceExecutionDetails_SimpleWorkflow(t *testing.T) {
 	// So history length should be 2
 	require.Equal(t, int64(2), capturedLength)
 	require.Equal(t, int64(3), e.lastSequenceID)
-	require.Equal(t, 3, len(result.Executed)) // WorkflowTaskStarted, WorkflowExecutionStarted, WorkflowExecutionFinished
+	require.Len(t, result.Executed, 3) // WorkflowTaskStarted, WorkflowExecutionStarted, WorkflowExecutionFinished
 }
 
 func Test_InstanceExecutionDetails_WithActivity(t *testing.T) {
