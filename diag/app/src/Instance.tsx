@@ -184,6 +184,16 @@ function Instance() {
                     <code>{event.attributes?.name}</code>
                   </div>
                 )}
+                {(event.type === "ActivityScheduled" && event.attributes?.queue) && (
+                  <div className="flex-grow-1 text-secondary small">
+                    Queue: <code>{event.attributes.queue}</code>
+                  </div>
+                )}
+                {(event.type === "SubWorkflowScheduled" && event.attributes?.sub_workflow_queue) && (
+                  <div className="flex-grow-1 text-secondary small">
+                    Queue: <code>{event.attributes.sub_workflow_queue}</code>
+                  </div>
+                )}
                 <div>{event.timestamp}</div>
               </h5>
             </Accordion.Header>
