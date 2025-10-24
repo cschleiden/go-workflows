@@ -32,13 +32,10 @@ function Home() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <h2>Instances</h2>
-      </header>
+      <h2>Queues</h2>
 
       {stats && (
         <div className="mb-3">
-          <h5>Queue Statistics</h5>
           <div className="row">
             <div className="col-md-6">
               <h6>Workflow Queues</h6>
@@ -64,7 +61,7 @@ function Home() {
                   </tbody>
                 </Table>
               ) : (
-                <p className="text-muted">No workflow queues with pending tasks</p>
+                <p className="text-muted">No workflow queues</p>
               )}
             </div>
             <div className="col-md-6">
@@ -91,12 +88,14 @@ function Home() {
                   </tbody>
                 </Table>
               ) : (
-                <p className="text-muted">No activity queues with pending tasks</p>
+                <p className="text-muted">No activity queues</p>
               )}
             </div>
           </div>
         </div>
       )}
+
+      <h2 className="mt-4">Instances</h2>
 
       {isLoading && <div>Loading...</div>}
 
