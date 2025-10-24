@@ -33,7 +33,7 @@ var migrationsFS embed.FS
 
 func NewInMemoryBackend(opts ...option) *sqliteBackend {
 	// Use a unique named in-memory database
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString())
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_txlock=immediate", uuid.NewString())
 	b := newSqliteBackend(dsn, opts...)
 
 	b.db.SetConnMaxIdleTime(0)
@@ -52,7 +52,7 @@ func NewInMemoryBackend(opts ...option) *sqliteBackend {
 }
 
 func NewSqliteBackend(path string, opts ...option) *sqliteBackend {
-	return newSqliteBackend(fmt.Sprintf("file:%v", path), opts...)
+	return newSqliteBackend(fmt.Sprintf("file:%v?_txlock=immediate", path), opts...)
 }
 
 func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
