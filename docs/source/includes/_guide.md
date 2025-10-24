@@ -316,68 +316,6 @@ id, _ := workflow.SideEffect[string](ctx, func(ctx workflow.Context) string) {
 
 Sometimes scheduling an activity is too much overhead for a simple side effect. For those scenarios you can use `workflow.SideEffect`. You can pass a func which will be executed only once inline with its result being recorded in the history. Subsequent executions of the workflow will return the previously recorded result.
 
-## Accessing workflow execution information
-
-```go
-func Workflow(ctx workflow.Context) error {
-	info := workflow.InstanceExecutionDetails(ctx)
-	logger := workflow.Logger(ctx)
-	logger.Info("Current history length", "historyLength", info.HistoryLength)
-
-	// Execute an activity
-	_, err := workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity).Get(ctx)
-	if err != nil {
-		return err
-	}
-
-	// Check history length again after activity
-	info = workflow.InstanceExecutionDetails(ctx)
-	logger.Info("History length after activity", "historyLength", info.HistoryLength)
-
-	return nil
-}
-```
-
-You can access information about the current workflow execution using `workflow.InstanceExecutionDetails`. This function returns a `WorkflowInstanceExecutionDetails` struct containing metadata about the workflow's execution state.
-
-### History Length
-
-The `HistoryLength` field provides the number of events in the workflow history at the current point in execution. This value increases as the workflow executes and generates new events.
-
-The history includes all events that have been added to the workflow's event history, such as:
-
-- `WorkflowExecutionStarted`
-- `WorkflowTaskStarted`
-- `ActivityScheduled` / `ActivityCompleted`
-- `TimerScheduled` / `TimerFired`
-- `SubWorkflowScheduled` / `SubWorkflowCompleted`
-- And other workflow events
-
-This can be useful for:
-
-- **Monitoring workflow complexity**: Track how large your workflow's history is growing
-- **Implementing workflow logic**: Make decisions based on how far the workflow has progressed
-- **Custom limits and checkpointing**: Implement logic to continue-as-new when the history reaches a certain size
-- **Debugging and diagnostics**: Understanding workflow execution and troubleshooting issues
-
-```go
-func LongRunningWorkflow(ctx workflow.Context) error {
-	for i := 0; i < 1000; i++ {
-		// Do some work
-		workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, Activity, i).Get(ctx)
-
-		// Check if history is getting too large
-		info := workflow.InstanceExecutionDetails(ctx)
-		if info.HistoryLength > 500 {
-			// Restart the workflow with ContinueAsNew to keep history manageable
-			return workflow.ContinueAsNew(ctx, i)
-		}
-	}
-
-	return nil
-}
-```
-
 ## Executing sub-workflows
 
 ```go
