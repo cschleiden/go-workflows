@@ -63,7 +63,7 @@ test-monoprocess:
 	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/monoprocess
 
 # Run all backend tests
-test-backends: test-redis test-mysql test-sqlite test-monoprocess test-postgres
+test-backends: test-redis test-mysql test-postgres test-sqlite test-monoprocess
 
 custom-gcl:
 	@echo "Checking if golangci-lint is installed..."
