@@ -103,7 +103,7 @@ function Instance() {
 
         <dt className="col-sm-4">State</dt>
         <dd className="col-sm-8">
-          <WorkflowInstanceState state={instance.state} />
+          <WorkflowInstanceState state={instance.state} error={wfError} />
         </dd>
 
         <dt className="col-sm-4">Created at</dt>

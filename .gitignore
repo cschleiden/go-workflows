@@ -8,4 +8,4 @@ web/app/node_modules
 *.sqlite-shm
 *.sqlite-wal
 
-custom-gcl
+custom-gclsamples/web/web
