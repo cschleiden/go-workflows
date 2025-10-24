@@ -17,7 +17,7 @@ TEST_FLAGS=-race -count=1 -v
 TEST_SHORT_FLAGS=-short $(TEST_FLAGS)
 
 # Build targets
-.PHONY: all build clean test test-integration test-redis test-mysql test-sqlite test-backends lint fmt
+.PHONY: all build clean test test-integration test-redis test-mysql test-postgres test-sqlite test-backends lint fmt
 
 # Default target
 all: build test lint
@@ -47,6 +47,11 @@ test-mysql:
 	@echo "Running MySQL backend tests..."
 	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/mysql
 
+# Run Postgres backend tests
+test-postgres:
+	@echo "Running Postgres backend tests..."
+	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/postgres
+
 # Run SQLite backend tests
 test-sqlite:
 	@echo "Running SQLite backend tests..."
@@ -58,7 +63,7 @@ test-monoprocess:
 	$(GOTEST) $(TEST_FLAGS) -timeout $(TEST_TIMEOUT) github.com/cschleiden/go-workflows/backend/monoprocess
 
 # Run all backend tests
-test-backends: test-redis test-mysql test-sqlite test-monoprocess
+test-backends: test-redis test-mysql test-postgres test-sqlite test-monoprocess
 
 custom-gcl:
 	@echo "Checking if golangci-lint is installed..."
