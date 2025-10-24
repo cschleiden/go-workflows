@@ -21,7 +21,7 @@ func Test_InstanceExecutionDetails_HistoryLength(t *testing.T) {
 	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
-	require.Greater(t, capturedLength, int64(0), "History length should be greater than 0")
+	require.Positive(t, capturedLength, "History length should be greater than 0")
 }
 
 func Test_InstanceExecutionDetails_HistoryLength_WithActivity(t *testing.T) {
@@ -48,7 +48,7 @@ func Test_InstanceExecutionDetails_HistoryLength_WithActivity(t *testing.T) {
 	tester.Execute(context.Background())
 
 	require.True(t, tester.WorkflowFinished())
-	require.Greater(t, lengthBeforeActivity, int64(0))
+	require.Positive(t, lengthBeforeActivity)
 	require.Greater(t, lengthAfterActivity, lengthBeforeActivity, "History length should increase after activity execution")
 
 	r, err := tester.WorkflowResult()
@@ -89,7 +89,7 @@ func Test_InstanceExecutionDetails_HistoryLength_MultipleSteps(t *testing.T) {
 
 	// Get the last 3 values (from the final execution)
 	finalLengths := lengths[len(lengths)-3:]
-	require.Greater(t, finalLengths[0], int64(0))
+	require.Positive(t, finalLengths[0])
 	require.Greater(t, finalLengths[1], finalLengths[0], "History should grow after first activity")
 	require.Greater(t, finalLengths[2], finalLengths[1], "History should grow after second activity")
 }
