@@ -94,7 +94,7 @@ export const InstanceTree: React.FC<{
                     {x.name}
                   </Link>
                   <br />
-                  <WorkflowInstanceState state={x.state} />
+                  <WorkflowInstanceState state={x.state} error={x.error} />
                 </div>
               </foreignObject>
             </g>
