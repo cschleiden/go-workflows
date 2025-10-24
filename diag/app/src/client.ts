@@ -47,3 +47,9 @@ export type WorkflowInstanceTree = WorkflowInstanceRef & {
   error?: boolean;
   children: WorkflowInstanceTree[];
 };
+
+export interface Stats {
+  ActiveWorkflowInstances: number;
+  PendingActivityTasks: Record<string, number>;
+  PendingWorkflowTasks: Record<string, number>;
+}

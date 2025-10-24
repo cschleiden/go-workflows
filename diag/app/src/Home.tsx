@@ -5,7 +5,7 @@ import React from "react";
 import useFetch from "react-fetch-hook";
 import { LinkContainer } from "react-router-bootstrap";
 import { WorkflowInstance, WorkflowInstanceState } from "./Components";
-import { WorkflowInstanceRef } from "./client";
+import { WorkflowInstanceRef, Stats } from "./client";
 
 function useQuery() {
   const { search } = useLocation();
@@ -26,11 +26,76 @@ function Home() {
       (afterId ? `&after=${afterId}` : "")
   );
 
+  const { data: stats } = useFetch<Stats>(
+    document.location.pathname + "api/stats"
+  );
+
   return (
     <div className="App">
-      <header className="App-header">
-        <h2>Instances</h2>
-      </header>
+      <h2>Queues</h2>
+
+      {stats && (
+        <div className="mb-3">
+          <div className="row">
+            <div className="col-md-6">
+              <h6>Workflow Queues</h6>
+              {Object.keys(stats.PendingWorkflowTasks || {}).length > 0 ? (
+                <Table striped bordered size="sm">
+                  <thead>
+                    <tr>
+                      <th>Queue Name</th>
+                      <th>Pending Tasks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(stats.PendingWorkflowTasks || {}).map(
+                      ([queue, count]) => (
+                        <tr key={queue}>
+                          <td>
+                            <code>{queue}</code>
+                          </td>
+                          <td>{count}</td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </Table>
+              ) : (
+                <p className="text-muted">No workflow queues</p>
+              )}
+            </div>
+            <div className="col-md-6">
+              <h6>Activity Queues</h6>
+              {Object.keys(stats.PendingActivityTasks || {}).length > 0 ? (
+                <Table striped bordered size="sm">
+                  <thead>
+                    <tr>
+                      <th>Queue Name</th>
+                      <th>Pending Tasks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(stats.PendingActivityTasks || {}).map(
+                      ([queue, count]) => (
+                        <tr key={queue}>
+                          <td>
+                            <code>{queue}</code>
+                          </td>
+                          <td>{count}</td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </Table>
+              ) : (
+                <p className="text-muted">No activity queues</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <h2 className="mt-4">Instances</h2>
 
       {isLoading && <div>Loading...</div>}
 
@@ -41,6 +106,7 @@ function Home() {
               <tr>
                 <th>Instance ID</th>
                 <th>Parent Instance ID</th>
+                <th>Queue</th>
                 <th>Created At</th>
                 <th>Completed At</th>
                 <th style={{ textAlign: "center" }}>State</th>
@@ -64,6 +130,9 @@ function Home() {
                         <WorkflowInstance instance={i.instance.parent} />
                       </Link>
                     )}
+                  </td>
+                  <td>
+                    <code>{i.queue}</code>
                   </td>
                   <td>
                     <code>{i.created_at}</code>

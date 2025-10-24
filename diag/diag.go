@@ -29,6 +29,23 @@ func NewServeMux(backend Backend) *http.ServeMux {
 
 		relativeURL := strings.TrimPrefix(r.URL.Path, "/api/")
 
+		// /api/stats
+		if relativeURL == "stats" {
+			stats, err := backend.GetStats(r.Context())
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Add("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(stats); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			return
+		}
+
 		// /api/
 		if relativeURL == "" {
 			// Index
