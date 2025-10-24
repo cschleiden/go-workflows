@@ -38,6 +38,7 @@ type WorkflowInstanceTree struct {
 	*WorkflowInstanceRef
 
 	WorkflowName string `json:"workflow_name,omitempty"`
+	Error        bool   `json:"error,omitempty"`
 
 	Children []*WorkflowInstanceTree `json:"children,omitempty"`
 }

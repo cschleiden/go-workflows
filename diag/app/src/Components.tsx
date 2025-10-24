@@ -76,8 +76,9 @@ export const WorkflowInstance: React.FC<{ instance: Instance }> = ({
   );
 };
 
-export const WorkflowInstanceState: React.FC<{ state: number }> = ({
+export const WorkflowInstanceState: React.FC<{ state: number; error?: any }> = ({
   state,
+  error,
 }) => {
   if (state === 0) {
     return <Badge bg="info">Active</Badge>;
@@ -87,6 +88,8 @@ export const WorkflowInstanceState: React.FC<{ state: number }> = ({
         ContinuedAsNew
       </Badge>
     );
+  } else if (error) {
+    return <Badge bg="danger">Failed</Badge>;
   } else {
     return <Badge bg="success">Completed</Badge>;
   }

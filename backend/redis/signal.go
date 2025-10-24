@@ -7,7 +7,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/redis/go-redis/v9"
 )
 
 func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
@@ -26,14 +25,32 @@ func (rb *redisBackend) SignalWorkflow(ctx context.Context, instanceID string, e
 		return err
 	}
 
-	if _, err = rb.rdb.TxPipelined(ctx, func(p redis.Pipeliner) error {
-		if err := rb.addWorkflowInstanceEventP(ctx, p, workflow.Queue(instanceState.Queue), instanceState.Instance, event); err != nil {
-			return fmt.Errorf("adding event to stream: %w", err)
-		}
+	eventData, payload, err := marshalEvent(event)
+	if err != nil {
+		return fmt.Errorf("marshaling event: %w", err)
+	}
 
-		return nil
-	}); err != nil {
-		return err
+	queue := workflow.Queue(instanceState.Queue)
+	queueKeys := rb.workflowQueue.Keys(queue)
+
+	keys := []string{
+		rb.keys.payloadKey(instanceState.Instance),
+		rb.keys.pendingEventsKey(instanceState.Instance),
+		queueKeys.SetKey,
+		queueKeys.StreamKey,
+	}
+
+	args := []any{
+		event.ID,
+		eventData,
+		payload,
+		instanceSegment(instanceState.Instance),
+	}
+
+	// Execute the Lua script
+	_, err = signalWorkflowCmd.Run(ctx, rb.rdb, keys, args...).Result()
+	if err != nil {
+		return fmt.Errorf("signaling workflow: %w", err)
 	}
 
 	return nil

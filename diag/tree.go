@@ -46,12 +46,13 @@ func (itb *instanceTreeBuilder) BuildWorkflowInstanceTree(ctx context.Context, i
 		node := s[0]
 		s = s[1:]
 
-		name, children, err := itb.getNameAndChildren(ctx, node.Instance)
+		name, hasError, children, err := itb.getNameAndChildren(ctx, node.Instance)
 		if err != nil {
 			return nil, fmt.Errorf("getting children of instance %s: %w", node.Instance.InstanceID, err)
 		}
 
 		node.WorkflowName = name
+		node.Error = hasError
 
 		for _, child := range children {
 			t := &WorkflowInstanceTree{
@@ -85,13 +86,14 @@ func (itb *instanceTreeBuilder) getRoot(ctx context.Context, instanceRef *Workfl
 	return instanceRef, nil
 }
 
-func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance *core.WorkflowInstance) (string, []*WorkflowInstanceRef, error) {
+func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance *core.WorkflowInstance) (string, bool, []*WorkflowInstanceRef, error) {
 	h, err := itb.b.GetWorkflowInstanceHistory(ctx, instance, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("getting instance history: %w", err)
+		return "", false, nil, fmt.Errorf("getting instance history: %w", err)
 	}
 
 	workflowName := ""
+	hasError := false
 
 	var children []*WorkflowInstanceRef
 	for _, event := range h {
@@ -99,17 +101,23 @@ func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance
 		case history.EventType_SubWorkflowScheduled:
 			childInstance, err := itb.getInstance(ctx, event.Attributes.(*history.SubWorkflowScheduledAttributes).SubWorkflowInstance)
 			if err != nil {
-				return "", nil, fmt.Errorf("getting child instance: %w", err)
+				return "", false, nil, fmt.Errorf("getting child instance: %w", err)
 			}
 
 			children = append(children, childInstance)
 
 		case history.EventType_WorkflowExecutionStarted:
 			workflowName = event.Attributes.(*history.ExecutionStartedAttributes).Name
+
+		case history.EventType_WorkflowExecutionFinished:
+			// Check if the workflow finished with an error
+			if attrs, ok := event.Attributes.(*history.ExecutionCompletedAttributes); ok && attrs.Error != nil {
+				hasError = true
+			}
 		}
 	}
 
-	return workflowName, children, nil
+	return workflowName, hasError, children, nil
 }
 
 func (itb *instanceTreeBuilder) getInstance(ctx context.Context, instance *core.WorkflowInstance) (*WorkflowInstanceRef, error) {

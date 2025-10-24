@@ -209,6 +209,8 @@ func (e *executor) ExecuteTask(ctx context.Context, t *backend.WorkflowTask) (*E
 		executedEvents[i].SequenceID = e.nextSequenceID()
 	}
 
+	e.workflowState.SetHistoryLength(e.lastSequenceID)
+
 	logger.Debug("Finished workflow task",
 		log.ExecutedEventsKey, len(executedEvents),
 		log.TaskLastSequenceIDKey, e.lastSequenceID,
@@ -269,10 +271,13 @@ func (e *executor) replayHistory(h []*history.Event) error {
 			return errors.New("history has older events than current state")
 		}
 
+		// Note: lastSequenceID is updated below after successful event execution.
+		// For consistent history length reporting (e.g., for workflow code), we intentionally set historyLength here before executing the event.
+		e.workflowState.SetHistoryLength(e.lastSequenceID + 1)
+
 		if err := e.executeEvent(event); err != nil {
 			return err
 		}
-
 		e.lastSequenceID = event.SequenceID
 	}
 
@@ -283,6 +288,9 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	e.workflowState.SetReplaying(false)
 
 	for i, event := range newEvents {
+		// Update history length BEFORE executing the event to reflect the event about to be added
+		e.workflowState.SetHistoryLength(e.lastSequenceID + int64(i) + 1)
+
 		if err := e.executeEvent(event); err != nil {
 			return newEvents[:i], err
 		}

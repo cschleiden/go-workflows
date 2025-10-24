@@ -7,7 +7,6 @@ linters:
   enable:
     - bidichk
     - bodyclose
-    - errorlint
     - goprintffuncname
     - govet
     - importas
@@ -22,7 +21,6 @@ linters:
     - testifylint
     - tparallel
     - unconvert
-    - usetesting
     - wastedassign
     - whitespace
     - unused
@@ -30,8 +28,6 @@ linters:
   disable:
     - errname
     - errcheck
-    - errorlint
-    - usetesting
   settings:
     staticcheck:
       checks:

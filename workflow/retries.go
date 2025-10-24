@@ -32,6 +32,13 @@ var DefaultRetryOptions = RetryOptions{
 
 // WithRetries executes the given function with retries.
 func WithRetries[T any](ctx Context, retryOptions RetryOptions, fn func(ctx Context, attempt int) Future[T]) Future[T] {
+	// If the context is already canceled, return immediately.
+	if ctx.Err() != nil {
+		f := sync.NewFuture[T]()
+		f.Set(*new(T), ctx.Err())
+		return f
+	}
+
 	attempt := 0
 	firstAttempt := Now(ctx)
 
