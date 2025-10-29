@@ -103,7 +103,17 @@ func (rb *redisBackend) GetWorkflowInstanceHistory(ctx context.Context, instance
 	}
 
 	for i, event := range events {
-		event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i].(string)))
+		// HMGet returns nil for keys that don't exist in the hash
+		if res[i] == nil {
+			return nil, fmt.Errorf("payload not found for event %v (ID: %s)", event.Type, event.ID)
+		}
+
+		payloadStr, ok := res[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected payload type for event %v: %T", event.Type, res[i])
+		}
+
+		event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(payloadStr))
 		if err != nil {
 			return nil, fmt.Errorf("deserializing attributes for event %v: %w", event.Type, err)
 		}
