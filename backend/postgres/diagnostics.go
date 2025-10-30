@@ -1,4 +1,4 @@
-package postgresbackend
+package postgres
 
 import (
 	"context"

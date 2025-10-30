@@ -14,7 +14,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/monoprocess"
 	"github.com/cschleiden/go-workflows/backend/mysql"
-	postgresbackend "github.com/cschleiden/go-workflows/backend/postgres"
+	"github.com/cschleiden/go-workflows/backend/postgres"
 	"github.com/cschleiden/go-workflows/backend/redis"
 	"github.com/cschleiden/go-workflows/backend/sqlite"
 	"github.com/cschleiden/go-workflows/client"
@@ -165,8 +165,8 @@ func getBackend(b string, opt ...backend.BackendOption) backend.Backend {
 		}
 
 		return monoprocess.NewMonoprocessBackend(
-			postgresbackend.NewPostgresBackend("localhost", 5432, "root", "root", "bench", postgresbackend.WithBackendOptions(opt...),
-				postgresbackend.WithPostgresOptions(func(db *sql.DB) {
+			postgres.NewPostgresBackend("localhost", 5432, "root", "root", "bench", postgres.WithBackendOptions(opt...),
+				postgres.WithPostgresOptions(func(db *sql.DB) {
 					db.SetMaxOpenConns(100)
 				})),
 		)
