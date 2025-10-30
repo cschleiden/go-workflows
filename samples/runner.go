@@ -53,7 +53,7 @@ func GetBackend(name string, recreate bool, opt ...backend.BackendOption) backen
 			}
 			defer db.Close()
 
-			_, err = db.Exec("CREATE DATABASE $1", name)
+			_, err = db.Exec("CREATE DATABASE " + name)
 			if err != nil {
 				panic(err)
 			}
