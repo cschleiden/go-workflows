@@ -234,3 +234,165 @@ func Test_ActivityRegistrationOnStruct_Invalid(t *testing.T) {
 	err := r.RegisterActivity(a)
 	require.Error(t, err)
 }
+func reg_workflow_v1(ctx sync.Context) error {
+	return nil
+}
+
+func reg_workflow_v2(ctx sync.Context) (string, error) {
+	return "v2", nil
+}
+
+func TestRegistry_RegisterVersionedWorkflow(t *testing.T) {
+	tests := []struct {
+		name        string
+		workflow    any
+		version     string
+		workflowName string
+		wantErr     bool
+	}{
+		{
+			name:     "valid versioned workflow",
+			workflow: reg_workflow_v1,
+			version:  "1.0.0",
+		},
+		{
+			name:         "valid versioned workflow with custom name",
+			workflow:     reg_workflow_v1,
+			version:      "1.0.0",
+			workflowName: "CustomWorkflow",
+		},
+		{
+			name:     "valid versioned workflow with results",
+			workflow: reg_workflow_v2,
+			version:  "2.0.0",
+		},
+		{
+			name:     "empty version",
+			workflow: reg_workflow_v1,
+			version:  "",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid workflow - not a function",
+			workflow: "not a function",
+			version:  "1.0.0",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid workflow - missing context",
+			workflow: func() error { return nil },
+			version:  "1.0.0",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid workflow - missing error return",
+			workflow: func(ctx sync.Context) {},
+			version:  "1.0.0",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := New()
+
+			var opts []RegisterOption
+			if tt.workflowName != "" {
+				opts = append(opts, WithName(tt.workflowName))
+			}
+
+			err := r.RegisterVersionedWorkflow(tt.workflow, tt.version, opts...)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Registry.RegisterVersionedWorkflow() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				expectedName := tt.workflowName
+				if expectedName == "" {
+					expectedName = fn.Name(tt.workflow)
+				}
+
+				workflow, err := r.GetVersionedWorkflow(expectedName, tt.version)
+				require.NoError(t, err)
+				require.NotNil(t, workflow)
+			}
+		})
+	}
+}
+
+func TestRegistry_RegisterVersionedWorkflow_Conflict(t *testing.T) {
+	r := New()
+
+	// Register first version
+	err := r.RegisterVersionedWorkflow(reg_workflow_v1, "1.0.0")
+	require.NoError(t, err)
+
+	// Try to register same version again - should fail
+	err = r.RegisterVersionedWorkflow(reg_workflow_v1, "1.0.0")
+	var wantErr *ErrVersionedWorkflowAlreadyRegistered
+	require.ErrorAs(t, err, &wantErr)
+
+	// Register different version - should succeed
+	err = r.RegisterVersionedWorkflow(reg_workflow_v2, "2.0.0")
+	require.NoError(t, err)
+
+	// Register same workflow with custom name and same version - should succeed
+	err = r.RegisterVersionedWorkflow(reg_workflow_v1, "1.0.0", WithName("CustomWorkflow"))
+	require.NoError(t, err)
+
+	// Try to register same custom name and version again - should fail
+	err = r.RegisterVersionedWorkflow(reg_workflow_v1, "1.0.0", WithName("CustomWorkflow"))
+	require.ErrorAs(t, err, &wantErr)
+}
+
+func TestRegistry_GetVersionedWorkflow(t *testing.T) {
+	r := New()
+
+	// Register multiple versions of the same workflow
+	err := r.RegisterVersionedWorkflow(reg_workflow_v1, "1.0.0")
+	require.NoError(t, err)
+
+	err = r.RegisterVersionedWorkflow(reg_workflow_v2, "2.0.0")
+	require.NoError(t, err)
+
+	// Test successful retrieval
+	workflow1, err := r.GetVersionedWorkflow("reg_workflow_v1", "1.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, workflow1)
+
+	workflow2, err := r.GetVersionedWorkflow("reg_workflow_v2", "2.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, workflow2)
+
+	// Test workflow not found
+	_, err = r.GetVersionedWorkflow("nonexistent", "1.0.0")
+	var notFoundErr *ErrWorkflowVersionNotFound
+	require.ErrorAs(t, err, &notFoundErr)
+
+	// Test version not found
+	_, err = r.GetVersionedWorkflow("reg_workflow_v1", "3.0.0")
+	require.ErrorAs(t, err, &notFoundErr)
+}
+
+func TestRegistry_VersionedWorkflow_BackwardCompatibility(t *testing.T) {
+	r := New()
+
+	// Register regular workflow
+	err := r.RegisterWorkflow(reg_workflow1)
+	require.NoError(t, err)
+
+	// Register versioned workflow with same name
+	err = r.RegisterVersionedWorkflow(reg_workflow_v1, "1.0.0")
+	require.NoError(t, err)
+
+	// Both should be retrievable independently
+	regularWorkflow, err := r.GetWorkflow("reg_workflow1")
+	require.NoError(t, err)
+	require.NotNil(t, regularWorkflow)
+
+	versionedWorkflow, err := r.GetVersionedWorkflow("reg_workflow_v1", "1.0.0")
+	require.NoError(t, err)
+	require.NotNil(t, versionedWorkflow)
+}
