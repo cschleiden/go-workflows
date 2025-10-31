@@ -25,7 +25,7 @@ go-workflows is an embedded engine for orchestrating long running processes or "
 
 It borrows heavily from [Temporal](https://github.com/temporalio/temporal) (and since it's a fork also [Cadence](https://github.com/uber/cadence)) as well as Azure's [Durable Task Framework (DTFx)](https://github.com/Azure/durabletask). Workflows are written in plain Go.
 
-go-workflows support pluggable backends with official implementations for Sqlite, MySql, and Redis.
+go-workflows support pluggable backends with official implementations for Sqlite, MySQL, PostgreSQL, and Redis.
 
 See also the following blog posts:
 

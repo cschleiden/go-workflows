@@ -1,6 +1,6 @@
 # Backends
 
-There are three backend implementations maintained in this repository. Some backend implementations have custom options and all of them accept:
+There are four backend implementations maintained in this repository. Some backend implementations have custom options and all of them accept:
 
 - `WithStickyTimeout(timeout time.Duration)` - Set the timeout for sticky tasks. Defaults to 30 seconds
 - `WithWorkflowLockTimeout(timeout time.Duration)` - Set the timeout for workflow task locks. Defaults to 1 minute
@@ -54,6 +54,31 @@ Create a new MySQL backend instance with `NewMysqlBackend`.
 ### Schema
 
 See `migrations/mysql` for the schema and migrations. Main tables:
+
+- `instances` - Tracks workflow instances. Functions as instance queue joined with `pending_events`
+- `pending_events` - Pending events for workflow instances
+- `history` - History for workflow instances
+- `activities` - Queue of pending activities
+- `attributes` - Payloads of events
+
+## PostgreSQL
+
+```go
+func NewPostgresBackend(host string, port int, user, password, database string, opts ...option)
+```
+
+Create a new PostgreSQL backend instance with `NewPostgresBackend`.
+
+### Options
+
+- `WithPostgresOptions(f func(db *sql.DB))` - Apply custom options to the PostgreSQL database connection
+- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true`
+- `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
+
+
+### Schema
+
+See `migrations/postgres` for the schema and migrations. Main tables:
 
 - `instances` - Tracks workflow instances. Functions as instance queue joined with `pending_events`
 - `pending_events` - Pending events for workflow instances
