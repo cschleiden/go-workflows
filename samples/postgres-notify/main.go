@@ -27,11 +27,11 @@ func main() {
 
 	// Create backend with optional LISTEN/NOTIFY enabled
 	baseOpt := postgres.WithBackendOptions(backend.WithStickyTimeout(0))
-	
+
 	if *enableNotify {
 		log.Println("✓ LISTEN/NOTIFY enabled for reactive polling")
-		b := postgres.NewPostgresBackend("localhost", 5432, "root", "root", "postgres", 
-			baseOpt, 
+		b := postgres.NewPostgresBackend("localhost", 5432, "root", "root", "postgres",
+			baseOpt,
 			postgres.WithNotifications(true))
 		defer b.Close()
 		runWorkflow(ctx, b, *enableNotify)
