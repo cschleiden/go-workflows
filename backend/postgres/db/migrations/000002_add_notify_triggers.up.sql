@@ -4,6 +4,7 @@
 CREATE OR REPLACE FUNCTION notify_pending_event() RETURNS TRIGGER AS $$
 BEGIN
   -- Notify on the workflow_tasks channel with the queue name as payload
+  -- This SELECT is efficient due to the unique index on (instance_id, execution_id)
   PERFORM pg_notify('workflow_tasks', (
     SELECT queue FROM instances WHERE instance_id = NEW.instance_id AND execution_id = NEW.execution_id LIMIT 1
   )::text);

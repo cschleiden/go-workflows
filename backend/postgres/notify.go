@@ -7,12 +7,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/lib/pq" // Required for LISTEN/NOTIFY support
 )
 
 const (
 	workflowTasksChannel = "workflow_tasks"
 	activityTasksChannel = "activity_tasks"
+
+	// Connection parameters for pq.Listener
+	listenerMinReconnectInterval = 10 * time.Second
+	listenerMaxReconnectInterval = time.Minute
+
+	// Ping interval to keep LISTEN connection alive
+	listenerPingInterval = 90 * time.Second
 )
 
 // notificationListener manages LISTEN/NOTIFY connections for reactive task polling
@@ -56,7 +63,7 @@ func (nl *notificationListener) Start(ctx context.Context) error {
 	nl.ctx, nl.cancel = context.WithCancel(context.Background())
 
 	// Create listener for workflow tasks
-	nl.workflowListener = pq.NewListener(nl.dsn, 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+	nl.workflowListener = pq.NewListener(nl.dsn, listenerMinReconnectInterval, listenerMaxReconnectInterval, func(ev pq.ListenerEventType, err error) {
 		if err != nil {
 			nl.logger.Error("workflow listener event", "event", ev, "error", err)
 		}
@@ -67,7 +74,7 @@ func (nl *notificationListener) Start(ctx context.Context) error {
 	}
 
 	// Create listener for activity tasks
-	nl.activityListener = pq.NewListener(nl.dsn, 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+	nl.activityListener = pq.NewListener(nl.dsn, listenerMinReconnectInterval, listenerMaxReconnectInterval, func(ev pq.ListenerEventType, err error) {
 		if err != nil {
 			nl.logger.Error("activity listener event", "event", ev, "error", err)
 		}
@@ -149,7 +156,7 @@ func (nl *notificationListener) handleWorkflowNotifications() {
 					// Channel already has a pending notification
 				}
 			}
-		case <-time.After(90 * time.Second):
+		case <-time.After(listenerPingInterval):
 			// Periodic ping to keep connection alive
 			if err := nl.workflowListener.Ping(); err != nil {
 				nl.logger.Error("workflow listener ping failed", "error", err)
@@ -177,7 +184,7 @@ func (nl *notificationListener) handleActivityNotifications() {
 					// Channel already has a pending notification
 				}
 			}
-		case <-time.After(90 * time.Second):
+		case <-time.After(listenerPingInterval):
 			// Periodic ping to keep connection alive
 			if err := nl.activityListener.Ping(); err != nil {
 				nl.logger.Error("activity listener ping failed", "error", err)

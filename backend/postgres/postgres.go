@@ -22,8 +22,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for database/sql
+	_ "github.com/lib/pq"               // pq driver for LISTEN/NOTIFY support
 	"go.opentelemetry.io/otel/trace"
 )
 
