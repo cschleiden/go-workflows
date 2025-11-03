@@ -159,6 +159,7 @@ Execute these scenarios to verify workflow functionality:
 - **`/backend/`** - Storage backend implementations:
   - `mysql/` - MySQL backend
   - `redis/` - Redis backend
+  - `postgres/` - PostgreSQL backend
   - `sqlite/` - SQLite backend
   - `monoprocess/` - In-memory backend
 - **`/workflow/`** - Core workflow execution engine
