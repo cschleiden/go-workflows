@@ -145,6 +145,11 @@ func (w *Worker) RegisterWorkflow(wf workflow.Workflow, opts ...registry.Registe
 	return w.registry.RegisterWorkflow(wf, opts...)
 }
 
+// RegisterWorkflowVersion registers a workflow with a specific version identifier.
+func (w *Worker) RegisterWorkflowVersion(wf workflow.Workflow, version string, opts ...registry.RegisterOption) error {
+	return w.registry.RegisterVersionedWorkflow(wf, version, opts...)
+}
+
 // RegisterActivity registers an activity with the worker's registry.
 func (w *Worker) RegisterActivity(a workflow.Activity, opts ...registry.RegisterOption) error {
 	return w.registry.RegisterActivity(a, opts...)
