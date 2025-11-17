@@ -42,7 +42,7 @@ func (vb *valkeyBackend) ExtendActivityTask(ctx context.Context, task *backend.A
 }
 
 func (vb *valkeyBackend) CompleteActivityTask(ctx context.Context, task *backend.ActivityTask, result *history.Event) error {
-	instanceState, err := readInstance(ctx, vb.client, vb.keys.instanceKey(task.WorkflowInstance))
+	instance, err := readInstance(ctx, vb.client, vb.keys.instanceKey(task.WorkflowInstance))
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (vb *valkeyBackend) CompleteActivityTask(ctx context.Context, task *backend
 	}
 
 	activityQueueKeys := vb.activityQueue.Keys(task.Queue)
-	workflowQueueKeys := vb.workflowQueue.Keys(workflow.Queue(instanceState.Queue))
+	workflowQueueKeys := vb.workflowQueue.Keys(workflow.Queue(instance.Queue))
 
 	_, err = vb.client.InvokeScriptWithOptions(ctx, completeActivityTaskScript, options.ScriptOptions{
 		Keys: []string{

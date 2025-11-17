@@ -192,7 +192,7 @@ func (vb *valkeyBackend) RemoveWorkflowInstance(ctx context.Context, instance *c
 	return vb.deleteInstance(ctx, instance)
 }
 
-func (vb *valkeyBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+func (vb *valkeyBackend) RemoveWorkflowInstances(_ context.Context, _ ...backend.RemovalOption) error {
 	return backend.ErrNotSupported{
 		Message: "not supported, use auto-expiration",
 	}
