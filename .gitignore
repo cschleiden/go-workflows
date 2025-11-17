@@ -12,3 +12,4 @@ custom-gcl
 
 # Docs build artifacts
 docs/build/
+.aider*
