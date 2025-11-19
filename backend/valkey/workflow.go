@@ -35,13 +35,13 @@ func (vb *valkeyBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 		return nil, nil
 	}
 
-	instanceState, err := readInstance(ctx, vb.client, vb.keys.instanceKeyFromSegment(instanceTask.ID))
+	state, err := readInstance(ctx, vb.client, vb.keys.instanceKeyFromSegment(instanceTask.ID))
 	if err != nil {
-		return nil, fmt.Errorf("reading workflow instance: %w", err)
+		return nil, fmt.Errorf("reading workflow instance with ID %s: %w", instanceTask.ID, err)
 	}
 
 	// Read all pending events for this instance
-	msgs, err := vb.client.Do(ctx, vb.client.B().Xrange().Key(vb.keys.pendingEventsKey(instanceState.Instance)).Start("-").End("+").Build()).AsXRange()
+	msgs, err := vb.client.Do(ctx, vb.client.B().Xrange().Key(vb.keys.pendingEventsKey(state.Instance)).Start("-").End("+").Build()).AsXRange()
 	if err != nil {
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
@@ -67,7 +67,7 @@ func (vb *valkeyBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 
 	// Fetch event payloads
 	if len(payloadKeys) > 0 {
-		cmd := vb.client.B().Hmget().Key(vb.keys.payloadKey(instanceState.Instance)).Field(payloadKeys...)
+		cmd := vb.client.B().Hmget().Key(vb.keys.payloadKey(state.Instance)).Field(payloadKeys...)
 		res, err := vb.client.Do(ctx, cmd.Build()).AsStrSlice()
 		if err != nil {
 			return nil, fmt.Errorf("reading payloads: %w", err)
@@ -83,11 +83,11 @@ func (vb *valkeyBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 
 	return &backend.WorkflowTask{
 		ID:                    instanceTask.TaskID,
-		Queue:                 core.Queue(instanceState.Queue),
-		WorkflowInstance:      instanceState.Instance,
-		WorkflowInstanceState: instanceState.State,
-		Metadata:              instanceState.Metadata,
-		LastSequenceID:        instanceState.LastSequenceID,
+		Queue:                 core.Queue(state.Queue),
+		WorkflowInstance:      state.Instance,
+		WorkflowInstanceState: state.State,
+		Metadata:              state.Metadata,
+		LastSequenceID:        state.LastSequenceID,
 		NewEvents:             newEvents,
 		CustomData:            lastMessageID,
 	}, nil
