@@ -14,7 +14,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/propagators"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
 )
 
 func (vb *valkeyBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
@@ -42,20 +41,18 @@ func (vb *valkeyBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 	}
 
 	// Read all pending events for this instance
-	msgs, err := vb.client.XRange(ctx, vb.keys.pendingEventsKey(instanceState.Instance), "-", "+")
+	msgs, err := vb.client.Do(ctx, vb.client.B().Xrange().Key(vb.keys.pendingEventsKey(instanceState.Instance)).Start("-").End("+").Build()).AsXRange()
 	if err != nil {
 		return nil, fmt.Errorf("reading event stream: %w", err)
 	}
 
 	payloadKeys := make([]string, 0, len(msgs))
 	newEvents := make([]*history.Event, 0, len(msgs))
+	lastMessageID := ""
 	for _, msg := range msgs {
-		var eventStr string
-		for _, field := range msg.Fields {
-			if field.Field == "event" {
-				eventStr = field.Value
-				break
-			}
+		eventStr, ok := msg.FieldValues["event"]
+		if !ok || eventStr == "" {
+			continue
 		}
 
 		var event *history.Event
@@ -65,17 +62,19 @@ func (vb *valkeyBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 
 		payloadKeys = append(payloadKeys, event.ID)
 		newEvents = append(newEvents, event)
+		lastMessageID = msg.ID
 	}
 
 	// Fetch event payloads
 	if len(payloadKeys) > 0 {
-		res, err := vb.client.HMGet(ctx, vb.keys.payloadKey(instanceState.Instance), payloadKeys)
+		cmd := vb.client.B().Hmget().Key(vb.keys.payloadKey(instanceState.Instance)).Field(payloadKeys...)
+		res, err := vb.client.Do(ctx, cmd.Build()).AsStrSlice()
 		if err != nil {
 			return nil, fmt.Errorf("reading payloads: %w", err)
 		}
 
 		for i, event := range newEvents {
-			event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i].Value()))
+			event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i]))
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes for event %v: %w", event.Type, err)
 			}
@@ -90,7 +89,7 @@ func (vb *valkeyBackend) GetWorkflowTask(ctx context.Context, queues []workflow.
 		Metadata:              instanceState.Metadata,
 		LastSequenceID:        instanceState.LastSequenceID,
 		NewEvents:             newEvents,
-		CustomData:            msgs[len(msgs)-1].ID,
+		CustomData:            lastMessageID,
 	}, nil
 }
 
@@ -284,10 +283,7 @@ func (vb *valkeyBackend) CompleteWorkflowTask(
 	args = append(args, task.ID, vb.workflowQueue.groupName)
 
 	// Run script
-	_, err := vb.client.InvokeScriptWithOptions(ctx, completeWorkflowTaskScript, options.ScriptOptions{
-		Keys: keys,
-		Args: args,
-	})
+	err := completeWorkflowTaskScript.Exec(ctx, vb.client, keys, args).Error()
 	if err != nil {
 		return fmt.Errorf("completing workflow task: %w", err)
 	}

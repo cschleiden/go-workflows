@@ -11,7 +11,7 @@ func (vb *valkeyBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	s := &backend.Stats{}
 
 	// get workflow instances
-	activeInstances, err := vb.client.SCard(ctx, vb.keys.instancesActive())
+	activeInstances, err := vb.client.Do(ctx, vb.client.B().Scard().Key(vb.keys.instancesActive()).Build()).AsInt64()
 	if err != nil {
 		return nil, fmt.Errorf("getting active instances: %w", err)
 	}

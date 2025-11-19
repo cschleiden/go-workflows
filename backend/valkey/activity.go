@@ -7,7 +7,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
 )
 
 func (vb *valkeyBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
@@ -56,26 +55,23 @@ func (vb *valkeyBackend) CompleteActivityTask(ctx context.Context, task *backend
 	activityQueueKeys := vb.activityQueue.Keys(task.Queue)
 	workflowQueueKeys := vb.workflowQueue.Keys(workflow.Queue(instance.Queue))
 
-	_, err = vb.client.InvokeScriptWithOptions(ctx, completeActivityTaskScript, options.ScriptOptions{
-		Keys: []string{
-			activityQueueKeys.SetKey,
-			activityQueueKeys.StreamKey,
-			vb.keys.pendingEventsKey(task.WorkflowInstance),
-			vb.keys.payloadKey(task.WorkflowInstance),
-			vb.workflowQueue.queueSetKey,
-			workflowQueueKeys.SetKey,
-			workflowQueueKeys.StreamKey,
-		},
-		Args: []string{
-			task.ID,
-			vb.activityQueue.groupName,
-			result.ID,
-			eventData,
-			payload,
-			vb.workflowQueue.groupName,
-			instanceSegment(task.WorkflowInstance),
-		},
-	})
+	err = completeActivityTaskScript.Exec(ctx, vb.client, []string{
+		activityQueueKeys.SetKey,
+		activityQueueKeys.StreamKey,
+		vb.keys.pendingEventsKey(task.WorkflowInstance),
+		vb.keys.payloadKey(task.WorkflowInstance),
+		vb.workflowQueue.queueSetKey,
+		workflowQueueKeys.SetKey,
+		workflowQueueKeys.StreamKey,
+	}, []string{
+		task.ID,
+		vb.activityQueue.groupName,
+		result.ID,
+		eventData,
+		payload,
+		vb.workflowQueue.groupName,
+		instanceSegment(task.WorkflowInstance),
+	}).Error()
 
 	if err != nil {
 		return fmt.Errorf("completing activity task: %w", err)
