@@ -177,26 +177,20 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, client valkey.Client, queues
 	// Try to dequeue from all given queues
 	cmd := client.B().Xreadgroup().Group(q.groupName, q.workerName).Block(timeout.Milliseconds()).Streams().Key(streamKeys...).Id(ids...)
 	results, err := client.Do(ctx, cmd.Build()).AsXRead()
-	if err != nil {
-		// Check if error is due to no data available (nil response)
-		if valkey.IsValkeyNil(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("error dequeueing task: %w", err)
+	if err != nil && !valkey.IsValkeyNil(err) {
+		return nil, fmt.Errorf("dequeueing task: %w", err)
 	}
 
-	if len(results) == 0 {
+	var msgs []valkey.XRangeEntry
+	for _, streamResult := range results {
+		msgs = append(msgs, streamResult...)
+	}
+
+	if len(results) == 0 || len(msgs) == 0 || valkey.IsValkeyNil(err) {
 		return nil, nil
 	}
 
-	// Get the first entry from the first stream
-	for _, streamResult := range results {
-		if len(streamResult) > 0 {
-			return msgToTaskItem[T](streamResult[0])
-		}
-	}
-
-	return nil, nil
+	return msgToTaskItem[T](msgs[0])
 }
 
 func (q *taskQueue[T]) Extend(ctx context.Context, client valkey.Client, queue workflow.Queue, taskID string) error {
