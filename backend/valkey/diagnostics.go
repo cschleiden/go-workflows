@@ -13,8 +13,7 @@ import (
 var _ diag.Backend = (*valkeyBackend)(nil)
 
 func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
-	zrangeCmd := vb.client.B().Zrangebyscore().Key(vb.keys.instancesByCreation()).Min("0").Max("-1").Limit(0, int64(count))
-
+	zrangeCmd := vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("0").Max("-inf").Byscore().Rev().Limit(0, int64(count))
 	if afterInstanceID != "" {
 		afterSegmentID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
 		scores, err := vb.client.Do(ctx, vb.client.B().Zscore().Key(vb.keys.instancesByCreation()).Member(afterSegmentID).Build()).AsFloat64()
@@ -30,7 +29,7 @@ func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 			return nil, nil
 		}
 
-		zrangeCmd = vb.client.B().Zrangebyscore().Key(vb.keys.instancesByCreation()).Min("-inf").Max(fmt.Sprintf("(%f", scores)).Limit(0, int64(count))
+		zrangeCmd = vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("0").Max(fmt.Sprintf("(%f", scores)).Byscore().Rev().Limit(0, int64(count))
 	}
 
 	instanceSegments, err := vb.client.Do(ctx, zrangeCmd.Build()).AsStrSlice()
