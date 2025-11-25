@@ -175,7 +175,7 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, client valkey.Client, queues
 	}
 
 	// Try to dequeue from all given queues
-	cmd := client.B().Xreadgroup().Group(q.groupName, q.workerName).Streams().Key(streamKeys...).Id(ids...)
+	cmd := client.B().Xreadgroup().Group(q.groupName, q.workerName).Block(timeout.Milliseconds()).Streams().Key(streamKeys...).Id(ids...)
 	results, err := client.Do(ctx, cmd.Build()).AsXRead()
 	if err != nil {
 		// Check if error is due to no data available (nil response)
