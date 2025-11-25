@@ -134,9 +134,8 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, client valkey.Client, queue 
 		return err
 	}
 
-	keys := q.Keys(queue)
-
-	if err := enqueueCmd.Exec(ctx, client, []string{q.queueSetKey, keys.SetKey, keys.StreamKey}, []string{q.groupName, id, string(ds)}).Error(); err != nil {
+	queueStreamInfo := q.Keys(queue)
+	if err := enqueueCmd.Exec(ctx, client, []string{q.queueSetKey, queueStreamInfo.SetKey, queueStreamInfo.StreamKey}, []string{q.groupName, id, string(ds)}).Error(); err != nil {
 		return fmt.Errorf("enqueueing task: %w", err)
 	}
 
