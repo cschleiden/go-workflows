@@ -18,7 +18,7 @@ import (
 var _ backend.Backend = (*valkeyBackend)(nil)
 
 //go:embed scripts
-var Luas embed.FS
+var luaScripts embed.FS
 
 var (
 	createWorkflowInstanceScript *valkey.Lua
@@ -80,7 +80,7 @@ func NewValkeyBackend(client valkey.Client, opts ...BackendOption) (*valkeyBacke
 
 func loadScripts(scriptMapping map[string]**valkey.Lua) error {
 	for scriptFile, scriptVar := range scriptMapping {
-		scriptContent, err := fs.ReadFile(Luas, "scripts/"+scriptFile)
+		scriptContent, err := fs.ReadFile(luaScripts, "scripts/"+scriptFile)
 		if err != nil {
 			return fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
 		}

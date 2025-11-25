@@ -46,7 +46,6 @@ func (vb *valkeyBackend) CompleteActivityTask(ctx context.Context, task *backend
 		return err
 	}
 
-	// Marshal event data
 	eventData, payload, err := marshalEvent(result)
 	if err != nil {
 		return err
