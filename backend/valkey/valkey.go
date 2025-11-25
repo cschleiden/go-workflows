@@ -32,7 +32,7 @@ var (
 	signalWorkflowScript         options.Script
 )
 
-func NewValkeyBackend(client glide.Client, opts ...BackendOption) (backend.Backend, error) {
+func NewValkeyBackend(client glide.Client, opts ...BackendOption) (*valkeyBackend, error) {
 	// Default options
 	vopts := &Options{
 		Options:      backend.ApplyOptions(),
