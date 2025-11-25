@@ -8,7 +8,6 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/assert"
-	"github.com/valkey-io/valkey-go"
 )
 
 func Test_TaskQueue(t *testing.T) {
@@ -20,13 +19,7 @@ func Test_TaskQueue(t *testing.T) {
 
 	taskType := "taskType"
 
-	client, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{"localhost:6379"},
-		Password:    "ValkeyPassw0rd",
-		SelectDB:    0,
-	})
-	assert.NoError(t, err)
-	t.Cleanup(func() { client.Close() })
+	client := getClient()
 
 	lockTimeout := time.Millisecond * 10
 	blockTimeout := time.Millisecond * 10
