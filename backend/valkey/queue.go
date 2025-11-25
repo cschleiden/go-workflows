@@ -20,6 +20,11 @@ type taskQueue[T any] struct {
 	groupName   string
 	workerName  string
 	queueSetKey string
+	// hashTag is a Redis Cluster hash tag ensuring all keys used together
+	// (across different queues for the same task type) map to the same slot.
+	// This avoids CrossSlot errors when Valkey is running in clustered/serverless modes
+	// and XREADGROUP is called on multiple stream keys.
+	hashTag string
 }
 
 type TaskItem[T any] struct {
@@ -48,12 +53,22 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 		workerName = uuid.NewString()
 	}
 
+	// Use a stable Redis Cluster hash tag so that all keys for this task type
+	// hash to the same slot regardless of the specific queue name. Only the
+	// substring within {...} is used for hashing.
+	// Example generated keys:
+	//   <prefix>{task:<tasktype>}:task-stream:<queue>
+	//   <prefix>{task:<tasktype>}:task-set:<queue>
+	//   <prefix>{task:<tasktype>}:<tasktype>:queues
+	hashTag := fmt.Sprintf("{task:%s}", tasktype)
+
 	tq := &taskQueue[T]{
 		keyPrefix:   keyPrefix,
 		tasktype:    tasktype,
 		groupName:   "task-workers",
 		workerName:  workerName,
-		queueSetKey: fmt.Sprintf("%s%s:queues", keyPrefix, tasktype),
+		queueSetKey: fmt.Sprintf("%s%s:%s:queues", keyPrefix, hashTag, tasktype),
+		hashTag:     hashTag,
 	}
 
 	return tq, nil
@@ -75,8 +90,8 @@ func (q *taskQueue[T]) Prepare(ctx context.Context, client glide.Client, queues 
 
 func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
 	return KeyInfo{
-		StreamKey: fmt.Sprintf("%stask-stream:%s:%s", q.keyPrefix, queue, q.tasktype),
-		SetKey:    fmt.Sprintf("%stask-set:%s:%s", q.keyPrefix, queue, q.tasktype),
+		StreamKey: fmt.Sprintf("%s%s:task-stream:%s", q.keyPrefix, q.hashTag, queue),
+		SetKey:    fmt.Sprintf("%s%s:task-set:%s", q.keyPrefix, q.hashTag, queue),
 	}
 }
 
@@ -93,13 +108,12 @@ func (q *taskQueue[T]) Size(ctx context.Context, client glide.Client) (map[workf
 			return nil, fmt.Errorf("getting queue size: %w", err)
 		}
 
-		// Parse queue name from key
-		queueName := strings.TrimPrefix(queueSetKey, q.keyPrefix)
-		parts := strings.Split(queueName, ":") // task-set:<queue>:<tasktype>
-		if len(parts) < 3 {
+		trimmed := strings.TrimPrefix(queueSetKey, q.keyPrefix)
+		lastIdx := strings.LastIndex(trimmed, ":")
+		if lastIdx == -1 || lastIdx == len(trimmed)-1 {
 			return nil, fmt.Errorf("unexpected set key format: %s", queueSetKey)
 		}
-		queue := workflow.Queue(parts[1])
+		queue := workflow.Queue(trimmed[lastIdx+1:])
 		res[queue] = size
 	}
 
