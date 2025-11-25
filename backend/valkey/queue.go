@@ -27,11 +27,6 @@ type taskQueue[T any] struct {
 	groupName   string
 	workerName  string
 	queueSetKey string
-	// hashTag is a Valkey Cluster hash tag ensuring all keys used together
-	// (across different queues for the same task type) map to the same slot.
-	// This avoids CrossSlot errors when Valkey is running in clustered/serverless modes
-	// and XREADGROUP is called on multiple stream keys.
-	hashTag string
 }
 
 type TaskItem[T any] struct {
@@ -60,22 +55,12 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 		workerName = uuid.NewString()
 	}
 
-	// Use a stable Valkey Cluster hash tag so that all keys for this task type
-	// hash to the same slot regardless of the specific queue name. Only the
-	// substring within {...} is used for hashing.
-	// Example generated keys:
-	//   <prefix>{task:<tasktype>}:task-stream:<queue>
-	//   <prefix>{task:<tasktype>}:task-set:<queue>
-	//   <prefix>{task:<tasktype>}:<tasktype>:queues
-	hashTag := fmt.Sprintf("{task:%s}", tasktype)
-
 	tq := &taskQueue[T]{
 		keyPrefix:   keyPrefix,
 		tasktype:    tasktype,
 		groupName:   "task-workers",
 		workerName:  workerName,
-		queueSetKey: fmt.Sprintf("%s%s:%s:queues", keyPrefix, hashTag, tasktype),
-		hashTag:     hashTag,
+		queueSetKey: fmt.Sprintf("%s%s:queues", keyPrefix, tasktype),
 	}
 
 	// Load all Lua scripts
@@ -106,8 +91,8 @@ func (q *taskQueue[T]) Prepare(ctx context.Context, client valkey.Client, queues
 
 func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
 	return KeyInfo{
-		StreamKey: fmt.Sprintf("%s%s:task-stream:%s", q.keyPrefix, q.hashTag, queue),
-		SetKey:    fmt.Sprintf("%s%s:task-set:%s", q.keyPrefix, q.hashTag, queue),
+		StreamKey: fmt.Sprintf("%stask-stream:%s:%s", q.keyPrefix, queue, q.tasktype),
+		SetKey:    fmt.Sprintf("%stask-set:%s:%s", q.keyPrefix, queue, q.tasktype),
 	}
 }
 
