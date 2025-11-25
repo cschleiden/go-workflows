@@ -157,11 +157,8 @@ func (vb *valkeyBackend) CompleteWorkflowTask(
 	// Remove canceled timers
 	timersToCancel := make([]*history.Event, 0)
 	for _, event := range executedEvents {
-		switch event.Type {
-		case history.EventType_TimerCanceled:
+		if event.Type == history.EventType_TimerCanceled {
 			timersToCancel = append(timersToCancel, event)
-		default:
-			return fmt.Errorf("unexpected event type %v", event.Type)
 		}
 	}
 
