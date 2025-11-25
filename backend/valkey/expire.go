@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
 )
 
 func (vb *valkeyBackend) setWorkflowInstanceExpiration(ctx context.Context, instance *core.WorkflowInstance, expiration time.Duration) error {
@@ -17,22 +16,19 @@ func (vb *valkeyBackend) setWorkflowInstanceExpiration(ctx context.Context, inst
 	exp := time.Now().Add(expiration).UnixMilli()
 	expStr := strconv.FormatInt(exp, 10)
 
-	_, err := vb.client.InvokeScriptWithOptions(ctx, expireWorkflowInstanceScript, options.ScriptOptions{
-		Keys: []string{
-			vb.keys.instancesByCreation(),
-			vb.keys.instancesExpiring(),
-			vb.keys.instanceKey(instance),
-			vb.keys.pendingEventsKey(instance),
-			vb.keys.historyKey(instance),
-			vb.keys.payloadKey(instance),
-		},
-		Args: []string{
-			nowStr,
-			fmt.Sprintf("%.0f", expiration.Seconds()),
-			expStr,
-			instanceSegment(instance),
-		},
-	})
+	err := expireWorkflowInstanceScript.Exec(ctx, vb.client, []string{
+		vb.keys.instancesByCreation(),
+		vb.keys.instancesExpiring(),
+		vb.keys.instanceKey(instance),
+		vb.keys.pendingEventsKey(instance),
+		vb.keys.historyKey(instance),
+		vb.keys.payloadKey(instance),
+	}, []string{
+		nowStr,
+		fmt.Sprintf("%.0f", expiration.Seconds()),
+		expStr,
+		instanceSegment(instance),
+	}).Error()
 
 	return err
 }

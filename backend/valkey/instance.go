@@ -12,9 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/valkey-io/valkey-glide/go/v2"
-	"github.com/valkey-io/valkey-glide/go/v2/constants"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
+	"github.com/valkey-io/valkey-go"
 )
 
 func (vb *valkeyBackend) CreateWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
@@ -44,28 +42,25 @@ func (vb *valkeyBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	keyInfo := vb.workflowQueue.Keys(a.Queue)
 
 	// Execute Lua script for atomic creation
-	result, err := vb.client.InvokeScriptWithOptions(ctx, createWorkflowInstanceScript, options.ScriptOptions{
-		Keys: []string{
-			vb.keys.instanceKey(instance),
-			vb.keys.activeInstanceExecutionKey(instance.InstanceID),
-			vb.keys.pendingEventsKey(instance),
-			vb.keys.payloadKey(instance),
-			vb.keys.instancesActive(),
-			vb.keys.instancesByCreation(),
-			keyInfo.SetKey,
-			keyInfo.StreamKey,
-			vb.workflowQueue.queueSetKey,
-		},
-		Args: []string{
-			instanceSegment(instance),
-			string(instanceState),
-			string(activeInstance),
-			event.ID,
-			eventData,
-			payloadData,
-			fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
-		},
-	})
+	err = createWorkflowInstanceScript.Exec(ctx, vb.client, []string{
+		vb.keys.instanceKey(instance),
+		vb.keys.activeInstanceExecutionKey(instance.InstanceID),
+		vb.keys.pendingEventsKey(instance),
+		vb.keys.payloadKey(instance),
+		vb.keys.instancesActive(),
+		vb.keys.instancesByCreation(),
+		keyInfo.SetKey,
+		keyInfo.StreamKey,
+		vb.workflowQueue.queueSetKey,
+	}, []string{
+		instanceSegment(instance),
+		string(instanceState),
+		string(activeInstance),
+		event.ID,
+		eventData,
+		payloadData,
+		fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
+	}).Error()
 
 	if err != nil {
 		if err.Error() == "ERR InstanceAlreadyExists" {
@@ -74,20 +69,16 @@ func (vb *valkeyBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 		return fmt.Errorf("creating workflow instance: %w", err)
 	}
 
-	if result == nil {
-		return fmt.Errorf("unexpected nil result from create workflow instance script")
-	}
-
 	return nil
 }
 
 func (vb *valkeyBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
-	boundary := options.NewInfiniteStreamBoundary(constants.NegativeInfinity)
+	start := "-"
 	if lastSequenceID != nil {
-		boundary = options.NewStreamBoundary(strconv.FormatInt(*lastSequenceID, 10), false)
+		start = strconv.FormatInt(*lastSequenceID, 10)
 	}
 
-	msgs, err := vb.client.XRange(ctx, vb.keys.historyKey(instance), boundary, "+")
+	msgs, err := vb.client.Do(ctx, vb.client.B().Xrange().Key(vb.keys.historyKey(instance)).Start(start).End("+").Build()).AsXRange()
 	if err != nil {
 		return nil, err
 	}
@@ -95,14 +86,8 @@ func (vb *valkeyBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 	payloadKeys := make([]string, 0, len(msgs))
 	events := make([]*history.Event, 0, len(msgs))
 	for _, msg := range msgs {
-		var eventStr string
-		for _, field := range msg.Fields {
-			if field.Field == "event" {
-				eventStr = field.Value
-				break
-			}
-		}
-		if eventStr == "" {
+		eventStr, ok := msg.FieldValues["event"]
+		if !ok || eventStr == "" {
 			continue
 		}
 
@@ -116,13 +101,14 @@ func (vb *valkeyBackend) GetWorkflowInstanceHistory(ctx context.Context, instanc
 	}
 
 	if len(payloadKeys) > 0 {
-		res, err := vb.client.HMGet(ctx, vb.keys.payloadKey(instance), payloadKeys)
+		cmd := vb.client.B().Hmget().Key(vb.keys.payloadKey(instance)).Field(payloadKeys...)
+		res, err := vb.client.Do(ctx, cmd.Build()).AsStrSlice()
 		if err != nil {
 			return nil, fmt.Errorf("reading payloads: %w", err)
 		}
 
 		for i, event := range events {
-			event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i].Value()))
+			event.Attributes, err = history.DeserializeAttributes(event.Type, []byte(res[i]))
 			if err != nil {
 				return nil, fmt.Errorf("deserializing attributes for event %v: %w", event.Type, err)
 			}
@@ -157,20 +143,17 @@ func (vb *valkeyBackend) CancelWorkflowInstance(ctx context.Context, instance *c
 	keyInfo := vb.workflowQueue.Keys(workflow.Queue(instanceState.Queue))
 
 	// Cancel instance
-	_, err = vb.client.InvokeScriptWithOptions(ctx, cancelWorkflowInstanceScript, options.ScriptOptions{
-		Keys: []string{
-			vb.keys.payloadKey(instance),
-			vb.keys.pendingEventsKey(instance),
-			keyInfo.SetKey,
-			keyInfo.StreamKey,
-		},
-		Args: []string{
-			event.ID,
-			eventData,
-			payloadData,
-			instanceSegment(instance),
-		},
-	})
+	err = cancelWorkflowInstanceScript.Exec(ctx, vb.client, []string{
+		vb.keys.payloadKey(instance),
+		vb.keys.pendingEventsKey(instance),
+		keyInfo.SetKey,
+		keyInfo.StreamKey,
+	}, []string{
+		event.ID,
+		eventData,
+		payloadData,
+		instanceSegment(instance),
+	}).Error()
 
 	if err != nil {
 		return fmt.Errorf("canceling workflow instance: %w", err)
@@ -212,18 +195,18 @@ type instanceState struct {
 	LastSequenceID int64 `json:"last_sequence_id,omitempty"`
 }
 
-func readInstance(ctx context.Context, client glide.Client, instanceKey string) (*instanceState, error) {
-	val, err := client.Get(ctx, instanceKey)
+func readInstance(ctx context.Context, client valkey.Client, instanceKey string) (*instanceState, error) {
+	val, err := client.Do(ctx, client.B().Get().Key(instanceKey).Build()).ToString()
 	if err != nil {
 		return nil, fmt.Errorf("reading instance: %w", err)
 	}
 
-	if val.IsNil() {
+	if val == "" {
 		return nil, backend.ErrInstanceNotFound
 	}
 
 	var state instanceState
-	if err := json.Unmarshal([]byte(val.Value()), &state); err != nil {
+	if err := json.Unmarshal([]byte(val), &state); err != nil {
 		return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 	}
 
@@ -231,17 +214,17 @@ func readInstance(ctx context.Context, client glide.Client, instanceKey string) 
 }
 
 func (vb *valkeyBackend) readActiveInstanceExecution(ctx context.Context, instanceID string) (*core.WorkflowInstance, error) {
-	val, err := vb.client.Get(ctx, vb.keys.activeInstanceExecutionKey(instanceID))
+	val, err := vb.client.Do(ctx, vb.client.B().Get().Key(vb.keys.activeInstanceExecutionKey(instanceID)).Build()).ToString()
 	if err != nil {
 		return nil, err
 	}
 
-	if val.IsNil() {
+	if val == "" {
 		return nil, nil
 	}
 
 	var instance *core.WorkflowInstance
-	if err := json.Unmarshal([]byte(val.Value()), &instance); err != nil {
+	if err := json.Unmarshal([]byte(val), &instance); err != nil {
 		return nil, fmt.Errorf("unmarshaling instance: %w", err)
 	}
 

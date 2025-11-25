@@ -19,7 +19,7 @@ import (
 var _ backend.Backend = (*redisBackend)(nil)
 
 //go:embed scripts
-var luaScripts embed.FS
+var Luas embed.FS
 
 var (
 	createWorkflowInstanceCmd *redis.Script
@@ -85,7 +85,7 @@ func NewRedisBackend(client redis.UniversalClient, opts ...RedisBackendOption) (
 
 func loadScripts(ctx context.Context, rdb redis.UniversalClient, cmdMapping map[string]**redis.Script) error {
 	for scriptFile, cmd := range cmdMapping {
-		scriptContent, err := fs.ReadFile(luaScripts, "scripts/"+scriptFile)
+		scriptContent, err := fs.ReadFile(Luas, "scripts/"+scriptFile)
 		if err != nil {
 			return fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
 		}

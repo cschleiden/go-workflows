@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/google/uuid"
-	"github.com/valkey-io/valkey-glide/go/v2"
-	"github.com/valkey-io/valkey-glide/go/v2/models"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
+	"github.com/valkey-io/valkey-go"
 )
 
 type taskQueue[T any] struct {
@@ -20,7 +19,7 @@ type taskQueue[T any] struct {
 	groupName   string
 	workerName  string
 	queueSetKey string
-	// hashTag is a Redis Cluster hash tag ensuring all keys used together
+	// hashTag is a Valkey Cluster hash tag ensuring all keys used together
 	// (across different queues for the same task type) map to the same slot.
 	// This avoids CrossSlot errors when Valkey is running in clustered/serverless modes
 	// and XREADGROUP is called on multiple stream keys.
@@ -53,7 +52,7 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 		workerName = uuid.NewString()
 	}
 
-	// Use a stable Redis Cluster hash tag so that all keys for this task type
+	// Use a stable Valkey Cluster hash tag so that all keys for this task type
 	// hash to the same slot regardless of the specific queue name. Only the
 	// substring within {...} is used for hashing.
 	// Example generated keys:
@@ -74,10 +73,11 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 	return tq, nil
 }
 
-func (q *taskQueue[T]) Prepare(ctx context.Context, client glide.Client, queues []workflow.Queue) error {
+func (q *taskQueue[T]) Prepare(ctx context.Context, client valkey.Client, queues []workflow.Queue) error {
 	for _, queue := range queues {
 		streamKey := q.Keys(queue).StreamKey
-		if _, err := client.XGroupCreateWithOptions(ctx, streamKey, q.groupName, "0", options.XGroupCreateOptions{MkStream: true}); err != nil {
+		err := client.Do(ctx, client.B().XgroupCreate().Key(streamKey).Group(q.groupName).Id("0").Mkstream().Build()).Error()
+		if err != nil {
 			// Group might already exist, which is fine, consider prepare successful
 			if !strings.Contains(err.Error(), "BUSYGROUP") {
 				return fmt.Errorf("preparing queue %s: %w", queue, err)
@@ -95,15 +95,15 @@ func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
 	}
 }
 
-func (q *taskQueue[T]) Size(ctx context.Context, client glide.Client) (map[workflow.Queue]int64, error) {
-	members, err := client.SMembers(ctx, q.queueSetKey)
+func (q *taskQueue[T]) Size(ctx context.Context, client valkey.Client) (map[workflow.Queue]int64, error) {
+	members, err := client.Do(ctx, client.B().Smembers().Key(q.queueSetKey).Build()).AsStrSlice()
 	if err != nil {
 		return nil, fmt.Errorf("getting queue size: %w", err)
 	}
 
 	res := map[workflow.Queue]int64{}
-	for queueSetKey := range members {
-		size, err := client.SCard(ctx, queueSetKey)
+	for _, queueSetKey := range members {
+		size, err := client.Do(ctx, client.B().Scard().Key(queueSetKey).Build()).AsInt64()
 		if err != nil {
 			return nil, fmt.Errorf("getting queue size: %w", err)
 		}
@@ -120,7 +120,7 @@ func (q *taskQueue[T]) Size(ctx context.Context, client glide.Client) (map[workf
 	return res, nil
 }
 
-func (q *taskQueue[T]) Enqueue(ctx context.Context, client glide.Client, queue workflow.Queue, id string, data *T) error {
+func (q *taskQueue[T]) Enqueue(ctx context.Context, client valkey.Client, queue workflow.Queue, id string, data *T) error {
 	ds, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -129,24 +129,20 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, client glide.Client, queue w
 	keys := q.Keys(queue)
 
 	// Add to set to track uniqueness
-	_, err = client.SAdd(ctx, q.queueSetKey, []string{keys.SetKey})
+	err = client.Do(ctx, client.B().Sadd().Key(q.queueSetKey).Member(keys.SetKey).Build()).Error()
 	if err != nil {
 		return err
 	}
 
 	// Add to set for this queue
-	added, err := client.SAdd(ctx, keys.SetKey, []string{id})
+	added, err := client.Do(ctx, client.B().Sadd().Key(keys.SetKey).Member(id).Build()).AsInt64()
 	if err != nil {
 		return err
 	}
 
 	// Only add to stream if it's a new task
 	if added > 0 {
-		var fieldValues []models.FieldValue
-		fieldValues = append(fieldValues, models.FieldValue{Field: "id", Value: id})
-		fieldValues = append(fieldValues, models.FieldValue{Field: "data", Value: string(ds)})
-
-		_, err = client.XAdd(ctx, keys.StreamKey, fieldValues)
+		err = client.Do(ctx, client.B().Xadd().Key(keys.StreamKey).Id("*").FieldValue().FieldValue("id", id).FieldValue("data", string(ds)).Build()).Error()
 		if err != nil {
 			return err
 		}
@@ -155,7 +151,7 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, client glide.Client, queue w
 	return nil
 }
 
-func (q *taskQueue[T]) Dequeue(ctx context.Context, client glide.Client, queues []workflow.Queue, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
+func (q *taskQueue[T]) Dequeue(ctx context.Context, client valkey.Client, queues []workflow.Queue, lockTimeout, timeout time.Duration) (*TaskItem[T], error) {
 	// Try to recover abandoned tasks
 	task, err := q.recover(ctx, client, queues, lockTimeout)
 	if err != nil {
@@ -167,19 +163,20 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, client glide.Client, queues 
 	}
 
 	// Check for new tasks
-	keyAndIds := make(map[string]string)
+	streamKeys := make([]string, 0, len(queues))
 	for _, queue := range queues {
 		keyInfo := q.Keys(queue)
-		keyAndIds[keyInfo.StreamKey] = ">"
+		streamKeys = append(streamKeys, keyInfo.StreamKey)
 	}
 
 	// Try to dequeue from all given queues
-	results, err := client.XReadGroupWithOptions(ctx, q.groupName, q.workerName, keyAndIds, options.XReadGroupOptions{
-		Count: 1,
-		Block: timeout,
-	})
-
+	cmd := client.B().Xreadgroup().Group(q.groupName, q.workerName).Streams().Key(streamKeys...).Id(">")
+	results, err := client.Do(ctx, cmd.Build()).AsXRead()
 	if err != nil {
+		// Check if error is due to no data available (nil response)
+		if valkey.IsValkeyNil(err) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("error dequeueing task: %w", err)
 	}
 
@@ -187,34 +184,40 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, client glide.Client, queues 
 		return nil, nil
 	}
 
-	// Get the first entry to dequeue
-	var entry models.StreamEntry
-	for _, response := range results {
-		if len(response.Entries) > 0 {
-			entry = response.Entries[0]
-			break
+	// Get the first entry from the first stream
+	for _, streamResult := range results {
+		if len(streamResult) > 0 {
+			return msgToTaskItem[T](streamResult[0])
 		}
 	}
 
-	return msgToTaskItem[T](entry)
+	return nil, nil
 }
 
-func (q *taskQueue[T]) Extend(ctx context.Context, client glide.Client, queue workflow.Queue, taskID string) error {
+func (q *taskQueue[T]) Extend(ctx context.Context, client valkey.Client, queue workflow.Queue, taskID string) error {
 	// Claiming a message resets the idle timer
-	_, err := client.XClaim(ctx, q.Keys(queue).StreamKey, q.groupName, q.workerName, 0, []string{taskID})
+	err := client.Do(ctx, client.B().Xclaim().Key(q.Keys(queue).StreamKey).Group(q.groupName).Consumer(q.workerName).MinIdleTime("0").Id(taskID).Build()).Error()
 	if err != nil {
+		// Check if error is due to no data available (nil response)
+		if valkey.IsValkeyNil(err) {
+			return nil
+		}
 		return fmt.Errorf("extending lease: %w", err)
 	}
 
 	return nil
 }
 
-func (q *taskQueue[T]) Complete(ctx context.Context, client glide.Client, queue workflow.Queue, taskID string) error {
+func (q *taskQueue[T]) Complete(ctx context.Context, client valkey.Client, queue workflow.Queue, taskID string) error {
 	keyInfo := q.Keys(queue)
 
 	// Get the task to find the ID
-	msgs, err := client.XRange(ctx, keyInfo.StreamKey, options.NewStreamBoundary(taskID, true), options.NewStreamBoundary(taskID, true))
+	msgs, err := client.Do(ctx, client.B().Xrange().Key(keyInfo.StreamKey).Start(taskID).End(taskID).Build()).AsXRange()
 	if err != nil {
+		// Check if error is due to no data available (nil response)
+		if valkey.IsValkeyNil(err) {
+			return nil
+		}
 		return fmt.Errorf("completing task: %w", err)
 	}
 
@@ -223,27 +226,25 @@ func (q *taskQueue[T]) Complete(ctx context.Context, client glide.Client, queue 
 	}
 
 	msg := msgs[0]
-	var id string
-	for _, field := range msg.Fields {
-		if field.Field == "id" {
-			id = field.Value
-		}
+	id, ok := msg.FieldValues["id"]
+	if !ok {
+		return fmt.Errorf("completing task: missing id field")
 	}
 
 	// Remove from set
-	_, err = client.SRem(ctx, keyInfo.SetKey, []string{id})
+	err = client.Do(ctx, client.B().Srem().Key(keyInfo.SetKey).Member(id).Build()).Error()
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
 
 	// Acknowledge in consumer group
-	_, err = client.XAck(ctx, keyInfo.StreamKey, q.groupName, []string{taskID})
+	err = client.Do(ctx, client.B().Xack().Key(keyInfo.StreamKey).Group(q.groupName).Id(taskID).Build()).Error()
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
 
 	// Delete from stream
-	_, err = client.XDel(ctx, keyInfo.StreamKey, []string{taskID})
+	err = client.Do(ctx, client.B().Xdel().Key(keyInfo.StreamKey).Id(taskID).Build()).Error()
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
@@ -251,39 +252,60 @@ func (q *taskQueue[T]) Complete(ctx context.Context, client glide.Client, queue 
 	return nil
 }
 
-func (q *taskQueue[T]) recover(ctx context.Context, client glide.Client, queues []workflow.Queue, idleTimeout time.Duration) (*TaskItem[T], error) {
+func (q *taskQueue[T]) recover(ctx context.Context, client valkey.Client, queues []workflow.Queue, idleTimeout time.Duration) (*TaskItem[T], error) {
 	for _, queue := range queues {
 		streamKey := q.Keys(queue).StreamKey
 
 		// Try to recover abandoned tasks
-		msgs, err := client.XAutoClaimWithOptions(ctx, streamKey, q.groupName, q.workerName, idleTimeout, "0", options.XAutoClaimOptions{Count: 1})
+		cmd := client.B().Xautoclaim().Key(streamKey).Group(q.groupName).Consumer(q.workerName).MinIdleTime(strconv.FormatInt(idleTimeout.Milliseconds(), 10)).Start("0").Count(1)
+		msgs, err := client.Do(ctx, cmd.Build()).ToArray()
 		if err != nil {
+			// Check if error is due to no data available (nil response)
+			if valkey.IsValkeyNil(err) {
+				continue
+			}
 			return nil, fmt.Errorf("recovering abandoned task: %w", err)
 		}
 
-		if len(msgs.ClaimedEntries) > 0 {
-			return msgToTaskItem[T](msgs.ClaimedEntries[0])
+		if len(msgs) >= 2 {
+			entries, _ := msgs[1].ToArray()
+			for _, entry := range entries {
+				arr, _ := entry.ToArray()
+				if len(arr) == 2 {
+					id, _ := arr[0].ToString()
+					fieldsArr, _ := arr[1].ToArray()
+					fieldValues := map[string]string{}
+					for i := 0; i+1 < len(fieldsArr); i += 2 {
+						key, _ := fieldsArr[i].ToString()
+						val, _ := fieldsArr[i+1].ToString()
+						fieldValues[key] = val
+					}
+					xEntry := valkey.XRangeEntry{
+						ID:          id,
+						FieldValues: fieldValues,
+					}
+					return msgToTaskItem[T](xEntry)
+				}
+			}
 		}
 	}
 
 	return nil, nil
 }
 
-func msgToTaskItem[T any](msg models.StreamEntry) (*TaskItem[T], error) {
-	var id, data string
-	for _, field := range msg.Fields {
-		if field.Field == "id" {
-			id = field.Value
-		} else if field.Field == "data" {
-			data = field.Value
-		}
-	}
+func msgToTaskItem[T any](msg valkey.XRangeEntry) (*TaskItem[T], error) {
+	id, idOk := msg.FieldValues["id"]
+	data, dataOk := msg.FieldValues["data"]
 
 	var t T
-	if data != "" {
+	if dataOk && data != "" {
 		if err := json.Unmarshal([]byte(data), &t); err != nil {
 			return nil, err
 		}
+	}
+
+	if !idOk {
+		return nil, fmt.Errorf("message missing id field")
 	}
 
 	return &TaskItem[T]{

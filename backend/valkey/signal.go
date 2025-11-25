@@ -7,7 +7,6 @@ import (
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
 )
 
 func (vb *valkeyBackend) SignalWorkflow(ctx context.Context, instanceID string, event *history.Event) error {
@@ -34,25 +33,19 @@ func (vb *valkeyBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	queue := workflow.Queue(instanceState.Queue)
 	queueKeys := vb.workflowQueue.Keys(queue)
 
-	keys := []string{
+	// Execute the Lua script
+	err = signalWorkflowScript.Exec(ctx, vb.client, []string{
 		vb.keys.payloadKey(instanceState.Instance),
 		vb.keys.pendingEventsKey(instanceState.Instance),
 		queueKeys.SetKey,
 		queueKeys.StreamKey,
-	}
-
-	args := []string{
+	}, []string{
 		event.ID,
 		eventData,
 		payload,
 		instanceSegment(instanceState.Instance),
-	}
+	}).Error()
 
-	// Execute the Lua script
-	_, err = vb.client.InvokeScriptWithOptions(ctx, signalWorkflowScript, options.ScriptOptions{
-		Keys: keys,
-		Args: args,
-	})
 	if err != nil {
 		return fmt.Errorf("signaling workflow: %w", err)
 	}

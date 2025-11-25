@@ -8,34 +8,21 @@ import (
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/diag"
 	"github.com/cschleiden/go-workflows/internal/log"
-	"github.com/valkey-io/valkey-glide/go/v2/constants"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
 )
 
 var _ diag.Backend = (*valkeyBackend)(nil)
 
 func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstanceID, afterExecutionID string, count int) ([]*diag.WorkflowInstanceRef, error) {
-	start := options.NewInclusiveScoreBoundary(0)
-	end := options.NewInfiniteScoreBoundary(constants.PositiveInfinity)
-
-	zrangeInput := &options.RangeByScore{
-		Start:   start,
-		End:     end,
-		Reverse: true,
-		Limit: &options.Limit{
-			Offset: 0,
-			Count:  int64(count),
-		},
-	}
+	zrangeCmd := vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("0").Max("-1").Rev().Limit(0, int64(count))
 
 	if afterInstanceID != "" {
 		afterSegmentID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
-		scores, err := vb.client.ZMScore(ctx, vb.keys.instancesByCreation(), []string{afterSegmentID})
+		scores, err := vb.client.Do(ctx, vb.client.B().Zscore().Key(vb.keys.instancesByCreation()).Member(afterSegmentID).Build()).AsFloat64()
 		if err != nil {
 			return nil, fmt.Errorf("getting instance score for %v: %w", afterSegmentID, err)
 		}
 
-		if len(scores) == 0 {
+		if scores == 0 {
 			vb.Options().Logger.Error("could not find instance %v",
 				log.NamespaceKey+".valkey.afterInstanceID", afterInstanceID,
 				log.NamespaceKey+".valkey.afterExecutionID", afterExecutionID,
@@ -43,11 +30,10 @@ func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 			return nil, nil
 		}
 
-		end := options.NewScoreBoundary(scores[0].Value(), false)
-		zrangeInput.End = end
+		zrangeCmd = vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("-inf").Max(fmt.Sprintf("(%f", scores)).Rev().Limit(0, int64(count))
 	}
 
-	instanceSegments, err := vb.client.ZRange(ctx, vb.keys.instancesByCreation(), zrangeInput)
+	instanceSegments, err := vb.client.Do(ctx, zrangeCmd.Build()).AsStrSlice()
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %w", err)
 	}
@@ -61,19 +47,20 @@ func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 		instanceKeys = append(instanceKeys, vb.keys.instanceKeyFromSegment(r))
 	}
 
-	instances, err := vb.client.MGet(ctx, instanceKeys)
+	cmd := vb.client.B().Mget().Key(instanceKeys...)
+	instances, err := vb.client.Do(ctx, cmd.Build()).AsStrSlice()
 	if err != nil {
 		return nil, fmt.Errorf("getting instances: %w", err)
 	}
 
 	instanceRefs := make([]*diag.WorkflowInstanceRef, 0, len(instances))
 	for _, instance := range instances {
-		if instance.IsNil() {
+		if instance == "" {
 			continue
 		}
 
 		var state instanceState
-		if err := json.Unmarshal([]byte(instance.Value()), &state); err != nil {
+		if err := json.Unmarshal([]byte(instance), &state); err != nil {
 			return nil, fmt.Errorf("unmarshaling instance state: %w", err)
 		}
 

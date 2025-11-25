@@ -11,29 +11,27 @@ import (
 	"github.com/cschleiden/go-workflows/backend/metrics"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
-	"github.com/valkey-io/valkey-glide/go/v2"
-	"github.com/valkey-io/valkey-glide/go/v2/options"
+	"github.com/valkey-io/valkey-go"
 	"go.opentelemetry.io/otel/trace"
 )
 
 var _ backend.Backend = (*valkeyBackend)(nil)
 
 //go:embed scripts
-var luaScripts embed.FS
+var Luas embed.FS
 
 var (
-	createWorkflowInstanceScript options.Script
-	completeWorkflowTaskScript   options.Script
-	completeActivityTaskScript   options.Script
-	deleteInstanceScript         options.Script
-	futureEventsScript           options.Script
-	expireWorkflowInstanceScript options.Script
-	cancelWorkflowInstanceScript options.Script
-	signalWorkflowScript         options.Script
+	createWorkflowInstanceScript *valkey.Lua
+	completeWorkflowTaskScript   *valkey.Lua
+	completeActivityTaskScript   *valkey.Lua
+	deleteInstanceScript         *valkey.Lua
+	futureEventsScript           *valkey.Lua
+	expireWorkflowInstanceScript *valkey.Lua
+	cancelWorkflowInstanceScript *valkey.Lua
+	signalWorkflowScript         *valkey.Lua
 )
 
-func NewValkeyBackend(client glide.Client, opts ...BackendOption) (*valkeyBackend, error) {
-	// Default options
+func NewValkeyBackend(client valkey.Client, opts ...BackendOption) (*valkeyBackend, error) {
 	vopts := &Options{
 		Options:      backend.ApplyOptions(),
 		BlockTimeout: time.Second * 2,
@@ -62,7 +60,7 @@ func NewValkeyBackend(client glide.Client, opts ...BackendOption) (*valkeyBacken
 	}
 
 	// Load all Lua scripts
-	scriptMapping := map[string]*options.Script{
+	scriptMapping := map[string]**valkey.Lua{
 		"cancel_workflow_instance.lua": &cancelWorkflowInstanceScript,
 		"complete_activity_task.lua":   &completeActivityTaskScript,
 		"complete_workflow_task.lua":   &completeWorkflowTaskScript,
@@ -80,21 +78,21 @@ func NewValkeyBackend(client glide.Client, opts ...BackendOption) (*valkeyBacken
 	return vb, nil
 }
 
-func loadScripts(scriptMapping map[string]*options.Script) error {
+func loadScripts(scriptMapping map[string]**valkey.Lua) error {
 	for scriptFile, scriptVar := range scriptMapping {
-		scriptContent, err := fs.ReadFile(luaScripts, "scripts/"+scriptFile)
+		scriptContent, err := fs.ReadFile(Luas, "scripts/"+scriptFile)
 		if err != nil {
 			return fmt.Errorf("reading Lua script %s: %w", scriptFile, err)
 		}
 
-		*scriptVar = *options.NewScript(string(scriptContent))
+		*scriptVar = valkey.NewLuaScript(string(scriptContent))
 	}
 
 	return nil
 }
 
 type valkeyBackend struct {
-	client        glide.Client
+	client        valkey.Client
 	options       *Options
 	keys          *keys
 	workflowQueue *taskQueue[workflowData]

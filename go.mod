@@ -13,7 +13,7 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.0.0
 	github.com/redis/go-redis/v9 v9.0.2
 	github.com/stretchr/testify v1.10.0
-	github.com/valkey-io/valkey-glide/go/v2 v2.1.1
+	github.com/valkey-io/valkey-go v1.0.68
 	go.opentelemetry.io/otel v1.31.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.31.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.31.0
@@ -25,7 +25,6 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
