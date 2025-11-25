@@ -13,6 +13,14 @@ import (
 	"github.com/valkey-io/valkey-go"
 )
 
+var (
+	prepareCmd *valkey.Lua
+	//enqueueCmd  *valkey.Lua
+	//completeCmd *valkey.Lua
+	//recoverCmd  *valkey.Lua
+	//sizeCmd     *valkey.Lua
+)
+
 type taskQueue[T any] struct {
 	keyPrefix   string
 	tasktype    string
@@ -70,19 +78,27 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 		hashTag:     hashTag,
 	}
 
+	// Load all Lua scripts
+	cmdMapping := map[string]**valkey.Lua{
+		"queue/prepare.lua": &prepareCmd,
+	}
+
+	if err := loadScripts(cmdMapping); err != nil {
+		return nil, fmt.Errorf("loading Lua scripts: %w", err)
+	}
+
 	return tq, nil
 }
 
 func (q *taskQueue[T]) Prepare(ctx context.Context, client valkey.Client, queues []workflow.Queue) error {
+	var queueStreamKeys []string
 	for _, queue := range queues {
-		streamKey := q.Keys(queue).StreamKey
-		err := client.Do(ctx, client.B().XgroupCreate().Key(streamKey).Group(q.groupName).Id("0").Mkstream().Build()).Error()
-		if err != nil {
-			// Group might already exist, which is fine, consider prepare successful
-			if !strings.Contains(err.Error(), "BUSYGROUP") {
-				return fmt.Errorf("preparing queue %s: %w", queue, err)
-			}
-		}
+		queueStreamKeys = append(queueStreamKeys, q.Keys(queue).StreamKey)
+	}
+
+	err := prepareCmd.Exec(ctx, client, queueStreamKeys, []string{q.groupName}).Error()
+	if err != nil && !valkey.IsValkeyNil(err) {
+		return fmt.Errorf("preparing queues: %w", err)
 	}
 
 	return nil

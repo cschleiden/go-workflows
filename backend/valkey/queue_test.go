@@ -47,10 +47,15 @@ func Test_TaskQueue(t *testing.T) {
 				ctx := context.Background()
 
 				assert.NoError(t, q.Enqueue(ctx, client, workflow.QueueDefault, "t1", nil))
+				assert.NoError(t, q.Enqueue(ctx, client, workflow.QueueDefault, "t2", nil))
+				assert.NoError(t, q.Enqueue(ctx, client, "OtherQueue", "t3", nil))
 
 				s1, err := q.Size(ctx, client)
 				assert.NoError(t, err)
-				assert.Equal(t, map[workflow.Queue]int64{workflow.QueueDefault: 1}, s1)
+				assert.Equal(t, map[workflow.Queue]int64{
+					workflow.QueueDefault: 2,
+					"OtherQueue":          1,
+				}, s1)
 			},
 		},
 		{
