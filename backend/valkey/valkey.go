@@ -1,7 +1,6 @@
 package valkey
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -33,9 +32,9 @@ var (
 	signalWorkflowScript         options.Script
 )
 
-func NewValkeyBackend(client glide.Client, opts ...ValkeyBackendOption) (backend.Backend, error) {
+func NewValkeyBackend(client glide.Client, opts ...BackendOption) (backend.Backend, error) {
 	// Default options
-	vopts := &ValkeyOptions{
+	vopts := &Options{
 		Options:      backend.ApplyOptions(),
 		BlockTimeout: time.Second * 2,
 	}
@@ -44,14 +43,12 @@ func NewValkeyBackend(client glide.Client, opts ...ValkeyBackendOption) (backend
 		opt(vopts)
 	}
 
-	ctx := context.Background()
-
-	workflowQueue, err := newTaskQueue[workflowData](ctx, client, vopts.KeyPrefix, "workflows", vopts.WorkerName)
+	workflowQueue, err := newTaskQueue[workflowData](vopts.KeyPrefix, "workflows", vopts.WorkerName)
 	if err != nil {
 		return nil, fmt.Errorf("creating workflow task queue: %w", err)
 	}
 
-	activityQueue, err := newTaskQueue[activityData](ctx, client, vopts.KeyPrefix, "activities", vopts.WorkerName)
+	activityQueue, err := newTaskQueue[activityData](vopts.KeyPrefix, "activities", vopts.WorkerName)
 	if err != nil {
 		return nil, fmt.Errorf("creating activity task queue: %w", err)
 	}
@@ -98,7 +95,7 @@ func loadScripts(scriptMapping map[string]*options.Script) error {
 
 type valkeyBackend struct {
 	client        glide.Client
-	options       *ValkeyOptions
+	options       *Options
 	keys          *keys
 	workflowQueue *taskQueue[workflowData]
 	activityQueue *taskQueue[activityData]

@@ -38,13 +38,12 @@ type KeyInfo struct {
 	SetKey    string
 }
 
-func newTaskQueue[T any](ctx context.Context, client glide.Client, keyPrefix string, tasktype string, workerName string) (*taskQueue[T], error) {
+func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T], error) {
 	// Ensure the key prefix ends with a colon
 	if keyPrefix != "" && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
 	}
 
-	// Use provided worker name or generate UUID if empty
 	if workerName == "" {
 		workerName = uuid.NewString()
 	}
@@ -63,12 +62,8 @@ func newTaskQueue[T any](ctx context.Context, client glide.Client, keyPrefix str
 func (q *taskQueue[T]) Prepare(ctx context.Context, client glide.Client, queues []workflow.Queue) error {
 	for _, queue := range queues {
 		streamKey := q.Keys(queue).StreamKey
-		groupName := q.groupName
-
-		// Try to create consumer group
-		_, err := client.XGroupCreateWithOptions(ctx, streamKey, groupName, "0", options.XGroupCreateOptions{MkStream: true})
-		if err != nil {
-			// Group might already exist, which is fine
+		if _, err := client.XGroupCreateWithOptions(ctx, streamKey, q.groupName, "0", options.XGroupCreateOptions{MkStream: true}); err != nil {
+			// Group might already exist, which is fine, consider prepare successful
 			if !strings.Contains(err.Error(), "BUSYGROUP") {
 				return fmt.Errorf("preparing queue %s: %w", queue, err)
 			}
@@ -92,7 +87,6 @@ func (q *taskQueue[T]) Size(ctx context.Context, client glide.Client) (map[workf
 	}
 
 	res := map[workflow.Queue]int64{}
-
 	for queueSetKey := range members {
 		size, err := client.SCard(ctx, queueSetKey)
 		if err != nil {
@@ -101,9 +95,11 @@ func (q *taskQueue[T]) Size(ctx context.Context, client glide.Client) (map[workf
 
 		// Parse queue name from key
 		queueName := strings.TrimPrefix(queueSetKey, q.keyPrefix)
-		queueName = strings.Split(queueName, ":")[1] // queue name is the third part of the key (0-indexed)
-
-		queue := workflow.Queue(queueName)
+		parts := strings.Split(queueName, ":") // task-set:<queue>:<tasktype>
+		if len(parts) < 3 {
+			return nil, fmt.Errorf("unexpected set key format: %s", queueSetKey)
+		}
+		queue := workflow.Queue(parts[1])
 		res[queue] = size
 	}
 
@@ -157,10 +153,10 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, client glide.Client, queues 
 	}
 
 	// Check for new tasks
-	var keyAndIds map[string]string
+	keyAndIds := make(map[string]string)
 	for _, queue := range queues {
-		keys := q.Keys(queue)
-		keyAndIds[keys.StreamKey] = keys.SetKey
+		keyInfo := q.Keys(queue)
+		keyAndIds[keyInfo.StreamKey] = ">"
 	}
 
 	// Try to dequeue from all given queues
@@ -200,10 +196,10 @@ func (q *taskQueue[T]) Extend(ctx context.Context, client glide.Client, queue wo
 }
 
 func (q *taskQueue[T]) Complete(ctx context.Context, client glide.Client, queue workflow.Queue, taskID string) error {
-	keys := q.Keys(queue)
+	keyInfo := q.Keys(queue)
 
 	// Get the task to find the ID
-	msgs, err := client.XRange(ctx, keys.StreamKey, options.NewStreamBoundary(taskID, true), options.NewStreamBoundary(taskID, true))
+	msgs, err := client.XRange(ctx, keyInfo.StreamKey, options.NewStreamBoundary(taskID, true), options.NewStreamBoundary(taskID, true))
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
@@ -221,19 +217,19 @@ func (q *taskQueue[T]) Complete(ctx context.Context, client glide.Client, queue 
 	}
 
 	// Remove from set
-	_, err = client.SRem(ctx, keys.SetKey, []string{id})
+	_, err = client.SRem(ctx, keyInfo.SetKey, []string{id})
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
 
 	// Acknowledge in consumer group
-	_, err = client.XAck(ctx, keys.StreamKey, q.groupName, []string{taskID})
+	_, err = client.XAck(ctx, keyInfo.StreamKey, q.groupName, []string{taskID})
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
 
 	// Delete from stream
-	_, err = client.XDel(ctx, keys.StreamKey, []string{taskID})
+	_, err = client.XDel(ctx, keyInfo.StreamKey, []string{taskID})
 	if err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
