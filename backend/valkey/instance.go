@@ -198,11 +198,10 @@ type instanceState struct {
 func readInstance(ctx context.Context, client valkey.Client, instanceKey string) (*instanceState, error) {
 	val, err := client.Do(ctx, client.B().Get().Key(instanceKey).Build()).ToString()
 	if err != nil {
+		if valkey.IsValkeyNil(err) {
+			return nil, backend.ErrInstanceNotFound
+		}
 		return nil, fmt.Errorf("reading instance: %w", err)
-	}
-
-	if val == "" {
-		return nil, backend.ErrInstanceNotFound
 	}
 
 	var state instanceState
