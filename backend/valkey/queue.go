@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	prepareCmd *valkey.Lua
-	//enqueueCmd  *valkey.Lua
-	//completeCmd *valkey.Lua
-	//recoverCmd  *valkey.Lua
-	//sizeCmd     *valkey.Lua
+	prepareCmd  *valkey.Lua
+	enqueueCmd  *valkey.Lua
+	completeCmd *valkey.Lua
+	recoverCmd  *valkey.Lua
+	sizeCmd     *valkey.Lua
 )
 
 type taskQueue[T any] struct {
@@ -65,7 +65,11 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 
 	// Load all Lua scripts
 	cmdMapping := map[string]**valkey.Lua{
-		"queue/prepare.lua": &prepareCmd,
+		"queue/prepare.lua":  &prepareCmd,
+		"queue/size.lua":     &sizeCmd,
+		"queue/recover.lua":  &recoverCmd,
+		"queue/enqueue.lua":  &enqueueCmd,
+		"queue/complete.lua": &completeCmd,
 	}
 
 	if err := loadScripts(cmdMapping); err != nil {
@@ -97,24 +101,27 @@ func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
 }
 
 func (q *taskQueue[T]) Size(ctx context.Context, client valkey.Client) (map[workflow.Queue]int64, error) {
-	members, err := client.Do(ctx, client.B().Smembers().Key(q.queueSetKey).Build()).AsStrSlice()
+	sizeData, err := sizeCmd.Exec(ctx, client, []string{q.queueSetKey}, []string{}).ToArray()
 	if err != nil {
 		return nil, fmt.Errorf("getting queue size: %w", err)
 	}
 
 	res := map[workflow.Queue]int64{}
-	for _, queueSetKey := range members {
-		size, err := client.Do(ctx, client.B().Scard().Key(queueSetKey).Build()).AsInt64()
+	for i := 0; i < len(sizeData); i += 2 {
+		queueName, err := sizeData[i].ToString()
 		if err != nil {
-			return nil, fmt.Errorf("getting queue size: %w", err)
+			return nil, fmt.Errorf("parsing queue name: %w", err)
 		}
 
-		trimmed := strings.TrimPrefix(queueSetKey, q.keyPrefix)
-		lastIdx := strings.LastIndex(trimmed, ":")
-		if lastIdx == -1 || lastIdx == len(trimmed)-1 {
-			return nil, fmt.Errorf("unexpected set key format: %s", queueSetKey)
+		queueName = strings.TrimPrefix(queueName, q.keyPrefix)
+		queueName = strings.Split(queueName, ":")[1] // queue name is the third part of the key (0-indexed)
+
+		queue := workflow.Queue(queueName)
+		size, err := sizeData[i+1].AsInt64()
+		if err != nil {
+			return nil, fmt.Errorf("parsing queue size: %w", err)
 		}
-		queue := workflow.Queue(trimmed[lastIdx+1:])
+
 		res[queue] = size
 	}
 
@@ -129,24 +136,8 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, client valkey.Client, queue 
 
 	keys := q.Keys(queue)
 
-	// Add to set to track uniqueness
-	err = client.Do(ctx, client.B().Sadd().Key(q.queueSetKey).Member(keys.SetKey).Build()).Error()
-	if err != nil {
-		return err
-	}
-
-	// Add to set for this queue
-	added, err := client.Do(ctx, client.B().Sadd().Key(keys.SetKey).Member(id).Build()).AsInt64()
-	if err != nil {
-		return err
-	}
-
-	// Only add to stream if it's a new task
-	if added > 0 {
-		err = client.Do(ctx, client.B().Xadd().Key(keys.StreamKey).Id("*").FieldValue().FieldValue("id", id).FieldValue("data", string(ds)).Build()).Error()
-		if err != nil {
-			return err
-		}
+	if err := enqueueCmd.Exec(ctx, client, []string{q.queueSetKey, keys.SetKey, keys.StreamKey}, []string{q.groupName, id, string(ds)}).Error(); err != nil {
+		return fmt.Errorf("enqueueing task: %w", err)
 	}
 
 	return nil
@@ -209,43 +200,11 @@ func (q *taskQueue[T]) Extend(ctx context.Context, client valkey.Client, queue w
 }
 
 func (q *taskQueue[T]) Complete(ctx context.Context, client valkey.Client, queue workflow.Queue, taskID string) error {
-	keyInfo := q.Keys(queue)
-
-	// Get the task to find the ID
-	msgs, err := client.Do(ctx, client.B().Xrange().Key(keyInfo.StreamKey).Start(taskID).End(taskID).Build()).AsXRange()
-	if err != nil {
-		// Check if error is due to no data available (nil response)
-		if valkey.IsValkeyNil(err) {
-			return nil
-		}
-		return fmt.Errorf("completing task: %w", err)
-	}
-
-	if len(msgs) == 0 {
-		return nil
-	}
-
-	msg := msgs[0]
-	id, ok := msg.FieldValues["id"]
-	if !ok {
-		return fmt.Errorf("completing task: missing id field")
-	}
-
-	// Remove from set
-	err = client.Do(ctx, client.B().Srem().Key(keyInfo.SetKey).Member(id).Build()).Error()
-	if err != nil {
-		return fmt.Errorf("completing task: %w", err)
-	}
-
-	// Acknowledge in consumer group
-	err = client.Do(ctx, client.B().Xack().Key(keyInfo.StreamKey).Group(q.groupName).Id(taskID).Build()).Error()
-	if err != nil {
-		return fmt.Errorf("completing task: %w", err)
-	}
-
-	// Delete from stream
-	err = client.Do(ctx, client.B().Xdel().Key(keyInfo.StreamKey).Id(taskID).Build()).Error()
-	if err != nil {
+	err := completeCmd.Exec(ctx, client, []string{
+		q.Keys(queue).SetKey,
+		q.Keys(queue).StreamKey,
+	}, []string{taskID, q.groupName}).Error()
+	if err != nil && !valkey.IsValkeyNil(err) {
 		return fmt.Errorf("completing task: %w", err)
 	}
 
@@ -253,40 +212,55 @@ func (q *taskQueue[T]) Complete(ctx context.Context, client valkey.Client, queue
 }
 
 func (q *taskQueue[T]) recover(ctx context.Context, client valkey.Client, queues []workflow.Queue, idleTimeout time.Duration) (*TaskItem[T], error) {
+	var keys []string
 	for _, queue := range queues {
-		streamKey := q.Keys(queue).StreamKey
+		keys = append(keys, q.Keys(queue).StreamKey)
+	}
 
-		// Try to recover abandoned tasks
-		cmd := client.B().Xautoclaim().Key(streamKey).Group(q.groupName).Consumer(q.workerName).MinIdleTime(strconv.FormatInt(idleTimeout.Milliseconds(), 10)).Start("0").Count(1)
-		msgs, err := client.Do(ctx, cmd.Build()).ToArray()
-		if err != nil {
-			// Check if error is due to no data available (nil response)
-			if valkey.IsValkeyNil(err) {
-				continue
-			}
-			return nil, fmt.Errorf("recovering abandoned task: %w", err)
+	r, err := recoverCmd.Exec(ctx, client, keys, []string{q.groupName, q.workerName, strconv.FormatInt(idleTimeout.Milliseconds(), 10), "0"}).ToArray()
+	if err != nil {
+		if valkey.IsValkeyNil(err) {
+			return nil, nil
 		}
 
-		if len(msgs) >= 2 {
-			entries, _ := msgs[1].ToArray()
-			for _, entry := range entries {
-				arr, _ := entry.ToArray()
-				if len(arr) == 2 {
-					id, _ := arr[0].ToString()
-					fieldsArr, _ := arr[1].ToArray()
-					fieldValues := map[string]string{}
-					for i := 0; i+1 < len(fieldsArr); i += 2 {
-						key, _ := fieldsArr[i].ToString()
-						val, _ := fieldsArr[i+1].ToString()
-						fieldValues[key] = val
-					}
-					xEntry := valkey.XRangeEntry{
-						ID:          id,
-						FieldValues: fieldValues,
-					}
-					return msgToTaskItem[T](xEntry)
-				}
+		return nil, fmt.Errorf("recovering abandoned task: %w", err)
+	}
+
+	if len(r) > 1 {
+		msgs, err := r[1].ToArray()
+		if err != nil {
+			return nil, fmt.Errorf("recovering abandoned task: %w", err)
+		}
+		if len(msgs) > 0 && !msgs[0].IsNil() {
+			msgData, err := msgs[0].ToArray()
+			if err != nil {
+				return nil, fmt.Errorf("recovering abandoned task: %w", err)
 			}
+			id, err := msgData[0].ToString()
+			if err != nil {
+				return nil, fmt.Errorf("recovering abandoned task: %w", err)
+			}
+			rawValues, err := msgData[1].ToArray()
+			if err != nil {
+				return nil, fmt.Errorf("recovering abandoned task: %w", err)
+			}
+			values := make(map[string]string)
+			for i := 0; i < len(rawValues); i += 2 {
+				key, err := rawValues[i].ToString()
+				if err != nil {
+					return nil, fmt.Errorf("recovering abandoned task: %w", err)
+				}
+				value, err := rawValues[i+1].ToString()
+				if err != nil {
+					return nil, fmt.Errorf("recovering abandoned task: %w", err)
+				}
+				values[key] = value
+			}
+
+			return msgToTaskItem[T](valkey.XRangeEntry{
+				ID:          id,
+				FieldValues: values,
+			})
 		}
 	}
 
