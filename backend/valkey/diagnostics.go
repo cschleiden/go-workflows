@@ -16,12 +16,12 @@ func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 	zrangeCmd := vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("+inf").Max("-inf").Byscore().Rev().Limit(0, int64(count))
 	if afterInstanceID != "" {
 		afterSegmentID := instanceSegment(core.NewWorkflowInstance(afterInstanceID, afterExecutionID))
-		scores, err := vb.client.Do(ctx, vb.client.B().Zmscore().Key(vb.keys.instancesByCreation()).Member(afterSegmentID).Build()).AsFloat64()
+		scores, err := vb.client.Do(ctx, vb.client.B().Zmscore().Key(vb.keys.instancesByCreation()).Member(afterSegmentID).Build()).AsFloatSlice()
 		if err != nil {
 			return nil, fmt.Errorf("getting instance score for %v: %w", afterSegmentID, err)
 		}
 
-		if scores == 0 {
+		if len(scores) == 0 || scores[0] == 0 {
 			vb.Options().Logger.Error("could not find instance %v",
 				log.NamespaceKey+".valkey.afterInstanceID", afterInstanceID,
 				log.NamespaceKey+".valkey.afterExecutionID", afterExecutionID,
@@ -29,7 +29,7 @@ func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 			return nil, nil
 		}
 
-		zrangeCmd = vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("+inf").Max(fmt.Sprintf("(%f", scores)).Byscore().Rev().Limit(0, int64(count))
+		zrangeCmd = vb.client.B().Zrange().Key(vb.keys.instancesByCreation()).Min("+inf").Max(fmt.Sprintf("(%f", scores[0])).Byscore().Rev().Limit(0, int64(count))
 	}
 
 	instanceSegments, err := vb.client.Do(ctx, zrangeCmd.Build()).AsStrSlice()
