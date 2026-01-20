@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -71,5 +72,71 @@ func Test_SqliteBackend_WorkerName(t *testing.T) {
 
 		// Verify the worker name is stored correctly
 		require.Equal(t, customWorkerName, backend.workerName)
+	})
+}
+
+func Test_SqliteBackendWithDB(t *testing.T) {
+	t.Run("UsesProvidedConnection", func(t *testing.T) {
+		// Create our own database connection
+		db, err := sql.Open("sqlite", "file:testdb?mode=memory&cache=shared")
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Configure connection as recommended
+		_, err = db.Exec("PRAGMA journal_mode=WAL;")
+		require.NoError(t, err)
+		_, err = db.Exec("PRAGMA busy_timeout = 5000;")
+		require.NoError(t, err)
+		db.SetMaxOpenConns(1)
+
+		// Create backend with existing connection and apply migrations
+		backend := NewSqliteBackendWithDB(db, WithApplyMigrations(true))
+
+		// Verify the backend works
+		require.NotNil(t, backend)
+		require.Equal(t, db, backend.db)
+		require.False(t, backend.ownsConnection)
+
+		// Close backend - should NOT close our connection
+		err = backend.Close()
+		require.NoError(t, err)
+
+		// Verify our connection is still usable
+		err = db.Ping()
+		require.NoError(t, err)
+	})
+
+	t.Run("MigrationsDisabledByDefault", func(t *testing.T) {
+		db, err := sql.Open("sqlite", "file:testdb2?mode=memory&cache=shared")
+		require.NoError(t, err)
+		defer db.Close()
+
+		db.SetMaxOpenConns(1)
+
+		// Create backend without enabling migrations
+		backend := NewSqliteBackendWithDB(db)
+		defer backend.Close()
+
+		// Tables should not exist since migrations weren't applied
+		_, err = db.Exec("SELECT 1 FROM instances LIMIT 1")
+		require.Error(t, err) // Table doesn't exist
+	})
+
+	t.Run("MigrationsCanBeEnabled", func(t *testing.T) {
+		db, err := sql.Open("sqlite", "file:testdb3?mode=memory&cache=shared")
+		require.NoError(t, err)
+		defer db.Close()
+
+		_, err = db.Exec("PRAGMA journal_mode=WAL;")
+		require.NoError(t, err)
+		db.SetMaxOpenConns(1)
+
+		// Create backend with migrations enabled
+		backend := NewSqliteBackendWithDB(db, WithApplyMigrations(true))
+		defer backend.Close()
+
+		// Tables should exist
+		_, err = db.Exec("SELECT 1 FROM instances LIMIT 1")
+		require.NoError(t, err)
 	})
 }
