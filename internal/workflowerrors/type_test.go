@@ -15,7 +15,7 @@ func Test_getErrorType_error(t *testing.T) {
 	err := FromError(errors.New("test"))
 
 	etype := getErrorType(err)
-	require.Equal(t, "Error", etype) // TODO: Do we want a different type here?
+	require.Equal(t, "Error", etype)
 }
 
 type CustomError struct {
