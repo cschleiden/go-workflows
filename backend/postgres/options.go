@@ -13,6 +13,11 @@ type options struct {
 
 	// ApplyMigrations automatically applies database migrations on startup.
 	ApplyMigrations bool
+
+	// EnableNotifications enables LISTEN/NOTIFY support for reactive task polling.
+	// When enabled, the backend will use PostgreSQL LISTEN/NOTIFY to wake up
+	// workers immediately when new tasks are available, instead of polling.
+	EnableNotifications bool
 }
 
 type option func(*options)
@@ -36,5 +41,12 @@ func WithBackendOptions(opts ...backend.BackendOption) option {
 		for _, opt := range opts {
 			opt(o.Options)
 		}
+	}
+}
+
+// WithNotifications enables LISTEN/NOTIFY support for reactive task polling.
+func WithNotifications(enable bool) option {
+	return func(o *options) {
+		o.EnableNotifications = enable
 	}
 }

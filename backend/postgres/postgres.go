@@ -22,7 +22,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for database/sql
+	_ "github.com/lib/pq"               // pq driver for LISTEN/NOTIFY support
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -63,6 +64,11 @@ func NewPostgresBackend(host string, port int, user, password, database string, 
 		}
 	}
 
+	// Initialize notification listener if enabled
+	if options.EnableNotifications {
+		b.listener = newNotificationListener(dsn, options.Logger)
+	}
+
 	return b
 }
 
@@ -71,6 +77,7 @@ type postgresBackend struct {
 	db         *sql.DB
 	workerName string
 	options    *options
+	listener   *notificationListener
 }
 
 func (pb *postgresBackend) FeatureSupported(feature backend.Feature) bool {
@@ -78,6 +85,12 @@ func (pb *postgresBackend) FeatureSupported(feature backend.Feature) bool {
 }
 
 func (pb *postgresBackend) Close() error {
+	if pb.listener != nil {
+		if err := pb.listener.Close(); err != nil {
+			// Log error but continue to close the database
+			pb.options.Logger.Error("closing notification listener", "error", err)
+		}
+	}
 	return pb.db.Close()
 }
 
@@ -475,10 +488,22 @@ func (pb *postgresBackend) SignalWorkflow(ctx context.Context, instanceID string
 }
 
 func (pb *postgresBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
+	// Start notification listener if enabled
+	if pb.listener != nil {
+		if err := pb.listener.Start(ctx); err != nil {
+			return fmt.Errorf("starting notification listener: %w", err)
+		}
+	}
 	return nil
 }
 
 func (pb *postgresBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
+	// Start notification listener if enabled (shared with workflow queues)
+	if pb.listener != nil {
+		if err := pb.listener.Start(ctx); err != nil {
+			return fmt.Errorf("starting notification listener: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -487,6 +512,31 @@ func (pb *postgresBackend) GetWorkflowTask(ctx context.Context, queues []workflo
 	if len(queues) == 0 {
 		return nil, errors.New("no queues provided")
 	}
+
+	// If notifications are enabled, wait for a notification before checking for tasks
+	// This allows us to respond immediately to new work instead of polling
+	if pb.listener != nil {
+		// First try to get a task immediately (there might already be pending work)
+		task, err := pb.getWorkflowTaskImpl(ctx, queues)
+		if err != nil || task != nil {
+			return task, err
+		}
+
+		// No task available, wait for notification
+		if pb.listener.WaitForWorkflowTask(ctx) {
+			// Got notification, try again
+			return pb.getWorkflowTaskImpl(ctx, queues)
+		}
+
+		// Context cancelled
+		return nil, ctx.Err()
+	}
+
+	// Notifications disabled, use standard polling
+	return pb.getWorkflowTaskImpl(ctx, queues)
+}
+
+func (pb *postgresBackend) getWorkflowTaskImpl(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	tx, err := pb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -843,6 +893,30 @@ func (pb *postgresBackend) GetActivityTask(ctx context.Context, queues []workflo
 	if len(queues) == 0 {
 		return nil, errors.New("no queues provided")
 	}
+
+	// If notifications are enabled, wait for a notification before checking for tasks
+	if pb.listener != nil {
+		// First try to get a task immediately (there might already be pending work)
+		task, err := pb.getActivityTaskImpl(ctx, queues)
+		if err != nil || task != nil {
+			return task, err
+		}
+
+		// No task available, wait for notification
+		if pb.listener.WaitForActivityTask(ctx) {
+			// Got notification, try again
+			return pb.getActivityTaskImpl(ctx, queues)
+		}
+
+		// Context cancelled
+		return nil, ctx.Err()
+	}
+
+	// Notifications disabled, use standard polling
+	return pb.getActivityTaskImpl(ctx, queues)
+}
+
+func (pb *postgresBackend) getActivityTaskImpl(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
 	tx, err := pb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
