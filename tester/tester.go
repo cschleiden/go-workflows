@@ -814,7 +814,6 @@ func (wt *workflowTester[TResult]) addWorkflow(instance *core.WorkflowInstance, 
 func (wt *workflowTester[TResult]) scheduleSubWorkflow(event *history.WorkflowEvent) {
 	a := event.HistoryEvent.Attributes.(*history.ExecutionStartedAttributes)
 
-	// TODO: Right location to call handler?
 	if wt.subWorkflowListener != nil {
 		wt.subWorkflowListener(event.WorkflowInstance, a.Name)
 	}
