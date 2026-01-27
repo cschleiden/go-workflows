@@ -21,9 +21,30 @@ func NewSqliteBackend(path string, opts ...option)
 
 Create a new SQLite backend instance with `NewSqliteBackend`.
 
+### Using an Existing Connection
+
+```go
+func NewSqliteBackendWithDB(db *sql.DB, opts ...option)
+```
+
+If you already have a `*sql.DB` connection, you can use `NewSqliteBackendWithDB` to create a backend that uses your existing connection. When using this constructor:
+
+- The backend will **not** close the database connection when `Close()` is called
+- Migrations are **disabled by default** - use `WithApplyMigrations(true)` to enable them
+- You are responsible for configuring the connection appropriately (e.g., WAL mode, busy timeout, max open connections)
+
+```go
+db, _ := sql.Open("sqlite", "file:mydb.sqlite?_txlock=immediate")
+db.Exec("PRAGMA journal_mode=WAL;")
+db.Exec("PRAGMA busy_timeout = 5000;")
+db.SetMaxOpenConns(1)
+
+backend := sqlite.NewSqliteBackendWithDB(db, sqlite.WithApplyMigrations(true))
+```
+
 ### Options
 
-- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true`
+- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true` for `NewSqliteBackend`, `false` for `NewSqliteBackendWithDB`
 - `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
 ### Schema
@@ -44,10 +65,35 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 
 Create a new MySQL backend instance with `NewMysqlBackend`.
 
+### Using an Existing Connection
+
+```go
+func NewMysqlBackendWithDB(db *sql.DB, opts ...option)
+```
+
+If you already have a `*sql.DB` connection, you can use `NewMysqlBackendWithDB` to create a backend that uses your existing connection. When using this constructor:
+
+- The backend will **not** close the database connection when `Close()` is called
+- Migrations are **disabled by default**
+- To enable migrations, you must provide a DSN with `WithMigrationDSN()` that supports multi-statement queries
+
+```go
+db, _ := sql.Open("mysql", "user:pass@tcp(localhost:3306)/mydb?parseTime=true")
+
+// To enable migrations, provide a DSN with multiStatements=true
+migrationDSN := "user:pass@tcp(localhost:3306)/mydb?parseTime=true&multiStatements=true"
+
+backend := mysql.NewMysqlBackendWithDB(db,
+    mysql.WithApplyMigrations(true),
+    mysql.WithMigrationDSN(migrationDSN),
+)
+```
+
 ### Options
 
 - `WithMySQLOptions(f func(db *sql.DB))` - Apply custom options to the MySQL database connection
-- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true`
+- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true` for `NewMysqlBackend`, `false` for `NewMysqlBackendWithDB`
+- `WithMigrationDSN(dsn string)` - Set the DSN to use for migrations. Required when using `NewMysqlBackendWithDB` with `ApplyMigrations` enabled. The DSN must support multi-statement queries.
 - `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
 
@@ -69,10 +115,27 @@ func NewPostgresBackend(host string, port int, user, password, database string, 
 
 Create a new PostgreSQL backend instance with `NewPostgresBackend`.
 
+### Using an Existing Connection
+
+```go
+func NewPostgresBackendWithDB(db *sql.DB, opts ...option)
+```
+
+If you already have a `*sql.DB` connection, you can use `NewPostgresBackendWithDB` to create a backend that uses your existing connection. When using this constructor:
+
+- The backend will **not** close the database connection when `Close()` is called
+- Migrations are **disabled by default** - use `WithApplyMigrations(true)` to enable them
+
+```go
+db, _ := sql.Open("pgx", "host=localhost port=5432 user=myuser password=mypass dbname=mydb sslmode=disable")
+
+backend := postgres.NewPostgresBackendWithDB(db, postgres.WithApplyMigrations(true))
+```
+
 ### Options
 
 - `WithPostgresOptions(f func(db *sql.DB))` - Apply custom options to the PostgreSQL database connection
-- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true`
+- `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true` for `NewPostgresBackend`, `false` for `NewPostgresBackendWithDB`
 - `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
 
