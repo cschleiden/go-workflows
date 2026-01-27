@@ -52,10 +52,42 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 	}
 
 	b := &mysqlBackend{
-		dsn:        dsn,
-		db:         db,
-		workerName: getWorkerName(options),
-		options:    options,
+		dsn:            dsn,
+		db:             db,
+		workerName:     getWorkerName(options),
+		options:        options,
+		ownsConnection: true,
+	}
+
+	if options.ApplyMigrations {
+		if err := b.Migrate(); err != nil {
+			panic(err)
+		}
+	}
+
+	return b
+}
+
+// NewMysqlBackendWithDB creates a new MySQL backend using an existing database connection.
+// When using this constructor, the backend will not close the database connection when Close() is called.
+// Migrations are disabled by default; to enable them, use WithApplyMigrations(true) along with
+// WithMigrationDSN to provide a DSN that supports multi-statement queries.
+func NewMysqlBackendWithDB(db *sql.DB, opts ...option) *mysqlBackend {
+	options := &options{
+		Options:         backend.ApplyOptions(),
+		ApplyMigrations: false,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	b := &mysqlBackend{
+		dsn:            "",
+		db:             db,
+		workerName:     getWorkerName(options),
+		options:        options,
+		ownsConnection: false,
 	}
 
 	if options.ApplyMigrations {
@@ -68,10 +100,11 @@ func NewMysqlBackend(host string, port int, user, password, database string, opt
 }
 
 type mysqlBackend struct {
-	dsn        string
-	db         *sql.DB
-	workerName string
-	options    *options
+	dsn            string
+	db             *sql.DB
+	workerName     string
+	options        *options
+	ownsConnection bool
 }
 
 func (mb *mysqlBackend) FeatureSupported(feature backend.Feature) bool {
@@ -79,12 +112,24 @@ func (mb *mysqlBackend) FeatureSupported(feature backend.Feature) bool {
 }
 
 func (mb *mysqlBackend) Close() error {
+	if !mb.ownsConnection {
+		return nil
+	}
 	return mb.db.Close()
 }
 
 // Migrate applies any pending database migrations.
 func (mb *mysqlBackend) Migrate() error {
-	schemaDsn := mb.dsn + "&multiStatements=true"
+	// Determine which DSN to use for migrations
+	var schemaDsn string
+	if mb.options.MigrationDSN != "" {
+		schemaDsn = mb.options.MigrationDSN
+	} else if mb.dsn != "" {
+		schemaDsn = mb.dsn + "&multiStatements=true"
+	} else {
+		return errors.New("cannot apply migrations: no DSN available; use WithMigrationDSN option or apply migrations externally")
+	}
+
 	db, err := sql.Open("mysql", schemaDsn)
 	if err != nil {
 		return fmt.Errorf("opening schema database: %w", err)

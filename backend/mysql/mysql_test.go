@@ -216,3 +216,126 @@ func Test_MysqlBackend_WorkerName(t *testing.T) {
 		}
 	})
 }
+
+func Test_MysqlBackendWithDB(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	t.Run("UsesProvidedConnection", func(t *testing.T) {
+		// Create database for test
+		adminDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dbName := "test_withdb_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		if _, err := adminDB.Exec("CREATE DATABASE " + dbName); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			adminDB.Exec("DROP DATABASE IF EXISTS " + dbName)
+			adminDB.Close()
+		}()
+
+		// Create our own connection to the test database
+		dsn := fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true", testUser, testPassword, dbName)
+		db, err := sql.Open("mysql", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+
+		// Create backend with existing connection and migration DSN
+		migrationDSN := dsn + "&multiStatements=true"
+		backend := NewMysqlBackendWithDB(db,
+			WithApplyMigrations(true),
+			WithMigrationDSN(migrationDSN),
+		)
+
+		// Verify the backend uses our connection
+		if backend.db != db {
+			t.Error("Backend should use provided db connection")
+		}
+		if backend.ownsConnection {
+			t.Error("Backend should not own the connection")
+		}
+
+		// Close backend - should NOT close our connection
+		if err := backend.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify our connection is still usable
+		if err := db.Ping(); err != nil {
+			t.Errorf("Connection should still be open after backend.Close(): %v", err)
+		}
+	})
+
+	t.Run("MigrationsDisabledByDefault", func(t *testing.T) {
+		// Create database for test
+		adminDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dbName := "test_withdb2_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		if _, err := adminDB.Exec("CREATE DATABASE " + dbName); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			adminDB.Exec("DROP DATABASE IF EXISTS " + dbName)
+			adminDB.Close()
+		}()
+
+		dsn := fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true", testUser, testPassword, dbName)
+		db, err := sql.Open("mysql", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+
+		// Create backend without enabling migrations
+		backend := NewMysqlBackendWithDB(db)
+		defer backend.Close()
+
+		// Tables should not exist since migrations weren't applied
+		_, err = db.Exec("SELECT 1 FROM instances LIMIT 1")
+		if err == nil {
+			t.Error("Expected error because table should not exist")
+		}
+	})
+
+	t.Run("MigrationFailsWithoutDSN", func(t *testing.T) {
+		// Create database for test
+		adminDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dbName := "test_withdb3_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		if _, err := adminDB.Exec("CREATE DATABASE " + dbName); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			adminDB.Exec("DROP DATABASE IF EXISTS " + dbName)
+			adminDB.Close()
+		}()
+
+		dsn := fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true", testUser, testPassword, dbName)
+		db, err := sql.Open("mysql", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+
+		// Create backend without migration DSN - should panic when trying to migrate
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("Expected panic when ApplyMigrations=true without MigrationDSN")
+			}
+		}()
+
+		NewMysqlBackendWithDB(db, WithApplyMigrations(true))
+	})
+}
