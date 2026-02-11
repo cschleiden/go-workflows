@@ -254,6 +254,7 @@ func (sb *sqliteBackend) removeWorkflowInstance(ctx context.Context, instance *c
 		if err == sql.ErrNoRows {
 			return backend.ErrInstanceNotFound
 		}
+		return fmt.Errorf("scanning workflow instance state: %w", err)
 	}
 
 	if state == core.WorkflowInstanceStateActive {
@@ -409,6 +410,7 @@ func (sb *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance 
 		if err == sql.ErrNoRows {
 			return core.WorkflowInstanceStateActive, backend.ErrInstanceNotFound
 		}
+		return core.WorkflowInstanceStateActive, fmt.Errorf("scanning workflow instance state: %w", err)
 	}
 
 	return state, nil
@@ -424,8 +426,11 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	// TODO: Combine this with the event insertion
 	var executionID string
 	res := tx.QueryRowContext(ctx, "SELECT execution_id FROM `instances` WHERE id = ? AND state = ? LIMIT 1", instanceID, core.WorkflowInstanceStateActive)
-	if err := res.Scan(&executionID); err == sql.ErrNoRows {
-		return backend.ErrInstanceNotFound
+	if err := res.Scan(&executionID); err != nil {
+		if err == sql.ErrNoRows {
+			return backend.ErrInstanceNotFound
+		}
+		return fmt.Errorf("scanning execution ID: %w", err)
 	}
 
 	if err := insertPendingEvents(ctx, tx, core.NewWorkflowInstance(instanceID, executionID), []*history.Event{event}); err != nil {
