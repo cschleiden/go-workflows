@@ -281,10 +281,13 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 		opt(&ro)
 	}
 
-	rows, err := sb.db.QueryContext(ctx, `SELECT id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
+	rows, err := sb.db.QueryContext(ctx,
+		`SELECT id, execution_id FROM instances WHERE completed_at IS NOT NULL AND completed_at < ? LIMIT ?`,
+		ro.FinishedBefore, ro.BatchSize)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	instanceIDs := []string{}
 	executionIDs := []string{}
@@ -302,47 +305,43 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 		return rows.Err()
 	}
 
-	batchSize := ro.BatchSize
-	for i := 0; i < len(instanceIDs); i += batchSize {
-		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
-		executionIDs := executionIDs[i:min(i+batchSize, len(executionIDs))]
-
-		tx, err := sb.db.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-
-		defer tx.Rollback()
-
-		placeholders := strings.Repeat(",?", len(instanceIDs)-1)
-		whereCondition := fmt.Sprintf("id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
-		args := make([]interface{}, 0, len(instanceIDs)*2)
-		for i := range instanceIDs {
-			args = append(args, instanceIDs[i])
-		}
-		for i := range executionIDs {
-			args = append(args, executionIDs[i])
-		}
-
-		// Delete from instances, history and attributes tables
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", whereCondition), args...); err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", whereCondition), args...); err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", whereCondition), args...); err != nil {
-			return err
-		}
-
-		if err := tx.Commit(); err != nil {
-			return err
-		}
+	if len(instanceIDs) == 0 {
+		return nil
 	}
 
-	return nil
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	placeholders := strings.Repeat(",?", len(instanceIDs)-1)
+	instancesWhere := fmt.Sprintf("id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
+	historyWhere := fmt.Sprintf("instance_id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
+	args := make([]interface{}, 0, len(instanceIDs)*2)
+	for j := range instanceIDs {
+		args = append(args, instanceIDs[j])
+	}
+	for j := range executionIDs {
+		args = append(args, executionIDs[j])
+	}
+
+	// Delete from instances, history and attributes tables
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", instancesWhere), args...); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", historyWhere), args...); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", historyWhere), args...); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
