@@ -15,6 +15,12 @@ import (
 const (
 	maxIterations = 10
 
+	// maxBatchesPerIteration caps how many batch-removal activity calls run
+	// per timer iteration. Each call removes up to BatchSize (default 100)
+	// instances, so this allows draining up to maxBatchesPerIteration × 100
+	// expired instances per cycle.
+	maxBatchesPerIteration = 100
+
 	UpdateExpirationSignal = "update-expiration"
 )
 
@@ -47,23 +53,36 @@ func ExpireWorkflowInstances(ctx workflow.Context, delay time.Duration) error {
 
 		logger.Info("removing workflow instances", slog.Time("before", before))
 
-		var a *Activities
-		_, err := workflow.ExecuteActivity[any](
-			ctx, workflow.ActivityOptions{
-				Queue: core.QueueSystem,
-				RetryOptions: workflow.RetryOptions{
-					MaxAttempts: 2,
-				},
-			}, a.RemoveWorkflowInstances, before).Get(ctx)
-		if err != nil {
-			if errors.As(err, &backend.ErrNotSupported{}) {
-				logger.Warn("removing workflow instances not supported")
+		// Loop the activity to drain expired instances incrementally. Each
+		// invocation removes up to one batch and gets its own activity lock
+		// timeout window, avoiding the death-spiral where a single call tries
+		// to process the entire backlog and always exceeds the deadline.
+		for batch := 0; batch < maxBatchesPerIteration; batch++ {
+			var a *Activities
+			removed, err := workflow.ExecuteActivity[int](
+				ctx, workflow.ActivityOptions{
+					Queue: core.QueueSystem,
+					RetryOptions: workflow.RetryOptions{
+						MaxAttempts: 2,
+					},
+				}, a.RemoveWorkflowInstances, before).Get(ctx)
+			if err != nil {
+				if errors.As(err, &backend.ErrNotSupported{}) {
+					logger.Warn("removing workflow instances not supported")
+					return nil
+				}
 
-				// Stop execution
-				return nil
+				logger.Error("removing workflow instances",
+					slog.Any("error", err), slog.Int("batch", batch))
+				break
 			}
 
-			logger.Error("removing workflow instances", slog.Any("error", err))
+			logger.Info("removed workflow instances",
+				slog.Int("removed", removed), slog.Int("batch", batch))
+
+			if removed == 0 {
+				break
+			}
 		}
 	}
 
@@ -74,6 +93,6 @@ type Activities struct {
 	Backend backend.Backend
 }
 
-func (a *Activities) RemoveWorkflowInstances(ctx context.Context, before time.Time) error {
+func (a *Activities) RemoveWorkflowInstances(ctx context.Context, before time.Time) (int, error) {
 	return a.Backend.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(before))
 }

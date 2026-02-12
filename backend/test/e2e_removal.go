@@ -30,7 +30,7 @@ var e2eRemovalTests = []backendTest{
 			for i := 0; i < 10; i++ {
 				time.Sleep(300 * time.Millisecond)
 
-				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
+				_, err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
 				if errors.As(err, &backend.ErrNotSupported{}) {
 					t.Skip()
 					return
@@ -72,7 +72,7 @@ var e2eRemovalTests = []backendTest{
 			for i := 0; i < 10; i++ {
 				time.Sleep(300 * time.Millisecond)
 
-				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
+				_, err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
 				if errors.As(err, &backend.ErrNotSupported{}) {
 					t.Skip()
 					return

@@ -275,7 +275,7 @@ func (sb *sqliteBackend) removeWorkflowInstance(ctx context.Context, instance *c
 	return nil
 }
 
-func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) (int, error) {
 	ro := backend.DefaultRemovalOptions
 	for _, opt := range options {
 		opt(&ro)
@@ -285,7 +285,7 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 		`SELECT id, execution_id FROM instances WHERE completed_at IS NOT NULL AND completed_at < ? LIMIT ?`,
 		ro.FinishedBefore, ro.BatchSize)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
@@ -294,7 +294,7 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 	for rows.Next() {
 		var id, executionID string
 		if err := rows.Scan(&id, &executionID); err != nil {
-			return err
+			return 0, err
 		}
 
 		instanceIDs = append(instanceIDs, id)
@@ -302,16 +302,16 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 	}
 
 	if rows.Err() != nil {
-		return rows.Err()
+		return 0, rows.Err()
 	}
 
 	if len(instanceIDs) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	tx, err := sb.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	placeholders := strings.Repeat(",?", len(instanceIDs)-1)
@@ -328,20 +328,20 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 	// Delete from instances, history and attributes tables
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", instancesWhere), args...); err != nil {
 		_ = tx.Rollback()
-		return err
+		return 0, err
 	}
 
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", historyWhere), args...); err != nil {
 		_ = tx.Rollback()
-		return err
+		return 0, err
 	}
 
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", historyWhere), args...); err != nil {
 		_ = tx.Rollback()
-		return err
+		return 0, err
 	}
 
-	return tx.Commit()
+	return len(instanceIDs), tx.Commit()
 }
 
 func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
