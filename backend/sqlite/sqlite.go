@@ -97,6 +97,18 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 		}
 	}
 
+	// Enable auto_vacuum on databases that don't have it yet. The pragma must
+	// be set before checking because PRAGMA auto_vacuum returns the on-disk
+	// value, which is 0 (none) for databases created before this change. After
+	// setting the pragma, VACUUM rewrites the file to enable auto-vacuuming.
+	// On new/empty databases this is instant; on trimmed databases it's fast.
+	var autoVacuum int
+	if err := db.QueryRow("PRAGMA auto_vacuum;").Scan(&autoVacuum); err == nil && autoVacuum == 0 {
+		if _, err := db.Exec("PRAGMA auto_vacuum = FULL; VACUUM;"); err != nil {
+			panic(fmt.Errorf("enabling auto_vacuum: %w", err))
+		}
+	}
+
 	return b
 }
 
