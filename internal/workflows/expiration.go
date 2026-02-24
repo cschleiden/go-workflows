@@ -83,6 +83,13 @@ func ExpireWorkflowInstances(ctx workflow.Context, delay time.Duration) error {
 			if removed == 0 {
 				break
 			}
+
+			// Yield between batches so task processing can acquire the DB lock.
+			// Without this, continuous DELETE batches on large databases starve
+			// GetWorkflowTask/GetActivityTask.
+			if err := workflow.Sleep(ctx, 20*time.Second); err != nil {
+				break
+			}
 		}
 	}
 
