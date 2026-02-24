@@ -86,6 +86,46 @@ jobs:
             ${{ github.workspace }}/report.xml
         if: always()
 
+  test_valkey:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
+
+      - name: Start Valkey (Docker)
+        run: |
+          docker run -d --name valkey -p 6379:6379 valkey/valkey:latest valkey-server --requirepass ValkeyPassw0rd
+
+      - name: Wait for Valkey readiness
+        run: |
+          for i in {1..60}; do
+            if docker exec valkey valkey-cli -a RedisPassw0rd PING | grep -q PONG; then
+              echo "Valkey is ready"; exit 0; fi;
+            sleep 1;
+          done
+          echo "Valkey did not become ready in time";
+          docker logs valkey || true
+          exit 1
+
+      - name: Tests (valkey backend, integration)
+        run: |
+          go test -tags=valkey_integration -timeout 240s -race -count 1 -v github.com/cschleiden/go-workflows/backend/valkey 2>&1 | go tool go-junit-report -set-exit-code -iocopy -out "${{ github.workspace }}/report.xml"
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: |
+            ${{ github.workspace }}/report.xml
+        if: always()
+
   test_sqlite:
     runs-on: ubuntu-latest
     needs: build
