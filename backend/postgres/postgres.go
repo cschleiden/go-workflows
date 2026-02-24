@@ -39,7 +39,11 @@ func NewPostgresBackend(host string, port int, user, password, database string, 
 		opt(options)
 	}
 
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, database)
+	if options.SSLMode == "" {
+		options.SSLMode = "disable"
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", host, port, user, password, database, options.SSLMode)
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
