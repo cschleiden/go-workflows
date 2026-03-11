@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
@@ -68,6 +69,17 @@ func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
 			c.Commit()
 
 			c.Done()
+			require.Equal(t, CommandState_Done, c.State())
+		}},
+		{"Done_while_cancel_pending", func(t *testing.T, c *ScheduleSubWorkflowCommand, clock clock.Clock) {
+			c.Commit()
+			c.Cancel()
+			require.Equal(t, CommandState_CancelPending, c.State())
+
+			c.Done()
+			require.Equal(t, CommandState_Done, c.State())
+			
+			c.HandleCancel()
 			require.Equal(t, CommandState_Done, c.State())
 		}},
 		{"Done_after_cancel", func(t *testing.T, c *ScheduleSubWorkflowCommand, clock clock.Clock) {
