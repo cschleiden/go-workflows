@@ -3,9 +3,10 @@ package sqlite
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_SqliteBackend(t *testing.T) {
@@ -15,8 +16,8 @@ func Test_SqliteBackend(t *testing.T) {
 
 	test.BackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
 		// Disable sticky workflow behavior for the test execution
-		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...))
-		// return NewSqliteBackend("test.sqlite", WithBackendOptions(append(options, backend.WithStickyTimeout(0))...))
+		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...), WithAutoVacuum())
+		// return NewSqliteBackend("test.sqlite", WithBackendOptions(append(options, backend.WithStickyTimeout(0))...), WithAutoVacuum())
 	}, func(b test.TestBackend) {
 		// Ensure we close the database so the next test will get a clean in-memory db
 		require.NoError(t, b.(*sqliteBackend).Close())
@@ -30,7 +31,7 @@ func Test_EndToEndSqliteBackend(t *testing.T) {
 
 	test.EndToEndBackendTest(t, func(options ...backend.BackendOption) test.TestBackend {
 		// Disable sticky workflow behavior for the test execution
-		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...))
+		return NewInMemoryBackend(WithBackendOptions(append(options, backend.WithStickyTimeout(0))...), WithAutoVacuum())
 	}, func(b test.TestBackend) {
 		// Ensure we close the database so the next test will get a clean in-memory db
 		require.NoError(t, b.Close())

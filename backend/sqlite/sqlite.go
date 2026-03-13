@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/backend/metadata"
@@ -18,8 +21,6 @@ import (
 	"github.com/cschleiden/go-workflows/internal/metrickeys"
 	"github.com/cschleiden/go-workflows/internal/workflowerrors"
 	"github.com/cschleiden/go-workflows/workflow"
-	"github.com/google/uuid"
-	"go.opentelemetry.io/otel/trace"
 
 	_ "modernc.org/sqlite"
 
@@ -77,6 +78,18 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 
 	if _, err = db.Exec("PRAGMA busy_timeout = 5000;"); err != nil {
 		panic(err)
+	}
+
+	if options.AutoVacuum {
+		_, err = db.Exec("PRAGMA auto_vacuum=full;")
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = db.Exec("VACUUM;")
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// SQLite does not support multiple writers on the database, see https://www.sqlite.org/faq.html#q5
