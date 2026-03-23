@@ -21,6 +21,10 @@ func NewWaitGroup() WaitGroup {
 func (wg *waitGroup) Wait(ctx Context) {
 	wg.waiting = true
 
+	if wg.n == 0 {
+		return
+	}
+
 	if _, err := wg.f.Get(ctx); err != nil {
 		panic(err)
 	}
