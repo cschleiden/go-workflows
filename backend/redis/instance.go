@@ -167,8 +167,8 @@ func (rb *redisBackend) RemoveWorkflowInstance(ctx context.Context, instance *co
 	return rb.deleteInstance(ctx, instance)
 }
 
-func (rb *redisBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
-	return backend.ErrNotSupported{
+func (rb *redisBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) (int, error) {
+	return 0, backend.ErrNotSupported{
 		Message: "not supported, use auto-expiration",
 	}
 }
