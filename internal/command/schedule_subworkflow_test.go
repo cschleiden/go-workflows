@@ -78,7 +78,7 @@ func TestScheduleSubWorkflowCommand_StateTransitions(t *testing.T) {
 
 			c.Done()
 			require.Equal(t, CommandState_Done, c.State())
-			
+
 			c.HandleCancel()
 			require.Equal(t, CommandState_Done, c.State())
 		}},
