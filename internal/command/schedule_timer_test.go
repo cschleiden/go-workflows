@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cschleiden/go-workflows/backend/history"
 )
 
 func TestScheduleTimerCommand_StateTransitions(t *testing.T) {
@@ -69,6 +70,17 @@ func TestScheduleTimerCommand_StateTransitions(t *testing.T) {
 			c.Cancel()
 
 			c.Done()
+			require.Equal(t, CommandState_Done, c.State())
+		}},
+		{"Done_while_cancel_pending", func(t *testing.T, c *ScheduleTimerCommand, clock clock.Clock) {
+			c.Commit()
+			c.Cancel()
+			require.Equal(t, CommandState_CancelPending, c.State())
+
+			c.Done()
+			require.Equal(t, CommandState_Done, c.State())
+
+			c.HandleCancel()
 			require.Equal(t, CommandState_Done, c.State())
 		}},
 		{"Invalid_HandleCancel", func(t *testing.T, c *ScheduleTimerCommand, clock clock.Clock) {
