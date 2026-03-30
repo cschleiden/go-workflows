@@ -284,7 +284,7 @@ func (c *Client) RemoveWorkflowInstance(ctx context.Context, instance *core.Work
 }
 
 // RemoveWorkflowInstances removes completed workflow instances from the backend.
-func (c *Client) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+func (c *Client) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) (int, error) {
 	ctx, span := c.backend.Tracer().Start(ctx, "RemoveWorkflowInstances")
 	defer span.End()
 
