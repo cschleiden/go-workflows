@@ -23,14 +23,36 @@ func (s *wfSpan) End() {
 	}
 }
 
+func (s *wfSpan) SpanContext() trace.SpanContext {
+	return s.span.SpanContext()
+}
+
 type Span interface {
 	// End ends the span.
 	End()
+
+	// SpanContext returns the span context of the span, allowing access to
+	// the TraceID and SpanID.
+	SpanContext() trace.SpanContext
 }
 
 // Tracer creates a the workflow tracer.
 func Tracer(ctx Context) *WorkflowTracer {
 	return &WorkflowTracer{}
+}
+
+// SpanFromContext returns the current span from the workflow context.
+// This can be used to access the TraceID and SpanID of the active workflow span.
+func SpanFromContext(ctx Context) Span {
+	span := tracing.SpanFromContext(ctx)
+	if span == nil {
+		return nil
+	}
+
+	return &wfSpan{
+		span:  span,
+		state: workflowstate.WorkflowState(ctx),
+	}
 }
 
 type WorkflowTracer struct {

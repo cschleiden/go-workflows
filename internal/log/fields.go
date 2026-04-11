@@ -43,4 +43,7 @@ const (
 
 	TimerModeFrom = NamespaceKey + ".timer.mode.from"
 	TimerModeTo   = NamespaceKey + ".timer.mode.to"
+
+	TraceIDKey = NamespaceKey + ".trace.id"
+	SpanIDKey  = NamespaceKey + ".span.id"
 )

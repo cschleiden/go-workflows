@@ -10,6 +10,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/payload"
 	"github.com/cschleiden/go-workflows/core"
 	"github.com/cschleiden/go-workflows/internal/command"
+	log "github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/sync"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -170,6 +171,15 @@ func (wf *WfState) Instance() *core.WorkflowInstance {
 
 func (wf *WfState) Logger() *slog.Logger {
 	return wf.logger
+}
+
+// UpdateLoggerWithSpan updates the logger to include trace_id and span_id attributes
+// from the given span context.
+func (wf *WfState) UpdateLoggerWithSpan(sc trace.SpanContext) {
+	wf.logger = wf.logger.With(
+		slog.String(log.TraceIDKey, sc.TraceID().String()),
+		slog.String(log.SpanIDKey, sc.SpanID().String()),
+	)
 }
 
 func (wf *WfState) Tracer() trace.Tracer {

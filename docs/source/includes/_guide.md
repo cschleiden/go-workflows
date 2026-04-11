@@ -658,7 +658,7 @@ go-workflows supports structured logging using Go's `slog` package. `slog.Defaul
 logger := workflow.Logger(ctx)
 ```
 
-For logging in workflows, you can get a logger using `workflow.Logger`. The returned logger instance  already has the workflow instance set as a default field.
+For logging in workflows, you can get a logger using `workflow.Logger`. The returned logger instance already has the workflow instance set as a default field. When tracing is enabled (via `backend.WithTracerProvider`), the logger also automatically includes `trace_id` and `span_id` attributes for trace correlation.
 
 ### Activities
 
@@ -700,7 +700,32 @@ func Workflow(ctx workflow.Context) error {
 	span.End()
 ```
 
-For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not. You can get a replay-aware racer with `workflow.Tracer(ctx)`.
+For workflows the usage is a bit different, the tracer needs to be aware of whether the workflow is being replayed or not. You can get a replay-aware tracer with `workflow.Tracer(ctx)`.
+
+### Accessing TraceID and SpanID
+
+```go
+func Workflow(ctx workflow.Context) error {
+	// From a span you created
+	ctx, span := workflow.Tracer(ctx).Start(ctx, "my-span")
+	defer span.End()
+
+	sc := span.SpanContext()
+	traceID := sc.TraceID().String()
+	spanID := sc.SpanID().String()
+
+	// Or from the current workflow span
+	currentSpan := workflow.SpanFromContext(ctx)
+	if currentSpan != nil {
+		sc := currentSpan.SpanContext()
+		// Use sc.TraceID(), sc.SpanID() for correlation
+	}
+
+	return nil
+}
+```
+
+You can access the `TraceID` and `SpanID` from any workflow span via the `SpanContext()` method. Use `workflow.SpanFromContext(ctx)` to retrieve the current active span from the workflow context without creating a new one. This is useful for correlating logs with traces or passing trace context to external systems.
 
 ## Context Propagation
 
