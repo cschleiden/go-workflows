@@ -48,6 +48,26 @@ func Test_ErrGroup_FirstError(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func Test_ErrGroup_GoAfterWait_Panics(t *testing.T) {
+	s := NewScheduler()
+	ctx := Background()
+
+	s.NewCoroutine(ctx, func(ctx Context) error {
+		gctx, g := WithErrGroup(ctx)
+
+		g.Go(func(ctx Context) error { return nil })
+		_ = g.Wait(gctx)
+
+		require.Panics(t, func() {
+			g.Go(func(ctx Context) error { return nil })
+		})
+		return nil
+	})
+
+	err := s.Execute()
+	require.NoError(t, err)
+}
+
 func Test_ErrGroup_MultipleErrors_FirstWins(t *testing.T) {
 	s := NewScheduler()
 	ctx := Background()
