@@ -5,17 +5,16 @@ package sync
 // It is conceptually similar to golang.org/x/sync/errgroup.Group but adapted to the
 // workflow scheduler and Context. It cancels the derived Context when the first function
 // returns a non-nil error. Wait waits for all functions to finish and returns the first
-// error that was observed. If the Context passed to Wait is canceled before completion,
-// Wait returns that context error instead.
+// error that was observed.
 type ErrGroup interface {
 	// Go starts the given function in a new workflow coroutine.
 	// The started coroutine receives the group's derived Context, which is canceled when the
 	// first function returns a non-nil error.
+	// Go must not be called after Wait has been called.
 	Go(f func(Context) error)
 
-	// Wait waits for all launched functions to complete. It returns the first non-nil error
-	// returned by any function. If the provided ctx is canceled before completion, the context
-	// error is returned.
+	// Wait waits for all launched functions to complete and returns the first non-nil error
+	// returned by any function, or nil if all functions succeeded.
 	Wait(ctx Context) error
 }
 
@@ -35,7 +34,7 @@ type errGroup struct {
 	// context associated with this group (child of parent)
 	ctx Context
 
-	// track if Wait was called to detect certain misuses (optional)
+	// set to true when Wait is called; guards against Go being called after Wait
 	waiting bool
 
 	// coroutine creator captured from the parent context when the group is created
@@ -56,6 +55,10 @@ func WithErrGroup(parent Context) (Context, ErrGroup) {
 }
 
 func (g *errGroup) Go(f func(Context) error) {
+	if g.waiting {
+		panic("ErrGroup misuse: Go called after Wait")
+	}
+
 	g.n += 1
 
 	g.creator.NewCoroutine(g.ctx, func(ctx Context) error {
