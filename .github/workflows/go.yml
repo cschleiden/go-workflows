@@ -107,7 +107,7 @@ jobs:
       - name: Wait for Valkey readiness
         run: |
           for i in {1..60}; do
-            if docker exec valkey valkey-cli -a RedisPassw0rd PING | grep -q PONG; then
+            if docker exec valkey valkey-cli -a ValkeyPassw0rd PING | grep -q PONG; then
               echo "Valkey is ready"; exit 0; fi;
             sleep 1;
           done

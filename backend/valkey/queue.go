@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -13,20 +14,19 @@ import (
 	"github.com/valkey-io/valkey-go"
 )
 
-var (
-	prepareCmd  *valkey.Lua
-	enqueueCmd  *valkey.Lua
-	completeCmd *valkey.Lua
-	recoverCmd  *valkey.Lua
-	sizeCmd     *valkey.Lua
-)
-
 type taskQueue[T any] struct {
 	keyPrefix   string
 	tasktype    string
 	groupName   string
 	workerName  string
 	queueSetKey string
+	logger      *slog.Logger
+
+	prepareCmd  *valkey.Lua
+	enqueueCmd  *valkey.Lua
+	completeCmd *valkey.Lua
+	recoverCmd  *valkey.Lua
+	sizeCmd     *valkey.Lua
 }
 
 type TaskItem[T any] struct {
@@ -63,13 +63,13 @@ func newTaskQueue[T any](keyPrefix, tasktype, workerName string) (*taskQueue[T],
 		queueSetKey: fmt.Sprintf("%s%s:queues", keyPrefix, tasktype),
 	}
 
-	// Load all Lua scripts
+	// Load all Lua scripts into the queue instance to avoid shared mutable globals.
 	cmdMapping := map[string]**valkey.Lua{
-		"queue/prepare.lua":  &prepareCmd,
-		"queue/size.lua":     &sizeCmd,
-		"queue/recover.lua":  &recoverCmd,
-		"queue/enqueue.lua":  &enqueueCmd,
-		"queue/complete.lua": &completeCmd,
+		"queue/prepare.lua":  &tq.prepareCmd,
+		"queue/size.lua":     &tq.sizeCmd,
+		"queue/recover.lua":  &tq.recoverCmd,
+		"queue/enqueue.lua":  &tq.enqueueCmd,
+		"queue/complete.lua": &tq.completeCmd,
 	}
 
 	if err := loadScripts(cmdMapping); err != nil {
@@ -85,7 +85,7 @@ func (q *taskQueue[T]) Prepare(ctx context.Context, client valkey.Client, queues
 		queueStreamKeys = append(queueStreamKeys, q.Keys(queue).StreamKey)
 	}
 
-	err := prepareCmd.Exec(ctx, client, queueStreamKeys, []string{q.groupName}).Error()
+	err := q.prepareCmd.Exec(ctx, client, queueStreamKeys, []string{q.groupName}).Error()
 	if err != nil && !valkey.IsValkeyNil(err) {
 		return fmt.Errorf("preparing queues: %w", err)
 	}
@@ -101,7 +101,7 @@ func (q *taskQueue[T]) Keys(queue workflow.Queue) KeyInfo {
 }
 
 func (q *taskQueue[T]) Size(ctx context.Context, client valkey.Client) (map[workflow.Queue]int64, error) {
-	sizeData, err := sizeCmd.Exec(ctx, client, []string{q.queueSetKey}, []string{}).ToArray()
+	sizeData, err := q.sizeCmd.Exec(ctx, client, []string{q.queueSetKey}, []string{}).ToArray()
 	if err != nil {
 		return nil, fmt.Errorf("getting queue size: %w", err)
 	}
@@ -135,7 +135,7 @@ func (q *taskQueue[T]) Enqueue(ctx context.Context, client valkey.Client, queue 
 	}
 
 	queueStreamInfo := q.Keys(queue)
-	if err := enqueueCmd.Exec(ctx, client, []string{q.queueSetKey, queueStreamInfo.SetKey, queueStreamInfo.StreamKey}, []string{q.groupName, id, string(ds)}).Error(); err != nil {
+	if err := q.enqueueCmd.Exec(ctx, client, []string{q.queueSetKey, queueStreamInfo.SetKey, queueStreamInfo.StreamKey}, []string{q.groupName, id, string(ds)}).Error(); err != nil {
 		return fmt.Errorf("enqueueing task: %w", err)
 	}
 
@@ -150,6 +150,9 @@ func (q *taskQueue[T]) Dequeue(ctx context.Context, client valkey.Client, queues
 	}
 
 	if task != nil {
+		if q.logger != nil {
+			q.logger.Info("recovered abandoned task", "tasktype", q.tasktype, "task_id", task.TaskID, "id", task.ID)
+		}
 		return task, nil
 	}
 
@@ -199,7 +202,7 @@ func (q *taskQueue[T]) Extend(ctx context.Context, client valkey.Client, queue w
 }
 
 func (q *taskQueue[T]) Complete(ctx context.Context, client valkey.Client, queue workflow.Queue, taskID string) error {
-	err := completeCmd.Exec(ctx, client, []string{
+	err := q.completeCmd.Exec(ctx, client, []string{
 		q.Keys(queue).SetKey,
 		q.Keys(queue).StreamKey,
 	}, []string{taskID, q.groupName}).Error()
@@ -216,7 +219,7 @@ func (q *taskQueue[T]) recover(ctx context.Context, client valkey.Client, queues
 		keys = append(keys, q.Keys(queue).StreamKey)
 	}
 
-	r, err := recoverCmd.Exec(ctx, client, keys, []string{q.groupName, q.workerName, strconv.FormatInt(idleTimeout.Milliseconds(), 10), "0"}).ToArray()
+	r, err := q.recoverCmd.Exec(ctx, client, keys, []string{q.groupName, q.workerName, strconv.FormatInt(idleTimeout.Milliseconds(), 10), "0"}).ToArray()
 	if err != nil {
 		if valkey.IsValkeyNil(err) {
 			return nil, nil

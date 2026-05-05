@@ -34,7 +34,7 @@ func (vb *valkeyBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	queueKeys := vb.workflowQueue.Keys(queue)
 
 	// Execute the Lua script
-	err = signalWorkflowScript.Exec(ctx, vb.client, []string{
+	err = vb.signalWorkflowScript.Exec(ctx, vb.client, []string{
 		vb.keys.payloadKey(instanceState.Instance),
 		vb.keys.pendingEventsKey(instanceState.Instance),
 		queueKeys.SetKey,

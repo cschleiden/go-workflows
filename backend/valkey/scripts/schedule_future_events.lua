@@ -8,7 +8,7 @@
 -- ARGV[1] - current timestamp for zrange
 -- ARGV[2] - redis key prefix
 --
--- Note: this does not work with Redis Cluster since not all keys are passed into the script.
+-- Note: this does not work with Valkey Cluster since not all keys are passed into the script.
 -- Find events which should become visible now
 local now = ARGV[1]
 local events = server.call("ZRANGE", KEYS[1], "-inf", now, "BYSCORE")

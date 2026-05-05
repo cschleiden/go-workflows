@@ -20,17 +20,6 @@ var _ backend.Backend = (*valkeyBackend)(nil)
 //go:embed scripts
 var luaScripts embed.FS
 
-var (
-	createWorkflowInstanceScript *valkey.Lua
-	completeWorkflowTaskScript   *valkey.Lua
-	completeActivityTaskScript   *valkey.Lua
-	deleteInstanceScript         *valkey.Lua
-	futureEventsScript           *valkey.Lua
-	expireWorkflowInstanceScript *valkey.Lua
-	cancelWorkflowInstanceScript *valkey.Lua
-	signalWorkflowScript         *valkey.Lua
-)
-
 func NewValkeyBackend(client valkey.Client, opts ...BackendOption) (*valkeyBackend, error) {
 	vopts := &Options{
 		Options:      backend.ApplyOptions(),
@@ -59,16 +48,19 @@ func NewValkeyBackend(client valkey.Client, opts ...BackendOption) (*valkeyBacke
 		activityQueue: activityQueue,
 	}
 
-	// Load all Lua scripts
+	workflowQueue.logger = vopts.Logger
+	activityQueue.logger = vopts.Logger
+
+	// Load all Lua scripts into the backend instance to avoid shared mutable globals.
 	scriptMapping := map[string]**valkey.Lua{
-		"cancel_workflow_instance.lua": &cancelWorkflowInstanceScript,
-		"complete_activity_task.lua":   &completeActivityTaskScript,
-		"complete_workflow_task.lua":   &completeWorkflowTaskScript,
-		"create_workflow_instance.lua": &createWorkflowInstanceScript,
-		"delete_instance.lua":          &deleteInstanceScript,
-		"expire_workflow_instance.lua": &expireWorkflowInstanceScript,
-		"schedule_future_events.lua":   &futureEventsScript,
-		"signal_workflow.lua":          &signalWorkflowScript,
+		"cancel_workflow_instance.lua": &vb.cancelWorkflowInstanceScript,
+		"complete_activity_task.lua":   &vb.completeActivityTaskScript,
+		"complete_workflow_task.lua":   &vb.completeWorkflowTaskScript,
+		"create_workflow_instance.lua": &vb.createWorkflowInstanceScript,
+		"delete_instance.lua":          &vb.deleteInstanceScript,
+		"expire_workflow_instance.lua": &vb.expireWorkflowInstanceScript,
+		"schedule_future_events.lua":   &vb.futureEventsScript,
+		"signal_workflow.lua":          &vb.signalWorkflowScript,
 	}
 
 	if err := loadScripts(scriptMapping); err != nil {
@@ -97,6 +89,15 @@ type valkeyBackend struct {
 	keys          *keys
 	workflowQueue *taskQueue[workflowData]
 	activityQueue *taskQueue[activityData]
+
+	createWorkflowInstanceScript *valkey.Lua
+	completeWorkflowTaskScript   *valkey.Lua
+	completeActivityTaskScript   *valkey.Lua
+	deleteInstanceScript         *valkey.Lua
+	futureEventsScript           *valkey.Lua
+	expireWorkflowInstanceScript *valkey.Lua
+	cancelWorkflowInstanceScript *valkey.Lua
+	signalWorkflowScript         *valkey.Lua
 }
 
 type workflowData struct{}
@@ -121,7 +122,7 @@ func (vb *valkeyBackend) Options() *backend.Options {
 }
 
 func (vb *valkeyBackend) Close() error {
-	vb.client.Close()
+	vb.client.Close() // valkey.Client.Close has no return value
 	return nil
 }
 

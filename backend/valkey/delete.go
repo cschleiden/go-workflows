@@ -12,7 +12,7 @@ import (
 //
 // Note: might want to revisit this in the future if we want to support removing hung instances.
 func (vb *valkeyBackend) deleteInstance(ctx context.Context, instance *core.WorkflowInstance) error {
-	err := deleteInstanceScript.Exec(ctx, vb.client, []string{
+	err := vb.deleteInstanceScript.Exec(ctx, vb.client, []string{
 		vb.keys.instanceKey(instance),
 		vb.keys.pendingEventsKey(instance),
 		vb.keys.historyKey(instance),

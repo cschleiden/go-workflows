@@ -54,7 +54,7 @@ func (vb *valkeyBackend) CompleteActivityTask(ctx context.Context, task *backend
 	activityQueueKeys := vb.activityQueue.Keys(task.Queue)
 	workflowQueueKeys := vb.workflowQueue.Keys(workflow.Queue(instance.Queue))
 
-	err = completeActivityTaskScript.Exec(ctx, vb.client, []string{
+	err = vb.completeActivityTaskScript.Exec(ctx, vb.client, []string{
 		activityQueueKeys.SetKey,
 		activityQueueKeys.StreamKey,
 		vb.keys.pendingEventsKey(task.WorkflowInstance),

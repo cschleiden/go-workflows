@@ -280,7 +280,7 @@ func (vb *valkeyBackend) CompleteWorkflowTask(
 	args = append(args, task.ID, vb.workflowQueue.groupName)
 
 	// Run script
-	err := completeWorkflowTaskScript.Exec(ctx, vb.client, keys, args).Error()
+	err := vb.completeWorkflowTaskScript.Exec(ctx, vb.client, keys, args).Error()
 	if err != nil {
 		return fmt.Errorf("completing workflow task: %w", err)
 	}

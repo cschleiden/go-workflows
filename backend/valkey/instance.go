@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cschleiden/go-workflows/backend"
@@ -42,7 +42,7 @@ func (vb *valkeyBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	keyInfo := vb.workflowQueue.Keys(a.Queue)
 
 	// Execute Lua script for atomic creation
-	err = createWorkflowInstanceScript.Exec(ctx, vb.client, []string{
+	err = vb.createWorkflowInstanceScript.Exec(ctx, vb.client, []string{
 		vb.keys.instanceKey(instance),
 		vb.keys.activeInstanceExecutionKey(instance.InstanceID),
 		vb.keys.pendingEventsKey(instance),
@@ -63,7 +63,7 @@ func (vb *valkeyBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 	}).Error()
 
 	if err != nil {
-		if err.Error() == "ERR InstanceAlreadyExists" {
+		if strings.Contains(err.Error(), "InstanceAlreadyExists") {
 			return backend.ErrInstanceAlreadyExists
 		}
 		return fmt.Errorf("creating workflow instance: %w", err)
@@ -75,7 +75,7 @@ func (vb *valkeyBackend) CreateWorkflowInstance(ctx context.Context, instance *w
 func (vb *valkeyBackend) GetWorkflowInstanceHistory(ctx context.Context, instance *core.WorkflowInstance, lastSequenceID *int64) ([]*history.Event, error) {
 	start := "-"
 	if lastSequenceID != nil {
-		start = strconv.FormatInt(*lastSequenceID, 10)
+		start = fmt.Sprintf("(%d", *lastSequenceID)
 	}
 
 	msgs, err := vb.client.Do(ctx, vb.client.B().Xrange().Key(vb.keys.historyKey(instance)).Start(start).End("+").Build()).AsXRange()
@@ -143,7 +143,7 @@ func (vb *valkeyBackend) CancelWorkflowInstance(ctx context.Context, instance *c
 	keyInfo := vb.workflowQueue.Keys(workflow.Queue(instanceState.Queue))
 
 	// Cancel instance
-	err = cancelWorkflowInstanceScript.Exec(ctx, vb.client, []string{
+	err = vb.cancelWorkflowInstanceScript.Exec(ctx, vb.client, []string{
 		vb.keys.payloadKey(instance),
 		vb.keys.pendingEventsKey(instance),
 		keyInfo.SetKey,
@@ -215,11 +215,10 @@ func readInstance(ctx context.Context, client valkey.Client, instanceKey string)
 func (vb *valkeyBackend) readActiveInstanceExecution(ctx context.Context, instanceID string) (*core.WorkflowInstance, error) {
 	val, err := vb.client.Do(ctx, vb.client.B().Get().Key(vb.keys.activeInstanceExecutionKey(instanceID)).Build()).ToString()
 	if err != nil {
+		if valkey.IsValkeyNil(err) {
+			return nil, nil
+		}
 		return nil, err
-	}
-
-	if val == "" {
-		return nil, nil
 	}
 
 	var instance *core.WorkflowInstance

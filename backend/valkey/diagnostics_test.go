@@ -42,14 +42,14 @@ func getCreateBackend(client valkey.Client, additionalOptions ...BackendOption) 
 			panic("Keys should've been empty" + strings.Join(r, ", "))
 		}
 
-		redisOptions := []BackendOption{
+		valkeyOptions := []BackendOption{
 			WithBlockTimeout(time.Millisecond * 10),
 			WithBackendOptions(options...),
 		}
 
-		redisOptions = append(redisOptions, additionalOptions...)
+		valkeyOptions = append(valkeyOptions, additionalOptions...)
 
-		b, err := NewValkeyBackend(client, redisOptions...)
+		b, err := NewValkeyBackend(client, valkeyOptions...)
 		if err != nil {
 			panic(err)
 		}

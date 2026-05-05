@@ -16,7 +16,7 @@ func (vb *valkeyBackend) setWorkflowInstanceExpiration(ctx context.Context, inst
 	exp := time.Now().Add(expiration).UnixMilli()
 	expStr := strconv.FormatInt(exp, 10)
 
-	err := expireWorkflowInstanceScript.Exec(ctx, vb.client, []string{
+	err := vb.expireWorkflowInstanceScript.Exec(ctx, vb.client, []string{
 		vb.keys.instancesByCreation(),
 		vb.keys.instancesExpiring(),
 		vb.keys.instanceKey(instance),

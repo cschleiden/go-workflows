@@ -21,7 +21,7 @@ func (vb *valkeyBackend) GetWorkflowInstances(ctx context.Context, afterInstance
 			return nil, fmt.Errorf("getting instance score for %v: %w", afterSegmentID, err)
 		}
 
-		if len(scores) == 0 || scores[0] == 0 {
+		if len(scores) == 0 {
 			vb.Options().Logger.Error("could not find instance %v",
 				log.NamespaceKey+".valkey.afterInstanceID", afterInstanceID,
 				log.NamespaceKey+".valkey.afterExecutionID", afterExecutionID,
