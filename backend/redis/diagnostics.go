@@ -36,8 +36,8 @@ func (rb *redisBackend) GetWorkflowInstances(ctx context.Context, afterInstanceI
 
 	result, err := rb.rdb.ZRangeArgs(ctx, redis.ZRangeArgs{
 		Key:     rb.keys.instancesByCreation(),
-		Stop:    stop,
-		Start:   "-inf",
+		Start:   stop,
+		Stop:    "-inf",
 		ByScore: true,
 		Rev:     true,
 		Count:   int64(count),
