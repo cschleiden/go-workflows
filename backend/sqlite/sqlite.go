@@ -98,9 +98,10 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 	db.SetMaxOpenConns(1)
 
 	b := &sqliteBackend{
-		db:         db,
-		workerName: getWorkerName(options),
-		options:    options,
+		db:             db,
+		workerName:     getWorkerName(options),
+		options:        options,
+		ownsConnection: true,
 	}
 
 	// Apply migrations
@@ -113,10 +114,43 @@ func newSqliteBackend(dsn string, opts ...option) *sqliteBackend {
 	return b
 }
 
+// NewSqliteBackendWithDB creates a new SQLite backend using an existing database connection.
+// When using this constructor, the backend will not close the database connection when Close() is called.
+// Migrations can still be applied using WithApplyMigrations(true) as SQLite does not require
+// special connection settings for migrations.
+// Note: The caller is responsible for configuring the connection appropriately (e.g., WAL mode,
+// busy timeout, max open connections).
+func NewSqliteBackendWithDB(db *sql.DB, opts ...option) *sqliteBackend {
+	options := &options{
+		Options:         backend.ApplyOptions(),
+		ApplyMigrations: false,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	b := &sqliteBackend{
+		db:             db,
+		workerName:     getWorkerName(options),
+		options:        options,
+		ownsConnection: false,
+	}
+
+	if options.ApplyMigrations {
+		if err := b.Migrate(); err != nil {
+			panic(err)
+		}
+	}
+
+	return b
+}
+
 type sqliteBackend struct {
-	db         *sql.DB
-	workerName string
-	options    *options
+	db             *sql.DB
+	workerName     string
+	options        *options
+	ownsConnection bool
 
 	memConn *sql.Conn
 }
@@ -132,6 +166,10 @@ func (sb *sqliteBackend) Close() error {
 		if err := sb.memConn.Close(); err != nil {
 			return err
 		}
+	}
+
+	if !sb.ownsConnection {
+		return nil
 	}
 
 	return sb.db.Close()
