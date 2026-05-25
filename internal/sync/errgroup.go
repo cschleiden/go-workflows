@@ -13,8 +13,12 @@ type ErrGroup interface {
 	// Go must not be called after Wait has been called.
 	Go(f func(Context) error)
 
-	// Wait waits for all launched functions to complete and returns the first non-nil error
-	// returned by any function, or nil if all functions succeeded.
+	// Wait blocks until all launched functions have completed and returns the first non-nil
+	// error returned by any function, or nil if all functions succeeded.
+	// Note: Wait does not observe cancellation of ctx; it always waits for every launched
+	// function to finish. This matches the WaitGroup convention used elsewhere in this
+	// package. To stop in-flight work early, cancel the group's derived context (which is
+	// also canceled automatically when the first function returns a non-nil error).
 	Wait(ctx Context) error
 }
 
