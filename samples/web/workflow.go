@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/cschleiden/go-workflows/activity"
 	"github.com/cschleiden/go-workflows/workflow"
@@ -82,7 +83,7 @@ func Activity1(ctx context.Context, a, b int) (int, error) {
 	logger.Debug("Entering Activity1")
 	defer logger.Debug("Leaving Activity1")
 
-	// time.Sleep(5 * time.Second)
+	time.Sleep(50 * time.Second)
 
 	return a + b, nil
 }
