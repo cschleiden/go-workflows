@@ -43,6 +43,16 @@ func WithCancelCause(parent Context) (ctx Context, cancel CancelCauseFunc) {
 	return sync.WithCancelCause(parent)
 }
 
+// Cause returns a non-nil error explaining why c was canceled.
+// The first cancellation of c or one of its parents sets the cause.
+// If that cancellation happened via a call to CancelCauseFunc(err),
+// then [Cause] returns err.
+// Otherwise Cause(c) returns the same value as c.Err().
+// Cause returns nil if c has not been canceled yet.
+func Cause(c Context) error {
+	return sync.Cause(c)
+}
+
 // WithValue returns a copy of parent in which the value associated with key is
 // val.
 //
