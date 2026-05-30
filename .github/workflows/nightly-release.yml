@@ -1,0 +1,174 @@
+name: Nightly Release
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Publish even when no commits were merged since the previous release point"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
+jobs:
+  detect_changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      previous_tag: ${{ steps.detect.outputs.previous_tag }}
+      release_tag: ${{ steps.detect.outputs.release_tag }}
+      commit_count: ${{ steps.detect.outputs.commit_count }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Detect releasable changes
+        id: detect
+        shell: bash
+        env:
+          FORCE_PUBLISH: ${{ inputs.force || false }}
+        run: |
+          set -euo pipefail
+
+          stable_tag_pattern='^v[0-9]+\.[0-9]+\.[0-9]+$'
+          nightly_tag_pattern='^v[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]+(\.[0-9A-Za-z-]+)*$'
+          release_tag_pattern='^v[0-9]+\.[0-9]+\.[0-9]+(-nightly\.[0-9]+(\.[0-9A-Za-z-]+)*)?$'
+
+          latest_stable_tag="$(git tag --list 'v*' --sort=-v:refname | grep -E "${stable_tag_pattern}" | head -n 1 || true)"
+          latest_nightly_tag="$(git tag --list 'v*' --sort=-v:refname | grep -E "${nightly_tag_pattern}" | head -n 1 || true)"
+          previous_tag="$(git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/tags | grep -E "${release_tag_pattern}" | head -n 1 || true)"
+
+          if [[ -n "${latest_stable_tag}" && "${latest_stable_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="$((BASH_REMATCH[3] + 1))"
+          else
+            major="0"
+            minor="0"
+            patch="1"
+          fi
+
+          timestamp="$(date -u +'%Y%m%d%H%M')"
+          release_tag="v${major}.${minor}.${patch}-nightly.${timestamp}.${GITHUB_RUN_NUMBER}"
+
+          commit_count="0"
+          should_publish="false"
+          if [[ "${FORCE_PUBLISH}" == "true" ]]; then
+            should_publish="true"
+          elif [[ -z "${previous_tag}" ]]; then
+            should_publish="true"
+          else
+            commit_count="$(git rev-list --count "${previous_tag}..HEAD")"
+            if [[ "${commit_count}" -gt 0 ]]; then
+              should_publish="true"
+            fi
+          fi
+
+          {
+            echo "latest_stable_tag=${latest_stable_tag}"
+            echo "latest_nightly_tag=${latest_nightly_tag}"
+            echo "previous_tag=${previous_tag}"
+            echo "release_tag=${release_tag}"
+            echo "commit_count=${commit_count}"
+            echo "should_publish=${should_publish}"
+          } >> "${GITHUB_OUTPUT}"
+
+          if [[ "${should_publish}" == "true" ]]; then
+            echo "Nightly release will publish ${release_tag}."
+          else
+            echo "No commits found since ${previous_tag}; nightly release will be skipped."
+          fi
+
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.should_publish == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+          check-latest: true
+          cache: true
+
+      - name: Build
+        run: make build
+
+      - name: Format
+        run: |
+          make fmt
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Code is not formatted. Please run 'make fmt'"
+            git diff
+            exit 1
+          fi
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4.0
+
+      - name: Tests
+        run: make test
+
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs:
+      - detect_changes
+      - validate
+    if: needs.detect_changes.outputs.should_publish == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - name: Create prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.detect_changes.outputs.release_tag }}
+          PREVIOUS_TAG: ${{ needs.detect_changes.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+
+          git tag "${RELEASE_TAG}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${RELEASE_TAG}"
+
+          notes_args=(--generate-notes)
+          if [[ -n "${PREVIOUS_TAG}" ]]; then
+            notes_args+=(--notes-start-tag "${PREVIOUS_TAG}")
+          fi
+
+          gh release create "${RELEASE_TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "Nightly ${RELEASE_TAG}" \
+            --prerelease \
+            --latest=false \
+            "${notes_args[@]}"
