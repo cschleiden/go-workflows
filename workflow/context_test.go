@@ -12,7 +12,7 @@ func TestCause(t *testing.T) {
 	myErr := errors.New("my cause")
 
 	ctx, cancel := WithCancelCause(sync.Background())
-	require.Nil(t, Cause(ctx))
+	require.NoError(t, Cause(ctx))
 
 	cancel(myErr)
 
