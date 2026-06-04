@@ -435,6 +435,9 @@ func (e *executor) handleWorkflowExecutionStarted(event *history.Event, a *histo
 	e.workflowCtx = tracing.ContextWithSpan(e.workflowCtx, span)
 	e.workflowSpan = span
 
+	// Update logger with trace context so workflow.Logger includes trace_id and span_id
+	e.workflowState.UpdateLoggerWithSpan(span.SpanContext())
+
 	e.workflow = newWorkflow(reflect.ValueOf(wfFn))
 	return e.workflow.Execute(e.workflowCtx, a.Inputs)
 }
