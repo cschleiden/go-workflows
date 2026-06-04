@@ -34,12 +34,14 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			stats, err := backend.GetStats(r.Context())
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 
 			w.Header().Add("Content-Type", "application/json")
 			if err := json.NewEncoder(w).Encode(stats); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 
@@ -72,12 +74,14 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			instances, err := backend.GetWorkflowInstances(r.Context(), afterInstanceID, afterExecutionID, count)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 
 			w.Header().Add("Content-Type", "application/json")
 			if err := json.NewEncoder(w).Encode(instances); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 
@@ -106,6 +110,7 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			history, err := backend.GetWorkflowInstanceHistory(r.Context(), instanceRef.Instance, nil)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 
@@ -130,6 +135,7 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			w.Header().Add("Content-Type", "application/json")
 			if err := json.NewEncoder(w).Encode(result); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 
@@ -160,6 +166,7 @@ func NewServeMux(backend Backend) *http.ServeMux {
 			w.Header().Add("Content-Type", "application/json")
 			if err := json.NewEncoder(w).Encode(tree); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
 

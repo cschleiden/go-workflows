@@ -13,6 +13,7 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.0.0
 	github.com/redis/go-redis/v9 v9.0.2
 	github.com/stretchr/testify v1.10.0
+	github.com/valkey-io/valkey-go v1.0.68
 	go.opentelemetry.io/otel v1.31.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.31.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.31.0
