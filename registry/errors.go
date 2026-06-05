@@ -31,3 +31,19 @@ type ErrActivityAlreadyRegistered struct {
 func (e *ErrActivityAlreadyRegistered) Error() string {
 	return e.msg
 }
+
+type ErrVersionedWorkflowAlreadyRegistered struct {
+	msg string
+}
+
+func (e *ErrVersionedWorkflowAlreadyRegistered) Error() string {
+	return e.msg
+}
+
+type ErrWorkflowVersionNotFound struct {
+	msg string
+}
+
+func (e *ErrWorkflowVersionNotFound) Error() string {
+	return e.msg
+}
