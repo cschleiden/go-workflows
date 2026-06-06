@@ -29,6 +29,8 @@ func (c *cancelableCommand) HandleCancel() {
 	switch c.state {
 	case CommandState_CancelPending:
 		c.state = CommandState_Canceled
+	case CommandState_Done:
+		c.state = CommandState_Done
 	default:
 		c.invalidStateTransition(CommandState_Canceled)
 	}
@@ -36,7 +38,7 @@ func (c *cancelableCommand) HandleCancel() {
 
 func (c *cancelableCommand) Done() {
 	switch c.state {
-	case CommandState_Committed, CommandState_Canceled:
+	case CommandState_Committed, CommandState_CancelPending, CommandState_Canceled:
 		c.state = CommandState_Done
 		if c.whenDone != nil {
 			c.whenDone()

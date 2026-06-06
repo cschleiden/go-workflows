@@ -292,6 +292,7 @@ func (sb *sqliteBackend) removeWorkflowInstance(ctx context.Context, instance *c
 		if err == sql.ErrNoRows {
 			return backend.ErrInstanceNotFound
 		}
+		return fmt.Errorf("scanning workflow instance state: %w", err)
 	}
 
 	if state == core.WorkflowInstanceStateActive {
@@ -313,23 +314,26 @@ func (sb *sqliteBackend) removeWorkflowInstance(ctx context.Context, instance *c
 	return nil
 }
 
-func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) (int, error) {
 	ro := backend.DefaultRemovalOptions
 	for _, opt := range options {
 		opt(&ro)
 	}
 
-	rows, err := sb.db.QueryContext(ctx, `SELECT id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
+	rows, err := sb.db.QueryContext(ctx,
+		`SELECT id, execution_id FROM instances WHERE completed_at IS NOT NULL AND completed_at < ? LIMIT ?`,
+		ro.FinishedBefore, ro.BatchSize)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	defer rows.Close()
 
 	instanceIDs := []string{}
 	executionIDs := []string{}
 	for rows.Next() {
 		var id, executionID string
 		if err := rows.Scan(&id, &executionID); err != nil {
-			return err
+			return 0, err
 		}
 
 		instanceIDs = append(instanceIDs, id)
@@ -337,50 +341,46 @@ func (sb *sqliteBackend) RemoveWorkflowInstances(ctx context.Context, options ..
 	}
 
 	if rows.Err() != nil {
-		return rows.Err()
+		return 0, rows.Err()
 	}
 
-	batchSize := ro.BatchSize
-	for i := 0; i < len(instanceIDs); i += batchSize {
-		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
-		executionIDs := executionIDs[i:min(i+batchSize, len(executionIDs))]
-
-		tx, err := sb.db.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-
-		defer tx.Rollback()
-
-		placeholders := strings.Repeat(",?", len(instanceIDs)-1)
-		whereCondition := fmt.Sprintf("id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
-		args := make([]interface{}, 0, len(instanceIDs)*2)
-		for i := range instanceIDs {
-			args = append(args, instanceIDs[i])
-		}
-		for i := range executionIDs {
-			args = append(args, executionIDs[i])
-		}
-
-		// Delete from instances, history and attributes tables
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", whereCondition), args...); err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", whereCondition), args...); err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", whereCondition), args...); err != nil {
-			return err
-		}
-
-		if err := tx.Commit(); err != nil {
-			return err
-		}
+	if len(instanceIDs) == 0 {
+		return 0, nil
 	}
 
-	return nil
+	tx, err := sb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	placeholders := strings.Repeat(",?", len(instanceIDs)-1)
+	instancesWhere := fmt.Sprintf("id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
+	historyWhere := fmt.Sprintf("instance_id IN (?%v) AND execution_id IN (?%v)", placeholders, placeholders)
+	args := make([]interface{}, 0, len(instanceIDs)*2)
+	for j := range instanceIDs {
+		args = append(args, instanceIDs[j])
+	}
+	for j := range executionIDs {
+		args = append(args, executionIDs[j])
+	}
+
+	// Delete from instances, history and attributes tables
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", instancesWhere), args...); err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", historyWhere), args...); err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", historyWhere), args...); err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	return len(instanceIDs), tx.Commit()
 }
 
 func (sb *sqliteBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
@@ -448,6 +448,7 @@ func (sb *sqliteBackend) GetWorkflowInstanceState(ctx context.Context, instance 
 		if err == sql.ErrNoRows {
 			return core.WorkflowInstanceStateActive, backend.ErrInstanceNotFound
 		}
+		return core.WorkflowInstanceStateActive, fmt.Errorf("scanning workflow instance state: %w", err)
 	}
 
 	return state, nil
@@ -463,8 +464,11 @@ func (sb *sqliteBackend) SignalWorkflow(ctx context.Context, instanceID string, 
 	// TODO: Combine this with the event insertion
 	var executionID string
 	res := tx.QueryRowContext(ctx, "SELECT execution_id FROM `instances` WHERE id = ? AND state = ? LIMIT 1", instanceID, core.WorkflowInstanceStateActive)
-	if err := res.Scan(&executionID); err == sql.ErrNoRows {
-		return backend.ErrInstanceNotFound
+	if err := res.Scan(&executionID); err != nil {
+		if err == sql.ErrNoRows {
+			return backend.ErrInstanceNotFound
+		}
+		return fmt.Errorf("scanning execution ID: %w", err)
 	}
 
 	if err := insertPendingEvents(ctx, tx, core.NewWorkflowInstance(instanceID, executionID), []*history.Event{event}); err != nil {

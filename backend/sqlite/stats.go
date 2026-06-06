@@ -57,6 +57,7 @@ func (sb *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active instances: %w", err)
 	}
+	defer workflowRows.Close()
 
 	s.PendingWorkflowTasks = make(map[core.Queue]int64)
 
@@ -81,6 +82,7 @@ func (sb *sqliteBackend) GetStats(ctx context.Context) (*backend.Stats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active activities: %w", err)
 	}
+	defer activityRows.Close()
 
 	s.PendingActivityTasks = make(map[core.Queue]int64)
 

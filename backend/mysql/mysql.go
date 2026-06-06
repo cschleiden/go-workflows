@@ -246,7 +246,7 @@ func (mb *mysqlBackend) removeWorkflowInstance(ctx context.Context, instance *co
 	return nil
 }
 
-func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) error {
+func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...backend.RemovalOption) (int, error) {
 	ro := backend.DefaultRemovalOptions
 	for _, opt := range options {
 		opt(&ro)
@@ -254,7 +254,7 @@ func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...
 
 	rows, err := mb.db.QueryContext(ctx, `SELECT instance_id, execution_id FROM instances WHERE completed_at < ?`, ro.FinishedBefore)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	instanceIDs := []string{}
@@ -262,7 +262,7 @@ func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...
 	for rows.Next() {
 		var id, executionID string
 		if err := rows.Scan(&id, &executionID); err != nil {
-			return err
+			return 0, err
 		}
 
 		instanceIDs = append(instanceIDs, id)
@@ -270,9 +270,10 @@ func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...
 	}
 
 	if rows.Err() != nil {
-		return rows.Err()
+		return 0, rows.Err()
 	}
 
+	removed := 0
 	batchSize := ro.BatchSize
 	for i := 0; i < len(instanceIDs); i += batchSize {
 		instanceIDs := instanceIDs[i:min(i+batchSize, len(instanceIDs))]
@@ -280,7 +281,7 @@ func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...
 
 		tx, err := mb.db.BeginTx(ctx, nil)
 		if err != nil {
-			return err
+			return removed, err
 		}
 
 		defer tx.Rollback()
@@ -297,23 +298,25 @@ func (mb *mysqlBackend) RemoveWorkflowInstances(ctx context.Context, options ...
 
 		// Delete from instances, history and attributes tables
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `instances` WHERE %v", whereCondition), args...); err != nil {
-			return err
+			return removed, err
 		}
 
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `history` WHERE %v", whereCondition), args...); err != nil {
-			return err
+			return removed, err
 		}
 
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM `attributes` WHERE %v", whereCondition), args...); err != nil {
-			return err
+			return removed, err
 		}
 
 		if err := tx.Commit(); err != nil {
-			return err
+			return removed, err
 		}
+
+		removed += len(instanceIDs)
 	}
 
-	return nil
+	return removed, nil
 }
 
 func (mb *mysqlBackend) CancelWorkflowInstance(ctx context.Context, instance *workflow.Instance, event *history.Event) error {
