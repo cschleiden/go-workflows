@@ -30,7 +30,7 @@ var e2eRemovalTests = []backendTest{
 			for i := 0; i < 10; i++ {
 				time.Sleep(300 * time.Millisecond)
 
-				err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
+				_, err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
 				if errors.As(err, &backend.ErrNotSupported{}) {
 					t.Skip()
 					return
@@ -45,6 +45,53 @@ var e2eRemovalTests = []backendTest{
 			}
 
 			require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+		},
+	},
+	{
+		name: "RemoveWorkflowInstances/CleansUpHistoryAndAttributes",
+		f: func(t *testing.T, ctx context.Context, c *client.Client, w *worker.Worker, b TestBackend) {
+			a := func(ctx context.Context) (int, error) {
+				return 42, nil
+			}
+			wf := func(ctx workflow.Context) (int, error) {
+				return workflow.ExecuteActivity[int](ctx, workflow.DefaultActivityOptions, a).Get(ctx)
+			}
+
+			register(t, ctx, w, []interface{}{wf}, []interface{}{a})
+
+			instance := runWorkflow(t, ctx, c, wf)
+			_, err := client.GetWorkflowResult[int](ctx, c, instance, time.Second*10)
+			require.NoError(t, err)
+
+			// Verify history exists before removal
+			h, err := b.GetWorkflowInstanceHistory(ctx, instance, nil)
+			require.NoError(t, err)
+			require.NotEmpty(t, h, "history should exist before removal")
+
+			// Remove workflow instances
+			for i := 0; i < 10; i++ {
+				time.Sleep(300 * time.Millisecond)
+
+				_, err = b.RemoveWorkflowInstances(ctx, backend.RemoveFinishedBefore(time.Now()))
+				if errors.As(err, &backend.ErrNotSupported{}) {
+					t.Skip()
+					return
+				}
+
+				require.NoError(t, err)
+
+				_, err = c.GetWorkflowInstanceState(ctx, instance)
+				if errors.Is(err, backend.ErrInstanceNotFound) {
+					break
+				}
+			}
+
+			require.ErrorIs(t, err, backend.ErrInstanceNotFound)
+
+			// Verify history and attributes are also cleaned up
+			h, err = b.GetWorkflowInstanceHistory(ctx, instance, nil)
+			require.NoError(t, err)
+			require.Empty(t, h, "history and attributes should be removed along with instance")
 		},
 	},
 	{

@@ -10,7 +10,7 @@ type RemovalOptions struct {
 }
 
 var DefaultRemovalOptions = RemovalOptions{
-	BatchSize: 100,
+	BatchSize: 500,
 }
 
 type RemovalOption func(o *RemovalOptions)
