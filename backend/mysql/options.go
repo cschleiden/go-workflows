@@ -18,6 +18,10 @@ type options struct {
 	// using NewMysqlBackendWithDB where no DSN is available. The DSN must support
 	// multi-statement queries (e.g., include &multiStatements=true).
 	MigrationDSN string
+
+	// MigrationsTable is the table used to track applied migrations. If empty,
+	// golang-migrate uses its default table.
+	MigrationsTable string
 }
 
 type option func(*options)
@@ -41,6 +45,13 @@ func WithMySQLOptions(f func(db *sql.DB)) option {
 func WithMigrationDSN(dsn string) option {
 	return func(o *options) {
 		o.MigrationDSN = dsn
+	}
+}
+
+// WithMigrationsTable sets the table used to track applied migrations.
+func WithMigrationsTable(migrationsTable string) option {
+	return func(o *options) {
+		o.MigrationsTable = migrationsTable
 	}
 }
 
