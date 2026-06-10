@@ -12,6 +12,7 @@ import (
 	"github.com/cschleiden/go-workflows/backend/test"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/stretchr/testify/require"
 )
 
 const testUser = "root"
@@ -100,6 +101,52 @@ func TestPostgresBackendE2E(t *testing.T) {
 			panic(fmt.Errorf("dropping database: %w", err))
 		}
 	})
+}
+
+func Test_PostgresBackendWithCustomMigrationsTable(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	adminDB, err := sql.Open("pgx", fmt.Sprintf("host=localhost port=5432 user=%s password=%s dbname=postgres sslmode=disable", testUser, testPassword))
+	require.NoError(t, err)
+
+	dbName := "test_migration_table_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	_, err = adminDB.Exec("CREATE DATABASE " + dbName)
+	require.NoError(t, err)
+	defer func() {
+		_, _ = adminDB.Exec("DROP DATABASE IF EXISTS " + dbName + " WITH (FORCE)")
+		_ = adminDB.Close()
+	}()
+
+	db, err := sql.Open("pgx", fmt.Sprintf("host=localhost port=5432 user=%s password=%s dbname=%s sslmode=disable", testUser, testPassword, dbName))
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (10, false)")
+	require.NoError(t, err)
+
+	backend := NewPostgresBackendWithDB(
+		db,
+		WithApplyMigrations(true),
+		WithMigrationsTable("go_workflows_schema_migrations"),
+	)
+	defer backend.Close()
+
+	_, err = db.Exec("SELECT 1 FROM instances LIMIT 1")
+	require.NoError(t, err)
+
+	var defaultVersion int
+	err = db.QueryRow("SELECT version FROM schema_migrations").Scan(&defaultVersion)
+	require.NoError(t, err)
+	require.Equal(t, 10, defaultVersion)
+
+	var workflowsVersion int
+	err = db.QueryRow("SELECT version FROM go_workflows_schema_migrations").Scan(&workflowsVersion)
+	require.NoError(t, err)
+	require.Equal(t, 1, workflowsVersion)
 }
 
 var _ test.TestBackend = (*postgresBackend)(nil)

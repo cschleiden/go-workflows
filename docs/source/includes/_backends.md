@@ -45,6 +45,7 @@ backend := sqlite.NewSqliteBackendWithDB(db, sqlite.WithApplyMigrations(true))
 ### Options
 
 - `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true` for `NewSqliteBackend`, `false` for `NewSqliteBackendWithDB`
+- `WithMigrationsTable(migrationsTable string)` - Set the table used to track applied migrations. Defaults to golang-migrate's standard migration table.
 - `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
 ### Schema
@@ -94,6 +95,7 @@ backend := mysql.NewMysqlBackendWithDB(db,
 - `WithMySQLOptions(f func(db *sql.DB))` - Apply custom options to the MySQL database connection
 - `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true` for `NewMysqlBackend`, `false` for `NewMysqlBackendWithDB`
 - `WithMigrationDSN(dsn string)` - Set the DSN to use for migrations. Required when using `NewMysqlBackendWithDB` with `ApplyMigrations` enabled. The DSN must support multi-statement queries.
+- `WithMigrationsTable(migrationsTable string)` - Set the table used to track applied migrations. Defaults to golang-migrate's standard migration table.
 - `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
 
@@ -136,6 +138,7 @@ backend := postgres.NewPostgresBackendWithDB(db, postgres.WithApplyMigrations(tr
 
 - `WithPostgresOptions(f func(db *sql.DB))` - Apply custom options to the PostgreSQL database connection
 - `WithApplyMigrations(applyMigrations bool)` - Set whether migrations should be applied on startup. Defaults to `true` for `NewPostgresBackend`, `false` for `NewPostgresBackendWithDB`
+- `WithMigrationsTable(migrationsTable string)` - Set the table used to track applied migrations. Defaults to golang-migrate's standard migration table.
 - `WithBackendOptions(opts ...backend.BackendOption)` - Apply generic backend options
 
 

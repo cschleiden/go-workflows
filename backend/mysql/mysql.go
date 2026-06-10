@@ -135,7 +135,9 @@ func (mb *mysqlBackend) Migrate() error {
 		return fmt.Errorf("opening schema database: %w", err)
 	}
 
-	dbi, err := mysql.WithInstance(db, &mysql.Config{})
+	dbi, err := mysql.WithInstance(db, &mysql.Config{
+		MigrationsTable: mb.options.MigrationsTable,
+	})
 	if err != nil {
 		return fmt.Errorf("creating migration instance: %w", err)
 	}
