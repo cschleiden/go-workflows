@@ -299,6 +299,7 @@ func (e *executor) executeNewEvents(newEvents []*history.Event) ([]*history.Even
 	if e.workflow.Completed() {
 		defer e.workflowSpan.End()
 
+
 		if e.workflowState.HasPendingFutures() {
 			// This should not happen, provide debug information to the developer
 			var pending []string

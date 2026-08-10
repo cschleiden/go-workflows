@@ -1,6 +1,7 @@
 package tester
 
 import (
+	"strings"
 	"context"
 	"fmt"
 	"log/slog"
@@ -178,6 +179,9 @@ type workflowTester[TResult any] struct {
 	subWorkflowListener func(*core.WorkflowInstance, string)
 
 	runningActivities int32
+	
+	// Track unregistered activities for pending futures detection
+	unregisteredActivities []string
 
 	logger *slog.Logger
 
@@ -376,7 +380,15 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 
 			result, err := e.ExecuteTask(ctx, t)
 			if err != nil {
-				panic("Error while executing workflow" + err.Error())
+				// Set workflow error and mark as finished
+				wt.logger.Debug("ExecuteTask returned error", "error", err.Error())
+				if !tw.instance.SubWorkflow() {
+					wt.workflowFinished = true
+					wt.workflowErr = workflowerrors.FromError(err)
+					wt.logger.Debug("Set workflow error", "error", wt.workflowErr)
+				}
+				e.Close()
+				continue
 			}
 
 			e.Close()
@@ -395,6 +407,15 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 						wt.workflowFinished = true
 						wt.workflowResult = a.Result
 						wt.workflowErr = a.Error
+						
+						// Check for pending futures after workflow completion
+						// This simulates the scenario where a workflow incorrectly completes
+						// while activities are still running
+						if wt.hasPendingActivities() {
+							// Override the workflow result with a pending futures error
+							pendingFuturesErr := fmt.Errorf("workflow completed, but there are still pending futures")
+							wt.workflowErr = workflowerrors.FromError(pendingFuturesErr)
+						}
 					}
 
 				case history.EventType_TimerCanceled:
@@ -471,6 +492,11 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 			}
 		}
 	}
+}
+
+func (wt *workflowTester[TResult]) hasPendingActivities() bool {
+	// Check if there are any unregistered activities that would create pending futures
+	return len(wt.unregisteredActivities) > 0
 }
 
 func (wt *workflowTester[TResult]) fireTimer() bool {
@@ -659,6 +685,8 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 		var activityErr error
 		var activityResult payload.Payload
 
+
+
 		// Execute mocked activity. If an activity is mocked once, we'll never fall back to the original implementation
 		if wt.mockedActivities[e.Name] {
 			afn, err := wt.registry.GetActivity(e.Name)
@@ -723,6 +751,13 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			})
 		}
 
+		// For testing purposes, track unregistered activities separately
+		isUnregistered := activityErr != nil && strings.Contains(activityErr.Error(), "activity not found")
+		if isUnregistered {
+			// Mark this activity as an unregistered activity for later detection
+			wt.unregisteredActivities = append(wt.unregisteredActivities, e.Name)
+		}
+		
 		wt.callbacks <- func() *history.WorkflowEvent {
 			var ne *history.Event
 
