@@ -241,6 +241,55 @@ func Test_SignalSubWorkflow(t *testing.T) {
 	require.Equal(t, 42, wfR)
 }
 
+func Test_SignalWorkflow_LargeIntegerPrecision(t *testing.T) {
+	type signalPayload struct {
+		ID uint64
+	}
+
+	const (
+		receiverInstanceID = "receiver"
+		signalChannel      = "test-signal"
+		largeIntegerID     = uint64(123456789012345678)
+	)
+
+	testPayload := signalPayload{ID: largeIntegerID}
+
+	var received signalPayload
+
+	receiverWorkflow := func(ctx workflow.Context) error {
+		ch := workflow.NewSignalChannel[signalPayload](ctx, signalChannel)
+		payload, ok := ch.Receive(ctx)
+		if !ok {
+			return errors.New("signal channel unexpectedly closed")
+		}
+		received = payload
+
+		return nil
+	}
+
+	senderWorkflow := func(ctx workflow.Context) error {
+		sub := workflow.CreateSubWorkflowInstance[any](ctx, workflow.SubWorkflowOptions{
+			InstanceID: receiverInstanceID,
+		}, receiverWorkflow)
+
+		if _, err := workflow.SignalWorkflow(ctx, receiverInstanceID, signalChannel, testPayload).Get(ctx); err != nil {
+			return err
+		}
+
+		_, err := sub.Get(ctx)
+		return err
+	}
+
+	wt := NewWorkflowTester[any](senderWorkflow, WithTestTimeout(5*time.Second))
+	wt.Registry().RegisterWorkflow(receiverWorkflow)
+	wt.Execute(context.Background())
+
+	require.True(t, wt.WorkflowFinished())
+	_, err := wt.WorkflowResult()
+	require.NoError(t, err)
+	require.Equal(t, testPayload.ID, received.ID)
+}
+
 func workflowSubworkflowSignal(ctx workflow.Context) (int, error) {
 	sw := workflow.CreateSubWorkflowInstance[int](ctx, workflow.SubWorkflowOptions{
 		InstanceID: "subworkflow",

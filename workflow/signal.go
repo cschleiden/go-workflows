@@ -1,9 +1,14 @@
 package workflow
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/cschleiden/go-workflows/core"
+	"github.com/cschleiden/go-workflows/internal/contextvalue"
 	"github.com/cschleiden/go-workflows/internal/log"
 	"github.com/cschleiden/go-workflows/internal/signals"
+	"github.com/cschleiden/go-workflows/internal/sync"
 	"github.com/cschleiden/go-workflows/internal/workflowstate"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -24,11 +29,18 @@ func SignalWorkflow[T any](ctx Context, instanceID string, name string, arg T) F
 	)
 	defer span.End()
 
+	input, err := contextvalue.Converter(ctx).To(arg)
+	if err != nil {
+		f := sync.NewFuture[any]()
+		f.Set(nil, fmt.Errorf("converting signal input for workflow %s signal %s: %w", instanceID, name, err))
+		return f
+	}
+
 	var a *signals.Activities
 	return ExecuteActivity[any](ctx, ActivityOptions{
 		RetryOptions: RetryOptions{
 			MaxAttempts: 1,
 		},
 		Queue: core.QueueSystem,
-	}, a.DeliverWorkflowSignal, instanceID, name, arg)
+	}, a.DeliverWorkflowSignal, instanceID, name, json.RawMessage(input))
 }
