@@ -211,6 +211,60 @@ func Test_PostgresBackend_WorkerName(t *testing.T) {
 	})
 }
 
+func Test_PostgresBackend_SSLMode(t *testing.T) {
+	t.Run("DefaultSSLMode", func(t *testing.T) {
+		// sql.Open doesn't actually connect, so this works without a real database
+		b := NewPostgresBackend("localhost", 5432, "user", "pass", "db", WithApplyMigrations(false))
+		defer b.Close()
+
+		expected := "host=localhost port=5432 user=user password=pass dbname=db sslmode=disable"
+		if b.dsn != expected {
+			t.Errorf("Expected DSN %q, got %q", expected, b.dsn)
+		}
+	})
+
+	t.Run("CustomSSLMode", func(t *testing.T) {
+		b := NewPostgresBackend("localhost", 5432, "user", "pass", "db", WithApplyMigrations(false), WithSSLMode("require"))
+		defer b.Close()
+
+		expected := "host=localhost port=5432 user=user password=pass dbname=db sslmode=require"
+		if b.dsn != expected {
+			t.Errorf("Expected DSN %q, got %q", expected, b.dsn)
+		}
+	})
+
+	t.Run("VerifyFullSSLMode", func(t *testing.T) {
+		b := NewPostgresBackend("localhost", 5432, "user", "pass", "db", WithApplyMigrations(false), WithSSLMode("verify-full"))
+		defer b.Close()
+
+		expected := "host=localhost port=5432 user=user password=pass dbname=db sslmode=verify-full"
+		if b.dsn != expected {
+			t.Errorf("Expected DSN %q, got %q", expected, b.dsn)
+		}
+	})
+
+	t.Run("EmptySSLModeDefaultsToDisable", func(t *testing.T) {
+		b := NewPostgresBackend("localhost", 5432, "user", "pass", "db", WithApplyMigrations(false), WithSSLMode(""))
+		defer b.Close()
+
+		expected := "host=localhost port=5432 user=user password=pass dbname=db sslmode=disable"
+		if b.dsn != expected {
+			t.Errorf("Expected DSN %q, got %q", expected, b.dsn)
+		}
+	})
+
+	t.Run("WithSSLModeOption", func(t *testing.T) {
+		opts := &options{
+			Options: backend.ApplyOptions(),
+		}
+		WithSSLMode("verify-ca")(opts)
+
+		if opts.SSLMode != "verify-ca" {
+			t.Errorf("Expected SSLMode 'verify-ca', got %q", opts.SSLMode)
+		}
+	})
+}
+
 func Test_PostgresBackendWithDB(t *testing.T) {
 	if testing.Short() {
 		t.Skip()

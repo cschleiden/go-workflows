@@ -13,6 +13,10 @@ type options struct {
 
 	// ApplyMigrations automatically applies database migrations on startup.
 	ApplyMigrations bool
+
+	// SSLMode configures the sslmode parameter for the PostgreSQL connection.
+	// Defaults to "disable" if not set.
+	SSLMode string
 }
 
 type option func(*options)
@@ -27,6 +31,15 @@ func WithApplyMigrations(applyMigrations bool) option {
 func WithPostgresOptions(f func(db *sql.DB)) option {
 	return func(o *options) {
 		o.PostgresOptions = f
+	}
+}
+
+// WithSSLMode configures the sslmode parameter for the PostgreSQL connection string.
+// Valid values include "disable", "require", "verify-ca", "verify-full", etc.
+// Defaults to "disable" if not set.
+func WithSSLMode(sslmode string) option {
+	return func(o *options) {
+		o.SSLMode = sslmode
 	}
 }
 
