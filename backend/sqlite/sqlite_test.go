@@ -6,6 +6,7 @@ import (
 
 	"github.com/cschleiden/go-workflows/backend"
 	"github.com/cschleiden/go-workflows/backend/test"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,6 +23,43 @@ func Test_SqliteBackend(t *testing.T) {
 		// Ensure we close the database so the next test will get a clean in-memory db
 		require.NoError(t, b.(*sqliteBackend).Close())
 	})
+}
+
+func Test_SqliteBackendWithCustomMigrationsTable(t *testing.T) {
+	db, err := sql.Open("sqlite", "file:"+uuid.NewString()+"?mode=memory&cache=shared")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec("PRAGMA journal_mode=WAL;")
+	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
+
+	_, err = db.Exec("CREATE TABLE schema_migrations (version uint64, dirty bool)")
+	require.NoError(t, err)
+	_, err = db.Exec("CREATE UNIQUE INDEX version_unique ON schema_migrations (version)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (10, false)")
+	require.NoError(t, err)
+
+	backend := NewSqliteBackendWithDB(
+		db,
+		WithApplyMigrations(true),
+		WithMigrationsTable("go_workflows_schema_migrations"),
+	)
+	defer backend.Close()
+
+	_, err = db.Exec("SELECT 1 FROM instances LIMIT 1")
+	require.NoError(t, err)
+
+	var defaultVersion int
+	err = db.QueryRow("SELECT version FROM schema_migrations").Scan(&defaultVersion)
+	require.NoError(t, err)
+	require.Equal(t, 10, defaultVersion)
+
+	var workflowsVersion int
+	err = db.QueryRow("SELECT version FROM go_workflows_schema_migrations").Scan(&workflowsVersion)
+	require.NoError(t, err)
+	require.Equal(t, 3, workflowsVersion)
 }
 
 func Test_EndToEndSqliteBackend(t *testing.T) {

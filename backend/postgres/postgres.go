@@ -134,7 +134,9 @@ func (pb *postgresBackend) Migrate() error {
 		needsClose = false
 	}
 
-	dbi, err := postgres.WithInstance(db, &postgres.Config{})
+	dbi, err := postgres.WithInstance(db, &postgres.Config{
+		MigrationsTable: pb.options.MigrationsTable,
+	})
 	if err != nil {
 		return fmt.Errorf("creating migration instance: %w", err)
 	}

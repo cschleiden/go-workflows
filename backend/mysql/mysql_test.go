@@ -109,6 +109,68 @@ func TestMySqlBackendE2E(t *testing.T) {
 	})
 }
 
+func Test_MysqlBackendWithCustomMigrationsTable(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	adminDB, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/?parseTime=true&interpolateParams=true", testUser, testPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dbName := "test_migration_table_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if _, err := adminDB.Exec("CREATE DATABASE " + dbName); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		adminDB.Exec("DROP DATABASE IF EXISTS " + dbName)
+		adminDB.Close()
+	}()
+
+	dsn := fmt.Sprintf("%s:%s@tcp(localhost:3306)/%s?parseTime=true&interpolateParams=true", testUser, testPassword, dbName)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec("CREATE TABLE schema_migrations (version bigint not null primary key, dirty boolean not null)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES (10, false)"); err != nil {
+		t.Fatal(err)
+	}
+
+	backend := NewMysqlBackendWithDB(
+		db,
+		WithApplyMigrations(true),
+		WithMigrationDSN(dsn+"&multiStatements=true"),
+		WithMigrationsTable("go_workflows_schema_migrations"),
+	)
+	defer backend.Close()
+
+	if _, err := db.Exec("SELECT 1 FROM instances LIMIT 1"); err != nil {
+		t.Fatalf("table should exist after migrations: %v", err)
+	}
+
+	var defaultVersion int
+	if err := db.QueryRow("SELECT version FROM schema_migrations").Scan(&defaultVersion); err != nil {
+		t.Fatal(err)
+	}
+	if defaultVersion != 10 {
+		t.Fatalf("expected default migration table version 10, got %d", defaultVersion)
+	}
+
+	var workflowsVersion int
+	if err := db.QueryRow("SELECT version FROM go_workflows_schema_migrations").Scan(&workflowsVersion); err != nil {
+		t.Fatal(err)
+	}
+	if workflowsVersion != 4 {
+		t.Fatalf("expected workflows migration table version 4, got %d", workflowsVersion)
+	}
+}
+
 var _ test.TestBackend = (*mysqlBackend)(nil)
 
 func (mb *mysqlBackend) GetFutureEvents(ctx context.Context) ([]*history.Event, error) {

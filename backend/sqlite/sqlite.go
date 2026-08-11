@@ -166,7 +166,9 @@ func (sb *sqliteBackend) Close() error {
 func (sb *sqliteBackend) Migrate() error {
 	sb.options.Logger.Info("Applying migrations...")
 
-	dbi, err := sqlite.WithInstance(sb.db, &sqlite.Config{})
+	dbi, err := sqlite.WithInstance(sb.db, &sqlite.Config{
+		MigrationsTable: sb.options.MigrationsTable,
+	})
 	if err != nil {
 		return fmt.Errorf("creating migration instance: %w", err)
 	}
