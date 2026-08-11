@@ -74,6 +74,7 @@ type testWorkflow struct {
 	metadata      *metadata.WorkflowMetadata
 	history       []*history.Event
 	pendingEvents []*history.Event
+	executor      executor.WorkflowExecutor
 }
 
 type WorkflowTester[TResult any] interface {
@@ -357,29 +358,30 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 			t := getNextWorkflowTask(tw.instance, tw.history, tw.pendingEvents)
 			tw.pendingEvents = tw.pendingEvents[:0]
 
-			// Execute task
-			e, err := executor.NewExecutor(
-				wt.logger,
-				wt.tracer,
-				wt.registry,
-				wt.converter,
-				wt.propagators,
-				&testHistoryProvider{tw.history},
-				tw.instance,
-				tw.metadata,
-				wt.clock,
-				wt.options.MaxHistorySize,
-			)
-			if err != nil {
-				panic(fmt.Errorf("could not create workflow executor: %v", err))
+			// Reuse cached executor or create a new one
+			if tw.executor == nil {
+				var err error
+				tw.executor, err = executor.NewExecutor(
+					wt.logger,
+					wt.tracer,
+					wt.registry,
+					wt.converter,
+					wt.propagators,
+					&testHistoryProvider{tw.history},
+					tw.instance,
+					tw.metadata,
+					wt.clock,
+					wt.options.MaxHistorySize,
+				)
+				if err != nil {
+					panic(fmt.Errorf("could not create workflow executor: %v", err))
+				}
 			}
 
-			result, err := e.ExecuteTask(ctx, t)
+			result, err := tw.executor.ExecuteTask(ctx, t)
 			if err != nil {
 				panic("Error while executing workflow" + err.Error())
 			}
-
-			e.Close()
 
 			// Add all executed events to history
 			tw.history = append(tw.history, result.Executed...)
@@ -395,6 +397,12 @@ func (wt *workflowTester[TResult]) Execute(ctx context.Context, args ...any) {
 						wt.workflowFinished = true
 						wt.workflowResult = a.Result
 						wt.workflowErr = a.Error
+					}
+
+					// Close cached executor for finished workflow
+					if tw.executor != nil {
+						tw.executor.Close()
+						tw.executor = nil
 					}
 
 				case history.EventType_TimerCanceled:

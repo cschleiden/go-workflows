@@ -57,6 +57,7 @@ type WfState struct {
 	instance        *core.WorkflowInstance
 	scheduleEventID int64
 	commands        []command.Command
+	commandIndex    map[int64]command.Command
 	pendingFutures  map[int64]*DecodingSettable
 	replaying       bool
 
@@ -75,6 +76,7 @@ func NewWorkflowState(instance *core.WorkflowInstance, logger *slog.Logger, trac
 	state := &WfState{
 		instance:        instance,
 		commands:        []command.Command{},
+		commandIndex:    make(map[int64]command.Command),
 		scheduleEventID: 1,
 		pendingFutures:  map[int64]*DecodingSettable{},
 
@@ -137,16 +139,11 @@ func (wf *WfState) Commands() []command.Command {
 
 func (wf *WfState) AddCommand(cmd command.Command) {
 	wf.commands = append(wf.commands, cmd)
+	wf.commandIndex[cmd.ID()] = cmd
 }
 
 func (wf *WfState) CommandByScheduleEventID(scheduleEventID int64) command.Command {
-	for _, c := range wf.commands {
-		if c.ID() == scheduleEventID {
-			return c
-		}
-	}
-
-	return nil
+	return wf.commandIndex[scheduleEventID]
 }
 
 func (wf *WfState) SetReplaying(replaying bool) {
