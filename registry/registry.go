@@ -15,13 +15,17 @@ type Registry struct {
 
 	workflowMap map[string]any
 	activityMap map[string]any
+	
+	// Versioned workflow storage: workflowName -> version -> implementation
+	versionedWorkflowMap map[string]map[string]any
 }
 
 // New creates a new registry instance.
 func New() *Registry {
 	return &Registry{
-		workflowMap: make(map[string]any),
-		activityMap: make(map[string]any),
+		workflowMap:          make(map[string]any),
+		activityMap:          make(map[string]any),
+		versionedWorkflowMap: make(map[string]map[string]any),
 	}
 }
 
@@ -70,6 +74,63 @@ func (r *Registry) RegisterWorkflow(workflow any, opts ...RegisterOption) error 
 		return &ErrWorkflowAlreadyRegistered{fmt.Sprintf("workflow with name %q already registered", name)}
 	}
 	r.workflowMap[name] = workflow
+
+	return nil
+}
+
+// RegisterVersionedWorkflow registers a workflow with a specific version identifier.
+func (r *Registry) RegisterVersionedWorkflow(workflow any, version string, opts ...RegisterOption) error {
+	cfg := registerOptions(opts).applyRegisterOptions(registerConfig{})
+	name := cfg.Name
+	if name == "" {
+		name = fn.Name(workflow)
+	}
+
+	if version == "" {
+		return &ErrInvalidWorkflow{"version cannot be empty"}
+	}
+
+	wfType := reflect.TypeOf(workflow)
+	if wfType.Kind() != reflect.Func {
+		return &ErrInvalidWorkflow{"workflow is not a function"}
+	}
+
+	if wfType.NumIn() == 0 {
+		return &ErrInvalidWorkflow{"workflow does not accept context parameter"}
+	}
+
+	if !args.IsOwnContext(wfType.In(0)) {
+		return &ErrInvalidWorkflow{"workflow does not accept context as first parameter"}
+	}
+
+	if wfType.NumOut() == 0 {
+		return &ErrInvalidWorkflow{"workflow must return error"}
+	}
+
+	if wfType.NumOut() > 2 {
+		return &ErrInvalidWorkflow{"workflow must return at most two values"}
+	}
+
+	errType := reflect.TypeOf((*error)(nil)).Elem()
+	if (wfType.NumOut() == 1 && !wfType.Out(0).Implements(errType)) ||
+		(wfType.NumOut() == 2 && !wfType.Out(1).Implements(errType)) {
+		return &ErrInvalidWorkflow{"workflow must return error as last return value"}
+	}
+
+	r.Lock()
+	defer r.Unlock()
+
+	// Initialize workflow name map if it doesn't exist
+	if r.versionedWorkflowMap[name] == nil {
+		r.versionedWorkflowMap[name] = make(map[string]any)
+	}
+
+	// Check if this version already exists
+	if _, ok := r.versionedWorkflowMap[name][version]; ok {
+		return &ErrVersionedWorkflowAlreadyRegistered{fmt.Sprintf("workflow %q version %q already registered", name, version)}
+	}
+
+	r.versionedWorkflowMap[name][version] = workflow
 
 	return nil
 }
@@ -159,6 +220,21 @@ func (r *Registry) GetWorkflow(name string) (any, error) {
 	}
 
 	return nil, errors.New("workflow not found")
+}
+
+// GetVersionedWorkflow retrieves a specific version of a workflow.
+func (r *Registry) GetVersionedWorkflow(name, version string) (any, error) {
+	r.Lock()
+	defer r.Unlock()
+
+	if versionMap, ok := r.versionedWorkflowMap[name]; ok {
+		if workflow, ok := versionMap[version]; ok {
+			return workflow, nil
+		}
+		return nil, &ErrWorkflowVersionNotFound{fmt.Sprintf("workflow %q version %q not found", name, version)}
+	}
+
+	return nil, &ErrWorkflowVersionNotFound{fmt.Sprintf("workflow %q not found", name)}
 }
 
 func (r *Registry) GetActivity(name string) (interface{}, error) {
