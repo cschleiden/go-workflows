@@ -37,8 +37,8 @@ type Backend interface {
 	// RemoveWorkflowInstance removes a workflow instance
 	RemoveWorkflowInstance(ctx context.Context, instance *workflow.Instance) error
 
-	// RemoveWorkflowInstances removes multiple workflow instances
-	RemoveWorkflowInstances(ctx context.Context, options ...RemovalOption) error
+	// RemoveWorkflowInstances removes multiple workflow instances and returns the number removed
+	RemoveWorkflowInstances(ctx context.Context, options ...RemovalOption) (int, error)
 
 	// GetWorkflowInstanceState returns the state of the given workflow instance
 	GetWorkflowInstanceState(ctx context.Context, instance *workflow.Instance) (core.WorkflowInstanceState, error)

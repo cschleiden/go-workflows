@@ -31,10 +31,6 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 	if err != nil {
 		return nil, fmt.Errorf("getting history: %w", err)
 	}
-	if futureEvents.Err() != nil {
-		return nil, futureEvents.Err()
-	}
-
 	defer futureEvents.Close()
 
 	f := make([]*history.Event, 0)
@@ -67,6 +63,10 @@ func (sb *sqliteBackend) GetFutureEvents(ctx context.Context) ([]*history.Event,
 		fe.Attributes = a
 
 		f = append(f, fe)
+	}
+
+	if futureEvents.Err() != nil {
+		return nil, futureEvents.Err()
 	}
 
 	return f, nil
@@ -269,5 +269,5 @@ func removeFutureEvent(ctx context.Context, tx *sql.Tx, instance *core.WorkflowI
 		}
 	}
 
-	return err
+	return nil
 }
