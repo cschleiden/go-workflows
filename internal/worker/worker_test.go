@@ -915,6 +915,315 @@ func TestWorker_ErrorHandling(t *testing.T) {
 	})
 }
 
+func TestWorker_AdaptivePolling(t *testing.T) {
+	t.Run("MaxPollingInterval clamped to PollingInterval if lower", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    2 * time.Second,
+			MaxPollingInterval: 500 * time.Millisecond, // lower than base — should be clamped
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		// Should have been clamped to PollingInterval
+		require.Equal(t, 2*time.Second, worker.options.MaxPollingInterval)
+	})
+
+	t.Run("pollers are staggered across polling interval", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:          4,
+			MaxParallelTasks: 4,
+			PollingInterval:  200 * time.Millisecond,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		var mu sync.Mutex
+		var pollTimes []time.Time
+
+		mockTaskWorker.On("Start", ctx, mock.Anything).Return(nil)
+		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+			mu.Lock()
+			pollTimes = append(pollTimes, time.Now())
+			mu.Unlock()
+		})
+
+		start := time.Now()
+		err := worker.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait for all pollers to make their first poll
+		time.Sleep(250 * time.Millisecond)
+		cancel()
+		worker.WaitForCompletion()
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// With 4 pollers and 200ms interval, stagger = 0, 50, 100, 150ms
+		// First polls should be spread across ~150ms window, not all at t=0
+		require.GreaterOrEqual(t, len(pollTimes), 4)
+
+		// Check that the first 4 polls are spread out (not all within 10ms)
+		firstFour := pollTimes[:4]
+		spread := firstFour[3].Sub(firstFour[0])
+		offsetFromStart := firstFour[0].Sub(start)
+
+		// First poller should start almost immediately (within 50ms)
+		require.Less(t, offsetFromStart, 50*time.Millisecond)
+		// Spread between first and last poller should be at least 100ms
+		require.Greater(t, spread, 100*time.Millisecond)
+	})
+
+	t.Run("backoff increases interval on empty polls", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    100 * time.Millisecond,
+			MaxPollingInterval: 2 * time.Second,
+			BackoffMultiplier:  2.0,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		// Test backoff calculation
+		require.Equal(t, 200*time.Millisecond, worker.backoff(100*time.Millisecond))
+		require.Equal(t, 400*time.Millisecond, worker.backoff(200*time.Millisecond))
+		require.Equal(t, 800*time.Millisecond, worker.backoff(400*time.Millisecond))
+		require.Equal(t, 1600*time.Millisecond, worker.backoff(800*time.Millisecond))
+		// Should cap at MaxPollingInterval
+		require.Equal(t, 2*time.Second, worker.backoff(1600*time.Millisecond))
+		require.Equal(t, 2*time.Second, worker.backoff(2*time.Second))
+	})
+
+	t.Run("backoff defaults multiplier to 2.0", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    100 * time.Millisecond,
+			MaxPollingInterval: 1 * time.Second,
+			BackoffMultiplier:  0, // Should default to 2.0
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		require.Equal(t, 200*time.Millisecond, worker.backoff(100*time.Millisecond))
+	})
+
+	t.Run("custom backoff multiplier", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    100 * time.Millisecond,
+			MaxPollingInterval: 1 * time.Second,
+			BackoffMultiplier:  1.5,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		require.Equal(t, 150*time.Millisecond, worker.backoff(100*time.Millisecond))
+		require.Equal(t, 225*time.Millisecond, worker.backoff(150*time.Millisecond))
+	})
+
+	t.Run("resets interval on task found", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    50 * time.Millisecond,
+			MaxPollingInterval: 500 * time.Millisecond,
+			BackoffMultiplier:  2.0,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		var pollCount int32
+		task := &testTask{ID: 1, Data: "test"}
+		result := &testResult{Output: "done"}
+
+		mockTaskWorker.On("Start", ctx, mock.Anything).Return(nil)
+
+		// Return nil 3 times (backoff grows), then a task (resets), then nil again
+		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Times(3)
+		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(task, nil).Once().Run(func(args mock.Arguments) {
+			atomic.AddInt32(&pollCount, 1)
+		})
+		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil)
+
+		mockTaskWorker.On("Execute", mock.Anything, task).Return(result, nil)
+		mockTaskWorker.On("Complete", mock.Anything, result, task).Return(nil)
+
+		err := worker.Start(ctx)
+		require.NoError(t, err)
+
+		// Wait for the task to be processed
+		for atomic.LoadInt32(&pollCount) < 1 && ctx.Err() == nil {
+			time.Sleep(time.Millisecond * 10)
+		}
+
+		cancel()
+		err = worker.WaitForCompletion()
+		require.NoError(t, err)
+
+		require.Equal(t, int32(1), atomic.LoadInt32(&pollCount))
+	})
+
+	t.Run("no backoff when MaxPollingInterval is zero", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    10 * time.Millisecond,
+			MaxPollingInterval: 0, // Disabled
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+
+		var pollCount int32
+
+		mockTaskWorker.On("Start", ctx, mock.Anything).Return(nil)
+		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+			atomic.AddInt32(&pollCount, 1)
+		})
+
+		err := worker.Start(ctx)
+		require.NoError(t, err)
+
+		<-ctx.Done()
+		err = worker.WaitForCompletion()
+		require.NoError(t, err)
+
+		// With 10ms interval and 200ms timeout, should poll ~20 times (no backoff)
+		// With backoff it would be much fewer
+		require.Greater(t, atomic.LoadInt32(&pollCount), int32(10))
+	})
+
+	t.Run("fewer polls with backoff enabled", func(t *testing.T) {
+		mockBackend := createMockBackend()
+		mockTaskWorker := &mockTaskWorker{}
+
+		options := &WorkerOptions{
+			Pollers:            1,
+			MaxParallelTasks:   1,
+			PollingInterval:    10 * time.Millisecond,
+			MaxPollingInterval: 100 * time.Millisecond,
+			BackoffMultiplier:  2.0,
+		}
+
+		worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+
+		var pollCount int32
+
+		mockTaskWorker.On("Start", ctx, mock.Anything).Return(nil)
+		mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+			atomic.AddInt32(&pollCount, 1)
+		})
+
+		err := worker.Start(ctx)
+		require.NoError(t, err)
+
+		<-ctx.Done()
+		err = worker.WaitForCompletion()
+		require.NoError(t, err)
+
+		// With backoff: 10ms + 20ms + 40ms + 80ms + 100ms + 100ms... ≈ 8-12 polls in 500ms
+		// Without backoff: 10ms interval = ~50 polls in 500ms
+		require.Less(t, atomic.LoadInt32(&pollCount), int32(20))
+	})
+}
+
+func BenchmarkPolling_WithoutBackoff(b *testing.B) {
+	mockBackend := createMockBackend()
+	mockTaskWorker := &mockTaskWorker{}
+
+	options := &WorkerOptions{
+		Pollers:          1,
+		MaxParallelTasks: 1,
+		PollingInterval:  time.Millisecond,
+	}
+
+	worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var pollCount int64
+	mockTaskWorker.On("Start", mock.Anything, mock.Anything).Return(nil)
+	mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+		atomic.AddInt64(&pollCount, 1)
+	})
+
+	worker.Start(ctx)
+	time.Sleep(time.Duration(b.N) * time.Millisecond)
+	cancel()
+	worker.WaitForCompletion()
+
+	b.ReportMetric(float64(atomic.LoadInt64(&pollCount)), "polls")
+}
+
+func BenchmarkPolling_WithBackoff(b *testing.B) {
+	mockBackend := createMockBackend()
+	mockTaskWorker := &mockTaskWorker{}
+
+	options := &WorkerOptions{
+		Pollers:            1,
+		MaxParallelTasks:   1,
+		PollingInterval:    time.Millisecond,
+		MaxPollingInterval: 50 * time.Millisecond,
+		BackoffMultiplier:  2.0,
+	}
+
+	worker := NewWorker(mockBackend, mockTaskWorker, options)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var pollCount int64
+	mockTaskWorker.On("Start", mock.Anything, mock.Anything).Return(nil)
+	mockTaskWorker.On("Get", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+		atomic.AddInt64(&pollCount, 1)
+	})
+
+	worker.Start(ctx)
+	time.Sleep(time.Duration(b.N) * time.Millisecond)
+	cancel()
+	worker.WaitForCompletion()
+
+	b.ReportMetric(float64(atomic.LoadInt64(&pollCount)), "polls")
+}
+
 func TestWorker_Configuration(t *testing.T) {
 	t.Run("zero pollers", func(t *testing.T) {
 		mockBackend := createMockBackend()

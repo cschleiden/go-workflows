@@ -45,6 +45,17 @@ type WorkerOptions struct {
 
 	PollingInterval time.Duration
 
+	// MaxPollingInterval is the upper bound for adaptive polling backoff.
+	// When set (> 0), the polling interval increases on consecutive empty polls
+	// and resets to PollingInterval when a task is found.
+	// Must be >= PollingInterval (clamped automatically if lower).
+	// 0 means no backoff (fixed PollingInterval, default behavior).
+	MaxPollingInterval time.Duration
+
+	// BackoffMultiplier controls how fast the interval grows on empty polls.
+	// Defaults to 2.0 if MaxPollingInterval is set.
+	BackoffMultiplier float64
+
 	Queues []workflow.Queue
 }
 
@@ -59,6 +70,11 @@ func NewWorker[Task, TaskResult any](
 	// Always include system queue
 	if !slices.Contains(options.Queues, core.QueueSystem) {
 		options.Queues = append(options.Queues, core.QueueSystem)
+	}
+
+	// Ensure MaxPollingInterval is at least PollingInterval
+	if options.MaxPollingInterval > 0 && options.MaxPollingInterval < options.PollingInterval {
+		options.MaxPollingInterval = options.PollingInterval
 	}
 
 	return &Worker[Task, TaskResult]{
@@ -78,7 +94,10 @@ func (w *Worker[Task, TaskResult]) Start(ctx context.Context) error {
 	w.pollersWg.Add(w.options.Pollers)
 
 	for i := 0; i < w.options.Pollers; i++ {
-		go w.poller(ctx)
+		// Stagger pollers so they don't all hit the DB at the same instant.
+		// Each poller offsets by i * (PollingInterval / Pollers).
+		jitter := time.Duration(int64(i) * int64(w.options.PollingInterval) / int64(w.options.Pollers))
+		go w.poller(ctx, jitter)
 	}
 
 	go w.dispatcher()
@@ -97,15 +116,23 @@ func (w *Worker[Task, TaskResult]) WaitForCompletion() error {
 	return nil
 }
 
-func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
+func (w *Worker[Task, TaskResult]) poller(ctx context.Context, initialJitter time.Duration) {
 	defer w.pollersWg.Done()
 
-	var ticker *time.Ticker
-
-	if w.options.PollingInterval > 0 {
-		ticker = time.NewTicker(w.options.PollingInterval)
-		defer ticker.Stop()
+	// Wait initial jitter to stagger pollers evenly across the interval
+	if initialJitter > 0 {
+		jitterTimer := time.NewTimer(initialJitter)
+		select {
+		case <-jitterTimer.C:
+		case <-ctx.Done():
+			jitterTimer.Stop()
+			return
+		}
 	}
+
+	currentInterval := w.options.PollingInterval
+	timer := time.NewTimer(currentInterval)
+	defer timer.Stop()
 
 	for {
 		select {
@@ -134,21 +161,42 @@ func (w *Worker[Task, TaskResult]) poller(ctx context.Context) {
 					w.taskQueue.release()
 				}
 			}
+			// Got task — reset to base interval
+			currentInterval = w.options.PollingInterval
 			continue // check for new tasks right away
 		} else {
 			// Did not use the reserved slot, release
 			w.taskQueue.release()
+
+			// Back off on empty poll if adaptive polling is enabled
+			if w.options.MaxPollingInterval > 0 {
+				currentInterval = w.backoff(currentInterval)
+			}
 		}
 
-		// Optionally wait between unsuccessful polling attempts
-		if w.options.PollingInterval > 0 {
+		// Wait before next poll attempt
+		if currentInterval > 0 {
+			timer.Reset(currentInterval)
 			select {
-			case <-ticker.C:
+			case <-timer.C:
 			case <-ctx.Done():
 				return
 			}
 		}
 	}
+}
+
+func (w *Worker[Task, TaskResult]) backoff(current time.Duration) time.Duration {
+	multiplier := w.options.BackoffMultiplier
+	if multiplier <= 0 {
+		multiplier = 2.0
+	}
+
+	next := time.Duration(float64(current) * multiplier)
+	if next > w.options.MaxPollingInterval {
+		next = w.options.MaxPollingInterval
+	}
+	return next
 }
 
 func (w *Worker[Task, TaskResult]) dispatcher() {

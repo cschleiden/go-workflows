@@ -84,11 +84,13 @@ func newActivityWorker(backend backend.Backend, registry *registry.Registry, opt
 	}
 
 	activityWorker := internal.NewActivityWorker(backend, registry, clock.New(), internal.WorkerOptions{
-		Pollers:           options.ActivityPollers,
-		PollingInterval:   options.ActivityPollingInterval,
-		MaxParallelTasks:  options.MaxParallelActivityTasks,
-		HeartbeatInterval: options.ActivityHeartbeatInterval,
-		Queues:            options.ActivityQueues,
+		Pollers:            options.ActivityPollers,
+		PollingInterval:    options.ActivityPollingInterval,
+		MaxPollingInterval: options.MaxActivityPollingInterval,
+		BackoffMultiplier:  options.ActivityPollingBackoffMultiplier,
+		MaxParallelTasks:   options.MaxParallelActivityTasks,
+		HeartbeatInterval:  options.ActivityHeartbeatInterval,
+		Queues:             options.ActivityQueues,
 	})
 
 	return activityWorker
@@ -101,11 +103,13 @@ func newWorkflowWorker(backend backend.Backend, registry *registry.Registry, opt
 
 	workflowWorker := internal.NewWorkflowWorker(backend, registry, internal.WorkflowWorkerOptions{
 		WorkerOptions: internal.WorkerOptions{
-			Pollers:           options.WorkflowPollers,
-			PollingInterval:   options.WorkflowPollingInterval,
-			MaxParallelTasks:  options.MaxParallelWorkflowTasks,
-			HeartbeatInterval: options.WorkflowHeartbeatInterval,
-			Queues:            options.WorkflowQueues,
+			Pollers:            options.WorkflowPollers,
+			PollingInterval:    options.WorkflowPollingInterval,
+			MaxPollingInterval: options.MaxWorkflowPollingInterval,
+			BackoffMultiplier:  options.WorkflowPollingBackoffMultiplier,
+			MaxParallelTasks:   options.MaxParallelWorkflowTasks,
+			HeartbeatInterval:  options.WorkflowHeartbeatInterval,
+			Queues:             options.WorkflowQueues,
 		},
 		WorkflowExecutorCache:     options.WorkflowExecutorCache,
 		WorkflowExecutorCacheSize: options.WorkflowExecutorCacheSize,
