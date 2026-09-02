@@ -22,7 +22,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for database/sql
+	_ "github.com/lib/pq"              // pq driver for LISTEN/NOTIFY support
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -64,10 +65,25 @@ func NewPostgresBackend(host string, port int, user, password, database string, 
 		}
 	}
 
+	// Initialize notification listener if enabled. LISTEN needs a session-
+	// level connection, so a dedicated DSN (WithListenerDSN) takes precedence
+	// over the regular one - required when SQL goes through a transaction-
+	// pooling proxy like PgBouncer, which does not support LISTEN.
+	if options.EnableNotifications {
+		listenerDSN := options.ListenerDSN
+		if listenerDSN == "" {
+			listenerDSN = dsn
+		}
+		b.listener = newNotificationListener(listenerDSN, options.Logger)
+	}
+
 	return b
 }
 
 // NewPostgresBackendWithDB creates a new Postgres backend using an existing database connection.
+//
+// LISTEN requires a session-level connection, so notifications are only wired up when a
+// dedicated listener DSN (WithListenerDSN) is supplied; the shared *sql.DB is not used for LISTEN.
 // When using this constructor, the backend will not close the database connection when Close() is called.
 // Migrations can still be applied using WithApplyMigrations(true) as Postgres does not require
 // special connection settings for migrations.
@@ -95,6 +111,14 @@ func NewPostgresBackendWithDB(db *sql.DB, opts ...option) *postgresBackend {
 		}
 	}
 
+	// Initialize notification listener if enabled. This constructor has no
+	// regular DSN to fall back to, so a dedicated listener DSN (WithListenerDSN)
+	// is required - LISTEN needs its own session-level connection and cannot
+	// use the shared pool.
+	if options.EnableNotifications && options.ListenerDSN != "" {
+		b.listener = newNotificationListener(options.ListenerDSN, options.Logger)
+	}
+
 	return b
 }
 
@@ -104,6 +128,7 @@ type postgresBackend struct {
 	workerName     string
 	options        *options
 	ownsConnection bool
+	listener       *notificationListener
 }
 
 func (pb *postgresBackend) FeatureSupported(feature backend.Feature) bool {
@@ -111,6 +136,12 @@ func (pb *postgresBackend) FeatureSupported(feature backend.Feature) bool {
 }
 
 func (pb *postgresBackend) Close() error {
+	if pb.listener != nil {
+		if err := pb.listener.Close(); err != nil {
+			// Log error but continue to close the database
+			pb.options.Logger.Error("closing notification listener", "error", err)
+		}
+	}
 	if !pb.ownsConnection {
 		return nil
 	}
@@ -522,10 +553,22 @@ func (pb *postgresBackend) SignalWorkflow(ctx context.Context, instanceID string
 }
 
 func (pb *postgresBackend) PrepareWorkflowQueues(ctx context.Context, queues []workflow.Queue) error {
+	// Start notification listener if enabled
+	if pb.listener != nil {
+		if err := pb.listener.Start(ctx); err != nil {
+			return fmt.Errorf("starting notification listener: %w", err)
+		}
+	}
 	return nil
 }
 
 func (pb *postgresBackend) PrepareActivityQueues(ctx context.Context, queues []workflow.Queue) error {
+	// Start notification listener if enabled (shared with workflow queues)
+	if pb.listener != nil {
+		if err := pb.listener.Start(ctx); err != nil {
+			return fmt.Errorf("starting notification listener: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -534,6 +577,79 @@ func (pb *postgresBackend) GetWorkflowTask(ctx context.Context, queues []workflo
 	if len(queues) == 0 {
 		return nil, errors.New("no queues provided")
 	}
+
+	// If notifications are enabled, wait for a notification before checking for tasks
+	// This allows us to respond immediately to new work instead of polling
+	if pb.listener != nil {
+		// First try to get a task immediately (there might already be pending work)
+		task, err := pb.getWorkflowTaskImpl(ctx, queues)
+		if err != nil || task != nil {
+			return task, err
+		}
+
+		// Triggers only fire on INSERT. An event scheduled with a future
+		// visible_at (workflow timers, retry backoff) becomes due WITHOUT any
+		// new notification, so bound the wait by the next visibility instant.
+		// Always bound the wait with a safety re-poll: a NOTIFY can be lost
+		// (listener session not yet established at process start, transient
+		// reconnect), and an unbounded wait would strand already-pending
+		// work until an unrelated notification happens to arrive. The cap
+		// turns a lost wake-up into a <=safetyPollInterval delay while
+		// keeping idle load at one cheap query per interval.
+		deadline := time.Now().Add(safetyPollInterval)
+		if next, nerr := pb.nextVisibleAt(ctx, "pending_events"); nerr == nil && next != nil && next.Before(deadline) {
+			deadline = *next
+		}
+		waitCtx, cancel := context.WithDeadline(ctx, deadline)
+		defer cancel()
+
+		// No task available, wait for notification
+		if pb.listener.WaitForWorkflowTask(waitCtx) {
+			// Got notification, try again
+			return pb.getWorkflowTaskImpl(ctx, queues)
+		}
+
+		if ctx.Err() == nil {
+			// Our visibility deadline expired (not the caller's context):
+			// a timer just became due - check again.
+			return pb.getWorkflowTaskImpl(ctx, queues)
+		}
+
+		// Context cancelled
+		return nil, ctx.Err()
+	}
+
+	// Notifications disabled, use standard polling
+	return pb.getWorkflowTaskImpl(ctx, queues)
+}
+
+// safetyPollInterval caps every notification wait. NOTIFY delivery is
+// best-effort from the poller's perspective (session may not be up yet at
+// process start, or may be mid-reconnect), so pollers re-check the queue at
+// least this often even when nothing is scheduled. Keeps the engine's
+// worst-case latency for a lost notification at one interval while staying
+// far below the cost of tight polling.
+const safetyPollInterval = 60 * time.Second
+
+// nextVisibleAt returns the earliest future visible_at in the given task
+// table (pending_events or activities), or nil when nothing is scheduled.
+// Used to bound notification waits so time-deferred work is picked up on
+// schedule even though no INSERT (and therefore no NOTIFY) happens when it
+// becomes visible.
+func (pb *postgresBackend) nextVisibleAt(ctx context.Context, table string) (*time.Time, error) {
+	var t sql.NullTime
+	if err := pb.db.QueryRowContext(ctx,
+		fmt.Sprintf(`SELECT MIN(visible_at) FROM %s WHERE visible_at IS NOT NULL AND visible_at > now()`, table),
+	).Scan(&t); err != nil {
+		return nil, err
+	}
+	if !t.Valid {
+		return nil, nil
+	}
+	return &t.Time, nil
+}
+
+func (pb *postgresBackend) getWorkflowTaskImpl(ctx context.Context, queues []workflow.Queue) (*backend.WorkflowTask, error) {
 	tx, err := pb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})
@@ -890,6 +1006,44 @@ func (pb *postgresBackend) GetActivityTask(ctx context.Context, queues []workflo
 	if len(queues) == 0 {
 		return nil, errors.New("no queues provided")
 	}
+
+	// If notifications are enabled, wait for a notification before checking for tasks
+	if pb.listener != nil {
+		// First try to get a task immediately (there might already be pending work)
+		task, err := pb.getActivityTaskImpl(ctx, queues)
+		if err != nil || task != nil {
+			return task, err
+		}
+
+		// Bound the wait by the next future visible_at (see GetWorkflowTask).
+		// Safety-capped wait - see GetWorkflowTask for rationale.
+		deadline := time.Now().Add(safetyPollInterval)
+		if next, nerr := pb.nextVisibleAt(ctx, "activities"); nerr == nil && next != nil && next.Before(deadline) {
+			deadline = *next
+		}
+		waitCtx, cancel := context.WithDeadline(ctx, deadline)
+		defer cancel()
+
+		// No task available, wait for notification
+		if pb.listener.WaitForActivityTask(waitCtx) {
+			// Got notification, try again
+			return pb.getActivityTaskImpl(ctx, queues)
+		}
+
+		if ctx.Err() == nil {
+			// Visibility deadline expired - deferred work is now due.
+			return pb.getActivityTaskImpl(ctx, queues)
+		}
+
+		// Context cancelled
+		return nil, ctx.Err()
+	}
+
+	// Notifications disabled, use standard polling
+	return pb.getActivityTaskImpl(ctx, queues)
+}
+
+func (pb *postgresBackend) getActivityTaskImpl(ctx context.Context, queues []workflow.Queue) (*backend.ActivityTask, error) {
 	tx, err := pb.db.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
 	})

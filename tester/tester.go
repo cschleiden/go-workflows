@@ -654,7 +654,24 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 	atomic.AddInt32(&wt.runningActivities, 1)
 
 	go func() {
-		defer atomic.AddInt32(&wt.runningActivities, -1)
+		// An activity counts as running until its completion event is
+		// APPLIED by the Execute loop, not until this goroutine returns.
+		// Decrementing here (the old `defer`) let the loop drain the
+		// callback below, run the workflow task, and reach fireTimer while
+		// this goroutine had not yet been rescheduled to decrement - so
+		// newTimerMode saw a finished activity as still running, returned
+		// TM_WallClock, and put the retry timer on the real clock. The test
+		// then blocked for the actual backoff interval (30s, then 60s, ...)
+		// and died on the 10s TestTimeout with "workflow blocked?". Only
+		// reproducible under CPU contention, which is why it read as a CI
+		// flake. The decrement now happens inside the callback, on the
+		// loop's own goroutine, ordered before any timer-mode decision.
+		decremented := false
+		defer func() {
+			if !decremented {
+				atomic.AddInt32(&wt.runningActivities, -1)
+			}
+		}()
 
 		var activityErr error
 		var activityResult payload.Payload
@@ -723,7 +740,10 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 			})
 		}
 
+		decremented = true
 		wt.callbacks <- func() *history.WorkflowEvent {
+			atomic.AddInt32(&wt.runningActivities, -1)
+
 			var ne *history.Event
 
 			if activityErr != nil {
