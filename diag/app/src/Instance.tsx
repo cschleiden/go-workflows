@@ -19,6 +19,7 @@ import {
 
 import useFetch from "react-fetch-hook";
 import { InstanceTree } from "./InstanceTree";
+import { ExecutionGraph } from "./ExecutionGraph";
 
 function Instance() {
   let params = useParams();
@@ -145,12 +146,16 @@ function Instance() {
         executionId={instance.instance.execution_id}
       />
 
+      <h2 className="mt-4">Execution Graph</h2>
+      <ExecutionGraph history={instance.history || []} />
+
       <h2 className="mt-3">History</h2>
       <Accordion alwaysOpen>
         {instance.history?.map((event, idx) => (
           <Accordion.Item
             eventKey={`${idx}`}
             key={event.id}
+            id={`event-${event.id}`}
             className={
               event.schedule_event_id
                 ? `schedule-event-${event.schedule_event_id}`

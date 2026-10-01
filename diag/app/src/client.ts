@@ -12,6 +12,7 @@ export interface WorkflowInstanceRef {
 
   state: number;
   queue: string;
+  error?: boolean;
 }
 
 export type WorkflowInstanceInfo = WorkflowInstanceRef & {
@@ -44,7 +45,6 @@ export interface ExecutionContinuedAsNewAttributes {
 
 export type WorkflowInstanceTree = WorkflowInstanceRef & {
   workflow_name: string;
-  error?: boolean;
   children: WorkflowInstanceTree[];
 };
 

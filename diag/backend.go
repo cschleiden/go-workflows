@@ -16,6 +16,7 @@ type WorkflowInstanceRef struct {
 	CompletedAt *time.Time                 `json:"completed_at,omitempty"`
 	State       core.WorkflowInstanceState `json:"state"`
 	Queue       string                     `json:"queue"`
+	Error       bool                       `json:"error,omitempty"`
 }
 
 type Event struct {
@@ -38,7 +39,6 @@ type WorkflowInstanceTree struct {
 	*WorkflowInstanceRef
 
 	WorkflowName string `json:"workflow_name,omitempty"`
-	Error        bool   `json:"error,omitempty"`
 
 	Children []*WorkflowInstanceTree `json:"children,omitempty"`
 }

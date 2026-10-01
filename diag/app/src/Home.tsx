@@ -141,7 +141,7 @@ function Home() {
                     <code>{i.completed_at}</code>
                   </td>
                   <td style={{ textAlign: "center" }}>
-                    <WorkflowInstanceState state={i.state} />
+                    <WorkflowInstanceState state={i.state} error={i.error} />
                   </td>
                 </tr>
               ))}

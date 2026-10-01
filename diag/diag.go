@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"io/fs"
@@ -8,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/core"
 )
 
@@ -71,6 +73,11 @@ func NewServeMux(backend Backend) *http.ServeMux {
 
 			instances, err := backend.GetWorkflowInstances(r.Context(), afterInstanceID, afterExecutionID, count)
 			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			if err := populateErrors(r.Context(), backend, instances); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -171,6 +178,38 @@ func NewServeMux(backend Backend) *http.ServeMux {
 	mux.Handle("/", http.FileServer(getFileSystem()))
 
 	return mux
+}
+
+// populateErrors marks finished instances whose execution completed with an error
+func populateErrors(ctx context.Context, b Backend, instances []*WorkflowInstanceRef) error {
+	for _, instance := range instances {
+		if instance.State != core.WorkflowInstanceStateFinished {
+			continue
+		}
+
+		h, err := b.GetWorkflowInstanceHistory(ctx, instance.Instance, nil)
+		if err != nil {
+			return err
+		}
+
+		instance.Error = hasExecutionError(h)
+	}
+
+	return nil
+}
+
+func hasExecutionError(h []*history.Event) bool {
+	for _, event := range h {
+		if event.Type != history.EventType_WorkflowExecutionFinished {
+			continue
+		}
+
+		if attrs, ok := event.Attributes.(*history.ExecutionCompletedAttributes); ok && attrs.Error != nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 func getFileSystem() http.FileSystem {

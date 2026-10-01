@@ -93,7 +93,6 @@ func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance
 	}
 
 	workflowName := ""
-	hasError := false
 
 	var children []*WorkflowInstanceRef
 	for _, event := range h {
@@ -108,14 +107,10 @@ func (itb *instanceTreeBuilder) getNameAndChildren(ctx context.Context, instance
 
 		case history.EventType_WorkflowExecutionStarted:
 			workflowName = event.Attributes.(*history.ExecutionStartedAttributes).Name
-
-		case history.EventType_WorkflowExecutionFinished:
-			// Check if the workflow finished with an error
-			if attrs, ok := event.Attributes.(*history.ExecutionCompletedAttributes); ok && attrs.Error != nil {
-				hasError = true
-			}
 		}
 	}
+
+	hasError := hasExecutionError(h)
 
 	return workflowName, hasError, children, nil
 }
