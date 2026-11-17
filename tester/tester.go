@@ -654,8 +654,6 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 	atomic.AddInt32(&wt.runningActivities, 1)
 
 	go func() {
-		defer atomic.AddInt32(&wt.runningActivities, -1)
-
 		var activityErr error
 		var activityResult payload.Payload
 
@@ -724,6 +722,8 @@ func (wt *workflowTester[TResult]) scheduleActivity(wfi *core.WorkflowInstance, 
 		}
 
 		wt.callbacks <- func() *history.WorkflowEvent {
+			// The tester can consume this callback before the activity goroutine returns.
+			atomic.AddInt32(&wt.runningActivities, -1)
 			var ne *history.Event
 
 			if activityErr != nil {
