@@ -2,10 +2,13 @@ package tester
 
 import (
 	"context"
+	"errors"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/cschleiden/go-workflows/activity"
+	"github.com/cschleiden/go-workflows/backend/history"
 	"github.com/cschleiden/go-workflows/workflow"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -148,4 +151,41 @@ func Test_Activity_Panic(t *testing.T) {
 	_, err := tester.WorkflowResult()
 	require.ErrorAs(t, err, &pe)
 	tester.AssertExpectations(t)
+}
+
+func Test_ActivityCompletionAllowsTimeTravelBeforeProducerReturns(t *testing.T) {
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+
+	for _, tc := range []struct {
+		name      string
+		err       error
+		eventType history.EventType
+	}{
+		{name: "success", eventType: history.EventType_ActivityCompleted},
+		{name: "failure", err: errors.New("activity failed"), eventType: history.EventType_ActivityFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wt := NewWorkflowTester[any](func(workflow.Context) error { return nil })
+			wt.callbacks = make(chan func() *history.WorkflowEvent)
+			started := make(chan struct{})
+			activity := func() error { return nil }
+			wt.OnActivityByName("activity", activity).Run(func(mock.Arguments) {
+				close(started)
+			}).Return(tc.err).Once()
+
+			event := history.NewPendingEvent(wt.Now(), history.EventType_ActivityScheduled,
+				&history.ActivityScheduledAttributes{Name: "activity"})
+			wt.scheduleActivity(wt.wfi, wt.wfm, event)
+			<-started
+			// Park the producer on the unbuffered send before consuming its result.
+			runtime.Gosched()
+			callback := <-wt.callbacks
+			defer runtime.Gosched()
+
+			completion := callback()
+			require.Equal(t, tc.eventType, completion.HistoryEvent.Type)
+			require.Equal(t, TM_TimeTravel, wt.newTimerMode())
+		})
+	}
 }
